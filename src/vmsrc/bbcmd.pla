@@ -2,6 +2,7 @@
 
 const MODADDR      = $1000
 const inbuff       = $700
+const oswordbuff   = $600 // space to construct OSWORD parameter block
 const freemem      = $0006
 //
 // System flags: memory allocator screen holes.
@@ -123,7 +124,6 @@ word syslibsym    = @exports
 asm syscall
 	LDA	ESTKL,X
 	STX	ESP
-	STA 	$900
 	
 LOOP
 	LDA	#'!'
@@ -184,11 +184,16 @@ REGVALS	=	SRC
 JMPTMP	JMP	(TMP)
 end
 //
-// QUIT TO MONITOR
-// TODO! Can we re-enter previous language or something?
+// QUIT TO PREVIOUS LANGUAGE
+// TODO: Obviously not suitable if this gets turned into a language ROM itself...
 //
 asm quit
-	JMP	$9000
+	LDA	#$FC
+	LDX	#0
+	LDY	#$FF
+	JSR	$FFF4
+	LDA	#$8E
+	JSR	$FFF4
 end
 //
 // SET MEMORY TO VALUE
@@ -574,6 +579,38 @@ asm cin
 	STA	ESTKH,X
 	RTS
 end
+asm rdstr
+	;* TODO: Can I avoid duplicating these definitions?
+	oswordbuff = $600
+	inbuff = $700
+	STX	ESP
+	LDA	ESTKL,X
+	JSR	$FFEE ;* TODO: Use constants for OS entry points everywhere
+
+	LDY	#<inbuff
+	STY	ESTKL,X
+	INY
+	STY	oswordbuff
+	LDA	#>inbuff
+	STA	ESTKH,X
+	STA	oswordbuff+1
+	LDA	#254
+	STA 	oswordbuff+2
+	LDA	#0
+	STA 	oswordbuff+3
+	LDA	#255
+	STA	oswordbuff+4
+
+	LDA	#0
+	LDX	#<oswordbuff
+	LDY	#>oswordbuff
+	JSR	$FFF1
+	;* TODO: Do we need to check for C set (= ESCAPE)?
+	STY	inbuff
+
+	LDX	ESP
+	RTS
+end
 def crout
     return cout($0D)
 end
@@ -584,59 +621,6 @@ def prstr(str)
         cout((str)[i])
 	i = i + 1
     loop
-end
-// TODO: Can probably use OSWORD 0 for this
-def rdstr(prompt)
-    byte ch, maxlen
-    maxlen = 0
-    inbuff.0 = 0
-    cout(prompt)
-    repeat
-        ch = cin
-	when ch
-	    is $15 // right arrow
-	        if inbuff.0 < maxlen
-		    inbuff.0 = inbuff.0 + 1
-		    ch = inbuff[inbuff.0]
-		    cout(ch)
-		fin
-	    is $08 // left arrow
-	        if inbuff.0
-		    cout('\\')
-		    cout(inbuff[inbuff.0])
-		    inbuff.0 = inbuff.0 - 1
-		fin
-	    is $04 // ctrl-d
-	        if inbuff.0
-		    cout('#')
-		    cout(inbuff[inbuff.0])
-		    memcpy(inbuff + inbuff.0, inbuff + inbuff.0 + 1, maxlen - inbuff.0)
-		    maxlen   = maxlen   - 1
-		    inbuff.0 = inbuff.0 - 1
-		fin
-	    is $0C // ctrl-l
-	        crout
-		prstr(inbuff)
-	    is $0D // return
-	    is $18 // ctrl-x
-	        crout
-		inbuff.0 = 0
-	    is $9B // escape
-	        inbuff.0 = 0
-		ch = $0D
-	    otherwise
-	        if ch >= ' '
-	            cout(ch)
-		    inbuff.0 = inbuff.0 + 1
-		    inbuff[inbuff.0] = ch
-		    if inbuff.0 > maxlen
-		        maxlen = inbuff.0
-		    fin
-		fin
-	wend
-    until ch == $0D or inbuff.0 == $7F
-    cout($0D)
-    return inbuff
 end
 def prbyte(v)
     cout(hexchar[(v >> 4) & $0F])
@@ -1022,6 +1006,7 @@ while ^(cmdptr + ^cmdptr + 1) >= ' '
     ^cmdptr = ^cmdptr + 1
 loop
 perr = 0
+// TODO: Might be best to base this on cmd.pla's version not the Apple I code
 //
 // Print some startup info.
 //
