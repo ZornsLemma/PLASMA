@@ -125,9 +125,9 @@ asm syscall
 	LDA	ESTKL,X
 	STX	ESP
 	
-LOOP
 	LDA	#'!'
 	JSR	$FFEE
+LOOP
 	JMP	LOOP
 
 !IF 0 {
@@ -564,6 +564,42 @@ asm lookuptbl
 +	INC	DSTH
 	BNE	---
 end
+
+//
+// Acorn MOS API
+//
+// TODO: This should probably live in a separate file
+//
+// TODO: Error handling!
+
+
+//def osfile(a, block)
+//    x = <block
+//    y = >block
+//    jsr osfile
+//    return a
+//end
+asm osfile
+	STX	ESP
+	LDA	ESTKL+1,X
+	PHA
+	LDY	ESTKH,X
+	LDA	ESTKL,X
+	TAX
+	PLA
+	// TODO NEXT LINES TEMP
+	STX	$900
+	STY	$901
+	JSR	$FFDD
+	LDX 	ESP
+	INX
+	STA	ESTKL,X
+	LDA	#0
+	STA	ESTKH,X
+	RTS
+end
+
+
 //
 // CONSOLE I/O
 //
@@ -630,6 +666,19 @@ def prword(v)
     prbyte(v >> 8)
     return prbyte(v)
 end
+// Convert a DCI string to an Acorn OS-style string terminated by CR
+// TODO: This should probably be coded in assembly if it lives
+def dcitocr(dci, cr)
+    byte len, c
+    len = 0
+    repeat
+        c = (dci).[len]
+	(cr).[len] = c & $7F
+	len = len + 1
+    until !(c & $80)
+    (cr).[len] = $D
+    return len
+end
 //
 // CFFA1 routines
 // FILE I/O
@@ -642,15 +691,14 @@ end
 //    perr = syscall($12)
 //    return *CFFAEntryPtr
 //end
-def finddirentry(filename)
-    *CFFAFileName = filename
-    perr = syscall($14)
-    return *CFFAEntryPtr    
-end
 def readfile(filename, buffer)
-    *CFFADest     = buffer
-    *CFFAFileName = filename
-    perr = syscall($22)
+    byte block[18]
+    block:0 = filename
+    block:2 = buffer
+    block:4 = 0 // TODO: What's correct for the high word of the 32-bit load address?
+    block:6 = 0
+    perr = (osfile($FF, @block) == 0)
+    prbyte(perr)
     return perr
 end
 //
@@ -766,14 +814,25 @@ def loadmod(mod)
     word addr, modaddr, modfix, modend
     word deftbl, deflast
     word moddep, rld, esd, sym
+    word TODO
     byte str[17], filename[17]
     byte header[128]
     //
     // Read the RELocatable module header (first 128 bytes)
     //
-    dcitos(mod, @filename)
-    rdlen = finddirentry(@filename)=>$15
-    if perr
+    dcitocr(mod, @filename)
+    header.0 = @filename
+    header.1 = (@filename) >> 8
+    prbyte((header).0)
+    prbyte((header).1)
+    TODO = osfile(5, @header)
+    perr = 0 // TODO: TEMP, IF WE WANT THIS osfile() SHOULD PROB SET IT
+    rdlen = header.10 + (header.11 << 8)
+    crout()
+    prbyte(TODO)
+    prbyte(rdlen.1)
+    prbyte(rdlen.0)
+    if perr // TODO!?
         return -perr
     fin
     if rdlen > 0
