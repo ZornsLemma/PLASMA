@@ -1,0 +1,50 @@
+include "inc/cmdsys.plh" // TODO!? TEMP ANYWAY
+
+// TODO: TEMP
+byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+
+// oscli_cr(command_as_cr_string)
+asm oscli_cr
+    BBC=1
+    !SOURCE "vmsrc/plvmzp.inc"
+    STX ESP
+    LDY ESTKH,X
+    LDA ESTKL,X
+    TAX
+    STX $A00
+    STY $A01
+    JSR $FFF7
+    LDX	ESP
+    RTS
+end
+
+// TODO: TEMP
+def prbyte(v)
+    putc(hexchar[(v >> 4) & $0F])
+    return putc(hexchar[v & $0F])
+end
+def prword(v)
+    prbyte(v >> 8)
+    return prbyte(v)
+end
+
+// TODO: Inefficient, possibly rewrite in assembler
+def stocr(str, cr)
+    byte len, c
+    len = ^str
+    (cr).[len] = 13
+    while len
+	c = (str).[len]
+	len = len - 1
+	(cr).[len] = c
+    loop
+end
+
+// oscli(str)
+export def oscli(str)
+    byte cr[200] // TODO: can we just allocate exactly required space?
+    stocr(str, @cr)
+    oscli_cr(@cr)
+end
+
+// vi: sts=4 sw=4

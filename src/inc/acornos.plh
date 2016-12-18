@@ -1,0 +1,3 @@
+import acornos
+  predef oscli
+end

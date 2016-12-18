@@ -44,6 +44,7 @@ PROFILE = PROFILE\#FE1000
 MEMMGR  = MEMMGR\#FE1000
 MEMTEST = MEMTEST\#FE1000
 FIBER   = FIBER\#FE1000
+ACORNOS = ACORNOS\#FE1000
 BBSSD   = plasma.ssd
 PLASM   = plasm
 INCS    = toolsrc/tokens.h toolsrc/symbols.h toolsrc/lex.h toolsrc/parse.h toolsrc/codegen.h
@@ -249,10 +250,14 @@ $(HGR1):	samplesrc/hgr1.pla samplesrc/hgr1test.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hgr1.pla > samplesrc/hgr1.a
 	acme --setpc 4094 -o $(HGR1) samplesrc/hgr1.a
 
+$(ACORNOS): libsrc/acornos.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AM < libsrc/acornos.pla > libsrc/acornos.a
+	acme --setpc 4094 -o $(ACORNOS) libsrc/acornos.a
+
 hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hello.pla > samplesrc/hello.a
 	acme --setpc 4094 -o $(HELLO) samplesrc/hello.a
 	./$(PLVM) HELLO
 
-plasma.ssd: $(PLVMBB)
+plasma.ssd: $(PLVMBB) hello test $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

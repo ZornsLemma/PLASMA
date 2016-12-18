@@ -61,7 +61,7 @@ byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E',
 //
 // Exported Machine ID.
 //
-byte machid       = $AC // Arbitrary value for "ACorn"
+byte machid       = $BB // Arbitrary value
 //
 // Command line pointer
 //
@@ -122,7 +122,8 @@ word syslibsym    = @exports
 // TODO: For now we just make this fail visibly if it's called
 //
 asm syscall
-	LDA	ESTKL,X
+	LDA	ESTKL+1,X
+	STA	$900 ;* TODO TEMP
 	STX	ESP
 	
 	LDA	#'!'
