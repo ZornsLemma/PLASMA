@@ -3,6 +3,10 @@
 ;* VM ZERO PAGE LOCATIONS
 ;*
 ;**********************************************************
+;* TODO: This file is common to all versions but I've made some BBC-specific
+;* changes; some sort of conditional assembly is probably in order later.
+;* TODO: This has been minimally tweaked for BBC support; it could possibly
+;* be tweaked further. (Can we increment ESTKSZ and get some benefit?)
 SRC	=	$06
 SRCL	=	SRC
 SRCH	=	SRC+1
@@ -10,7 +14,7 @@ DST	=	SRC+2
 DSTL	=	DST
 DSTH	=	DST+1
 ESTKSZ	=	$20
-ESTK	=	$C0
+ESTK	=	$50
 ESTKL	=	ESTK
 ESTKH	=	ESTK+ESTKSZ/2
 VMZP	=	ESTK+ESTKSZ
@@ -28,8 +32,8 @@ TMPL	=	TMP
 TMPH	=	TMP+1
 NPARMS	=	TMPL
 FRMSZ	=	TMPH
-DROP	=	$EF
-NEXTOP	=	$F0
+DROP	=	$1F
+NEXTOP	=	$20
 FETCHOP	=	NEXTOP+3
 IP	=	FETCHOP+1
 IPL	=	IP

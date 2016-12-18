@@ -1,6 +1,6 @@
 ;**********************************************************
 ;*
-;*            APPLE1+CFFA1 PLASMA INTERPETER
+;*            BBC B PLASMA INTERPETER
 ;*
 ;*             SYSTEM ROUTINES AND LOCATIONS
 ;*
@@ -20,7 +20,9 @@
 ;*
 ;* INTERPRETER HEADER+INITIALIZATION
 ;*
-	*=	$0280
+;* TODO: Use $2000 as starting point for now; we can get cleverer later.
+;* This will allow for DFS/ADFS workspace.
+	*=	$2000
 SEGBEGIN JMP	VMINIT
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
@@ -884,6 +886,7 @@ LIFPH	INC	IFPH
 RET 	RTS
 A1CMD	!SOURCE	"vmsrc/a1cmd.a"
 SEGEND	=	*
+;* TODO: Tidy up zero page use
 VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
@@ -899,7 +902,7 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
         LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 	JMP	A1CMD
 PAGE0	=	*
-       	!PSEUDOPC	$00EF {
+       	!PSEUDOPC	DROP  {
 ;*
 ;* INTERP BYTECODE INNER LOOP
 ;*
