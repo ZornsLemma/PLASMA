@@ -1,3 +1,5 @@
+// TODO: A lot of this is probably irrelevant and can be removed
+
 const MODADDR      = $1000
 const inbuff       = $200
 const freemem      = $0006
@@ -58,7 +60,7 @@ byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E',
 //
 // Exported Machine ID.
 //
-byte machid       = $08 // Apple 1 (NA in ProDOS Tech Ref)
+byte machid       = $AC // Arbitrary value for "ACorn"
 //
 // Command line pointer
 //
@@ -116,8 +118,19 @@ word syslibsym    = @exports
 //
 // CALL CFFA1 API ENTRYPOINT
 // SYSCALL(CMD)
+// TODO: For now we just make this fail visibly if it's called
 //
 asm syscall
+	LDA	ESTKL,X
+	STX	ESP
+	STA 	$900
+	
+LOOP
+	LDA	#'!'
+	JSR	$FFEE
+	JMP	LOOP
+
+!IF 0 {
 	LDA	ESTKL,X
 	STX	ESP
 	TAX
@@ -127,6 +140,7 @@ asm syscall
 	STA	ESTKL,X
 	STY	ESTKH,X	
 	RTS
+}
 end
 //
 // CALL 6502 ROUTINE
@@ -171,6 +185,7 @@ JMPTMP	JMP	(TMP)
 end
 //
 // QUIT TO MONITOR
+// TODO! Can we re-enter previous language or something?
 //
 asm quit
 	JMP	$9000
@@ -549,16 +564,11 @@ end
 //
 asm cout
 	LDA	ESTKL,X
-	JSR	TOUPR
-	ORA	#$80
-	JMP	$FFEF
+	JMP	$FFE3
 end
 asm cin
 	DEX
--	LDA	$D011
-	BPL	-
-	LDA	$D010
-	AND	#$7F
+	JSR	$FFE0
 	STA	ESTKL,X
 	LDA	#$00
 	STA	ESTKH,X
@@ -1006,7 +1016,7 @@ loop
 //
 cmdptr = heap
 memset(cmdptr, 0, 128)
-readfile(@autorun, cmdptr + 1)
+// TODO: TEMP COMMENTED OUT readfile(@autorun, cmdptr + 1)
 while ^(cmdptr + ^cmdptr + 1) >= ' '
     ^cmdptr = ^cmdptr + 1
 loop
