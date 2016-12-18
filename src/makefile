@@ -113,11 +113,13 @@ $(PLVM03): vmsrc/plvm03.s vmsrc/soscmd.a
 #
 # Sample code
 #
-test:	samplesrc/test.pla samplesrc/testlib.pla $(PLVM) $(PLASM)
+testint:	samplesrc/test.pla samplesrc/testlib.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM  < samplesrc/test.pla > samplesrc/test.a
 	acme --setpc 4094 -o $(TEST) samplesrc/test.a
 	./$(PLASM) -AM  < samplesrc/testlib.pla > samplesrc/testlib.a
 	acme --setpc 4094 -o $(TESTLIB) samplesrc/testlib.a
+
+test: testint
 	./$(PLVM) TEST
 
 $(ED): toolsrc/ed.pla $(PLVM02) $(PLASM) toolsrc/ed.pla
@@ -259,5 +261,5 @@ hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o $(HELLO) samplesrc/hello.a
 	./$(PLVM) HELLO
 
-plasma.ssd: $(PLVMBB) hello test $(ACORNOS)
+plasma.ssd: $(PLVMBB) hello testint $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd
