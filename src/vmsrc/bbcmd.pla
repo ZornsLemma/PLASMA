@@ -1,7 +1,7 @@
 // TODO: A lot of this is probably irrelevant and can be removed
 
 const MODADDR      = $1000
-const inbuff       = $200
+const inbuff       = $700
 const freemem      = $0006
 //
 // System flags: memory allocator screen holes.
@@ -585,6 +585,7 @@ def prstr(str)
 	i = i + 1
     loop
 end
+// TODO: Can probably use OSWORD 0 for this
 def rdstr(prompt)
     byte ch, maxlen
     maxlen = 0
