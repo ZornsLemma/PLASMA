@@ -1,2 +1,4 @@
 putfile "BBPLASMA#FF2000", "PLASMA", &2000
 putfile "HELLO#FE1000", "HELLO", &0000
+putfile "TEST#FE1000", "TEST", &0000
+putfile "TESTLIB#FE1000", "TESTLIB", &0000

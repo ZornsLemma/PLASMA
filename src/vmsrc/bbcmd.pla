@@ -698,7 +698,6 @@ def readfile(filename, buffer)
     block:4 = 0 // TODO: What's correct for the high word of the 32-bit load address?
     block:6 = 0
     perr = (osfile($FF, @block) == 0)
-    prbyte(perr)
     return perr
 end
 //
@@ -823,15 +822,9 @@ def loadmod(mod)
     dcitocr(mod, @filename)
     header.0 = @filename
     header.1 = (@filename) >> 8
-    prbyte((header).0)
-    prbyte((header).1)
-    TODO = osfile(5, @header)
-    perr = 0 // TODO: TEMP, IF WE WANT THIS osfile() SHOULD PROB SET IT
+    perr = (osfile(5, @header) == 0)
     rdlen = header.10 + (header.11 << 8)
     crout()
-    prbyte(TODO)
-    prbyte(rdlen.1)
-    prbyte(rdlen.0)
     if perr // TODO!?
         return -perr
     fin
