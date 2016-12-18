@@ -1,8 +1,10 @@
+Sandbox
+
 Put the VM in a sideways ROM, perhaps with some library code using the free
 space (and/or allow the free space to be used for code/data, if running from
 sideways RAM)
 
-BAS128-style version
+BAS128-style version; the support for the Apple /// 'aux' storage may be relevant
 
 Tube version
 
