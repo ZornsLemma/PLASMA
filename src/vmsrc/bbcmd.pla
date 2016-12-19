@@ -123,7 +123,6 @@ word syslibsym    = @exports
 //
 asm syscall
 	LDA	ESTKL+1,X
-	STA	$900 ;* TODO TEMP
 	STX	ESP
 	
 	LDA	#'!'
@@ -588,9 +587,6 @@ asm osfile
 	LDA	ESTKL,X
 	TAX
 	PLA
-	// TODO NEXT LINES TEMP
-	STX	$900
-	STY	$901
 	JSR	$FFDD
 	LDX 	ESP
 	INX
@@ -600,6 +596,142 @@ asm osfile
 	RTS
 end
 
+
+//
+// NONLOCAL GOTO
+//
+
+// setjmp(jmp_buf b) -> 0 on save, longjmp val otherwise
+asm setjmp
+	STX	ESP
+
+	LDY	#0
+	LDA	ESTKL,X
+	STA	TMPL
+	STY	ESTKL,X
+	LDA	ESTKH,X
+	STA	TMPH
+	STY	ESTKH,X
+
+	TXA
+	STA	(TMP),Y
+-	INX
+	INY
+	CPX	#ESTKSZ/2
+	BEQ	+++
+	LDA	ESTKL,X
+	STA	(TMP),Y
+	INY
+	LDA	ESTKH,X
+	STA	(TMP),Y
+	JMP	-
+
++++	LDA	IFPL
+	STA	(TMP),Y
+	INY
+	LDA	IFPH
+	STA	(TMP),Y
+	INY
+
+	;* TODO: PPL/PPH not used in Apple 1 and therefore not here either,
+	;* but may be eventually and may need to be saved.
+
+	LDA	IPL
+	STA	(TMP),Y
+	INY
+	LDA	IPH
+	STA	(TMP),Y
+	INY
+
+	TYA
+	CLC
+	ADC	TMPL
+	STA	TMPL
+	BCC	+
+	INC	TMPH
++	LDY	#0
+
+	TSX
+	TXA
+	STA	(TMP),Y
+--	INY
+	INX
+	BEQ	++
+	LDA	$0100,X
+	STA	(TMP),Y
+	JMP	--
+
+++	LDX	ESP
+	RTS
+end
+
+// longjmp(jmp_buf b, word val)
+asm longjmp
+	LDA	ESTKL+1,X
+	STA	TMPL
+	LDA	ESTKH+1,X
+	STA	TMPH
+	LDA	ESTKL,X
+	PHA
+	LDA	ESTKH,X
+	PHA
+
+	LDY	#0
+	LDA	(TMP),Y
+	STA	ESP
+	TAX
+	PLA
+	STA	ESTKH,X
+	PLA
+	STA	ESTKL,X
+-	INX
+	INY
+	CPX	#ESTKSZ/2
+	BEQ	+
+	LDA	(TMP),Y
+	STA	ESTKL,X
+	INY
+	LDA	(TMP),Y
+	STA	ESTKH,X
+	JMP	-
+
++	LDA	(TMP),Y
+	STA	IFPL
+	INY
+	LDA	(TMP),Y
+	STA	IFPH
+	INY
+
+	;* TODO: PPL/PPH?
+
+	LDA	(TMP),Y
+	STA	IPL
+	INY
+	LDA	(TMP),Y
+	STA	IPH
+	INY
+
+	TYA
+	CLC
+	ADC	TMPL
+	STA	TMPL
+	BCC	++
+	INC	TMPH
+++	LDY	#0
+
+	LDA	(TMP),Y
+	TAX
+	TXS
+--	INY
+	INX
+	BEQ	+++
+	LDA	(TMP),Y
+	STA	$0100,X
+	JMP	--
+
++++	LDX ESP
+	RTS
+end
 
 //
 // CONSOLE I/O
@@ -849,6 +981,7 @@ def loadmod(mod)
 	    //
             while ^moddep
                 if !lookupmod(moddep)
+		    // longjmp($900, 42) // TODO!
                     if loadmod(moddep) < 0
 	      	        return -perr
 		    fin
@@ -1016,14 +1149,21 @@ def parsecmd(strptr)
 end
 def execmod(modfile)
     byte moddci[17]
-    word saveheap, savesym, saveflags
+    word saveheap, savesym, saveflags, error, action
 
     perr = 1
     if stodci(modfile, @moddci)
         saveheap  = heap
 	savesym   = lastsym
 	saveflags = systemflags
-	if loadmod(@moddci) < modkeep
+	error = setjmp($900) // TODO!
+	if error == 0
+	    action = loadmod(@moddci)
+	else
+	    prstr("TODOERROR")
+	    action = 0
+	fin
+	if action < modkeep
 	    lastsym = savesym
 	    heap    = saveheap
 	fin
@@ -1099,6 +1239,11 @@ while 1
         fin
 	crout()
     fin
+    // TODO: START TEMP?
+    prstr(@freestr)
+    prword(availheap)
+    crout
+    // TODO: END TEMP?
     prstr(@prompt)
     cmdptr = rdstr($BA)
 loop
