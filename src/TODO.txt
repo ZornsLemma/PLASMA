@@ -3,6 +3,19 @@ Sandbox
 Put the VM in a sideways ROM, perhaps with some library code using the free
 space (and/or allow the free space to be used for code/data, if running from
 sideways RAM)
+- note that there's already support for modules to remain resident after
+  loading by returning modkeep or modinitkeep (incidentally, these seem
+  different between Apple I and Apple II for no real reason, we should probably
+  follow Apple II) and a variant on this could probably allow some libraries to
+  be pre-resident inside the sideways ROM area.
+
+Add * command support to PLASMA executable
+
+Add ability to dump memory free to PLASMA executable by issuing a command? (to
+allow seeing how resident modules take up space)
+
+I started from the Apple I version; maybe port over features from the Apple II VM
+and/or "redo" the port using the Apple II version to start with
 
 BAS128-style version; the support for the Apple /// 'aux' storage may be relevant
 
@@ -10,4 +23,5 @@ Tube version
 
 Ability to build standalone executable which runs from main RAM or sideways
 ROM, so a PLASMA-implemented program can be used by a user without them knowing
-or caring it's running on the PLASMA VM
+or caring it's running on the PLASMA VM - though possibly the auto-start
+facility is sufficient for main RAM use (this doesn't address the ROM case)
