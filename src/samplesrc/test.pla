@@ -33,6 +33,7 @@ byte[] offsets = "Structure offsets:"
 word array[] = 1, 10, 100, 1000, 10000
 word ptr
 byte spaces = "   "
+word i
 //
 // Define functions.
 //
@@ -165,6 +166,11 @@ puti(mystruc)
 putln
 puts(@constr); puti(constval); putln
 puts("Hello from in-line string!\$7F\n")
-foo
-puts("Back in main after foo\n")
+for i = 1 to 3
+  puts("main, i=")
+  puti(i)
+  putln
+  foo
+  puts("Back in main after foo\n")
+next
 done
