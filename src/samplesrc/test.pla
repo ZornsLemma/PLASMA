@@ -75,6 +75,33 @@ def nums(range)
   puti(array[0]);putln
   puti(array[1]);putln
 end
+def baz
+  puts("Entered baz\n")
+  longjmp($900,42)
+  puts("Exiting baz\n")
+end
+def bar
+  puts("Entered bar\n")
+  baz
+  puts("Exiting bar\n")
+end
+def foo
+  word i, j
+  j = 101
+  i = setjmp($900)
+  j = 102
+  puts("In foo, i=")
+  puti(i)
+  putln
+  if i == 0
+    bar
+  fin
+  puts("In foo, i=")
+  puti(i)
+  puts(", j=")
+  puti(j)
+  puts("\n")
+end
 export def main(range)
   nums(*range)
   tens(*range*10)
@@ -138,4 +165,6 @@ puti(mystruc)
 putln
 puts(@constr); puti(constval); putln
 puts("Hello from in-line string!\$7F\n")
+foo
+puts("Back in main after foo\n")
 done

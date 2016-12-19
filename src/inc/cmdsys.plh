@@ -42,4 +42,6 @@ import cmdsys
     predef memset, memcpy
     predef isugt, isuge, isult, isule
     predef modload, modexec, modaddr
+    // TODO: The following are BBC-only so arguably shouldn't appear here
+    predef setjmp, longjmp
 end

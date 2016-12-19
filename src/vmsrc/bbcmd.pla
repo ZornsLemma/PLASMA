@@ -39,6 +39,7 @@ predef markheap, allocheap, allocalignheap, releaseheap, availheap
 predef memset, memcpy
 predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
+predef setjmp, longjmp
 //
 // System variables.
 //
@@ -92,6 +93,8 @@ byte loadstr[]    = "MODLOAD"
 byte execstr[]    = "MODEXEC"
 byte modadrstr[]  = "MODADDR"
 byte argstr[]     = "ARGS"
+byte setjmpstr[]  = "SETJMP"
+byte longjmpstr[] = "LONGJMP"
 word exports[]	  = @sysstr,    @syscall
 word		  = @callstr,   @call
 word 		  = @putcstr,   @cout
@@ -114,6 +117,8 @@ word              = @execstr,   @execmod
 word              = @modadrstr, @lookupstrmod
 word              = @machidstr, @machid
 word              = @argstr,    @cmdptr
+word		  = @setjmpstr, @setjmp
+word		  = @longjmpstr,@longjmp
 word              = 0
 word syslibsym    = @exports     
 //
