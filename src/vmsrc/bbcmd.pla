@@ -595,6 +595,23 @@ end
 // NONLOCAL GOTO
 //
 
+asm jmpbufsz
+	LDA	ESTKL,X
+	STA	TMPL
+	LDA	ESTKH,X
+	STA	TMPH
+	LDY	#5
+	LDA	(TMP),Y
+	EOR	#255
+	CLC
+	ADC	#6
+	STA	ESTKL,X
+	LDA	#0
+	ADC	#0
+	STA	ESTKH,X
+	RTS
+end
+
 // setjmp(jmp_buf b) -> 0 on save, longjmp val otherwise
 asm setjmp
 	STX	ESP
@@ -1203,9 +1220,10 @@ loop
 //
 // Set up error handler
 //
-perr = setjmp($A00) // TODONOW: location
+*errjb = markheap()
+perr = setjmp(*errjb)
 if perr == 0
-  *errjb = $A00
+  allocheap(jmpbufsz(*errjb))
   *errfp = @error_handler
 else
   crout
