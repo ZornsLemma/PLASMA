@@ -1277,6 +1277,6 @@ while 1
     crout
     // TODO: END TEMP?
     prstr(@prompt)
-    cmdptr = rdstr($BA)
+    cmdptr = rdstr(':')
 loop
 done
