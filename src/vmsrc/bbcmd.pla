@@ -46,6 +46,7 @@ predef setjmp, longjmp
 predef prbyte
 predef osfile, oscli
 predef stocr
+predef mode
 //
 // System variables.
 //
@@ -104,6 +105,7 @@ byte prbytestr[]  = "PRBYTE"
 byte osfilestr[]  = "OSFILE"
 byte osclistr[]   = "OSCLI"
 byte stocrstr[]   = "STOCR"
+byte modestr[]    = "MODE"
 word exports[]	  = @callstr,   @call
 word 		  = @putcstr,   @cout
 word              = @putlnstr,  @crout
@@ -131,6 +133,7 @@ word		  = @prbytestr, @prbyte
 word		  = @osfilestr, @osfile
 word              = @osclistr,  @oscli
 word		  = @stocrstr,  @stocr
+word		  = @modestr,   @mode
 word              = 0
 word syslibsym    = @exports     
 //
@@ -228,6 +231,7 @@ end
 asm memcpy
 	INX
 	INX
+MEMCPYINT
 	LDA	ESTKL-2,X
 	ORA	ESTKH-2,X
 	BEQ	CPYMEX
@@ -580,13 +584,110 @@ end
 
 // oscli_cr(command_as_cr_string)
 asm oscli_cr
-    STX ESP
-    LDY ESTKH,X
-    LDA ESTKL,X
-    TAX
-    JSR $FFF7
-    LDX	ESP
-    RTS
+	STX	ESP
+	LDY	ESTKH,X
+	LDA	ESTKL,X
+	TAX
+	JSR	$FFF7
+	LDX	ESP
+	RTS
+end
+
+// modeint(heap, mode)
+asm modeint
+	;* TODONOW: Need to check relocated frame stack doesn't overlap heap
+	;* TODONOW: Probably some redundant code in here
+	STX	ESP
+
+	SEC
+	LDA	HIMEML
+	SBC	IFPL
+	STA	TMPL
+	STA	ESTKL-2,X
+	LDA	HIMEMH
+	SBC	IFPH
+	STA	TMPH
+	STA	ESTKH-2,X
+	;* TMP now contains the size of the frame stack
+	;* as does ESTK[HL]-2,X
+
+	LDA	ESTKL,X
+	PHA
+	TAX
+	LDA	#$85
+	JSR	$FFF4
+	SEC
+	TXA
+	SBC	TMPL
+	STA	DSTL
+	TYA
+	SBC	TMPH
+	STA	DSTH
+	;* DST now contains the new start of the frame stack
+	LDX	ESP
+	STA	ESTKH,X
+	LDA	DSTL
+	STA	ESTKL,X
+	;* as does ESTK[HL],X
+
+	;* TODONOW should I insist on 256/512 bytes of space rather than checking to the byte? Otherwise we could have problems immediately after the mode change anyway, and even a paranoidly-coded caller won't have any room to move to check
+	LDA	DSTH
+	CMP	ESTKH+1,X
+	BCC	NOROOM
+	BNE	ROOM
+	LDA	DSTL
+	CMP	ESTKL+1,X
+	BCC	NOROOM
+ROOM
+
+	LDA	IFPH
+	STA	ESTKH-1,X
+	LDA	IFPL
+	STA	ESTKL-1,X
+	;* ESTK[HL]-1,X now contains the old start of frame stack
+
+	PLA
+	PHA
+	TAY
+	LDA	DSTH
+	CMP	IFPH
+	BEQ	SAMESIZE
+	STA	IFPH
+	LDA	DSTL
+	STA	IFPL
+	PHP
+	BCC	NEWISLARGER
+	LDA	#22
+	JSR	$FFEE
+	TYA
+	JSR	$FFEE
+NEWISLARGER
+	JSR	MEMCPYINT
+	PLP
+	BCS	NEWISSMALLER
+SAMESIZE
+	LDA	#22
+	JSR	$FFEE
+	PLA
+	PHA
+	JSR	$FFEE
+NEWISSMALLER
+	PLA
+
+	LDA	#$84
+	JSR	$FFF4
+	STY	HIMEMH
+	STX	HIMEML ;* TODONOW Don't really need HIMEML...
+
+	LDA	#0
+	BEQ	COMMON
+
+NOROOM	PLA ;* discard stacked mode
+	LDA	#$FF
+COMMON	LDX	ESP
+	STA	ESTKL,X
+	STA	ESTKH,X
+	RTS
 end
 
 
@@ -799,6 +900,9 @@ not_escape
 
 	LDX	ESP
 	RTS
+end
+def mode(n)
+    return modeint(heap, n)
 end
 def crout
     return cout($0D)

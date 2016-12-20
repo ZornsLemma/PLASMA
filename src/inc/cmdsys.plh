@@ -51,4 +51,5 @@ import cmdsys
     predef prbyte
     predef osfile, oscli
     predef stocr
+    predef mode
 end
