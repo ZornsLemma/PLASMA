@@ -3,6 +3,7 @@
 //
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
+include "inc/acornos.plh"
 //
 // Structure definition.
 //
@@ -133,6 +134,9 @@ export def main(range)
   wend
   putln
 end
+def error_handler
+  longjmp($B00, 42)
+end
 puti(array[0]);putc(' ')
 puti(array[1]);putc(' ')
 puti(array[2]);putc(' ')
@@ -173,4 +177,12 @@ for i = 1 to 3
   foo
   puts("Back in main after foo\n")
 next
+*$400 = @error_handler
+i = setjmp($B00)
+if i == 0
+  oscli("DUMP FOO")
+else
+  puts("Error\n")
+fin
+oscli("ROMS")
 done

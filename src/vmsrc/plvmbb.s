@@ -888,6 +888,24 @@ LEAVE 	PLA
 LIFPH	INC	IFPH
 RET 	RTS
 A1CMD	!SOURCE	"vmsrc/bbcmd.a"
+
+BRKHND
+	;* TODO: Probably want to copy error number/string somewhere
+	LDX	#$FF
+	TXS
+	JSR	BRKJMP
+	;* TODO: Better "abort" behaviour
+BRKLP	LDA	#'!'
+	JSR	$FFEE
+	JMP	BRKLP
+BRKJMP	JMP ($400) ;* TODO: Better address
+
+
+
+	LDA	#65
+	JSR	$FFEE
+	JMP	BRKHND
+
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
@@ -905,6 +923,11 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	LDA	#>SEGEND
 	STA	SRCH
         LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
+;* Install BRK handler
+	LDA	#<BRKHND
+	STA	$0202
+	LDA	#>BRKHND
+	STA	$0203
 	JMP	A1CMD
 PAGE0	=	*
        	!PSEUDOPC	DROP  {
