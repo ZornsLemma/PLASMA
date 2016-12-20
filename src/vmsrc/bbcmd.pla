@@ -42,6 +42,7 @@ predef memset, memcpy
 predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
+predef prbyte
 //
 // System variables.
 //
@@ -97,6 +98,7 @@ byte modadrstr[]  = "MODADDR"
 byte argstr[]     = "ARGS"
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
+byte prbytestr[]  = "PRBYTE"
 word exports[]	  = @sysstr,    @syscall
 word		  = @callstr,   @call
 word 		  = @putcstr,   @cout
@@ -121,6 +123,7 @@ word              = @machidstr, @machid
 word              = @argstr,    @cmdptr
 word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
+word		  = @prbytestr, @prbyte
 word              = 0
 word syslibsym    = @exports     
 //

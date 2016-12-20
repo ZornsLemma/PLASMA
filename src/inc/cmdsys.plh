@@ -46,4 +46,5 @@ import cmdsys
     const errjb = $402
     const jbsz = 260 // TODO: guess, calculate properly!
     predef setjmp, longjmp
+    predef prbyte
 end

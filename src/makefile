@@ -261,5 +261,9 @@ hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o $(HELLO) samplesrc/hello.a
 	./$(PLVM) HELLO
 
-plasma.ssd: $(PLVMBB) hello testint $(ACORNOS)
+dump: samplesrc/dump.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/dump.pla > samplesrc/dump.a
+	acme --setpc 4094 -o DUMP\#FE1000 samplesrc/dump.a
+
+plasma.ssd: $(PLVMBB) hello testint dump $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

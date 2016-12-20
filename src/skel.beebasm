@@ -4,3 +4,4 @@ putfile "TEST#FE1000", "TEST", &0000
 putfile "TESTLIB#FE1000", "TESTLIB", &0000
 putfile "SIEVE#FE1000", "SIEVE", &0000
 putfile "ACORNOS#FE1000", "ACORNOS", &0000
+putfile "DUMP#FE1000", "DUMP", &0000
