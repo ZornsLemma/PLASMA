@@ -4,7 +4,7 @@ const eof = -1
 const osfind_addr = $FFCE
 
 export def osfind_open(a, filename)
-    byte cr[200] // TODO: can we just allocate exactly required space?
+    byte cr[200] // TODONOW: can we just allocate exactly required space?
     stocr(filename, @cr)
     return call(a, @cr, @cr >> 8, 0, osfind_addr).0
 end

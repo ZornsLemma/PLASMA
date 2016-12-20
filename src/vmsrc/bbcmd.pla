@@ -741,7 +741,7 @@ asm cin
 	RTS
 end
 asm rdstr
-	;* TODO: Can I avoid duplicating these definitions?
+	;* TODONOW: Can I avoid duplicating these definitions?
 	oswordbuff = $600
 	inbuff = $700
 	STX	ESP
@@ -799,7 +799,7 @@ def prword(v)
     return prbyte(v)
 end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
-// TODO: This should probably be coded in assembly if it lives
+// TODO: This should probably be coded in assembly
 def dcitocr(dci, cr)
     byte len, c
     len = 0
@@ -816,7 +816,7 @@ end
 // Acorn MOS API
 //
 
-// TODO: Inefficient, possibly rewrite in assembler
+// TODO: This should probably be coded in assembly
 def stocr(str, cr)
     byte len, c
     len = ^str
@@ -830,7 +830,7 @@ end
 
 // oscli(str)
 export def oscli(str)
-    byte cr[200] // TODO: can we just allocate exactly required space?
+    byte cr[200] // TODONOW: can we just allocate exactly required space?
     stocr(str, @cr)
     oscli_cr(@cr)
 end
@@ -1178,7 +1178,7 @@ def execmod(modfile)
 	savesym   = lastsym
 	saveflags = systemflags
         olderrjb = *errjb
-	error = setjmp($900) // TODO!
+	error = setjmp($900) // TODONOW!
 	if error == 0
 	    *errjb = $900
 	    action = loadmod(@moddci)
@@ -1197,7 +1197,7 @@ def execmod(modfile)
     return -perr
 end
 def error_handler
-  longjmp(*errjb, 42) // TODO
+  longjmp(*errjb, 42) // TODONOW
 end
 //
 // Get heap start.
@@ -1219,7 +1219,7 @@ loop
 //
 // Set up error handler
 //
-perr = setjmp($A00) // TODO: location
+perr = setjmp($A00) // TODONOW: location
 if perr == 0
   *errjb = $A00
   *errfp = @error_handler
@@ -1286,11 +1286,11 @@ while 1
         fin
 	crout()
     fin
-    // TODO: START TEMP?
+    // TODONOW: START TEMP?
     prstr(@freestr)
     prword(availheap)
     crout
-    // TODO: END TEMP?
+    // TODONOW: END TEMP?
     prstr(@prompt)
     cmdptr = rdstr(':')
 loop
