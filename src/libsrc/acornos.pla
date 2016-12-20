@@ -4,14 +4,10 @@ const eof = -1
 const osfind_addr = $FFCE
 
 export def osfind_open(a, filename)
-    word mark, cr
-    byte result
-    mark = heapmark()
-    cr = heapalloc(^filename + 1)
-    stocr(filename, cr)
-    result = call(a, cr, cr >> 8, 0, osfind_addr).0
-    heaprelease(mark)
-    return result
+    // TODO: This will go wrong if the filename is too long
+    byte cr[251]
+    stocr(filename, @cr)
+    return call(a, @cr, @cr >> 8, 0, osfind_addr).0
 end
 
 // TODO: It's *probably* slightly smaller and definitely a bit faster to

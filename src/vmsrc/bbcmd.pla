@@ -888,12 +888,10 @@ end
 
 // oscli(str)
 export def oscli(str)
-    word mark, cr
-    mark = markheap()
-    cr = allocheap(^str + 1)
-    stocr(str, cr)
-    oscli_cr(cr)
-    releaseheap(mark)
+    // TODO: This will go wrong if the command is too long
+    byte cr[253]
+    stocr(str, @cr)
+    oscli_cr(@cr)
 end
 
 //
