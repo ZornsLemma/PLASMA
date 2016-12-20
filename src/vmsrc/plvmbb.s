@@ -890,9 +890,22 @@ RET 	RTS
 A1CMD	!SOURCE	"vmsrc/bbcmd.a"
 
 BRKHND
-	;* TODO: Probably want to copy error number/string somewhere
+	LDY	#0
+	LDA	($FD),Y
+	STA	$700
+ERRCPY	INY
+	LDA	($FD),Y
+	BEQ	ERRCPD
+	STA	$701,Y
+	BNE	ERRCPY
+ERRCPD	DEY
+	STY	$701
+	;* $700 now holds the error number
+	;* $701 now holds the error message as a standard PLASMA string
+	
 	LDX	#$FF
 	TXS
+        LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 	JSR	BRKJMP
 	;* TODO: Better "abort" behaviour
 	LDA	#'!'

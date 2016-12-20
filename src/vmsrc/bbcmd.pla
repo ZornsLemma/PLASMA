@@ -5,6 +5,7 @@ const inbuff       = $700
 const oswordbuff   = $600 // space to construct OSWORD parameter block
 const freemem      = $0006
 const errfp	   = $400
+const errjb	   = $402
 //
 // System flags: memory allocator screen holes.
 //
@@ -1155,31 +1156,34 @@ def parsecmd(strptr)
 end
 def execmod(modfile)
     byte moddci[17]
-    word saveheap, savesym, saveflags, error, action
+    word saveheap, savesym, saveflags, error, action, olderrjb
 
     perr = 1
     if stodci(modfile, @moddci)
         saveheap  = heap
 	savesym   = lastsym
 	saveflags = systemflags
+        olderrjb = *errjb
 	error = setjmp($900) // TODO!
 	if error == 0
+	    *errjb = $900
 	    action = loadmod(@moddci)
-	else
-	    prstr("TODOERROR")
-	    action = 0
 	fin
-	if action < modkeep
+	*errjb = olderrjb
+	if error <> 0 or action < modkeep
 	    lastsym = savesym
 	    heap    = saveheap
 	fin
 	^lastsym    = 0
 	systemflags = saveflags
+	if error <> 0
+	    longjmp(*errjb, 42)
+	fin
     fin
     return -perr
 end
 def error_handler
-  longjmp($A00, 42) // TODO: address
+  longjmp(*errjb, 42) // TODO
 end
 //
 // Get heap start.
@@ -1204,9 +1208,15 @@ loop
 //
 perr = setjmp($A00) // TODO: location
 if perr == 0
+  *errjb = $A00
   *errfp = @error_handler
 else
-  prstr("TODOERROR\n")
+  crout
+  prstr("Error $")
+  prbyte(^$700)
+  prstr(": ")
+  prstr($701)
+  crout
 fin
 //
 // Try to load autorun.

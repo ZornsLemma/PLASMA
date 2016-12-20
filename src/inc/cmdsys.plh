@@ -43,6 +43,7 @@ import cmdsys
     predef isugt, isuge, isult, isule
     predef modload, modexec, modaddr
     // TODO: The following are BBC-only so arguably shouldn't appear here
-    const errfp = $400
+    const errjb = $402
+    const jbsz = 260 // TODO: guess, calculate properly!
     predef setjmp, longjmp
 end
