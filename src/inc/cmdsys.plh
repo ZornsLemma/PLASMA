@@ -46,7 +46,7 @@ import cmdsys
     const errjb = $402
     const errnum = $700
     const errstr = $701
-    const jbsz = 260 // TODONOW: guess, calculate properly!
+    const jbsz = 1 + $20-2 + 4 + 1 + 255
     predef setjmp, longjmp
     predef prbyte
     predef osfile, oscli
