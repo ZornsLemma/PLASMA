@@ -4,6 +4,7 @@ const MODADDR      = $1000
 const inbuff       = $700
 const oswordbuff   = $600 // space to construct OSWORD parameter block
 const freemem      = $0006
+const errfp	   = $400
 //
 // System flags: memory allocator screen holes.
 //
@@ -1177,6 +1178,9 @@ def execmod(modfile)
     fin
     return -perr
 end
+def error_handler
+  longjmp($A00, 42) // TODO: address
+end
 //
 // Get heap start.
 //
@@ -1194,6 +1198,16 @@ while *syslibsym
     addsym(heap, syslibsym=>2)
     syslibsym = syslibsym + 4
 loop
+//
+// Set up error handler TODO!
+// TODO: Among other flaws, this error handling leaks memory as the heap doesn't get reset when we take this "error handler of last resort"
+//
+perr = setjmp($A00) // TODO: location
+if perr == 0
+  *errfp = @error_handler
+else
+  prstr("TODOERROR\n")
+fin
 //
 // Try to load autorun.
 //

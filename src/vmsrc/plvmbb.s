@@ -895,9 +895,9 @@ BRKHND
 	TXS
 	JSR	BRKJMP
 	;* TODO: Better "abort" behaviour
-BRKLP	LDA	#'!'
+	LDA	#'!'
 	JSR	$FFEE
-	JMP	BRKLP
+BRKLP	JMP	BRKLP
 BRKJMP	JMP ($400) ;* TODO: Better address
 
 

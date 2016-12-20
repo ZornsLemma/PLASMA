@@ -11,8 +11,6 @@ asm oscli_cr
     LDY ESTKH,X
     LDA ESTKL,X
     TAX
-    STX $A00
-    STY $A01
     JSR $FFF7
     LDX	ESP
     RTS
