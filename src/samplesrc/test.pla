@@ -178,5 +178,5 @@ for i = 1 to 3
   foo
   puts("Back in main after foo\n")
 next
-oscli("DUMP FOO")
+//oscli("DUMP FOO")
 done
