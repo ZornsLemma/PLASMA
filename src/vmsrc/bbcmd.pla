@@ -784,6 +784,14 @@ asm rdstr
 	LDX	#<oswordbuff
 	LDY	#>oswordbuff
 	JSR	$FFF1
+	BCC	not_escape
+	LDA	#126
+	JSR	$FFF4
+	BRK
+	!BYTE	17
+	!TEXT	"Escape"
+	BRK
+not_escape
 	;* TODO: Do we need to check for C set (= ESCAPE)?
 	STY	inbuff
 
