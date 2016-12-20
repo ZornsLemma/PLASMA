@@ -1170,6 +1170,12 @@ end
 def execmod(modfile)
     byte moddci[17]
     word saveheap, savesym, saveflags, error, action, olderrjb
+    // We know that we have a fairly shallow CPU stack here so we can
+    // get away with this small jmp_buf on the stack; this saves us
+    // having to allocate a fixed block of memory for it. (We can't
+    // allocate on the heap temporarily here, as the space would get
+    // 'trapped' below the loaded module if it's to remain resident.)
+    byte jb[100]
 
     perr = 1
     if stodci(modfile, @moddci)
@@ -1177,9 +1183,9 @@ def execmod(modfile)
 	savesym   = lastsym
 	saveflags = systemflags
         olderrjb = *errjb
-	error = setjmp($900) // TODONOW!
+	error = setjmp(@jb)
 	if error == 0
-	    *errjb = $900
+	    *errjb = @jb
 	    action = loadmod(@moddci)
 	fin
 	*errjb = olderrjb
