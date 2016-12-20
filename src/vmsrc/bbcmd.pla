@@ -681,7 +681,19 @@ asm longjmp
 	LDY	#0
 	LDA	(TMP),Y
 	STA	ESP
+	TAX
 	INY
+
+	PLA
+	STA	ESTKH,X
+	PLA
+	STA	ESTKL,X
+	;* if val is 0, force it to be 1
+	ORA	ESTKH,X
+	BNE	++++
+	LDA	#1
+	STA	ESTKL,X
+++++
 
 +	LDA	(TMP),Y
 	STA	IFPL
@@ -717,7 +729,7 @@ asm longjmp
 	STA	$0100,X
 	JMP	--
 
-+++	LDX ESP
++++	LDX	ESP
 	RTS
 end
 
@@ -1179,6 +1191,14 @@ def parsecmd(strptr)
     stripspaces(strptr)
     return cmd
 end
+// User code could choose to install an alternate error handler, but
+// it's probably not a good idea; most of the time user code should
+// restrict itself to manipulating *errjb.
+def error_handler
+  // The error number is available to the target at ^errnum but since
+  // longjmp() naturally passes along a value we pass the error number.
+  longjmp(*errjb, ^errnum)
+end
 def execmod(modfile)
     byte moddci[17]
     word saveheap, savesym, saveflags, error, action, olderrjb
@@ -1208,16 +1228,10 @@ def execmod(modfile)
 	^lastsym    = 0
 	systemflags = saveflags
 	if error <> 0
-	    longjmp(*errjb, 42)
+	    error_handler()
 	fin
     fin
     return -perr
-end
-// User code could choose to install an alternate error handler, but
-// it's probably not a good idea; most of the time user code should
-// restrict itself to manipulating *errjb.
-def error_handler
-  longjmp(*errjb, 42) // TODONOW
 end
 //
 // Get heap start.
@@ -1240,8 +1254,7 @@ loop
 // Set up error handler
 //
 *errjb = markheap()
-perr = setjmp(*errjb)
-if perr == 0
+if setjmp(*errjb) == 0
   allocheap(jmpbufsz(*errjb))
   *errfp = @error_handler
 else
