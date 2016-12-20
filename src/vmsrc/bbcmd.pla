@@ -595,6 +595,7 @@ end
 // NONLOCAL GOTO
 //
 
+// TODO: export this?
 asm jmpbufsz
 	LDA	ESTKL,X
 	STA	TMPL
