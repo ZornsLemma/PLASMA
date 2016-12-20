@@ -77,9 +77,9 @@ if error == 0
     *errjb = @jb
 else
     puts("Error handler: ")
-    puts($701)
+    puts(errstr)
     puts(" (code $")
-    prbyte(^$700)
+    prbyte(^errnum)
     puts(")\n")
 fin
 

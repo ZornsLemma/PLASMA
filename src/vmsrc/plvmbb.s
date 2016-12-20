@@ -7,6 +7,8 @@
 ;**********************************************************
 
 	BBC = 1
+	ERRNUM = $700
+	ERRSTR = $701
 
 ;*
 ;* VM ZERO PAGE LOCATIONS
@@ -892,16 +894,16 @@ A1CMD	!SOURCE	"vmsrc/bbcmd.a"
 BRKHND
 	LDY	#0
 	LDA	($FD),Y
-	STA	$700
+	STA	ERRNUM
 ERRCPY	INY
 	LDA	($FD),Y
 	BEQ	ERRCPD
-	STA	$701,Y
+	STA	ERRSTR,Y
 	BNE	ERRCPY
 ERRCPD	DEY
-	STY	$701
-	;* $700 now holds the error number
-	;* $701 now holds the error message as a standard PLASMA string
+	STY	ERRSTR
+	;* ERRNUM now holds the error number
+	;* ERRSTR now holds the error message as a standard PLASMA string
 	
 	LDX	#$FF
 	TXS

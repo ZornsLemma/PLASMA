@@ -44,6 +44,8 @@ import cmdsys
     predef modload, modexec, modaddr
     // TODO: The following are BBC-only so arguably shouldn't appear here
     const errjb = $402
+    const errnum = $700
+    const errstr = $701
     const jbsz = 260 // TODONOW: guess, calculate properly!
     predef setjmp, longjmp
     predef prbyte

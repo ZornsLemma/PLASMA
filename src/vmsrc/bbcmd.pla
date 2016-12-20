@@ -2,6 +2,8 @@
 
 const MODADDR      = $1000
 const inbuff       = $700
+const errnum       = $700
+const errstr	   = $701
 const oswordbuff   = $600 // space to construct OSWORD parameter block
 const freemem      = $0006
 const errfp	   = $400
@@ -1198,6 +1200,9 @@ def execmod(modfile)
     fin
     return -perr
 end
+// User code could choose to install an alternate error handler, but
+// it's probably not a good idea; most of the time user code should
+// restrict itself to manipulating *errjb.
 def error_handler
   longjmp(*errjb, 42) // TODONOW
 end
@@ -1228,9 +1233,9 @@ if perr == 0
 else
   crout
   prstr("Error $")
-  prbyte(^$700)
+  prbyte(^errnum)
   prstr(": ")
-  prstr($701)
+  prstr(errstr)
   crout
 fin
 //
