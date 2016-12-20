@@ -4,6 +4,7 @@ include "inc/cmdsys.plh" // TODO!? TEMP ANYWAY
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 
 // oscli_cr(command_as_cr_string)
+// TODO: Just use standard call() function?
 asm oscli_cr
     BBC=1
     !SOURCE "vmsrc/plvmzp.inc"
