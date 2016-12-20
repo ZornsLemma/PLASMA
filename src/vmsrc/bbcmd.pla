@@ -609,16 +609,7 @@ asm setjmp
 
 	TXA
 	STA	(TMP),Y
--	INX
 	INY
-	CPX	#ESTKSZ/2
-	BEQ	+++
-	LDA	ESTKL,X
-	STA	(TMP),Y
-	INY
-	LDA	ESTKH,X
-	STA	(TMP),Y
-	JMP	-
 
 +++	LDA	IFPL
 	STA	(TMP),Y
@@ -673,21 +664,7 @@ asm longjmp
 	LDY	#0
 	LDA	(TMP),Y
 	STA	ESP
-	TAX
-	PLA
-	STA	ESTKH,X
-	PLA
-	STA	ESTKL,X
--	INX
 	INY
-	CPX	#ESTKSZ/2
-	BEQ	+
-	LDA	(TMP),Y
-	STA	ESTKL,X
-	INY
-	LDA	(TMP),Y
-	STA	ESTKH,X
-	JMP	-
 
 +	LDA	(TMP),Y
 	STA	IFPL
