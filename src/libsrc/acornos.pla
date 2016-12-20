@@ -1,4 +1,4 @@
-include "inc/cmdsys.plh" // TODO!? TEMP ANYWAY
+include "inc/cmdsys.plh"
 
 const osfind_addr = $FFCE
 
@@ -17,16 +17,6 @@ asm oscli_cr
     JSR $FFF7
     LDX	ESP
     RTS
-end
-
-// TODO: TEMP
-def prbyte(v)
-    putc(hexchar[(v >> 4) & $0F])
-    return putc(hexchar[v & $0F])
-end
-def prword(v)
-    prbyte(v >> 8)
-    return prbyte(v)
 end
 
 // TODO: Inefficient, possibly rewrite in assembler
@@ -54,6 +44,9 @@ export def osfind_open(a, filename)
     return call(a, @cr, @cr >> 8, 0, osfind_addr).0
 end
 
+// TODO: It's *probably* slightly smaller and definitely a bit faster to
+// hand-roll assembly wrappers instead of using call(); perhaps do this
+// once the API has settled down.
 export def osfind_close(handle)
     call(0, 0, handle, 0, osfind_addr)
 end
