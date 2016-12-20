@@ -4,7 +4,6 @@ const MODADDR      = $1000
 const inbuff       = $700
 const errnum       = $700
 const errstr	   = $701
-const oswordbuff   = $600 // space to construct OSWORD parameter block
 const freemem      = $0006
 const errfp	   = $400
 const errjb	   = $402
@@ -738,30 +737,43 @@ asm cin
 	RTS
 end
 asm rdstr
-	;* TODONOW: Can I avoid duplicating these definitions?
-	oswordbuff = $600
+	;* TODO: Can I avoid duplicating this definitions?
 	inbuff = $700
+
 	STX	ESP
 	LDA	ESTKL,X
 	JSR	$FFEE ;* TODO: Use constants for OS entry points everywhere
-
-	LDY	#<inbuff
-	STY	ESTKL,X
-	INY
-	STY	oswordbuff
+	LDA	#<inbuff
+	STA	ESTKL,X
 	LDA	#>inbuff
 	STA	ESTKH,X
-	STA	oswordbuff+1
+
+	SEC
+	LDA	IFPL
+	SBC	#5
+	STA	TMPL
+	LDA	IFPH
+	SBC	#0
+	STA	TMPH
+	LDA	#<(inbuff+1)
+	LDY	#0
+	STA	(TMP),Y
+	LDA	#>(inbuff+1)
+	INY
+	STA	(TMP),Y
 	LDA	#254
-	STA 	oswordbuff+2
+	INY
+	STA	(TMP),Y
 	LDA	#0
-	STA 	oswordbuff+3
+	INY
+	STA	(TMP),Y
 	LDA	#255
-	STA	oswordbuff+4
+	INY
+	STA	(TMP),Y
 
 	LDA	#0
-	LDX	#<oswordbuff
-	LDY	#>oswordbuff
+	LDX	TMPL
+	LDY	TMPH
 	JSR	$FFF1
 	BCC	not_escape
 	LDA	#126
