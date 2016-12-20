@@ -43,6 +43,8 @@ predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
+predef osfile, oscli
+predef stocr
 //
 // System variables.
 //
@@ -98,6 +100,9 @@ byte argstr[]     = "ARGS"
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
+byte osfilestr[]  = "OSFILE"
+byte osclistr[]   = "OSCLI"
+byte stocrstr[]   = "STOCR"
 word exports[]	  = @callstr,   @call
 word 		  = @putcstr,   @cout
 word              = @putlnstr,  @crout
@@ -122,6 +127,9 @@ word              = @argstr,    @cmdptr
 word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
 word		  = @prbytestr, @prbyte
+word		  = @osfilestr, @osfile
+word              = @osclistr,  @oscli
+word		  = @stocrstr,  @stocr
 word              = 0
 word syslibsym    = @exports     
 //
@@ -549,19 +557,9 @@ end
 
 //
 // Acorn MOS API
+// (only the bits needed by this file; the rest lives in acornos.pla and is
+// included by programs which need it)
 //
-// TODO: Just use call()?
-// TODO: This should probably live in a separate file
-//
-// TODO: Error handling!
-
-
-//def osfile(a, block)
-//    x = <block
-//    y = >block
-//    jsr osfile
-//    return a
-//end
 asm osfile
 	STX	ESP
 	LDA	ESTKL+1,X
@@ -577,6 +575,17 @@ asm osfile
 	LDA	#0
 	STA	ESTKH,X
 	RTS
+end
+
+// oscli_cr(command_as_cr_string)
+asm oscli_cr
+    STX ESP
+    LDY ESTKH,X
+    LDA ESTKL,X
+    TAX
+    JSR $FFF7
+    LDX	ESP
+    RTS
 end
 
 
@@ -802,6 +811,30 @@ def dcitocr(dci, cr)
     (cr).[len] = $D
     return len
 end
+
+//
+// Acorn MOS API
+//
+
+// TODO: Inefficient, possibly rewrite in assembler
+def stocr(str, cr)
+    byte len, c
+    len = ^str
+    (cr).[len] = 13
+    while len
+	c = (str).[len]
+	len = len - 1
+	(cr).[len] = c
+    loop
+end
+
+// oscli(str)
+export def oscli(str)
+    byte cr[200] // TODO: can we just allocate exactly required space?
+    stocr(str, @cr)
+    oscli_cr(@cr)
+end
+
 //
 // CFFA1 routines
 // FILE I/O
@@ -1238,7 +1271,9 @@ while 1
 	    is '+'
 	        execmod(cmdptr)
 		break
-	    // TODO: * command support here
+	    is '*'
+	    	oscli(cmdptr)
+		break
 	    otherwise
 	        prstr(@huhstr)
         wend
