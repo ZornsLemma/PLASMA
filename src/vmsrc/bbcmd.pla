@@ -813,29 +813,6 @@ def dcitocr(dci, cr)
 end
 
 //
-// Acorn MOS API
-//
-
-// TODO: This should probably be coded in assembly
-def stocr(str, cr)
-    byte len, c
-    len = ^str
-    (cr).[len] = 13
-    while len
-	c = (str).[len]
-	len = len - 1
-	(cr).[len] = c
-    loop
-end
-
-// oscli(str)
-export def oscli(str)
-    byte cr[200] // TODONOW: can we just allocate exactly required space?
-    stocr(str, @cr)
-    oscli_cr(@cr)
-end
-
-//
 // CFFA1 routines
 // FILE I/O
 //
@@ -892,6 +869,33 @@ def releaseheap(newheap)
     heap = newheap
     return @newheap - heap
 end
+
+//
+// Acorn MOS API
+//
+
+// TODO: This should probably be coded in assembly
+def stocr(str, cr)
+    byte len, c
+    len = ^str
+    (cr).[len] = 13
+    while len
+	c = (str).[len]
+	len = len - 1
+	(cr).[len] = c
+    loop
+end
+
+// oscli(str)
+export def oscli(str)
+    word mark, cr
+    mark = markheap()
+    cr = allocheap(^str + 1)
+    stocr(str, cr)
+    oscli_cr(cr)
+    releaseheap(mark)
+end
+
 //
 // Symbol table routines.
 //
