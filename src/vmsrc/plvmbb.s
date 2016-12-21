@@ -928,7 +928,7 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	STA	DROP-1,Y
 	DEY
 	BNE	-
-;* TODO: I think the frame pointer grows down; for now let's assume mode 7,
+;* TODONOW: I think the frame pointer grows down; for now let's assume mode 7,
 ;* we should probably query HIMEM from OS and/or force screen mode on startup.
 	STY	IFPL		; INIT FRAME POINTER
 	LDA	#$7C
