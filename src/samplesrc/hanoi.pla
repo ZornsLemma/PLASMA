@@ -1,0 +1,187 @@
+// TODONOW: Turn the cursor off during the animation and on afterwards
+
+// TODONOW: Use graphics not Xs
+
+// TODONOW: Label the three pegs A, B and C
+
+// TODONOW: Can I draw a "frame" for each tower? (In white, say)
+
+// TODONOW: Allow 6 discs?
+
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+include "inc/acornos.plh"
+
+const discs = 5 // 1..n, we use 0..n-1 internally
+const animate = 1
+
+word height[3]
+
+def time(t)
+    call(1, t, t >> 8, 0, $FFF1)
+end
+
+def sleep(cs)
+    byte time1[5], time2[5]
+    word delta
+    time(@time1)
+    repeat
+	time(@time2)
+	delta = time2[0] - time1[0]
+	if delta < 0
+	    delta = delta + 256
+	fin
+    until delta >= cs
+end
+
+def peg_x(peg)
+    return 3 + 12 * peg
+end
+
+def peg_y(peg)
+    return 20 - height[peg] * 2
+end
+
+def tab(x, y)
+    putc(31)
+    putc(x)
+    putc(y)
+end
+
+def plot_disc(disc, x, y)
+    word i
+    tab(x, y)
+    putc(129 + disc)
+    for i = discs-1 downto 0
+	if i <= disc:
+	    puts("XX")
+	else
+	    puts(" ")
+	fin
+    next
+end
+
+def erase_disc(x, y)
+    tab(x + 1, y)
+    puts("          ")
+end
+
+def add_disc(disc, peg)
+    word i
+    height[peg]++
+    plot_disc(disc, peg_x(peg), peg_y(peg)))
+end
+
+def remove_disc(disc, peg)
+    word i
+    tab(peg_x(peg), peg_y(peg))
+    erase_disc(peg_x(peg), peg_y(peg))
+    height[peg]--
+end
+
+def min(a, b)
+    if a < b
+	return a
+    else
+	return b
+    fin
+end
+
+def max(a, b)
+    if a < b
+	return b
+    else
+	return a
+    fin
+end
+
+def move_disc_animated(disc, source, dest)
+    word i, min_y, y, x, dest_x, dx, dest_y
+
+    height[dest]++
+
+    min_y = min(peg_y(source), peg_y(dest))
+    // Ensure we have enough height to clear the middle peg if necessary
+    if source <> 1 and dest <> 1
+	height[1]++
+	min_y = min(min_y, peg_y(1))
+	height[1]--
+    fin
+
+    x = peg_x(source)
+    y = peg_y(source)
+    while y > min_y
+	erase_disc(x, y)
+	y--
+	plot_disc(disc, x, y)
+	sleep(5)
+    loop
+    height[source]--
+
+    dest_x = peg_x(dest)
+    if dest_x > x
+	dx = 1
+    else
+	dx = -1
+    fin
+    while x <> dest_x
+	erase_disc(x, y)
+	x = x + dx
+	plot_disc(disc, x, y)
+	sleep(5)
+    loop
+
+    dest_y = peg_y(dest)
+    while y < dest_y
+	erase_disc(x, y)
+	y++
+	plot_disc(disc, x, y)
+	sleep(5)
+    loop
+end
+
+def move_disc(disc, source, dest)
+    tab(0, 0)
+    puts("Move disc ")
+    puti(disc + 1)
+    puts(" from peg ")
+    putc('A' + source)
+    puts(" to peg ")
+    putc('A' + dest)
+    puts("...")
+    if animate
+	move_disc_animated(disc, source, dest)
+    else
+	remove_disc(disc, source)
+	add_disc(disc, dest)
+	sleep(100)
+    fin
+end
+
+def move_tower(disc, source, dest, spare)
+    if disc == 0
+	move_disc(disc, source, dest)
+    else
+	move_tower(disc - 1, source, spare, dest)
+	move_disc(disc, source, dest)
+	move_tower(disc - 1, spare, dest, source)
+    fin
+end
+
+def main()
+    word i
+    mode(7)
+    for i = 0 to 2
+	height[i] = 0
+    next
+    for i = discs - 1 downto 0
+	add_disc(i, 0)
+    next
+    move_tower(discs - 1, 0, 1, 2)
+    tab(0, 21)
+end
+
+main()
+done
+
+// vi: sts=4 sw=4

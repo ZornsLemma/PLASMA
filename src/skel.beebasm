@@ -6,3 +6,4 @@ putfile "SIEVE#FE1000", "SIEVE", &0000
 putfile "ACORNOS#FE1000", "ACORNOS", &0000
 putfile "DUMP#FE1000", "DUMP", &0000
 putfile "MODE#FE1000", "MODE", &0000
+putfile "HANOI#FE1000", "HANOI", &0000

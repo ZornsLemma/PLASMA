@@ -269,5 +269,9 @@ mode: samplesrc/mode.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/mode.pla > samplesrc/mode.a
 	acme --setpc 4094 -o MODE\#FE1000 samplesrc/mode.a
 
-plasma.ssd: $(PLVMBB) hello testint dump mode $(ACORNOS)
+hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
+	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
+
+plasma.ssd: $(PLVMBB) hello testint dump mode hanoi $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

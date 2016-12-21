@@ -849,7 +849,7 @@ end
 //
 asm cout
 	LDA	ESTKL,X
-	JMP	$FFE3
+	JMP	$FFEE
 end
 asm cin
 	DEX
@@ -915,13 +915,18 @@ def mode(n)
     return modeint(heap, n)
 end
 def crout
+    cout($0A)
     return cout($0D)
 end
 def prstr(str)
-    byte i
+    byte i, c
     i = 1
     while i <= ^str
-        cout((str)[i])
+    	c=(str)[i]
+        cout(c)
+	if c == $0D
+	    cout($0A)
+	fin
 	i = i + 1
     loop
 end
