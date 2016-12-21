@@ -17,6 +17,20 @@ const animate = 1
 
 word height[3]
 
+asm equates
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+end
+
+asm sync
+    DEX
+    STX	ESP
+    LDA #19
+    JSR $FFF4
+    LDX ESP
+    RTS
+end
+
 def time(t)
     call(1, t, t >> 8, 0, $FFF1)
 end
@@ -38,8 +52,12 @@ def peg_x(peg)
     return 3 + 12 * peg
 end
 
+def height_y(n)
+    return 20 - n
+end
+
 def peg_y(peg)
-    return 20 - height[peg] * 2
+    return height_y(height[peg])
 end
 
 def tab(x, y)
@@ -48,22 +66,56 @@ def tab(x, y)
     putc(y)
 end
 
+def plot_peg_line()
+    putc(151)
+    puts("     ")
+    putc(53)
+    puts("     ")
+end
+
+def plot_peg(peg)
+    word x, y, i
+    x = peg_x(peg)
+    y = height_y(0) - 1
+
+    tab(x + 6, y + 2)
+    putc('A' + peg)
+
+    tab(x, y + 1)
+    putc(151)
+    for i = 0 to 9 
+	putc(96)
+    next
+    putc(33)
+    
+    while y >= height_y(discs) - 1
+	tab(x, y)
+	plot_peg_line()
+	y--
+    loop
+end
+
 def plot_disc(disc, x, y)
     word i
-    tab(x, y)
-    putc(129 + disc)
-    for i = discs-1 downto 0
-	if i <= disc:
-	    puts("XX")
-	else
-	    puts(" ")
-	fin
+    tab(x + (discs - 1 - disc), y)
+    putc(145 + disc)
+    for i = 0 to disc
+	putc(255)
+	putc(255)
     next
+    putc(53)
 end
 
 def erase_disc(x, y)
-    tab(x + 1, y)
-    puts("          ")
+    if y >= height_y(discs)
+	tab(x, y)
+	sync()
+	plot_peg_line()
+    else
+	tab(x + 1, y)
+	sync()
+	puts("           ")
+    fin
 end
 
 def add_disc(disc, peg)
@@ -73,9 +125,11 @@ def add_disc(disc, peg)
 end
 
 def remove_disc(disc, peg)
-    word i
-    tab(peg_x(peg), peg_y(peg))
-    erase_disc(peg_x(peg), peg_y(peg))
+    word x, y
+    x = peg_x(peg)
+    y = peg_y(peg)
+    tab(x, y)
+    erase_disc(x, y)
     height[peg]--
 end
 
@@ -100,13 +154,7 @@ def move_disc_animated(disc, source, dest)
 
     height[dest]++
 
-    min_y = min(peg_y(source), peg_y(dest))
-    // Ensure we have enough height to clear the middle peg if necessary
-    if source <> 1 and dest <> 1
-	height[1]++
-	min_y = min(min_y, peg_y(1))
-	height[1]--
-    fin
+    min_y = height_y(discs) - 2
 
     x = peg_x(source)
     y = peg_y(source)
@@ -173,6 +221,7 @@ def main()
     mode(7)
     for i = 0 to 2
 	height[i] = 0
+	plot_peg(i)
     next
     for i = discs - 1 downto 0
 	add_disc(i, 0)
