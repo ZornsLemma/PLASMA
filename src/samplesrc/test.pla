@@ -180,10 +180,4 @@ for i = 1 to 3
   puts("Back in main after foo\n")
 next
 //oscli("DUMP FOO") // generates an OS error due to non-existent file
-i=10
-TODONOW=mode(5)
-TODONOW=mode(4)
-puti(i)
-putln
-puti(TODONOW)
 done
