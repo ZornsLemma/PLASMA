@@ -107,7 +107,7 @@ def plot_disc(disc, x, y)
 end
 
 def erase_disc(x, y)
-    if y >= height_y(discs)
+    if y >= height_y(discs) - 1
 	tab(x, y)
 	sync()
 	plot_peg_line()
@@ -154,7 +154,7 @@ def move_disc_animated(disc, source, dest)
 
     height[dest]++
 
-    min_y = height_y(discs) - 2
+    min_y = height_y(discs) - 3
 
     x = peg_x(source)
     y = peg_y(source)
