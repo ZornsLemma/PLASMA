@@ -1,0 +1,44 @@
+// Demonstration of mode changes
+
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+include "inc/acornos.plh"
+
+def availheap
+    byte fp
+    return @fp - heapmark()
+end
+
+def main
+    byte key
+    word m, result, count
+
+    count = 0
+    while 1
+	count++
+	puts("Count: ")
+	puti(count)
+	puts("\n\nPress 0-7 for mode\nor Q to quit: ")
+	repeat
+	    key = osrdch()
+	    if key == 'Q' or key == 'q'
+		return 
+	    fin
+	until key >= '0' and key <= '7'
+	putc(key)
+	m = key - '0'
+	result = mode(m)
+	if result == 0
+	    puts("Mode: ")
+	    puti(m)
+	    puts("\nFree: ")
+	    puti(availheap())
+	    putln()
+	else
+	    puts("\nNo room!\n\n")
+	fin
+    loop
+end
+
+main()
+done

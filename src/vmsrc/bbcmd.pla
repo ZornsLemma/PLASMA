@@ -593,14 +593,12 @@ asm oscli_cr
 	RTS
 end
 
-// modeint(heap, mode)
+// modeint(heap, mode) -> 0 if OK, -1 if no room
 asm modeint
-	;* TODONOW: Need to check relocated frame stack doesn't overlap heap
-	;* TODONOW: Probably some redundant code in here
 	STX	ESP
 
 	SEC
-	LDA	HIMEML
+	LDA	#0
 	SBC	IFPL
 	STA	TMPL
 	STA	ESTKL-2,X
@@ -611,8 +609,10 @@ asm modeint
 	;* TMP now contains the size of the frame stack
 	;* as does ESTK[HL]-2,X
 
+	;* Stash the mode from ESTKL,X before it gets overwritten
 	LDA	ESTKL,X
 	PHA
+
 	TAX
 	LDA	#$85
 	JSR	$FFF4
@@ -655,6 +655,8 @@ ROOM
 	STA	IFPH
 	LDA	DSTL
 	STA	IFPL
+	;* If the new mode is larger, we memcpy before the mode change,
+	;* otherwise we mode change then memcpy.
 	PHP
 	BCC	NEWISLARGER
 	LDA	#22
@@ -677,7 +679,6 @@ NEWISSMALLER
 	LDA	#$84
 	JSR	$FFF4
 	STY	HIMEMH
-	STX	HIMEML ;* TODONOW Don't really need HIMEML...
 
 	LDA	#0
 	BEQ	COMMON

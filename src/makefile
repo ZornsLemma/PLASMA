@@ -265,5 +265,9 @@ dump: samplesrc/dump.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/dump.pla > samplesrc/dump.a
 	acme --setpc 4094 -o DUMP\#FE1000 samplesrc/dump.a
 
-plasma.ssd: $(PLVMBB) hello testint dump $(ACORNOS)
+mode: samplesrc/mode.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/mode.pla > samplesrc/mode.a
+	acme --setpc 4094 -o MODE\#FE1000 samplesrc/mode.a
+
+plasma.ssd: $(PLVMBB) hello testint dump mode $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

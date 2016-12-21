@@ -28,4 +28,8 @@ export def osbget(handle)
     fin
 end
 
+export def osrdch()
+    return call(0, 0, 0, 0, $FFE0).0
+end
+
 // vi: sts=4 sw=4
