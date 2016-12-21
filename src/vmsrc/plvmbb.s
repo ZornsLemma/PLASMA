@@ -928,16 +928,19 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	STA	DROP-1,Y
 	DEY
 	BNE	-
-;* TODONOW: I think the frame pointer grows down; for now let's assume mode 7,
-;* we should probably query HIMEM from OS and/or force screen mode on startup.
-	STY	IFPL		; INIT FRAME POINTER
-	LDA	#$7C
-	STA	IFPH
-	STA	HIMEMH
+	LDA	#$84
+	JSR	$FFF4
+	STX	IFPL		; INIT FRAME POINTER
+	STY	IFPH
+	STY	HIMEMH
 	LDA	#<SEGEND	; SAVE HEAP START
 	STA	SRCL
-	LDA	#>SEGEND
-	STA	SRCH
+	LDX	#>SEGEND
+	STX	SRCH
+	INX
+	INX
+	CPX	IFPH
+	BCS	INITNOROOM
         LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 ;* Install BRK handler
 	LDA	#<BRKHND
@@ -945,6 +948,11 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	LDA	#>BRKHND
 	STA	$0203
 	JMP	A1CMD
+INITNOROOM	
+	BRK
+	!BYTE	$00
+	!TEXT	"No room"
+	BRK
 PAGE0	=	*
        	!PSEUDOPC	DROP  {
 ;*
