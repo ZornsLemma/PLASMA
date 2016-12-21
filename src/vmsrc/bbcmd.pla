@@ -594,6 +594,8 @@ asm oscli_cr
 end
 
 // modeint(heap, mode) -> 0 if OK, -1 if no room
+// TODONOW: There's a problem here because after a mode change, any jmp_bufs lying around
+// now have the previous and outdated frame pointer baked into them...
 asm modeint
 	STX	ESP
 
