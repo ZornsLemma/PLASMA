@@ -1,21 +1,12 @@
-// TODONOW: Turn the cursor off during the animation and on afterwards
-
-// TODONOW: Use graphics not Xs
-
-// TODONOW: Label the three pegs A, B and C
-
-// TODONOW: Can I draw a "frame" for each tower? (In white, say)
-
-// TODONOW: Allow 6 discs?
-
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
 
-const discs = 5 // 1..n, we use 0..n-1 internally
 const animate = 1
 
+word discs
 word height[3]
+word move_num
 
 asm equates
     BBC = 1
@@ -29,6 +20,10 @@ asm sync
     JSR $FFF4
     LDX ESP
     RTS
+end
+
+def fx(a, x)
+    call(a, x, 0, 0, $FFF4)
 end
 
 def time(t)
@@ -49,7 +44,7 @@ def sleep(cs)
 end
 
 def peg_x(peg)
-    return 3 + 12 * peg
+    return 2 + 12 * peg
 end
 
 def height_y(n)
@@ -60,10 +55,34 @@ def peg_y(peg)
     return height_y(height[peg])
 end
 
+def cursor(state)
+    word i
+    putc(23)
+    putc(1)
+    putc(state)
+    for i = 1 to 7
+	putc(0)
+    next
+end
+
 def tab(x, y)
     putc(31)
     putc(x)
     putc(y)
+end
+
+def title()
+    word i
+    putc(12)
+    for i = 0 to 1
+	tab(8, i)
+	putc(141)
+	putc(132)
+	putc(157)
+	putc(135)
+	puts("Towers of Hanoi  ")
+	putc(156)
+    next
 end
 
 def plot_peg_line()
@@ -96,14 +115,28 @@ def plot_peg(peg)
 end
 
 def plot_disc(disc, x, y)
-    word i
-    tab(x + (discs - 1 - disc), y)
+    word width_pixels, gap_pixels
+    tab(x, y)
     putc(145 + disc)
-    for i = 0 to disc
-	putc(255)
-	putc(255)
-    next
-    putc(53)
+    width_pixels = 7 + disc * 2
+    gap_pixels = (21 - width_pixels) / 2
+    while gap_pixels >= 2
+	putc(' ')
+	gap_pixels = gap_pixels - 2
+    loop
+    while width_pixels > 0
+	if gap_pixels == 1
+	    putc(106)
+	    gap_pixels = 0
+	    width_pixels--
+	elsif width_pixels == 1
+	    putc(53)
+	    width_pixels = 0
+	else
+	    putc(255)
+	    width_pixels = width_pixels - 2
+	fin
+    loop
 end
 
 def erase_disc(x, y)
@@ -121,6 +154,7 @@ end
 def add_disc(disc, peg)
     word i
     height[peg]++
+    sync()
     plot_disc(disc, peg_x(peg), peg_y(peg)))
 end
 
@@ -189,8 +223,10 @@ def move_disc_animated(disc, source, dest)
 end
 
 def move_disc(disc, source, dest)
-    tab(0, 0)
-    puts("Move disc ")
+    tab(0, 3)
+    puti(move_num)
+    move_num++
+    puts(") Move disc ")
     puti(disc + 1)
     puts(" from peg ")
     putc('A' + source)
@@ -216,9 +252,10 @@ def move_tower(disc, source, dest, spare)
     fin
 end
 
-def main()
+def solve()
     word i
-    mode(7)
+    cursor(0)
+    title()
     for i = 0 to 2
 	height[i] = 0
 	plot_peg(i)
@@ -226,11 +263,40 @@ def main()
     for i = discs - 1 downto 0
 	add_disc(i, 0)
     next
+    move_num = 1
     move_tower(discs - 1, 0, 1, 2)
-    tab(0, 21)
+    tab(0,3);
+    for i = 0 to 39
+	putc(' ')
+    next
+    tab(0, 24)
+    puts("Press SPACE...")
+    fx(21, 0)
+    repeat until osrdch() == ' '
+    cursor(1)
 end
 
+def main()
+    mode(7)
+    while 1
+	title()
+	tab(0, 3) 
+	puts("How many discs (3-7) or Q to quit? ")
+	repeat
+	    discs = osrdch()
+	    if discs == 'Q' or discs == 'q'
+		return
+	    fin
+	until discs >= '3' and discs <= '7'
+	discs = discs - '0'
+	solve()
+    loop
+end
+
+fx(229, 1)
 main()
+tab(0,5)
+fx(229, 0)
 done
 
 // vi: sts=4 sw=4
