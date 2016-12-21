@@ -630,8 +630,9 @@ asm modeint
 	STA	ESTKL,X
 	;* as does ESTK[HL],X
 
-	;* TODONOW should I insist on 256/512 bytes of space rather than checking to the byte? Otherwise we could have problems immediately after the mode change anyway, and even a paranoidly-coded caller won't have any room to move to check
 	LDA	DSTH
+	SEC
+	SBC	#2	;* insist on an extra 512 bytes free
 	CMP	ESTKH+1,X
 	BCC	NOROOM
 	BNE	ROOM
@@ -1406,9 +1407,11 @@ if not ^cmdptr
     cout('.')
     prbyte(version.0)
     crout
-    prstr(@freestr)
-    prword(availheap)
-    crout
+    // TODO: Temporarily moved this to prompt instead of only displaying it
+    // on startup; this makes it more obvious if heap gets leaked.
+    //prstr(@freestr)
+    //prword(availheap)
+    //crout
 fin
 //
 // Handle commands.
@@ -1439,11 +1442,9 @@ while 1
         fin
 	crout()
     fin
-    // TODONOW: START TEMP?
     prstr(@freestr)
     prword(availheap)
     crout
-    // TODONOW: END TEMP?
     prstr(@prompt)
     cmdptr = rdstr(':')
 loop

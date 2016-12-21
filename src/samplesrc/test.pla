@@ -35,7 +35,6 @@ word array[] = 1, 10, 100, 1000, 10000
 word ptr
 byte spaces = "   "
 word i
-word TODONOW
 byte jb[jbsz]
 //
 // Define functions.
@@ -78,33 +77,6 @@ def nums(range)
   a1++
   puti(array[0]);putln
   puti(array[1]);putln
-end
-def baz
-  puts("Entered baz\n")
-  longjmp(@jb,42)
-  puts("Exiting baz\n")
-end
-def bar
-  puts("Entered bar\n")
-  baz
-  puts("Exiting bar\n")
-end
-def foo
-  word i, j
-  j = 101
-  i = setjmp(@jb)
-  j = 102
-  puts("In foo, i=")
-  puti(i)
-  putln
-  if i == 0
-    bar
-  fin
-  puts("In foo, i=")
-  puti(i)
-  puts(", j=")
-  puti(j)
-  puts("\n")
 end
 export def main(range)
   nums(*range)
@@ -172,12 +144,4 @@ puti(mystruc)
 putln
 puts(@constr); puti(constval); putln
 puts("Hello from in-line string!\$7F\n")
-for i = 1 to 3
-  puts("main, i=")
-  puti(i)
-  putln
-  foo
-  puts("Back in main after foo\n")
-next
-//oscli("DUMP FOO") // generates an OS error due to non-existent file
 done
