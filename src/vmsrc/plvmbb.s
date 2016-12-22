@@ -25,7 +25,7 @@
 ;* IPH and IPHLOG must be modified together
 	!MACRO	INC_IP	{
 	INY
-	BNE	*+4
+	BNE	*+6
 	INC	IPH
 	INC	IPHLOG
 	}
@@ -52,7 +52,6 @@ SFTODORENAME	STA	IPH
 ;*
 INTERP	LDA	#$00
 	STA	FLAG128		; EXECUTE BYTECODE FROM MAIN RAM
-	; TODO: Will we hit problems if we call one of those "base" fns using this interpreter (e.g. mode()) when executing bytecode from banked RAM - FLAG128 will be modified and the value *probably* won't get reset (i.e. we probably need to make sure we *do* reset it, after CALL and similar opcodes I suspect) - maybe we can get some hints on how to do this efficiently from seeing where the Apple II code modifies the opcode table in the FETCHOP loop
 	PLA
 	CLC
 	ADC	#$01
@@ -75,9 +74,6 @@ INTERP	LDA	#$00
 ;*
 IINTERP	LDA	#$80
 	STA	FLAG128
-	LDA 	#65
-	JSR 	$FFEE
-	JMP IINTERP ; TODO OBVIOUSLY TMP
 	PLA
         STA     TMPL
         PLA
@@ -863,6 +859,13 @@ IBRNCH	LDA	IPL
 	JSR	SETIPH
 	INX
 	JMP	NEXTOP
+; TODO: CALL and ICAL both stack FLAG128; this is necessary for when mixing bytecode
+; in main RAM and banked RAM. The Apple II implementation handles this via CALL(X) and
+; ICAL(X) updating the fetch loop to use the right opcode table, i.e. the state is
+; implicit in whether we're executing CALL or CALLX (ditto for ICAL/ICALX). It might
+; be better if we do that to avoid burning an extra byte of CPU stack for each call,
+; but this will do for now. (We don't need so many X opcodes for our banked implementation
+; so we don't currently have separate opcode tables.)
 ;*
 ;* CALL INTO ABSOLUTE ADDRESS (NATIVE CODE)
 ;*
@@ -878,7 +881,11 @@ CALL 	+INC_IP
 	PHA
 	TYA
 	PHA
+	LDA	FLAG128
+	PHA
 CALLADR	JSR	$FFFF
+	PLA
+	STA	FLAG128
 	PLA
 	TAY
 	PLA
@@ -900,7 +907,11 @@ ICAL 	LDA	ESTKL,X
 	PHA
 	TYA
 	PHA
+	LDA	FLAG128
+	PHA
 ICALADR	JSR	$FFFF
+	PLA
+	STA	FLAG128
 	PLA
 	TAY
 	PLA
@@ -997,7 +1008,7 @@ BRKJMP	JMP ($400) ;* TODO: Better address
 
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
-VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
+VMINIT	LDY	#$20		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
 	DEY
