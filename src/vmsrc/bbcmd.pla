@@ -746,7 +746,7 @@ asm setjmp
 	INY
 
 	;* TODO: PPL/PPH not used in Apple 1 and therefore not here either,
-	;* but may be eventually and may need to be saved.
+	;* but may be eventually and may need to be saved. TODONOW: YES, PROBABLY ARE - NEED A TEST CASE
 
 	LDA	IPL
 	STA	(TMP),Y
@@ -1083,6 +1083,10 @@ def allocxheap(size)
     word xaddr
     xaddr = xheap
     xheap = xheap + size
+    cout('X')
+    prword(xaddr)
+    cout(' ')
+    prword(size)
     return xaddr
 end
 
@@ -1171,6 +1175,8 @@ def adddef(addr, deflast)
     defentry=>1 = interp
     defentry=>3 = addr
     defentry->5 = 0 // null out next entry
+    cout('Z')
+    prword(defentry)
     return defentry
 end
 def lookupdef(addr, deftbl)
@@ -1202,6 +1208,8 @@ def loadmod(mod)
         return -perr
     fin
     if rdlen > 0
+    	// TODO: Note that we re-read the file below, so this is potentially a waste - we should
+	// probably just read the first 128 bytes here, as the Apple II code does.
         readfile(@filename, heap)
 	memcpy(@header, heap, 128)
 	modsize = header:0
@@ -1348,6 +1356,8 @@ def loadmod(mod)
     // TODO: modinitkeep stuff is a bit different compared to Apple II; switch to II-style?
 	if !(systemflags & modinitkeep)
             xheap = init - defofst + defaddr
+	    cout('Q')
+	    prword(xheap)
 	fin
     fin
     //
@@ -1408,7 +1418,7 @@ def error_handler
 end
 def execmod(modfile)
     byte moddci[17]
-    word saveheap, savesym, saveflags, error, action, olderrjb
+    word saveheap, savexheap, savesym, saveflags, error, action, olderrjb
     // We know that we have a fairly shallow CPU stack here so we can
     // get away with this small jmp_buf on the stack; this saves us
     // having to allocate a fixed block of memory for it. (We can't
@@ -1419,6 +1429,7 @@ def execmod(modfile)
     perr = 1
     if stodci(modfile, @moddci)
         saveheap  = heap
+	savexheap = xheap
 	savesym   = lastsym
 	saveflags = systemflags
         olderrjb = *errjb
@@ -1430,6 +1441,7 @@ def execmod(modfile)
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
 	    lastsym = savesym
+	    xheap   = savexheap
 	    heap    = saveheap
 	fin
 	^lastsym    = 0
