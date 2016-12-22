@@ -35,3 +35,18 @@ might allow the same executable to act as HI-PLASMA almost for free (we'd just n
 to decide we're going to take &F800 or whatever as top of workspace, whereas I
 suspect the tube OS tells us &8000 or &B800 - but not checked) (the VM would be running
 at &800 on the tube, not up at the top of memory - but that's absolutely fine)
+
+A BAS128 version using 4x16K SWR banks for code could *still* potentially page
+in a fifth 16K bank when not fetching from "instruction space". This space
+couldn't transparently be used for the normal heap or the frame stack because
+any attempt to make an OS call using space allocated there could fail if
+another ROM is temporarily paged in (most obviously a filing system). However,
+it could be made available as a separate heap (say allocyheap() - not
+allocxheap(), as that is the private heap used for the 64K data space) and code
+could call that if it knows it will use the space returned for non-OS-call
+purposes. If allocyheap() could fall back to using the normal heap if there is
+no 'Y' heap, a program could with minimal extra effort be written to take
+advantage of this extra 16K iff it's available. (You'd probably need to mark
+and release both the normal and Y heaps at the same time, and releasing the Y
+heap would be a no-op if it was actually just forwarding requests on to the
+normal heap.)
