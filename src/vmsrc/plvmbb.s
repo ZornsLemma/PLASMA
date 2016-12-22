@@ -17,10 +17,17 @@
 ;*
 ;* INTERPRETER INSTRUCTION POINTER INCREMENT MACRO
 ;*
+;* Note that for PLAS128, there are two instruction pointer high bytes:
+;* - IPH is adjacent to IPL and together they form IP; this contains a
+;*   'physical' address which can be used directly by the 6502
+;* - IPHLOG is a separate byte and contains the 'logical' high byte of
+;    the instruction pointer in the 64K bytecode bank
+;* IPH and IPHLOG must be modified together
 	!MACRO	INC_IP	{
 	INY
 	BNE	*+4
 	INC	IPH
+	INC	IPHLOG
 	}
 ;*
 ;* INTERPRETER HEADER+INITIALIZATION
@@ -30,15 +37,29 @@
 	*=	$2000
 SEGBEGIN JMP	VMINIT
 ;*
+;* Entered with A=new value for IPHLOG; update IPH and IPHLOG accordingly.
+;*
+SETIPH
+	STA	IPHLOG
+	BIT	FLAG128
+	BPL	SFTODORENAME
+
+
+SFTODORENAME	STA	IPH
+	RTS
+;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;*
-INTERP	PLA
+INTERP	LDA	#$00
+	STA	FLAG128		; EXECUTE BYTECODE FROM MAIN RAM
+	; TODO: Will we hit problems if we call one of those "base" fns using this interpreter (e.g. mode()) when executing bytecode from banked RAM - FLAG128 will be modified and the value *probably* won't get reset (i.e. we probably need to make sure we *do* reset it, after CALL and similar opcodes I suspect) - maybe we can get some hints on how to do this efficiently from seeing where the Apple II code modifies the opcode table in the FETCHOP loop
+	PLA
 	CLC
 	ADC	#$01
         STA     IPL
         PLA
 	ADC	#$00
-        STA     IPH
+	JSR	SETIPH
 	LDA	IFPH
 	PHA			; SAVE ON STACK FOR LEAVE/RET
 	LDA	IFPL
@@ -52,13 +73,18 @@ INTERP	PLA
 ;*
 ;* ENTER INTO USER BYTECODE INTERPRETER
 ;*
-IINTERP	PLA
+IINTERP	LDA	#$80
+	STA	FLAG128
+	LDA 	#65
+	JSR 	$FFEE
+	JMP IINTERP ; TODO OBVIOUSLY TMP
+	PLA
         STA     TMPL
         PLA
         STA     TMPH
 	LDY	#$02
 	LDA     (TMP),Y
-        STA	IPH
+	JSR	SETIPH
 	DEY
 	LDA     (TMP),Y
 	STA	IPL
@@ -447,8 +473,8 @@ CS	DEX
 	STA	IPL
 	LDA	#$00
 	TAY
-	ADC	IPH
-	STA	IPH
+	ADC	IPHLOG
+	JSR	SETIPH
 	LDA	(IP),Y
 	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
 	EOR	#$FF
@@ -782,7 +808,7 @@ BRFLS 	INX
 	LDA	ESTKH-1,X
 	ORA	ESTKL-1,X
 	BNE	NOBRNCH
-BRNCH	LDA	IPH
+BRNCH	LDA	IPHLOG
 	STA	TMPH
 	LDA	IPL
 	+INC_IP
@@ -792,7 +818,7 @@ BRNCH	LDA	IPH
 	LDA	TMPH
 	+INC_IP
 	ADC	(IP),Y
-	STA	IPH
+	JSR	SETIPH
 	LDA	TMPL
 	STA	IPL
 	DEY
@@ -832,9 +858,9 @@ IBRNCH	LDA	IPL
 	CLC
 	ADC	ESTKL,X
 	STA	IPL
-	LDA	IPH
+	LDA	IPHLOG
 	ADC	ESTKH,X
-	STA	IPH
+	JSR	SETIPH
 	INX
 	JMP	NEXTOP
 ;*
@@ -846,7 +872,7 @@ CALL 	+INC_IP
 	+INC_IP
 	LDA	(IP),Y
 	STA	CALLADR+2
-	LDA	IPH
+	LDA	IPHLOG
 	PHA
 	LDA	IPL
 	PHA
@@ -858,7 +884,7 @@ CALLADR	JSR	$FFFF
 	PLA
 	STA	IPL
 	PLA
-	STA	IPH
+	JSR	SETIPH
 	JMP	NEXTOP
 ;*
 ;* INDIRECT CALL TO ADDRESS (NATIVE CODE)
@@ -868,7 +894,7 @@ ICAL 	LDA	ESTKL,X
 	LDA	ESTKH,X
 	STA	ICALADR+2
 	INX
-	LDA	IPH
+	LDA	IPHLOG
 	PHA
 	LDA	IPL
 	PHA
@@ -880,7 +906,7 @@ ICALADR	JSR	$FFFF
 	PLA
 	STA	IPL
 	PLA
-	STA	IPH
+	JSR	SETIPH
 	JMP	NEXTOP
 ;*
 ;* ENTER FUNCTION WITH FRAME SIZE AND PARAM COUNT
@@ -1015,6 +1041,7 @@ PAGE0	=	*
 	STA	OPIDX
 	JMP	(OPTBL)
 NEXTOPH	INC	IPH
+	INC	IPHLOG
 	BNE	FETCHOP
 
 ; TODO: HACKED ABOUT VERSION TO FORM A *SKETCH* OF 'BAS128'-STYLE IMPLEMENTATION
@@ -1040,7 +1067,10 @@ NEXTOPH	INC	IPH
 ; EACH 16K BANK TO AVOID THE RISK OF IT LOOKING LIKE A VALID ROM IMAGE TO THE OS
 ; TODO: WE COULD OF COURSE JUST 'ADD Y IN' TO THE ADDRESS TO AVOID THE WRAPPING AT
 ; TOP OF 16K PROBLEM, BUT WE COULD ALTERNATIVELY LEAVE THE LAST 256 BYTES OF EACH
-; BANK FREE (LAST 255? WHATEVER...) - ,Y THEN CAN'T CAUSE WRAPPING
+; BANK FREE (LAST 255? WHATEVER...) - ,Y THEN CAN'T CAUSE WRAPPING - HMM, ACTUALLY,
+; I THINK WE CAN ALLOCATE RIGHT UP TO THE END OF THE BANK - AS LONG AS NO INDIVIDUAL
+; ALLOCATION (AND THEREFORE NO FUNCTION DEFINITION) CAN WRAP ACROSS THE END OF A BANK,
+; THE ,Y CAN'T CAUSE WRAPPING
 ;*
 ;* INTERP BYTECODE INNER LOOP
 ;*
