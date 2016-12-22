@@ -33,4 +33,5 @@ code is already present - this is discarded on startup so it doesn't waste space
 This would allow us to relocate down to OSHWM to avoid wasting memory - which would
 might allow the same executable to act as HI-PLASMA almost for free (we'd just need
 to decide we're going to take &F800 or whatever as top of workspace, whereas I
-suspect the tube OS tells us &8000 or &B800 - but not checked)
+suspect the tube OS tells us &8000 or &B800 - but not checked) (the VM would be running
+at &800 on the tube, not up at the top of memory - but that's absolutely fine)
