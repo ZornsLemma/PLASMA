@@ -39,11 +39,37 @@ SEGBEGIN JMP	VMINIT
 ;*
 ;* Entered with A=new value for IPHLOG; update IPH and IPHLOG accordingly.
 ;*
+;* TODO: We could potentially start by checking A against IPHLOG and doing
+;* nothing if it's the same; this might save time paging in a bank which is
+;* already selected.
+;*
+;* TODO: This can probably be optimised a bit
 SETIPH
 	STA	IPHLOG
 	BIT	FLAG128
 	BPL	SFTODORENAME
+;* TODO: If we sacrifice 256 bytes for a lookup table we could reduce the
+;* bit shifting overhead here.
+				; Rotate top two bits of A to low two bits
+	ASL
+	ADC	#$00
+	ASL
+	ADC	#$00
 
+	AND	#$03
+
+;* TODO: For now we hard-code use of banks 4-7; we need to use a lookup
+;* table later to allow arbitrary and non-contiguous banks to be used
+;* (STA *+5:LDA TABLEBASE can be used to do the lookup without needing
+;* to preserve X or Y if TABLEBASE is page-aligned)
+	CLC
+	ADC	#$04
+	STA	$F4
+	STA	$FE30
+
+	LDA	IPHLOG
+	AND	#$BF
+	ORA	#$80
 
 SFTODORENAME	STA	IPH
 	RTS

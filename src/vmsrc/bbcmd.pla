@@ -53,6 +53,7 @@ predef mode
 word version     = $0092 // 00.92
 word systemflags = 0
 word heap
+word xheap = 0
 word symtbl, lastsym
 byte perr, refauto
 //
@@ -846,6 +847,72 @@ asm longjmp
 end
 
 //
+// COPY FROM MAIN MEM TO AUX MEM.
+//
+// MEMXCPY(DST, SRC, SIZE)
+//
+// Assumes that DST to DST+SIZE-1 all lie in the same 16K bank; this will
+// be true given how allocxheap() works.
+asm memxcpy
+	LDA #65
+	JSR $FFEE
+	LDA	ESTKH,X
+	ORA	ESTKL,X
+	BEQ	MEMXCPYEX
+
+	;* TODO: this may want to share code with SETIPH; the two need to
+	;* be consistent if they don't actually share code.
+	LDA	ESTKH+2,X
+	ASL
+	ADC	#$00
+	ASL
+	ADC	#$00
+	AND	#$03
+	CLC
+	ADC	#$04
+	STA	$F4
+	STA	$FE30
+
+	LDA	ESTKH+2,X
+	AND	#$BF
+	ORA	#$80
+	STA 	DSTH
+	LDA	ESTKL+2,X
+	STA	DSTL
+
+	LDA	ESTKL+1,X
+	STA	SRCL
+	LDA	ESTKH+1,X
+	STA	SRCH
+	
+	STY 	IPY
+
+	LDY	ESTKL,X
+	BEQ	MEMXCPYLP
+	INC 	ESTKH,X
+	LDY	#$00
+MEMXCPYLP 
+	LDA	(SRC),Y
+	STA	(DST),Y
+	INY
+	BNE	+
+	INC	DSTH
+	INC	SRCH
++	DEC 	ESTKL,X
+	BNE	MEMXCPYLP
+	DEC	ESTKH,X
+	BNE	MEMXCPYLP
+
+	LDY	IPY
+MEMXCPYEX
+	INX
+	INX
+	LDA #66
+	JSR $FFEE
+	RTS
+end
+
+//
 // CONSOLE I/O
 //
 asm cout
@@ -1010,6 +1077,14 @@ def releaseheap(newheap)
     heap = newheap
     return @newheap - heap
 end
+def allocxheap(size)
+    // TODO: This needs to implement no bank crossing
+    // TODO: Needs to return 0 if all xheap allocated
+    word xaddr
+    xaddr = xheap
+    xheap = xheap + size
+    return xaddr
+end
 
 //
 // Acorn MOS API
@@ -1109,7 +1184,7 @@ def lookupdef(addr, deftbl)
 end
 def loadmod(mod)
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
-    word addr, modaddr, modfix, modend
+    word addr, defaddr, modaddr, modfix, modend
     word deftbl, deflast
     word moddep, rld, esd, sym
     byte str[17], filename[17]
@@ -1188,6 +1263,11 @@ def loadmod(mod)
             esd = esd + 4
 	loop
         esd = esd + 1
+	//
+	// Locate bytecode defs in appropriate bank.
+	//
+	defaddr = allocxheap(rld - bytecode)
+	modend  = bytecode
         //
         // Run through the Re-Location Dictionary.
         //
@@ -1196,7 +1276,7 @@ def loadmod(mod)
 	        //
 		// This is a bytcode def entry - add it to the def directory.
 		//
-                adddef(rld=>1 - defofst + bytecode, @deflast)
+                adddef(rld=>1 - defofst + defaddr, @deflast)
             else
                 addr = rld=>1 + modfix
                 if uword_isge(addr, modaddr) // Skip fixups to header
@@ -1213,7 +1293,7 @@ def loadmod(mod)
                             //
                             // Bytecode address - replace with call def directory.
                             //
-                            fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
+                            fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
                         fin
                     fin
                     if ^rld & $80 // WORD sized fixup.
@@ -1240,12 +1320,16 @@ def loadmod(mod)
 		    //
 		    // Use the def directory address for bytecode.
 		    //
-                    addr = lookupdef(addr - bytecode + bytecode, deftbl)
+                    addr = lookupdef(addr - bytecode + defaddr, deftbl)
                 fin
                 addsym(sym, addr)
             fin
             esd = esd + 3
         loop
+	//
+	// Move bytecode to AUX bank.
+	//
+	memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
     fin
     if perr
         return -perr
@@ -1255,12 +1339,15 @@ def loadmod(mod)
     //
     fixup = 0
     if init
-	fixup = adddef(init - defofst + bytecode, @deflast)()
+    	cout('C')
+	fixup = adddef(init - defofst + defaddr, @deflast)()
+	cout('D')
     if fixup < 0
         perr = -fixup
     fin
+    // TODO: modinitkeep stuff is a bit different compared to Apple II; switch to II-style?
 	if !(systemflags & modinitkeep)
-            modend = init - defofst + bytecode
+            xheap = init - defofst + defaddr
 	fin
     fin
     //
