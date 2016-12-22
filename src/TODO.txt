@@ -25,3 +25,12 @@ Ability to build standalone executable which runs from main RAM or sideways
 ROM, so a PLASMA-implemented program can be used by a user without them knowing
 or caring it's running on the PLASMA VM - though possibly the auto-start
 facility is sufficient for main RAM use (this doesn't address the ROM case)
+
+We could potentially make the VM capable of relocating itself - assemble at two
+addresses to work out the bytes needing a constant delta adding, put relocation
+code and a bitmap at the end of the VM in the bit where the other initialisation
+code is already present - this is discarded on startup so it doesn't waste space.
+This would allow us to relocate down to OSHWM to avoid wasting memory - which would
+might allow the same executable to act as HI-PLASMA almost for free (we'd just need
+to decide we're going to take &F800 or whatever as top of workspace, whereas I
+suspect the tube OS tells us &8000 or &B800 - but not checked)
