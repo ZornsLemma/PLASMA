@@ -38,6 +38,10 @@
 SEGBEGIN JMP	VMINIT
 ;*
 ;* Entered with A=new value for IPHLOG; update IPH and IPHLOG accordingly.
+;* Y must be "normalised"; this will go wrong if IPHLOG is in one bank and
+;* (logical IP),Y is in another bank, as we'd select the bank based on the
+;* raw IPHLOG value but we actually want the bank corresponding to the
+;* access with Y added.
 ;*
 ;* TODO: We could potentially start by checking A against IPHLOG and doing
 ;* nothing if it's the same; this might save time paging in a bank which is
@@ -496,6 +500,7 @@ CS	DEX
 	LDA	#$00
 	TAY
 	ADC	IPHLOG
+	;* TODO: No *need* for SETIPH here? a CS can't cross a bank...
 	JSR	SETIPH
 	LDA	(IP),Y
 	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
@@ -830,18 +835,28 @@ BRFLS 	INX
 	LDA	ESTKH-1,X
 	ORA	ESTKL-1,X
 	BNE	NOBRNCH
-BRNCH	LDA	IPHLOG
+BRNCH	LDA	IPH
 	STA	TMPH
 	LDA	IPL
 	+INC_IP
 	CLC
 	ADC	(IP),Y
 	STA	TMPL
-	LDA	TMPH
+	;* We add to both IPH and IPHLOG; this is OK because BRNCH can only branch
+	;* within a function (and therefore within a 16K bank) and this is actually
+	;* essential as we can't set IPHLOG and use SETIPH because Y isn't normalised. (Imagine
+	;* we're executing at logical address $0040 expressed as $0010+Y with Y=&30. We
+	;* branch backwards by -$20. We end up at $FFF0+Y=$0020, but IPHLOG would be $FF and
+	;* we'd page in the last bank instead of the first.)
+	PHP
+	LDA	IPHLOG
 	+INC_IP
 	ADC	(IP),Y
-	; TODONOWWRAPWRISK
-	JSR	SETIPH
+	STA	IPHLOG
+	PLP
+	LDA	TMPH
+	ADC	(IP),Y
+	STA	IPH
 	LDA	TMPL
 	STA	IPL
 	DEY
@@ -881,10 +896,15 @@ IBRNCH	LDA	IPL
 	CLC
 	ADC	ESTKL,X
 	STA	IPL
+	;* See comment in BRNCH re IPH/IPHLOG.
+	PHP
+	LDA	IPH
+	ADC	ESTKH,X
+	STA	IPH
+	PLP
 	LDA	IPHLOG
 	ADC	ESTKH,X
-	; TODONOWWRAPRISK
-	JSR	SETIPH
+	STA	IPHLOG
 	INX
 	JMP	NEXTOP
 ; TODO: CALL and ICAL both stack FLAG128; this is necessary for when mixing bytecode
@@ -919,6 +939,7 @@ CALLADR	JSR	$FFFF
 	PLA
 	STA	IPL
 	PLA
+	TODORISK
 	JSR	SETIPH
 	JMP	NEXTOP
 ;*
@@ -945,6 +966,7 @@ ICALADR	JSR	$FFFF
 	PLA
 	STA	IPL
 	PLA
+	TODORISK
 	JSR	SETIPH
 	JMP	NEXTOP
 ;*
