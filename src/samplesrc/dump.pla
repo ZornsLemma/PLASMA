@@ -72,7 +72,6 @@ end
 
 puts("At the prompt, type either:\n- a filename to hex dump\n- a * command\n- nothing (to quit)\n")
 
-// TODONOW: This is broken, probably by banked RAM support - doing *FX0 at the prompt here results in the error propagating up to the top level error handler
 error = setjmp(@jb)
 if error == 0
     *errjb = @jb
