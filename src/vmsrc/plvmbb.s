@@ -55,7 +55,7 @@ INTERP	PLA
 ;* ENTER INTO USER BYTECODE INTERPRETER
 ;* (executes bytecode from banked RAM)
 ;*
-;* loadmod() and allocxheap() don't allow a single function's bytecode to
+;* loadmod() and allocxheap() don't allow a single module's bytecode to
 ;* straddle a 16K bank boundary. Calls between functions are handled via
 ;* a JSR to the function header in main RAM; each new function will call
 ;* back into IINTERP. This means that we can decide which bank to page in

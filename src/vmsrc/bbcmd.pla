@@ -1044,6 +1044,9 @@ def availheap
     byte fp
     return @fp - heap
 end
+// TODO: We should maybe have an xallocheap() which generates an OS-style
+// error if the allocation fails, and use that everywhere - we don't
+// normally check the return code so this would be better than nothing.
 def allocheap(size)
     word addr
     addr = heap
@@ -1270,6 +1273,7 @@ def loadmod(mod)
 	//
 	// Locate bytecode defs in appropriate bank.
 	//
+	// TODO: We should fail gracefully if allocxheap() returns 0
 	defaddr = allocxheap(rld - bytecode)
 	modend  = bytecode
         //
