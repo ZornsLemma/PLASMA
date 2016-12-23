@@ -43,10 +43,10 @@ import cmdsys
     predef isugt, isuge, isult, isule
     predef modload, modexec, modaddr
     // TODO: The following are BBC-only so arguably shouldn't appear here
-    const errjb = $402
+    const errjb = $407
     const errnum = $700
     const errstr = $701
-    const jbsz = 1 + 4 + 1 + 255
+    const jbsz = 1 + 5 + 1 + 255
     predef setjmp, longjmp
     predef prbyte
     predef osfile, oscli

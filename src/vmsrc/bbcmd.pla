@@ -761,6 +761,9 @@ asm setjmp
 	LDA	IPH
 	STA	(TMP),Y
 	INY
+	LDA	$F4
+	STA	(TMP),Y
+	INY
 
 	TYA
 	CLC
@@ -824,6 +827,10 @@ asm longjmp
 
 	;* TODO: PPL/PPH?
 
+	LDA	(TMP),Y
+	STA	$F4
+	STA	$FE30
+	INY
 	LDA	(TMP),Y
 	STA	IPL
 	INY
