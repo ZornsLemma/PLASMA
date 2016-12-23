@@ -7,6 +7,10 @@
 ;**********************************************************
 
 	BBC = 1
+	RAMBANK = $400		; 4 byte table of RAM bank numbers
+	RAMBANKCOUNT = $404
+	ERRFP  = $405		; 2 bytes
+      ; ERRJB  = $407		; 2 bytes
 	ERRNUM = $700
 	ERRSTR = $701
 
@@ -80,13 +84,8 @@ IINTERP	PLA
 	ASL
 	ADC	#$00
 	AND	#$03
-;* TODO: For now we hard-code use of banks 4-7; we need to use a lookup
-;* table later to allow arbitrary and non-contiguous banks to be used
-;* (STA *+5:LDA TABLEBASE can be used to do the lookup without needing
-;* to preserve X or Y if TABLEBASE is page-aligned) - though we are
-;* 'setting up' Y ourselves so we can corrupt if it helps
-	CLC
-	ADC	#$04
+	TAY
+	LDA	RAMBANK,Y
 	STA	$F4
 	STA	$FE30
 	LDA	IPH
@@ -94,7 +93,7 @@ IINTERP	PLA
 	ORA	#$80
 	STA	IPH
 
-	DEY
+	LDY	#$01
 	LDA     (TMP),Y
 	STA	IPL
         DEY
@@ -1006,7 +1005,7 @@ ERRCPD	DEY
 	LDA	#'!'
 	JSR	$FFEE
 BRKLP	JMP	BRKLP
-BRKJMP	JMP ($400) ;* TODO: Better address
+BRKJMP	JMP	(ERRFP)
 
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
@@ -1015,6 +1014,40 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	STA	DROP-1,Y
 	DEY
 	BNE	-
+
+;* Locate sideways RAM banks
+;* TODO: Might be nice to allow these to be specified on command line
+	LDY	#$00
+	LDX	#$00
+FINDRAMLP
+	LDA	$2A1,X
+	AND	#$C0
+	BNE	SKIPBANK	; ONLY CONSIDER BANKS WITH NO LANGUAGE OR SERVICE ENTRY
+	STY	$F4
+	STY	$FE30
+	INC	$8008		; BINARY VERSION NUMBER
+	LDA	$8008
+	DEC	$8008
+	CMP	$8008
+	BEQ	SKIPBANK	; IT'S NOT RAM
+	TYA
+	STA	RAMBANK,X
+	INX
+	CPX	#$04
+	BEQ	FINDRAMDONE
+SKIPBANK
+	INY
+	CPY	#$10
+	BNE	FINDRAMLP
+FINDRAMDONE
+	TXA
+	BNE	SOMERAM
+	BRK
+	!BYTE	$80
+	!TEXT	"No sideways RAM found"
+	BRK
+SOMERAM	STX	RAMBANKCOUNT
+
 	LDA	#$84
 	JSR	$FFF4
 	STX	PPL
@@ -1036,6 +1069,7 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	STA	$0202
 	LDA	#>BRKHND
 	STA	$0203
+
 	JMP	A1CMD
 INITNOROOM	
 	BRK

@@ -5,8 +5,9 @@ const inbuff       = $700
 const errnum       = $700
 const errstr	   = $701
 const freemem      = $0006
-const errfp	   = $400
-const errjb	   = $402
+const rambankcount = $404
+const errfp	   = $405	// 2 bytes
+const errjb	   = $407	// 2 bytes
 //
 // System flags: memory allocator screen holes.
 //
@@ -53,6 +54,7 @@ predef mode
 word version     = $0092 // 00.92
 word systemflags = 0
 word heap
+word xheapsize
 // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
 // to avoid the risk of the data accidentally looking like a valid
 // sideways ROM header.
@@ -66,6 +68,7 @@ byte perr, refauto
 byte autorun[]    = "AUTORUN"
 byte verstr[]     = "\nPLASMA "
 byte freestr[]    = "MEM FREE:$"
+byte xfreestr[]	  = ", AUX FREE:$"
 byte errorstr[]   = "ERR:$"
 byte prompt[]     = "PLASMA"
 byte okstr[]      = "OK"
@@ -1082,7 +1085,6 @@ def releaseheap(newheap)
 end
 def allocxheap(size)
     word xaddr, start_bank, end_bank
-    const HIGHESTAVAIL = $FFFF // TODO!
     if uword_isgt(size, 16*1024-xheap_bank_start)
 	return 0
     fin
@@ -1099,7 +1101,7 @@ def allocxheap(size)
 	    fin
 	fin
     until start_bank == end_bank
-    if uword_isgt(xheap, HIGHESTAVAIL)
+    if ^rambankcount < 4 and uword_isge(xheap, xheapsize)
 	return 0
     fin
     cout('X')
@@ -1476,6 +1478,7 @@ end
 // Get heap start.
 //
 heap = *freemem
+xheapsize = ^rambankcount * 16 * 1024
 //
 // Init symbol table.
 //
@@ -1530,6 +1533,8 @@ if not ^cmdptr
     // on startup; this makes it more obvious if heap gets leaked.
     //prstr(@freestr)
     //prword(availheap)
+    //prstr(@xfreestr)
+    //prword(xheapsize - 1 - xheap) // a bit approximate
     //crout
 fin
 //
@@ -1563,6 +1568,8 @@ while 1
     fin
     prstr(@freestr)
     prword(availheap)
+    prstr(@xfreestr)
+    prword(xheapsize - 1 - xheap) // a bit approximate
     crout
     prstr(@prompt)
     cmdptr = rdstr(':')
