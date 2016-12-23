@@ -4,6 +4,11 @@ include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
 
+byte count_str[] = "Count: "
+byte prompt_str[] = "\n\nPress 0-7 for mode\nor Q to quit: "
+byte mode_str[] = "Mode: "
+byte free_str[] = "\nFree: "
+
 def availheap
     byte fp
     return @fp - heapmark()
@@ -16,9 +21,9 @@ def main
     count = 0
     while 1
 	count++
-	puts("Count: ")
+	puts(@count_str)
 	puti(count)
-	puts("\n\nPress 0-7 for mode\nor Q to quit: ")
+	puts(@prompt_str)
 	repeat
 	    key = osrdch()
 	    if key == 'Q' or key == 'q'
@@ -29,9 +34,9 @@ def main
 	m = key - '0'
 	result = mode(m)
 	if result == 0
-	    puts("Mode: ")
+	    puts(@mode_str)
 	    puti(m)
-	    puts("\nFree: ")
+	    puts(@free_str)
 	    puti(availheap())
 	    putln()
 	else
@@ -42,3 +47,5 @@ end
 
 main()
 done
+
+// vi: sw=4 sts=4
