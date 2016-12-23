@@ -17,17 +17,10 @@
 ;*
 ;* INTERPRETER INSTRUCTION POINTER INCREMENT MACRO
 ;*
-;* Note that for PLAS128, there are two instruction pointer high bytes:
-;* - IPH is adjacent to IPL and together they form IP; this contains a
-;*   'physical' address which can be used directly by the 6502
-;* - IPHLOG is a separate byte and contains the 'logical' high byte of
-;    the instruction pointer in the 64K bytecode bank
-;* IPH and IPHLOG must be modified together
 	!MACRO	INC_IP	{
 	INY
-	BNE	*+6
+	BNE	*+4
 	INC	IPH
-	INC	IPHLOG
 	}
 ;*
 ;* INTERPRETER HEADER+INITIALIZATION
@@ -36,59 +29,18 @@
 ;* This will allow for DFS/ADFS workspace.
 	*=	$2000
 SEGBEGIN JMP	VMINIT
-;*
-;* Entered with A=new value for IPHLOG; update IPH and IPHLOG accordingly.
-;* Y must be "normalised"; this will go wrong if IPHLOG is in one bank and
-;* (logical IP),Y is in another bank, as we'd select the bank based on the
-;* raw IPHLOG value but we actually want the bank corresponding to the
-;* access with Y added.
-;*
-;* TODO: We could potentially start by checking A against IPHLOG and doing
-;* nothing if it's the same; this might save time paging in a bank which is
-;* already selected.
-;*
-;* TODO: This can probably be optimised a bit
-SETIPH
-	STA	IPHLOG
-	BIT	FLAG128
-	BPL	SFTODORENAME
-;* TODO: If we sacrifice 256 bytes for a lookup table we could reduce the
-;* bit shifting overhead here.
-				; Rotate top two bits of A to low two bits
-	ASL
-	ADC	#$00
-	ASL
-	ADC	#$00
 
-	AND	#$03
-
-;* TODO: For now we hard-code use of banks 4-7; we need to use a lookup
-;* table later to allow arbitrary and non-contiguous banks to be used
-;* (STA *+5:LDA TABLEBASE can be used to do the lookup without needing
-;* to preserve X or Y if TABLEBASE is page-aligned)
-	CLC
-	ADC	#$04
-	STA	$F4
-	STA	$FE30
-
-	LDA	IPHLOG
-	AND	#$BF
-	ORA	#$80
-
-SFTODORENAME	STA	IPH
-	RTS
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
+;* (executes bytecode from main RAM)
 ;*
-INTERP	LDA	#$00
-	STA	FLAG128		; EXECUTE BYTECODE FROM MAIN RAM
-	PLA
+INTERP	PLA
 	CLC
 	ADC	#$01
         STA     IPL
         PLA
 	ADC	#$00
-	JSR	SETIPH
+	STA	IPH
 	LDA	IFPH
 	PHA			; SAVE ON STACK FOR LEAVE/RET
 	LDA	IFPL
@@ -101,16 +53,47 @@ INTERP	LDA	#$00
 	JMP	FETCHOP
 ;*
 ;* ENTER INTO USER BYTECODE INTERPRETER
+;* (executes bytecode from banked RAM)
 ;*
-IINTERP	LDA	#$80
-	STA	FLAG128
-	PLA
+;* loadmod() and allocxheap() don't allow a single function's bytecode to
+;* straddle a 16K bank boundary. Calls between functions are handled via
+;* a JSR to the function header in main RAM; each new function will call
+;* back into IINTERP. This means that we can decide which bank to page in
+;* here (interpreting IP as a logical address in the banked RAM) and then
+;* we're good to stick with that bank; we convert IP into the
+;* corresponding physical address in the sideways RAM area here and just
+;* work with that while executing the function.
+;*
+IINTERP	PLA
         STA     TMPL
         PLA
         STA     TMPH
 	LDY	#$02
 	LDA     (TMP),Y
-	JSR	SETIPH
+
+	STA	IPH
+;* TODO: If we sacrifice 256 bytes for a lookup table we could reduce the
+;* bit shifting overhead here.
+				; Rotate top two bits of A to low two bits
+	ASL
+	ADC	#$00
+	ASL
+	ADC	#$00
+	AND	#$03
+;* TODO: For now we hard-code use of banks 4-7; we need to use a lookup
+;* table later to allow arbitrary and non-contiguous banks to be used
+;* (STA *+5:LDA TABLEBASE can be used to do the lookup without needing
+;* to preserve X or Y if TABLEBASE is page-aligned) - though we are
+;* 'setting up' Y ourselves so we can corrupt if it helps
+	CLC
+	ADC	#$04
+	STA	$F4
+	STA	$FE30
+	LDA	IPH
+	AND	#$BF		; Force top two bits to %10
+	ORA	#$80
+	STA	IPH
+
 	DEY
 	LDA     (TMP),Y
 	STA	IPL
@@ -499,9 +482,8 @@ CS	DEX
 	STA	IPL
 	LDA	#$00
 	TAY
-	ADC	IPHLOG
-	;* TODO: No *need* for SETIPH here? a CS can't cross a bank...
-	JSR	SETIPH
+	ADC	IPH
+	STA	IPH
 	LDA	(IP),Y
 	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
 	EOR	#$FF
@@ -842,19 +824,8 @@ BRNCH	LDA	IPH
 	CLC
 	ADC	(IP),Y
 	STA	TMPL
-	;* We add to both IPH and IPHLOG; this is OK because BRNCH can only branch
-	;* within a function (and therefore within a 16K bank) and this is actually
-	;* essential as we can't set IPHLOG and use SETIPH because Y isn't normalised. (Imagine
-	;* we're executing at logical address $0040 expressed as $0010+Y with Y=&30. We
-	;* branch backwards by -$20. We end up at $FFF0+Y=$0020, but IPHLOG would be $FF and
-	;* we'd page in the last bank instead of the first.)
-	PHP
-	LDA	IPHLOG
-	+INC_IP
-	ADC	(IP),Y
-	STA	IPHLOG
-	PLP
 	LDA	TMPH
+	+INC_IP
 	ADC	(IP),Y
 	STA	IPH
 	LDA	TMPL
@@ -896,24 +867,11 @@ IBRNCH	LDA	IPL
 	CLC
 	ADC	ESTKL,X
 	STA	IPL
-	;* See comment in BRNCH re IPH/IPHLOG.
-	PHP
 	LDA	IPH
 	ADC	ESTKH,X
 	STA	IPH
-	PLP
-	LDA	IPHLOG
-	ADC	ESTKH,X
-	STA	IPHLOG
 	INX
 	JMP	NEXTOP
-; TODO: CALL and ICAL both stack FLAG128; this is necessary for when mixing bytecode
-; in main RAM and banked RAM. The Apple II implementation handles this via CALL(X) and
-; ICAL(X) updating the fetch loop to use the right opcode table, i.e. the state is
-; implicit in whether we're executing CALL or CALLX (ditto for ICAL/ICALX). It might
-; be better if we do that to avoid burning an extra byte of CPU stack for each call,
-; but this will do for now. (We don't need so many X opcodes for our banked implementation
-; so we don't currently have separate opcode tables.)
 ;*
 ;* CALL INTO ABSOLUTE ADDRESS (NATIVE CODE)
 ;*
@@ -923,24 +881,24 @@ CALL 	+INC_IP
 	+INC_IP
 	LDA	(IP),Y
 	STA	CALLADR+2
-	LDA	IPHLOG
+	LDA	IPH
 	PHA
 	LDA	IPL
 	PHA
 	TYA
 	PHA
-	LDA	FLAG128
+	LDA	$F4
 	PHA
-CALLADR	JSR	$FFFF
+CALLADR	JSR	$FFFF		; may page in another bank
 	PLA
-	STA	FLAG128
+	STA	$F4
+	STA	$FE30
 	PLA
 	TAY
 	PLA
 	STA	IPL
 	PLA
-	TODORISK
-	JSR	SETIPH
+	STA	IPH
 	JMP	NEXTOP
 ;*
 ;* INDIRECT CALL TO ADDRESS (NATIVE CODE)
@@ -950,24 +908,24 @@ ICAL 	LDA	ESTKL,X
 	LDA	ESTKH,X
 	STA	ICALADR+2
 	INX
-	LDA	IPHLOG
+	LDA	IPH
 	PHA
 	LDA	IPL
 	PHA
 	TYA
 	PHA
-	LDA	FLAG128
+	LDA	$F4
 	PHA
-ICALADR	JSR	$FFFF
+ICALADR	JSR	$FFFF		; may page in another bank
 	PLA
-	STA	FLAG128
+	STA	$F4
+	STA	$FE30
 	PLA
 	TAY
 	PLA
 	STA	IPL
 	PLA
-	TODORISK
-	JSR	SETIPH
+	STA	IPH
 	JMP	NEXTOP
 ;*
 ;* ENTER FUNCTION WITH FRAME SIZE AND PARAM COUNT
@@ -1050,15 +1008,9 @@ ERRCPD	DEY
 BRKLP	JMP	BRKLP
 BRKJMP	JMP ($400) ;* TODO: Better address
 
-
-
-	LDA	#65
-	JSR	$FFEE
-	JMP	BRKHND
-
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
-VMINIT	LDY	#$20		; INSTALL PAGE 0 FETCHOP ROUTINE
+VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
 	DEY
@@ -1102,59 +1054,5 @@ PAGE0	=	*
 	STA	OPIDX
 	JMP	(OPTBL)
 NEXTOPH	INC	IPH
-	INC	IPHLOG
 	BNE	FETCHOP
-
-; TODO: HACKED ABOUT VERSION TO FORM A *SKETCH* OF 'BAS128'-STYLE IMPLEMENTATION
-; IPH IS NO LONGER OVERLAID ON THIS CODE, BUT IPL WOULD STILL BE
-; TODO: AND OF COURSE EVERY LDA (IP),Y WOULD NEED MODIFICATION
-; WE MIGHT WANT TO USE A MACRO OR (PROB IDEALLY NOT FOR PERFORMANCE) USE A SUBROUTINE
-; - BASICALLY EVERYWHERE THE INC_IP MACRO IS USED IS PROBABLY AFFECTED (NOTE THERE'S
-; NO STORING, AS WE DON'T MODIFY THE BYTECODE AT RUN TIME)
-; - I DO WONDER IF WE CAN TAKE ADVANTAGE OF THE FACT THAT WE KNOW THE FETCH LOOP
-; BELOW HAS PAGED IN THE CORRECT 16K BANK ALREADY, SO WE ONLY NEED TO FORCE THE TOP
-; TWO BITS OF THE ADDRESS TO %10 - AND IN FACT I THINK THAT ADDRESS MIGHT ALREADY
-; BE AVAILABLE IN ZP AS THE IPL/IPHOVERLAY PAIR READY FOR USE, SO WE MAY NOT HAVE
-; TO PAY ANY EXTRA COST AT ALL THERE (OR DO ANY WORK CHANGING CODE)?!
-; TODO: IN FACT, SINCE MOST EXECUTION IS SEQUENTIAL (AND WE'D PROBABLY REFUSE TO ALLOCATE
-; ACROSS 16K BOUNDARIES AS NOTED BELOW RE LEAVING LAST 256 BYTES FREE), WE CAN
-; POTENTIALLY AVOID DOING THE 64->16K MAPPING ON EVERY INSTRUCTION FETCH AND ONLY DO
-; IT WHEN WE MODIFY THE INSTRUCTION POINTER VIA A JUMP OR VIA THE NEXTOPH CODE) - IF
-; THE OS DOESN'T KEEP PAGING "THE CURRENT LANGUAGE ROM" BACK IN (BUT INSTEAD REVERTS
-; TO PREVIOUS ROM AFTER ANY PAGING IN FOR SERVICE CALL HANDLING) WE CAN AVOID THE
-; NEED TO POKE $F4/$FE30 IN THE DISPATCH LOOP AS WELL (AND A QUICK LOOK OVER THE OS 1.2
-; DISASSEMBLY SUGGESTS IT DOES INDEED BEHAVE LIKE THAT, SO IT'S *PROBABLY* OK)
-; TODO: OUR ALLOCXHEAP MIGHT WANT TO AVOID ALLOCATING ANYTHING IN THE FIRST N BYTES OF
-; EACH 16K BANK TO AVOID THE RISK OF IT LOOKING LIKE A VALID ROM IMAGE TO THE OS
-; TODO: WE COULD OF COURSE JUST 'ADD Y IN' TO THE ADDRESS TO AVOID THE WRAPPING AT
-; TOP OF 16K PROBLEM, BUT WE COULD ALTERNATIVELY LEAVE THE LAST 256 BYTES OF EACH
-; BANK FREE (LAST 255? WHATEVER...) - ,Y THEN CAN'T CAUSE WRAPPING - HMM, ACTUALLY,
-; I THINK WE CAN ALLOCATE RIGHT UP TO THE END OF THE BANK - AS LONG AS NO INDIVIDUAL
-; ALLOCATION (AND THEREFORE NO FUNCTION DEFINITION) CAN WRAP ACROSS THE END OF A BANK,
-; THE ,Y CAN'T CAUSE WRAPPING
-;*
-;* INTERP BYTECODE INNER LOOP
-;*
-!IFDEF NOTDEF {
-	INX			; DROP
-	INY			; NEXTOP
-	BEQ	NEXTOPH
-	LDA	IPH
-	TAX 	; TODO WE AREN'T ALLOWED TO CORRUPT X...
-	AND	#%10000000
-	ORA	#%01000000
-	STA	IPHOVERLAY
-
-	LDA	BANKTABLE,X	; ONLY TOP TWO BITS RELEVANT BUT SACRIFICE 256 BYTES FOR SPEED
-				; (OR ROL A:ROL A:ROL A:AND #%11:TAX OR OSMETHING, BUT THAT'S SLOW *AND* CORRUPTS A)
-	STA	$F4
-	STA	$FE30
-
-	; TODO: Y OFFSET IS TRICKY HERE AS IT MIGHT WRAP INTO NEXT BANK
-	LDA	$FFFF,Y		; FETCHOP, LOW BYTE OF ADDRESS IS IPL, HIGH IS IPHOVERLAY - IPH IS SEPARATE ZP
-	STA	OPIDX
-	JMP	(OPTBL)
-NEXTOPH	INC	IPH
-	BNE	FETCHOP
-	}
 }

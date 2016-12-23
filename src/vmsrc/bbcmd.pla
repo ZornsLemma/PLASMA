@@ -854,8 +854,6 @@ end
 // Assumes that DST to DST+SIZE-1 all lie in the same 16K bank; this will
 // be true given how allocxheap() works.
 asm memxcpy
-	LDA #65
-	JSR $FFEE
 	LDA	ESTKH,X
 	ORA	ESTKL,X
 	BEQ	MEMXCPYEX
@@ -907,8 +905,6 @@ MEMXCPYLP
 MEMXCPYEX
 	INX
 	INX
-	LDA #66
-	JSR $FFEE
 	RTS
 end
 
@@ -1087,6 +1083,8 @@ def allocxheap(size)
     prword(xaddr)
     cout(' ')
     prword(size)
+    cout(13)
+    cout(10)
     return xaddr
 end
 
@@ -1175,8 +1173,6 @@ def adddef(addr, deflast)
     defentry=>1 = interp
     defentry=>3 = addr
     defentry->5 = 0 // null out next entry
-    cout('Z')
-    prword(defentry)
     return defentry
 end
 def lookupdef(addr, deftbl)
@@ -1347,9 +1343,7 @@ def loadmod(mod)
     //
     fixup = 0
     if init
-    	cout('C')
 	fixup = adddef(init - defofst + defaddr, @deflast)()
-	cout('D')
     if fixup < 0
         perr = -fixup
     fin
@@ -1358,6 +1352,8 @@ def loadmod(mod)
             xheap = init - defofst + defaddr
 	    cout('Q')
 	    prword(xheap)
+	    cout(13)
+	    cout(10)
 	fin
     fin
     //
