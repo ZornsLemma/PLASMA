@@ -53,7 +53,11 @@ predef mode
 word version     = $0092 // 00.92
 word systemflags = 0
 word heap
-word xheap = 0
+// We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
+// to avoid the risk of the data accidentally looking like a valid
+// sideways ROM header.
+const xheap_bank_start = $09
+word xheap = xheap_bank_start
 word symtbl, lastsym
 byte perr, refauto
 //
@@ -1077,11 +1081,27 @@ def releaseheap(newheap)
     return @newheap - heap
 end
 def allocxheap(size)
-    // TODO: This needs to implement no bank crossing
-    // TODO: Needs to return 0 if all xheap allocated
-    word xaddr
-    xaddr = xheap
-    xheap = xheap + size
+    word xaddr, start_bank, end_bank
+    const HIGHESTAVAIL = $FFFF // TODO!
+    if uword_isgt(size, 16*1024-xheap_bank_start)
+	return 0
+    fin
+    repeat
+	xaddr = xheap
+	xheap = xheap + size
+	start_bank = xaddr & $C000
+	end_bank = (xheap - 1) & $C000
+	if start_bank <> end_bank
+	    xheap = (xheap & $C000) | xheap_bank_start
+	    if uword_islt(xheap, xaddr) // if xheap has wrapped around
+		xheap = $FFFF
+		return 0
+	    fin
+	fin
+    until start_bank == end_bank
+    if uword_isgt(xheap, HIGHESTAVAIL)
+	return 0
+    fin
     cout('X')
     prword(xaddr)
     cout(' ')
