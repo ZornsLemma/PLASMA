@@ -717,7 +717,7 @@ asm jmpbufsz
 	LDA	(TMP),Y
 	EOR	#255
 	CLC
-	ADC	#6
+	ADC	#7
 	STA	ESTKL,X
 	LDA	#0
 	ADC	#0
