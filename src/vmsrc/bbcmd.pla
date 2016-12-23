@@ -717,7 +717,7 @@ asm jmpbufsz
 	LDA	(TMP),Y
 	EOR	#255
 	CLC
-	ADC	#7
+	ADC	#9
 	STA	ESTKL,X
 	LDA	#0
 	ADC	#0
@@ -741,7 +741,7 @@ asm setjmp
 	STA	(TMP),Y
 	INY
 
-	;* We store the frame pointer as a delta from HIMEM to avoid problems
+	;* We store IFP and PP as a delta from HIMEM to avoid problems
 	;* where we do setjmp(); mode(); longjmp().
 +++	SEC
 	LDA	#0
@@ -752,9 +752,15 @@ asm setjmp
 	SBC	IFPH
 	STA	(TMP),Y
 	INY
-
-	;* TODO: PPL/PPH not used in Apple 1 and therefore not here either,
-	;* but may be eventually and may need to be saved. TODONOW: YES, PROBABLY ARE - NEED A TEST CASE
+	SEC
+	LDA	#0
+	SBC	PPL
+	STA	(TMP),Y
+	INY
+	LDA	HIMEMH
+	SBC	PPH
+	STA	(TMP),Y
+	INY
 
 	LDA	IPL
 	STA	(TMP),Y
@@ -825,8 +831,15 @@ asm longjmp
 	SBC	(TMP),Y
 	STA	IFPH
 	INY
-
-	;* TODO: PPL/PPH?
+	SEC
+	LDA	#0
+	SBC	(TMP),Y
+	STA	PPL
+	INY
+	LDA	HIMEMH
+	SBC	(TMP),Y
+	STA	PPH
+	;* TODONOW Test that the restore of PP is working
 
 	LDA	(TMP),Y
 	STA	$F4
