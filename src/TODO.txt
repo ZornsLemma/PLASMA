@@ -50,3 +50,9 @@ advantage of this extra 16K iff it's available. (You'd probably need to mark
 and release both the normal and Y heaps at the same time, and releasing the Y
 heap would be a no-op if it was actually just forwarding requests on to the
 normal heap.)
+
+Could the compiler be enhanced to avoid the problem with constant strings
+inside a loop? I would have though in principle the compile could emit all
+constant strings at the top of the function, putting their addresses in local
+variables, and then just use those addresses where it would currently emit the
+constant string opcode.
