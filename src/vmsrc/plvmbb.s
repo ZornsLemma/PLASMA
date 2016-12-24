@@ -7,8 +7,10 @@
 ;**********************************************************
 
 	BBC = 1
+!IFDEF PLAS128 {
 	RAMBANK = $400		; 4 byte table of RAM bank numbers
 	RAMBANKCOUNT = $404
+}
 	ERRFP  = $405		; 2 bytes
       ; ERRJB  = $407		; 2 bytes
 	ERRNUM = $700
@@ -36,7 +38,7 @@ SEGBEGIN JMP	VMINIT
 
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
-;* (executes bytecode from main RAM)
+;* (PLAS128: executes bytecode from main RAM)
 ;*
 INTERP	PLA
 	CLC
@@ -45,6 +47,7 @@ INTERP	PLA
         PLA
 	ADC	#$00
 	STA	IPH
+!IFDEF PLAS128 {
 	LDA	IFPH
 	PHA			; SAVE ON STACK FOR LEAVE/RET
 	LDA	IFPL
@@ -53,13 +56,14 @@ INTERP	PLA
 	STA	IFPL
 	LDA	PPH
 	STA	IFPH
+}
 	LDY	#$00
 	JMP	FETCHOP
 ;*
 ;* ENTER INTO USER BYTECODE INTERPRETER
-;* (executes bytecode from banked RAM)
+;* (PLAS128: executes bytecode from banked RAM)
 ;*
-;* loadmod() and allocxheap() don't allow a single module's bytecode to
+;* PLAS128: loadmod() and allocxheap() don't allow a single module's bytecode to
 ;* straddle a 16K bank boundary. Calls between functions are handled via
 ;* a JSR to the function header in main RAM; each new function will call
 ;* back into IINTERP. This means that we can decide which bank to page in
@@ -76,6 +80,7 @@ IINTERP	PLA
 	LDA     (TMP),Y
 
 	STA	IPH
+!IFDEF PLAS128 {
 ;* TODO: If we sacrifice 256 bytes for a lookup table we could reduce the
 ;* bit shifting overhead here.
 				; Rotate top two bits of A to low two bits
@@ -94,9 +99,15 @@ IINTERP	PLA
 	STA	IPH
 
 	LDY	#$01
+}
+!IFNDEF PLAS128 {
+	DEY
+}
+	
 	LDA     (TMP),Y
 	STA	IPL
         DEY
+!IFDEF PLAS128 {
 	LDA	IFPH
 	PHA			; SAVE ON STACK FOR LEAVE/RET
 	LDA	IFPL
@@ -105,6 +116,7 @@ IINTERP	PLA
 	STA	IFPL
 	LDA	PPH
 	STA	IFPH
+}
 	JMP	FETCHOP
 ;*
 ;* MUL TOS-1 BY TOS
@@ -479,10 +491,17 @@ CS	DEX
 	CLC
 	ADC	IPL
 	STA	IPL
+!IFNDEF PLAS128 {
+	STA	ESTKL,X
+}
 	LDA	#$00
 	TAY
 	ADC	IPH
 	STA	IPH
+!IFNDEF PLAS128 {
+	STA	ESTKH,X
+}
+!IFDEF PLAS128 {
 	LDA	(IP),Y
 	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
 	EOR	#$FF
@@ -500,6 +519,7 @@ CS	DEX
 	CPY	#$FF
 	BNE	-
 	INY
+}
 	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 	TAY
 	JMP	NEXTOP
@@ -886,12 +906,16 @@ CALL 	+INC_IP
 	PHA
 	TYA
 	PHA
+!IFDEF PLAS128 {
 	LDA	$F4
 	PHA
-CALLADR	JSR	$FFFF		; may page in another bank
+}
+CALLADR	JSR	$FFFF		; PLAS128: may page in another bank
+!IFDEF PLAS128 {
 	PLA
 	STA	$F4
 	STA	$FE30
+}
 	PLA
 	TAY
 	PLA
@@ -913,12 +937,16 @@ ICAL 	LDA	ESTKL,X
 	PHA
 	TYA
 	PHA
+!IFDEF PLAS128 {
 	LDA	$F4
 	PHA
-ICALADR	JSR	$FFFF		; may page in another bank
+}
+ICALADR	JSR	$FFFF		; PLAS128: may page in another bank
+!IFDEF PLAS128 {
 	PLA
 	STA	$F4
 	STA	$FE30
+}
 	PLA
 	TAY
 	PLA
@@ -934,13 +962,25 @@ ENTER	INY
 	PHA			; SAVE ON STACK FOR LEAVE
 	EOR	#$FF
 	SEC
+!IFNDEF PLAS128 {
+	ADC	IFPL
+}
+!IFDEF PLAS128 {
 	ADC	PPL
 	STA	PPL
+}
 	STA	IFPL
+!IFNDEF PLAS128 {
+	BCS	+
+	DEC	IFPH
++	
+}
+!IFDEF PLAS128 {
 	LDA	#$FF
 	ADC	PPH
 	STA	PPH
 	STA	IFPH
+}
 	INY
 	LDA	(IP),Y
 	ASL
@@ -962,6 +1002,7 @@ ENTER	INY
 LEAVE 	PLA
 	CLC
 	ADC	IFPL
+!IFDEF PLAS128 {
 	STA	PPL
 	LDA	#$00
 	ADC	IFPH
@@ -977,11 +1018,27 @@ RET	LDA	IFPL		; DEALLOCATE POOL
 	LDA	IFPH
 	STA	PPH
  	PLA			; RESTORE PREVIOUS FRAME
+}
 	STA	IFPL
+!IFDEF PLAS128 {
 	PLA
 	STA	IFPH
 	RTS
-A1CMD	!SOURCE	"vmsrc/bbcmd.a"
+}
+!IFNDEF PLAS128 {
+	BCS	LIFPH
+	RTS
+LIFPH	INC	IFPH
+RET	RTS
+}
+; Compiled PLASMA code
+A1CMD	
+!ifndef PLAS128 {
+	!SOURCE "vmsrc/32cmd.a"
+}
+!ifdef PLAS128  {
+	!SOURCE "vmsrc/128cmd.a"
+}
 
 BRKHND
 	LDY	#0
@@ -1015,6 +1072,7 @@ VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 	DEY
 	BNE	-
 
+!IFDEF PLAS128 {
 ;* Locate sideways RAM banks
 ;* TODO: Might be nice to allow these to be specified on command line
 	LDY	#$00
@@ -1047,13 +1105,16 @@ FINDRAMDONE
 	!TEXT	"No sideways RAM found"
 	BRK
 SOMERAM	STX	RAMBANKCOUNT
+}
 
 	LDA	#$84
 	JSR	$FFF4
-	STX	PPL
 	STX	IFPL		; INIT FRAME POINTER
-	STY	PPH
 	STY	IFPH
+!IFDEF PLAS128 {
+	STX	PPL
+	STY	PPH
+}
 	STY	HIMEMH
 	LDA	#<SEGEND	; SAVE HEAP START
 	STA	SRCL

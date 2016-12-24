@@ -4,7 +4,8 @@ PLVM    = plvm
 PLVM01  = A1PLASMA\#060280
 PLVM02	= PLASMA.SYSTEM\#FF2000
 PLVM03	= SOS.INTERP\#050000
-PLVMBB  = BBPLASMA\#FF2000
+PLVM32  = BBPLASMA\#FF2000
+PLVM128 = BBPLAS128\#FF2000
 CMD     = CMD\#FF2000
 ED      = ED\#FF2000
 SB      = SB\#FF2000
@@ -65,7 +66,7 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVMBB) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(BBSSD)
+all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(BBSSD)
 
 clean:
 	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03)
@@ -91,11 +92,19 @@ vmsrc/a1cmd.a: vmsrc/a1cmd.pla $(PLASM)
 $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 	acme -o $(PLVM01) -l vmsrc/plvm01.sym vmsrc/plvm01.s
 
-vmsrc/bbcmd.a: vmsrc/bbcmd.pla $(PLASM)
-	./$(PLASM) -A < vmsrc/bbcmd.pla > vmsrc/bbcmd.a
+vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
+	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
+	./$(PLASM) -A < vmsrc/32cmd.pla > vmsrc/32cmd.a
 
-$(PLVMBB): vmsrc/plvmbb.s vmsrc/bbcmd.a
-	acme -o $(PLVMBB) -l vmsrc/plvmbb.sym vmsrc/plvmbb.s
+vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
+	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
+	./$(PLASM) -A < vmsrc/128cmd.pla > vmsrc/128cmd.a
+
+$(PLVM32): vmsrc/plvmbb.s vmsrc/32cmd.a
+	acme -o $(PLVM32) -l vmsrc/plvm32.sym vmsrc/plvmbb.s
+
+$(PLVM128): vmsrc/plvmbb.s vmsrc/128cmd.a
+	acme -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym vmsrc/plvmbb.s
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
 	./$(PLASM) -A < vmsrc/cmd.pla > vmsrc/cmd.a
@@ -273,5 +282,5 @@ hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
-plasma.ssd: $(PLVMBB) hello testint dump mode hanoi $(ACORNOS)
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

@@ -5,7 +5,9 @@ const inbuff       = $700
 const errnum       = $700
 const errstr	   = $701
 const freemem      = $0006
-const rambankcount = $404
+#ifdef PLAS128
+    const rambankcount = $404
+#endif
 const errfp	   = $405	// 2 bytes
 const errjb	   = $407	// 2 bytes
 //
@@ -54,12 +56,14 @@ predef mode
 word version     = $0092 // 00.92
 word systemflags = 0
 word heap
-word xheapsize
-// We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
-// to avoid the risk of the data accidentally looking like a valid
-// sideways ROM header.
-const xheap_bank_start = $09
-word xheap = xheap_bank_start
+#ifdef PLAS128
+    word xheapsize
+    // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
+    // to avoid the risk of the data accidentally looking like a valid
+    // sideways ROM header.
+    const xheap_bank_start = $09
+    word xheap = xheap_bank_start
+#endif
 word symtbl, lastsym
 byte perr, refauto
 //
@@ -68,7 +72,9 @@ byte perr, refauto
 byte autorun[]    = "AUTORUN"
 byte verstr[]     = "\nPLASMA "
 byte freestr[]    = "MEM FREE:$"
-byte xfreestr[]	  = ", AUX FREE:$"
+#ifdef PLAS128
+    byte xfreestr[]	  = ", AUX FREE:$"
+#endif
 byte errorstr[]   = "ERR:$"
 byte prompt[]     = "PLASMA"
 byte okstr[]      = "OK"
@@ -720,7 +726,7 @@ asm jmpbufsz
 	LDA	(TMP),Y
 	EOR	#255
 	CLC
-	ADC	#9
+	ADC	#9		;* actually 2 bytes smaller on PLAS32 but we just use this
 	STA	ESTKL,X
 	LDA	#0
 	ADC	#0
@@ -745,7 +751,7 @@ asm setjmp
 	INY
 
 	;* We store IFP and PP as a delta from HIMEM to avoid problems
-	;* where we do setjmp(); mode(); longjmp().
+	;* where we do setjmp(); mode(); longjmp(). TODONOW: Does this in fact help? OTOH it's not performance critical
 +++	SEC
 	LDA	#0
 	SBC	IFPL
@@ -755,6 +761,7 @@ asm setjmp
 	SBC	IFPH
 	STA	(TMP),Y
 	INY
+#ifdef PLAS128
 	SEC
 	LDA	#0
 	SBC	PPL
@@ -764,6 +771,7 @@ asm setjmp
 	SBC	PPH
 	STA	(TMP),Y
 	INY
+#endif
 
 	LDA	IPL
 	STA	(TMP),Y
@@ -771,9 +779,11 @@ asm setjmp
 	LDA	IPH
 	STA	(TMP),Y
 	INY
+#ifdef PLAS128
 	LDA	$F4
 	STA	(TMP),Y
 	INY
+#endif
 
 	TYA
 	CLC
@@ -834,6 +844,7 @@ asm longjmp
 	SBC	(TMP),Y
 	STA	IFPH
 	INY
+#ifdef PLAS128
 	SEC
 	LDA	#0
 	SBC	(TMP),Y
@@ -848,6 +859,7 @@ asm longjmp
 	STA	$F4
 	STA	$FE30
 	INY
+#endif
 	LDA	(TMP),Y
 	STA	IPL
 	INY
@@ -877,6 +889,7 @@ asm longjmp
 	RTS
 end
 
+#ifdef PLAS128
 //
 // COPY FROM MAIN MEM TO AUX MEM.
 //
@@ -938,6 +951,7 @@ MEMXCPYEX
 	INX
 	RTS
 end
+#endif
 
 //
 // CONSOLE I/O
@@ -1107,6 +1121,7 @@ def releaseheap(newheap)
     heap = newheap
     return @newheap - heap
 end
+#ifdef PLAS128
 def allocxheap(size)
     word xaddr, start_bank, end_bank
     if uword_isgt(size, 16*1024-xheap_bank_start)
@@ -1136,6 +1151,7 @@ def allocxheap(size)
     cout(10)
     return xaddr
 end
+#endif
 
 //
 // Acorn MOS API
@@ -1235,7 +1251,11 @@ def lookupdef(addr, deftbl)
 end
 def loadmod(mod)
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
-    word addr, defaddr, modaddr, modfix, modend
+    word addr
+#ifdef PLAS128
+    word defaddr
+#endif
+    word modaddr, modfix, modend
     word deftbl, deflast
     word moddep, rld, esd, sym
     byte str[17], filename[17]
@@ -1316,12 +1336,14 @@ def loadmod(mod)
             esd = esd + 4
 	loop
         esd = esd + 1
+#ifdef PLAS128
 	//
 	// Locate bytecode defs in appropriate bank.
 	//
 	// TODO: We should fail gracefully if allocxheap() returns 0
 	defaddr = allocxheap(rld - bytecode)
 	modend  = bytecode
+#endif
         //
         // Run through the Re-Location Dictionary.
         //
@@ -1330,7 +1352,11 @@ def loadmod(mod)
 	        //
 		// This is a bytcode def entry - add it to the def directory.
 		//
+#ifdef PLAS128
                 adddef(rld=>1 - defofst + defaddr, @deflast)
+#else
+		adddef(rld=>1 - defofst + bytecode, @deflast)
+#endif
             else
                 addr = rld=>1 + modfix
                 if uword_isge(addr, modaddr) // Skip fixups to header
@@ -1347,7 +1373,11 @@ def loadmod(mod)
                             //
                             // Bytecode address - replace with call def directory.
                             //
+#ifdef PLAS128
                             fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
+#else
+                            fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
+#endif
                         fin
                     fin
                     if ^rld & $80 // WORD sized fixup.
@@ -1374,16 +1404,22 @@ def loadmod(mod)
 		    //
 		    // Use the def directory address for bytecode.
 		    //
+#ifdef PLAS128
                     addr = lookupdef(addr - bytecode + defaddr, deftbl)
+#else
+                    addr = lookupdef(addr - bytecode + bytecode, deftbl)
+#endif
                 fin
                 addsym(sym, addr)
             fin
             esd = esd + 3
         loop
+#ifdef PLAS128
 	//
 	// Move bytecode to AUX bank.
 	//
 	memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
+#endif
     fin
     if perr
         return -perr
@@ -1393,17 +1429,25 @@ def loadmod(mod)
     //
     fixup = 0
     if init
+#ifdef PLAS128
 	fixup = adddef(init - defofst + defaddr, @deflast)()
+#else
+	fixup = adddef(init - defofst + bytecode, @deflast)()
+#endif
     if fixup < 0
         perr = -fixup
     fin
     // TODO: modinitkeep stuff is a bit different compared to Apple II; switch to II-style?
 	if !(systemflags & modinitkeep)
+#ifdef PLAS128
             xheap = init - defofst + defaddr
 	    cout('Q')
 	    prword(xheap)
 	    cout(13)
 	    cout(10)
+#else
+            modend = init - defofst + bytecode
+#endif
 	fin
     fin
     //
@@ -1464,7 +1508,11 @@ def error_handler
 end
 def execmod(modfile)
     byte moddci[17]
-    word saveheap, savexheap, savesym, saveflags, error, action, olderrjb
+    word saveheap
+#ifdef PLAS128
+    word savexheap
+#endif
+    word savesym, saveflags, error, action, olderrjb
     // We know that we have a fairly shallow CPU stack here so we can
     // get away with this small jmp_buf on the stack; this saves us
     // having to allocate a fixed block of memory for it. (We can't
@@ -1475,7 +1523,9 @@ def execmod(modfile)
     perr = 1
     if stodci(modfile, @moddci)
         saveheap  = heap
+#ifdef PLAS128
 	savexheap = xheap
+#endif
 	savesym   = lastsym
 	saveflags = systemflags
         olderrjb = *errjb
@@ -1487,7 +1537,9 @@ def execmod(modfile)
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
 	    lastsym = savesym
+#ifdef PLAS128
 	    xheap   = savexheap
+#endif
 	    heap    = saveheap
 	fin
 	^lastsym    = 0
@@ -1502,7 +1554,9 @@ end
 // Get heap start.
 //
 heap = *freemem
-xheapsize = ^rambankcount * 16 * 1024
+#ifdef PLAS128
+    xheapsize = ^rambankcount * 16 * 1024
+#endif
 //
 // Init symbol table.
 //
@@ -1557,8 +1611,10 @@ if not ^cmdptr
     // on startup; this makes it more obvious if heap gets leaked.
     //prstr(@freestr)
     //prword(availheap)
+#ifdef PLAS128
     //prstr(@xfreestr)
     //prword(xheapsize - 1 - xheap) // a bit approximate
+#endif
     //crout
 fin
 //
@@ -1592,8 +1648,10 @@ while 1
     fin
     prstr(@freestr)
     prword(availheap)
+#ifdef PLAS128
     prstr(@xfreestr)
     prword(xheapsize - 1 - xheap) // a bit approximate
+#endif
     crout
     prstr(@prompt)
     cmdptr = rdstr(':')
