@@ -1,7 +1,6 @@
 // 32 bit (double word) arithmetic library
 
 // TODO: This code has not been heavily tested and may be buggy!
-// TODO: Multiply/divide have had no thought whatsoever given to signed vs unsigned
 
 // dword_add(result, lhs, rhs)
 export asm dword_add
@@ -78,7 +77,8 @@ end
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
 // TODO: Should we expose the high 32 bits of the result? Possibly via a
-// separate function?
+// separate function? It might be nicer if we can calculate faster and
+// not generate the high 32 bits.
 export asm dword_mul
     MULR  = SCRATCH
     MULND = SCRATCH+4
@@ -159,6 +159,7 @@ end
 // dword_div(quotient, remainder, lhs, rhs)
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
+// TODO: No thought given to signedness considerations
 export asm dword_div
     DVDQUO = SCRATCH
     DVDR   = SCRATCH+4
