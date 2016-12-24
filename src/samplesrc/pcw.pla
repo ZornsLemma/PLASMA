@@ -1,0 +1,185 @@
+// Personal Computer World benchmarks (from December 1986 issue)
+
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+include "inc/acornos.plh" // TODO?
+
+byte intmathstr[] = "intmath"
+byte textscrnstr[] = "textscrn"
+byte textscrnlinestr[] = "1234567890qwertyuiop "
+byte grafscrnstr[] = "grafscrn"
+
+// Benchmark start/finish times
+byte start[5]
+byte finish[5]
+
+struc t_result
+    word r_next
+    word r_name
+    word r_time
+end
+
+word results_head = 0
+word results_tail_ptr = @results_head
+
+// TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
+asm equates
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+
+SCRATCH
+    !BYTE 0, 0, 0, 0, 0
+end
+
+// time_delta(a, b) -> (*b)-(*a)
+asm time_delta
+    LDA ESTKL+1,X
+    STA	SRCL
+    LDA ESTKH+1,X
+    STA SRCH
+    LDA ESTKL,X
+    STA DSTL
+    LDA ESTKH,X
+    STA DSTH
+    STX ESP
+    LDX #5
+    LDY #0
+    SEC
+-   LDA (DST),Y
+    SBC (SRC),Y
+    STA SCRATCH,Y
+    INY
+    DEX
+    BNE -
+
+    LDX ESP
+    INX
+
+    LDA SCRATCH
+    STA ESTKL,X
+    LDA SCRATCH+1
+    STA ESTKH,X
+    LDY #2
+--  LDA SCRATCH,Y
+    BNE TOOSLOW
+    INY
+    CPY #5
+    BNE --
+    RTS
+
+TOOSLOW
+    BRK
+    !BYTE 127
+    !TEXT "Too slow"
+    BRK
+end
+
+// plot(x, y)
+asm plot
+    LDA #25
+    JSR $FFEE
+    LDA #69
+    JSR $FFEE
+    LDA ESTKL+1,X
+    JSR $FFEE
+    LDA ESTKH+1,X
+    JSR $FFEE
+    LDA ESTKL,X
+    JSR $FFEE
+    LDA ESTKH,X
+    INX
+    JMP $FFEE
+end
+
+def log_time(name)
+    word result
+
+    result = heapalloc(t_result)
+    result=>r_next = 0
+    result=>r_name = name
+    result=>r_time = time_delta(@start, @finish)
+    *results_tail_ptr = result
+    results_tail_ptr = result+r_next
+end
+
+def show_times()
+    word p, i
+    p = results_head
+    while p <> 0
+	puts(p=>r_name)
+	for i = 1 to 10 - ^(p=>r_name)
+	    putc(' ')
+	next
+	// TODO: Would be nice to align the decimal points
+	puti(p=>r_time / 100)
+	putc('.')
+	puti(p=>r_time % 100)
+	putc('s')
+	putln()
+	p = p=>r_next
+    loop
+end
+
+def time(t)
+    call(1, t, t >> 8, 0, $FFF1)
+end
+
+// Actual benchmarks
+
+def intmath()
+    word x, y, i
+    time(@start)
+    x = 0
+    y = 9
+    puts("Start\n")
+    for i = 1 to 1000
+	x = x + (y * y - y) / y
+    next
+    puts("Finish ")
+    puti(x) // should be 8000
+    putln()
+    time(@finish)
+    log_time(@intmathstr)
+end
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+// TODO: This needs to select mode 3
+def textscrn()
+    word i
+    time(@start)
+    puts("Start\n")
+    for i = 1 to 10 // TODO: should be 1000, temp reduced
+	puts(@textscrnlinestr)
+	puti(i)
+	putln()
+    next
+    puts("Finish\n")
+    time(@finish)
+    log_time(@textscrnstr)
+end
+
+// TODO: This needs to select mode 5
+def grafscrn()
+    word x, y
+    const x_scale = 8
+    const y_scale = 4
+    time(@start)
+    puts("Start\n")
+    for x = 1*x_scale to 100*x_scale step x_scale
+	for y = 1*y_scale to 100*y_scale step y_scale
+	    plot(x, y)
+	next
+    next
+    puts("Finish\n")
+    time(@finish)
+    log_time(@grafscrnstr)
+end
+
+intmath()
+textscrn()
+grafscrn()
+show_times()
+done
+
+// vi: sts=4 sw=4

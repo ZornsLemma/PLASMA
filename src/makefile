@@ -282,5 +282,9 @@ hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi $(ACORNOS)
+pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/pcw.pla > samplesrc/pcw.a
+	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
+
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi pcw $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd
