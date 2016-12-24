@@ -602,7 +602,7 @@ asm oscli_cr
 end
 
 // TODONOW: SOMETHING'S WRONG, MODE.PLA SHOWS WEIRD BEHAVIOUR EG IF YOU JUST PRESS 7 OVER AND OVER AGAIN THE FREE COUNT DECREMENTS... FRAME POINTER IS THE PROBLEM, NOT THE HEAP (HEAPMARK() IS RETURNING CONST VALUE) - THAT'S FIXED, BUT THERE'S STILL A PROBLEM - I STRONGLY SUSPECT THE STRING POOL NEEDS TO BE MOVED AS WELL, BUT NOT SURE - YOU CAN SEE THAT THE MODE SHOWS WRONGLY AFTER MODE CHANGES AND THERE'S SOMETIMES SOME CORRUPTIO ON THE SCREEN AFTER MODE CHANGE
-// TODONOW: I suspect there's a bit of a problem here with the string pool implementation - moving the frame stack moves the absolute address of the strings in the pool, and any addresses of those strings held in local variables or on the heap won't be fixed up
+// TODONOW: I suspect there's a bit of a problem here with the string pool implementation - moving the frame stack moves the absolute address of the strings in the pool, and any addresses of those strings held in local variables or on the heap won't be fixed up. (I guess actually it's probably *possible* to take the address of a word variable on the frame stack and get into a mess there, even without the string pool implementation - it's just much less likely. I haven't actually tested this, but if I'm right, this may argue for trying to find a BBC BASIC-ish restriction on mode changes only when the frame stack is (nearly; unfortunately it's never completely) empty I can sensibly impose instead.)
 // TODONOW: Ah, I think a big part of the problem is INTERP pushes IFP on the CPU stack and LEAVE/RET pull it - so we're not getting the chance to fix it up properly.
 // TODONOW: We probably need to be adjusting PP in here now of course
 // modeint(heap, mode) -> 0 if OK, -1 if no room
