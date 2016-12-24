@@ -3,8 +3,10 @@
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh" // TODO?
+include "inc/dword.plh"
 
-byte intmathstr[] = "intmath"
+byte intmath16str[] = "intmath16"
+byte intmath32str[] = "intmath32"
 byte textscrnstr[] = "textscrn"
 byte textscrnlinestr[] = "1234567890qwertyuiop "
 byte grafscrnstr[] = "grafscrn"
@@ -26,12 +28,10 @@ word results_tail_ptr = @results_head
 asm equates
     BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
-
-SCRATCH
-    !BYTE 0, 0, 0, 0, 0
 end
 
 // time_delta(a, b) -> (*b)-(*a)
+// TODO: This could use the dword library?
 asm time_delta
     LDA ESTKL+1,X
     STA	SRCL
@@ -91,6 +91,18 @@ asm plot
     JMP $FFEE
 end
 
+def puti32(p)
+    byte ten[4], j[4], k[4]
+    ten[0] = 10; ten[1] = 0; ten[2] = 0; ten[3] = 0 // TODO: nicer initialisation?
+    if dword_isult(p, @ten)
+	putc(^p + '0')
+    else
+	dword_div(@j, @k, p, @ten)
+	puti32(@j)
+	putc(k[0] + '0')
+    fin
+end
+
 def log_time(name)
     word result
 
@@ -126,7 +138,7 @@ end
 
 // Actual benchmarks
 
-def intmath()
+def intmath16()
     word x, y, i
     time(@start)
     x = 0
@@ -139,7 +151,36 @@ def intmath()
     puti(x) // should be 8000
     putln()
     time(@finish)
-    log_time(@intmathstr)
+    log_time(@intmath16str)
+end
+
+def TODO(p)
+    word i
+    for i = 3 downto 0
+	prbyte((p).[i])
+    next
+    putln()
+end
+
+def intmath32()
+    byte x[4], y[4], a[4], b[4]
+    word i
+    time(@start)
+    x[0] = 0; x[1] = 0; x[2] = 0; x[3] = 0 // TODO: create helper?
+    y[0] = 9; y[1] = 0; y[2] = 0; y[3] = 0 // TODO: create helper?
+    puts("Start\n")
+    for i = 1 to 1000
+	// x = x + (y * y - y) / y
+	dword_mul(@a, @y, @y)
+	dword_sub(@a, @a, @y)
+	dword_div(@a, @b, @a, @y) // @b is remainder, not used
+	dword_add(@x, @x, @a)
+    next
+    puts("Finish ")
+    puti32(@x) // should be 8000
+    putln()
+    time(@finish)
+    log_time(@intmath32str)
 end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
@@ -176,9 +217,10 @@ def grafscrn()
     log_time(@grafscrnstr)
 end
 
-intmath()
-textscrn()
-grafscrn()
+intmath16()
+intmath32()
+// TODO textscrn()
+// TODO grafscrn()
 show_times()
 done
 

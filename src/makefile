@@ -261,9 +261,13 @@ $(HGR1):	samplesrc/hgr1.pla samplesrc/hgr1test.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hgr1.pla > samplesrc/hgr1.a
 	acme --setpc 4094 -o $(HGR1) samplesrc/hgr1.a
 
-$(ACORNOS): libsrc/acornos.pla $(PLVM02) $(PLASM)
+$(ACORNOS): libsrc/acornos.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < libsrc/acornos.pla > libsrc/acornos.a
 	acme --setpc 4094 -o $(ACORNOS) libsrc/acornos.a
+
+dword: libsrc/dword.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < libsrc/dword.pla > libsrc/dword.a
+	acme --setpc 4094 -o DWORD\#FE1000 libsrc/dword.a
 
 hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hello.pla > samplesrc/hello.a
@@ -286,5 +290,5 @@ pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/pcw.pla > samplesrc/pcw.a
 	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi pcw $(ACORNOS)
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi pcw dword $(ACORNOS)
 	beebasm -i skel.beebasm -do plasma.ssd

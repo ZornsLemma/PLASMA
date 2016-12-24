@@ -1,0 +1,279 @@
+// 32 bit (double word) arithmetic library
+
+// TODO: This code has not been heavily tested and may be buggy!
+// TODO: Multiply/divide have had no thought whatsoever given to signed vs unsigned
+
+// dword_add(result, lhs, rhs)
+export asm dword_add
+    BBC=1
+    !SOURCE "vmsrc/plvmzp.inc"
+
+    LDA ESTKL+2,X
+    STA DSTL
+    LDA ESTKH+2,X
+    STA DSTH
+    LDA ESTKL+1,X
+    STA SRCL
+    LDA ESTKH+1,X
+    STA SRCH
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    INX
+    INX
+    STX ESP
+
+    LDY #0
+    LDX #5
+    CLC
+-   LDA (SRC),Y
+    ADC (TMP),Y
+    STA (DST),Y
+    INY
+    DEX
+    BNE -
+
+    LDX ESP
+    RTS
+end
+
+// dword_sub(result, lhs, rhs)
+// TODO: This is almost identical to dword_add, should they share code?
+export asm dword_sub
+    BBC=1
+    !SOURCE "vmsrc/plvmzp.inc"
+
+    LDA ESTKL+2,X
+    STA DSTL
+    LDA ESTKH+2,X
+    STA DSTH
+    LDA ESTKL+1,X
+    STA SRCL
+    LDA ESTKH+1,X
+    STA SRCH
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    INX
+    INX
+    STX ESP
+
+    LDY #0
+    LDX #5
+    SEC
+-   LDA (SRC),Y
+    SBC (TMP),Y
+    STA (DST),Y
+    INY
+    DEX
+    BNE -
+
+    LDX ESP
+    RTS
+end
+
+// dword_mul(result, lhs, rhs)
+// Based on the code at http://6502.org/source/integers/32muldiv.htm
+// TODO: Is there any faster code available?
+// TODO: Should we expose the high 32 bits of the result? Possibly via a
+// separate function?
+export asm dword_mul
+    MULR  = SCRATCH
+    MULND = SCRATCH+4
+    PROD  = SCRATCH+8
+
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    LDY #3
+-   LDA (TMP),Y
+    STA MULR,Y
+    DEY
+    BPL -
+
+    LDA ESTKL+1,X
+    STA TMPL
+    LDA ESTKH+1,X
+    STA TMPH
+    LDY #3
+--  LDA (TMP),Y
+    STA MULND,Y
+    DEY
+    BPL --
+
+    STX ESP
+
+MULTIPLY:  lda     #$00
+           sta     PROD+4   ;Clear upper half of
+           sta     PROD+5   ;product
+           sta     PROD+6
+           sta     PROD+7
+           ldx     #$20     ;Set binary count to 32
+SHIFT_R:   lsr     MULR+3   ;Shift multiplyer right
+           ror     MULR+2
+           ror     MULR+1
+           ror     MULR
+           bcc     ROTATE_R ;Go rotate right if c = 0
+           lda     PROD+4   ;Get upper half of product
+           clc              ; and add multiplicand to
+           adc     MULND    ; it
+           sta     PROD+4
+           lda     PROD+5
+           adc     MULND+1
+           sta     PROD+5
+           lda     PROD+6
+           adc     MULND+2
+           sta     PROD+6
+           lda     PROD+7
+           adc     MULND+3
+ROTATE_R:  ror              ;Rotate partial product
+           sta     PROD+7   ; right
+           ror     PROD+6
+           ror     PROD+5
+           ror     PROD+4
+           ror     PROD+3
+           ror     PROD+2
+           ror     PROD+1
+           ror     PROD
+           dex              ;Decrement bit count and
+           bne     SHIFT_R  ; loop until 32 bits are
+
+    LDX ESP
+    INX
+    INX
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    LDY #3
+--- LDA PROD,Y
+    STA (TMP),Y
+    DEY
+    BPL ---
+    RTS
+end
+
+// dword_div(quotient, remainder, lhs, rhs)
+// Based on the code at http://6502.org/source/integers/32muldiv.htm
+// TODO: Is there any faster code available?
+export asm dword_div
+    DVDQUO = SCRATCH
+    DVDR   = SCRATCH+4
+    DMULR  = SCRATCH+12
+    ADDDP  = TMPL
+
+    STX ESP
+
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    LDY #3
+-   LDA (TMP),Y
+    STA DVDR,Y
+    LDA #0
+    STA DVDR+4,Y
+    DEY
+    BPL -
+
+    LDA ESTKL+1,X
+    STA TMPL
+    LDA ESTKH+1,X
+    STA TMPH
+    LDY #3
+--  LDA (TMP),Y
+    STA DVDQUO,Y
+    DEY
+    BPL --
+
+DIVIDE:    ldy     #$20       ;Set bit length
+DO_NXT_BIT: asl    DVDQUO
+           rol     DVDQUO+1
+           rol     DVDQUO+2
+           rol     DVDQUO+3
+           rol     DVDR+4
+           rol     DVDR+5
+           rol     DVDR+6
+           rol     DVDR+7
+           ldx     #$00
+           lda     #$04
+           sta     ADDDP
+           sec
+SUBT:      lda     DVDR+4,x   ;Subtract divider from
+           sbc     DVDR,x     ; partial dividend and
+           sta     DMULR,x    ; save
+           inx
+           dec     ADDDP
+           bne     SUBT
+           bcc     NXT        ;Branch to do next bit
+           inc     DVDQUO     ; if result = or -
+           ldx     #$04       ;Put subtractor result
+RSULT:     lda     DMULR-1,x  ; into partial dividend
+           sta     DVDR+3,x
+           dex
+           bne     RSULT
+NXT:       dey
+           bne     DO_NXT_BIT
+
+    LDX ESP
+
+    LDA ESTKL+2,X
+    STA TMPL
+    LDA ESTKH+2,X
+    STA TMPH
+    LDY #3
+--- LDA DVDR+4,Y
+    STA (TMP),Y
+    DEY
+    BPL ---
+
+    LDA ESTKL+3,X
+    STA TMPL
+    LDA ESTKH+3,X
+    STA TMPH
+    LDY #3
+---- LDA DVDQUO,Y
+    STA (TMP),Y
+    DEY
+    BPL ----
+
+    INX
+    INX
+    INX
+    RTS
+end
+
+// dword_isult(lhs, rhs)
+export asm dword_isult
+    LDA ESTKL+1,X
+    STA SRCL
+    LDA ESTKH+1,X
+    STA SRCH
+    LDA ESTKL,X
+    STA DSTL
+    LDA ESTKH,X
+    STA DSTH
+
+    LDY #3
+-   LDA (SRC),Y
+    CMP (DST),Y
+    BCC ISTRUE
+    BNE ISFALSE
+    DEY
+    BPL -
+ISFALSE
+    LDA #0
+    !BYTE $2C ; BIT abs; skips next two bytes
+ISTRUE
+    LDA #$FF
+    
+    INX
+    STA ESTKL,X
+    STA ESTKH,X
+    RTS
+end
+
+// vi: sts=4 sw=4
