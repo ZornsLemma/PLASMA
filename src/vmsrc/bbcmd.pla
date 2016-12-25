@@ -902,6 +902,8 @@ asm memxcpy
 	ORA	ESTKL,X
 	BEQ	MEMXCPYEX
 
+	STY 	IPY
+
 	;* TODO: this may want to share code with SETIPH; the two need to
 	;* be consistent if they don't actually share code.
 	LDA	ESTKH+2,X
@@ -910,8 +912,8 @@ asm memxcpy
 	ASL
 	ADC	#$00
 	AND	#$03
-	CLC
-	ADC	#$04
+	TAY
+	LDA	RAMBANK,Y
 	STA	$F4
 	STA	$FE30
 
@@ -927,8 +929,6 @@ asm memxcpy
 	LDA	ESTKH+1,X
 	STA	SRCH
 	
-	STY 	IPY
-
 	LDY	ESTKL,X
 	BEQ	MEMXCPYLP
 	INC 	ESTKH,X
