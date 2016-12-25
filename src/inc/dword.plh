@@ -2,5 +2,7 @@
 
 import dword
   predef dword_add, dword_sub, dword_mul, dword_div
+  predef dword_isuword
+  predef dword_touword
   predef dword_isult
 end

@@ -2,6 +2,9 @@
 
 // TODO: This code has not been heavily tested and may be buggy!
 
+// TODO: Lots of common bits of code, can I arrange to e.g. BNE between
+// different asm functions to share code?
+
 // void dword_add(dword *result, const dword *lhs, const dword *rhs)
 export asm dword_add
     BBC=1
@@ -251,6 +254,42 @@ NOQUOTIENT
     INX
     INX
     INX
+    RTS
+end
+
+// bool dword_isuword(const dword *p)
+export asm dword_isuword
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    LDY #2
+    LDA (TMP),Y
+    BNE NOTUWORD
+    INY
+    LDA (TMP),Y
+    BNE NOTUWORD
+    LDA #$FF
+    !BYTE $2C ; BIT abs; skips next two bytes
+NOTUWORD
+    LDA #0
+    STA ESTKL,X
+    STA ESTKH,X
+    RTS
+end
+
+// word dword_touword(const dword *p)
+export asm dword_touword
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+    LDY #0
+    LDA (TMP),Y
+    STA ESTKL,X
+    INY
+    LDA (TMP),Y
+    STA ESTKH,X
     RTS
 end
 

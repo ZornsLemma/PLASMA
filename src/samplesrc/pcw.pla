@@ -30,50 +30,6 @@ asm equates
     !SOURCE "vmsrc/plvmzp.inc"
 end
 
-// time_delta(a, b) -> (*b)-(*a)
-// TODO: This could use the dword library?
-asm time_delta
-    LDA ESTKL+1,X
-    STA	SRCL
-    LDA ESTKH+1,X
-    STA SRCH
-    LDA ESTKL,X
-    STA DSTL
-    LDA ESTKH,X
-    STA DSTH
-    STX ESP
-    LDX #5
-    LDY #0
-    SEC
--   LDA (DST),Y
-    SBC (SRC),Y
-    STA SCRATCH,Y
-    INY
-    DEX
-    BNE -
-
-    LDX ESP
-    INX
-
-    LDA SCRATCH
-    STA ESTKL,X
-    LDA SCRATCH+1
-    STA ESTKH,X
-    LDY #2
---  LDA SCRATCH,Y
-    BNE TOOSLOW
-    INY
-    CPY #5
-    BNE --
-    RTS
-
-TOOSLOW
-    BRK
-    !BYTE 127
-    !TEXT "Too slow"
-    BRK
-end
-
 // plot(x, y)
 asm plot
     LDA #25
@@ -100,6 +56,19 @@ def puti32(p)
 	dword_div(@j, @k, p, @ten)
 	puti32(@j)
 	putc(k[0] + '0')
+    fin
+end
+
+def time_delta(start, finish)
+    // We can get away with ignoring the fifth byte; the result will be
+    // correct unless there's a difference of more than one in the fifth
+    // byte, and that's just not going to happen.
+    byte delta_dword[4]
+    dword_sub(@delta_dword, finish, start)
+    if dword_isuword(@delta_dword)
+	return dword_touword(@delta_dword)
+    else
+	return 0
     fin
 end
 
