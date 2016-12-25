@@ -844,6 +844,11 @@ asm longjmp
 	SBC	(TMP),Y
 	STA	IFPH
 	INY
+	;* TODONOW: This may not need to stack some things (e.g. IFP, $F4) for PLAS128
+	;* because some state is pushed onto the stack by CALL and I think that is what
+	;* really matters. Need to think about this with a clear head! (Don't forget
+	;* that if this is the case, the various calculations of the jmp_buf size/worst
+	;* case may need to return a smaller value.)
 #ifdef PLAS128
 	SEC
 	LDA	#0
@@ -853,19 +858,22 @@ asm longjmp
 	LDA	HIMEMH
 	SBC	(TMP),Y
 	STA	PPH
-	;* TODONOW Test that the restore of PP is working
-
-	LDA	(TMP),Y
-	STA	$F4
-	STA	$FE30
 	INY
+	;* TODONOW Test that the restore of PP is working
 #endif
+
 	LDA	(TMP),Y
 	STA	IPL
 	INY
 	LDA	(TMP),Y
 	STA	IPH
 	INY
+#ifdef PLAS128
+	LDA	(TMP),Y
+	STA	$F4
+	STA	$FE30
+	INY
+#endif
 
 	TYA
 	CLC
