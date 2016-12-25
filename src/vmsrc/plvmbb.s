@@ -1065,6 +1065,10 @@ BRKJMP	JMP	(ERRFP)
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 
+;* TODO: Does PLAS128 need to refuse to run if Tube is active? Merely having
+;* load address set to &FFxxxx doesn't seem to make it work properly. Ah,
+;* it's probably because my OSFILE command has 0 for high order bits - I can
+;* probably fix that.
 VMINITPOSTRELOC
 	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
@@ -1107,11 +1111,15 @@ FINDRAMDONE
 SOMERAM	STX	RAMBANKCOUNT
 }
 
-	;* TODONOW: IF WE'RE ON A SECOND PROCESSOR, OVERRIDE THIS WITH $F800 (CHECK THAT)
-	;* - DON'T FORGET THERE ARE TWO PLACES WHERE WE CALL OSBYTE $84, PERHAPS FACTOR
-	;* THE CODE INTO A SUBROUTINE
+	;* If we're running on a second processor, we use memory up to $F800, whatever
+	;* OSBYTE $84 says. TODONOW: Make sure mode change code doesn't "undo" this...
 	LDA	#$84
 	JSR	$FFF4
+	LDA	#>START
+	CMP	#$0E
+	BCS	NOTTUBE
+	LDY	#$F8
+NOTTUBE
 	STX	IFPL		; INIT FRAME POINTER
 	STY	IFPH
 !IFDEF PLAS128 {
