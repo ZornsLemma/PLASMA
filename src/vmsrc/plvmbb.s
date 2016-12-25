@@ -1064,105 +1064,6 @@ BRKJMP	JMP	(ERRFP)
 
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
-VMINIT				; RELOCATE CODE TO OSHWM
-	DELTA   = SCRATCH
-	CODEP   = SCRATCH+1
-	CODEPL  = CODEP
-	CODEPH  = CODEP+1
-	DELTAP  = SCRATCH+3
-	DELTAPL = DELTAP
-	DELTAPH = DELTAP+1
-	COUNT	= SCRATCH+5
-	COUNTL  = COUNT
-	COUNTH  = COUNT+1
-	LDA	#$83
-	JSR	$FFF4
-	CPY	#(>START)+1
-	BCC	RELOCOK		; We don't support relocating upwards
-	BRK
-	!BYTE	$80
-	!TEXT	"PAGE too high"
-	BRK
-RELOCOK
-	TYA
-	STA	DSTH
-	SEC
-	SBC	#>START
-	STA	DELTA
-	LDA	#>START
-	STA	CODEPH
-	STA	SRCH
-	STA	CODEPH
-	LDA	#0
-	TAY
-	STA	DSTL
-	STA	SRCL
-	STA	CODEPL
-	LDA	#<VMRELOC
-	STA	DELTAPL
-	LDA	#>VMRELOC
-	STA	DELTAPH
-	LDA	VMRELOCCOUNT
-	STA	COUNTL
-	LDA	VMRELOCCOUNT+1
-	STA	COUNTH
-	; If there are no relocations, the fix up data hasn't been appended.
-	; Justy carry on without relocating.
-	ORA	COUNTL
-	BEQ	VMINITPOSTRELOC
-
-	; None of the following code can contain absolute addresses,
-	; otherwise it will be modified while it's executing and may crash.
-	; This is why we have to copy VMRELOCCOUNT into zero page.
-
-	; Fix up the absolute addresses in the VM code in place
-RELPATCHLP
-	LDA	(DELTAP),Y
-	BEQ	PAGEADVANCE
-	CLC
-	ADC	CODEPL
-	STA	CODEPL
-	BCC	RELPATCHCC
-	INC	CODEPH
-RELPATCHCC
-	LDA	(CODEP),Y
-	CLC
-	ADC	DELTA
-	STA	(CODEP),Y
-RELPATCHNEXT
-	INC	DELTAPL
-	BNE	RELPATCHNE
-	INC	DELTAPH
-RELPATCHNE
-	LDA	COUNTL
-	BNE	RELPATCHNE2
-	DEC	COUNTH
-RELPATCHNE2
-	DEC	COUNTL
-	BNE	RELPATCHLP
-	LDA	COUNTH
-	BNE	RELPATCHLP
-
-	; Now copy the code down to OSHWM.
-	LDA	#1+>(VMRELOCCOUNT-START)
-	STA	COUNTH
-RELCOPYLP
-	LDA	(SRC),Y
-	STA	(DST),Y
-	INY
-	BNE	RELCOPYLP
-	INC	SRCH
-	INC	DSTH
-	DEC	COUNTH
-	BNE	RELCOPYLP
-
-	; Now execute the relocated code; this absolute address will have
-	; been patched up.
-	JMP	VMINITPOSTRELOC
-
-PAGEADVANCE
-	INC	CODEPH
-	BNE	RELPATCHNEXT	; ALWAYS BRANCHES
 
 VMINITPOSTRELOC
 	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
@@ -1250,6 +1151,123 @@ PAGE0	=	*
 NEXTOPH	INC	IPH
 	BNE	FETCHOP
 }
+
+VMINIT
+	LDX	#$FF
+	TXS
+
+				; RELOCATE CODE TO OSHWM
+	DELTA   = SCRATCH
+	CODEP   = SCRATCH+1
+	CODEPL  = CODEP
+	CODEPH  = CODEP+1
+	DELTAP  = SCRATCH+3
+	DELTAPL = DELTAP
+	DELTAPH = DELTAP+1
+	COUNT	= SCRATCH+5
+	COUNTL  = COUNT
+	COUNTH  = COUNT+1
+	LDA	#$83
+	JSR	$FFF4
+	CPY	#(>START)+1
+	BCC	RELOCOK		; We don't support relocating upwards
+	BRK
+	!BYTE	$80
+	!TEXT	"PAGE too high"
+	BRK
+RELOCOK
+	TYA
+	STA	DSTH
+	SEC
+	SBC	#>START
+	STA	DELTA
+	LDA	#>START
+	STA	CODEPH
+	STA	SRCH
+	STA	CODEPH
+	LDA	#0
+	TAY
+	STA	DSTL
+	STA	SRCL
+	STA	CODEPL
+	LDA	#<VMRELOC
+	STA	DELTAPL
+	LDA	#>VMRELOC
+	STA	DELTAPH
+	LDA	VMRELOCCOUNT
+	STA	COUNTL
+	LDA	VMRELOCCOUNT+1
+	STA	COUNTH
+	; If there are no relocations, the fix up data hasn't been appended.
+	; Justy carry on without relocating.
+	ORA	COUNTL
+	BNE	DORELOC
+	JMP	VMINITPOSTRELOC
+DORELOC
+
+	; None of the following code can contain absolute addresses,
+	; otherwise it will be modified while it's executing and may crash.
+	; This is why we have to copy VMRELOCCOUNT into zero page.
+
+	; Fix up the absolute addresses in the VM code in place
+RELPATCHLP
+	LDA	(DELTAP),Y
+	BEQ	PAGEADVANCE
+	CLC
+	ADC	CODEPL
+	STA	CODEPL
+	BCC	RELPATCHCC
+	INC	CODEPH
+RELPATCHCC
+	LDA	(CODEP),Y
+	CLC
+	ADC	DELTA
+	STA	(CODEP),Y
+RELPATCHNEXT
+	INC	DELTAPL
+	BNE	RELPATCHNE
+	INC	DELTAPH
+RELPATCHNE
+	LDA	COUNTL
+	BNE	RELPATCHNE2
+	DEC	COUNTH
+RELPATCHNE2
+	DEC	COUNTL
+	BNE	RELPATCHLP
+	LDA	COUNTH
+	BNE	RELPATCHLP
+
+	; Now copy the code down to OSHWM. We must not copy over the top of
+	; this code while it's executing! This is why it's right at the end,
+	; and we're precise about how many bytes we copy.
+	BYTESTOCOPY = VMINIT-START
+	LDA	#>BYTESTOCOPY
+	STA	COUNTH
+	LDY	#<BYTESTOCOPY
+	STY	COUNTL
+	BEQ	RELCOPYLP
+	INC	COUNTH
+	LDY	#0
+RELCOPYLP
+	LDA	(SRC),Y
+	STA	(DST),Y
+	INY
+	BNE	RELCOPYNOINC
+	INC	SRCH
+	INC	DSTH
+RELCOPYNOINC
+	DEC	COUNTL
+	BNE	RELCOPYLP
+	DEC	COUNTH
+	BNE	RELCOPYLP
+
+	; Now execute the relocated code; this absolute address will have
+	; been patched up.
+	JMP	VMINITPOSTRELOC
+
+PAGEADVANCE
+	INC	CODEPH
+	BNE	RELPATCHNEXT	; ALWAYS BRANCHES
 
 VMRELOCCOUNT
 	!WORD $0000
