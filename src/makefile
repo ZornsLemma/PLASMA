@@ -71,10 +71,11 @@ TXTTYPE	= .TXT
 all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(BBSSD)
 
 clean:
-	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
+	-rm *FE1000 *FF2000 *FF3000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
 	-rm toolsrc/*.o toolsrc/*~ toolsrc/*.a
-	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
+	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym vmsrc/32cmd.* vmsrc/128cmd.*
 	-rm samplesrc/*.o samplesrc/*~ samplesrc/*.a
+	-rm plasma.ssd
 
 #
 # PLASMA compiler: plasm
