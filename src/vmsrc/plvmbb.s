@@ -31,9 +31,7 @@
 ;*
 ;* INTERPRETER HEADER+INITIALIZATION
 ;*
-;* TODO: Use $2000 as starting point for now; we can get cleverer later.
-;* This will allow for DFS/ADFS workspace.
-	*=	$2000
+	*=	START
 SEGBEGIN JMP	VMINIT
 
 ;*
@@ -1066,7 +1064,100 @@ BRKJMP	JMP	(ERRFP)
 
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
-VMINIT	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
+VMINIT				; RELOCATE CODE TO OSHWM
+				; TODO: CURRENTLY THIS WILL GO WRONG IF IT RELOCATES *UP*
+	; TODO: Might be nice if this was a no-op if the relocation count is zero,
+	; rather than relocating with no fixups and then crashing....
+	DELTA   = SCRATCH
+	CODEP   = SCRATCH+1
+	CODEPL  = CODEP
+	CODEPH  = CODEP+1
+	DELTAP  = SCRATCH+3
+	DELTAPL = DELTAP
+	DELTAPH = DELTAP+1
+	COUNT	= SCRATCH+5
+	COUNTL  = COUNT
+	COUNTH  = COUNT+1
+	LDA	#$83
+	JSR	$FFF4
+	TYA
+	STA	DSTH
+	SEC
+	SBC	#>START
+	STA	DELTA
+	LDA	#>START
+	STA	CODEPH
+	STA	SRCH
+	STA	CODEPH
+	LDA	#0
+	TAY
+	STA	DSTL
+	STA	SRCL
+	STA	CODEPL
+	LDA	#<VMRELOC
+	STA	DELTAPL
+	LDA	#>VMRELOC
+	STA	DELTAPH
+	LDA	VMRELOCCOUNT
+	STA	COUNTL
+	LDA	VMRELOCCOUNT+1
+	STA	COUNTH
+
+	; None of the following code can contain absolute addresses,
+	; otherwise it will be modified while it's executing and may crash.
+	; This is why we have to copy VMRELOCCOUNT into zero page.
+
+	; Fix up the absolute addresses in the VM code in place
+RELPATCHLP
+	LDA	(DELTAP),Y
+	BEQ	PAGEADVANCE
+	CLC
+	ADC	CODEPL
+	STA	CODEPL
+	BCC	RELPATCHCC
+	INC	CODEPH
+RELPATCHCC
+	LDA	(CODEP),Y
+	CLC
+	ADC	DELTA
+	STA	(CODEP),Y
+RELPATCHNEXT
+	INC	DELTAPL
+	BNE	RELPATCHNE
+	INC	DELTAPH
+RELPATCHNE
+	LDA	COUNTL
+	BNE	RELPATCHNE2
+	DEC	COUNTH
+RELPATCHNE2
+	DEC	COUNTL
+	BNE	RELPATCHLP
+	LDA	COUNTH
+	BNE	RELPATCHLP
+
+	; Now copy the code down to OSHWM.
+	LDA	#1+>(VMRELOCCOUNT-START)
+	STA	COUNTH
+RELCOPYLP
+	LDA	(SRC),Y
+	STA	(DST),Y
+	INY
+	BNE	RELCOPYLP
+	INC	SRCH
+	INC	DSTH
+	DEC	COUNTH
+	BNE	RELCOPYLP
+
+	; Now execute the relocated code; this absolute address will have
+	; been patched up.
+	JMP	VMINITPOSTRELOC
+
+PAGEADVANCE
+	INC	CODEPH
+	BNE	RELPATCHNEXT	; ALWAYS BRANCHES
+
+VMINITPOSTRELOC
+	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
 	DEY
@@ -1151,3 +1242,7 @@ PAGE0	=	*
 NEXTOPH	INC	IPH
 	BNE	FETCHOP
 }
+
+VMRELOCCOUNT
+	!WORD $0000
+VMRELOC				; MUST BE LAST LINE OF FILE

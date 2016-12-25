@@ -5,7 +5,9 @@ PLVM01  = A1PLASMA\#060280
 PLVM02	= PLASMA.SYSTEM\#FF2000
 PLVM03	= SOS.INTERP\#050000
 PLVM32  = BBPLASMA\#FF2000
+PLVM32X = BBPLASMA\#FF3000
 PLVM128 = BBPLAS128\#FF2000
+PLVM128X= BBPLAS128\#FF3000
 CMD     = CMD\#FF2000
 ED      = ED\#FF2000
 SB      = SB\#FF2000
@@ -69,7 +71,7 @@ TXTTYPE	= .TXT
 all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(BBSSD)
 
 clean:
-	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03)
+	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
 	-rm toolsrc/*.o toolsrc/*~ toolsrc/*.a
 	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
 	-rm samplesrc/*.o samplesrc/*~ samplesrc/*.a
@@ -100,11 +102,15 @@ vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
 	./$(PLASM) -A < vmsrc/128cmd.pla > vmsrc/128cmd.a
 
-$(PLVM32): vmsrc/plvmbb.s vmsrc/32cmd.a
-	acme -o $(PLVM32) -l vmsrc/plvm32.sym vmsrc/plvmbb.s
+$(PLVM32): vmsrc/plvmbb.s vmsrc/32cmd.a add-relocations.py
+	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym vmsrc/plvmbb.s
+	acme '-DSTART=$$3000' -o $(PLVM32X) -l vmsrc/plvm32x.sym vmsrc/plvmbb.s
+	python add-relocations.py $(PLVM32) $(PLVM32X)
 
-$(PLVM128): vmsrc/plvmbb.s vmsrc/128cmd.a
-	acme -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym vmsrc/plvmbb.s
+$(PLVM128): vmsrc/plvmbb.s vmsrc/128cmd.a add-relocations.py
+	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym vmsrc/plvmbb.s
+	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVM128X) vmsrc/plvmbb.s
+	python add-relocations.py $(PLVM128) $(PLVM128X)
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
 	./$(PLASM) -A < vmsrc/cmd.pla > vmsrc/cmd.a
