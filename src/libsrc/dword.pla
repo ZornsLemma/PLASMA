@@ -157,6 +157,7 @@ ROTATE_R:  ror              ;Rotate partial product
 end
 
 // void dword_div(dword *quotient, dword *remainder, const dword *lhs, const dword *rhs)
+// quotient or remainder may be 0 to not return that value
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
 // TODO: No thought given to signedness considerations
@@ -225,21 +226,27 @@ NXT:       dey
     STA TMPL
     LDA ESTKH+2,X
     STA TMPH
+    ORA TMPL
+    BEQ NOREMAINDER
     LDY #3
 --- LDA DVDR+4,Y
     STA (TMP),Y
     DEY
     BPL ---
+NOREMAINDER
 
     LDA ESTKL+3,X
     STA TMPL
     LDA ESTKH+3,X
     STA TMPH
+    ORA	TMPL
+    BEQ NOQUOTIENT
     LDY #3
 ---- LDA DVDQUO,Y
     STA (TMP),Y
     DEY
     BPL ----
+NOQUOTIENT
 
     INX
     INX

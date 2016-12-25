@@ -163,7 +163,7 @@ def TODO(p)
 end
 
 def intmath32()
-    byte x[4], y[4], a[4], b[4]
+    byte x[4], y[4], a[4]
     word i
     time(@start)
     x[0] = 0; x[1] = 0; x[2] = 0; x[3] = 0 // TODO: create helper?
@@ -173,7 +173,7 @@ def intmath32()
 	// x = x + (y * y - y) / y
 	dword_mul(@a, @y, @y)
 	dword_sub(@a, @a, @y)
-	dword_div(@a, @b, @a, @y) // @b is remainder, not used
+	dword_div(@a, 0, @a, @y)
 	dword_add(@x, @x, @a)
     next
     puts("Finish ")
