@@ -24,14 +24,14 @@ export asm dword_add
     STX ESP
 
     LDY #0
-    LDX #5
+    LDX #3
     CLC
 -   LDA (SRC),Y
     ADC (TMP),Y
     STA (DST),Y
     INY
     DEX
-    BNE -
+    BPL -
 
     LDX ESP
     RTS
@@ -60,14 +60,14 @@ export asm dword_sub
     STX ESP
 
     LDY #0
-    LDX #5
+    LDX #3
     SEC
 -   LDA (SRC),Y
     SBC (TMP),Y
     STA (DST),Y
     INY
     DEX
-    BNE -
+    BPL -
 
     LDX ESP
     RTS
