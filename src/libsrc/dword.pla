@@ -257,6 +257,27 @@ NOQUOTIENT
     RTS
 end
 
+// void dword_fromuword(dword *lhs, word rhs)
+export asm dword_fromuword
+    LDA ESTKL+1,X
+    STA TMPL
+    LDA ESTKH+1,X
+    STA TMPH
+    LDY #0
+    LDA ESTKL,X
+    STA (TMP),Y
+    INY
+    LDA ESTKH,X
+    STA (TMP),Y
+    LDA #0
+    INY
+    STA (TMP),Y
+    INY
+    STA (TMP),Y
+    INX
+    RTS
+end
+
 // bool dword_isuword(const dword *p)
 export asm dword_isuword
     LDA ESTKL,X

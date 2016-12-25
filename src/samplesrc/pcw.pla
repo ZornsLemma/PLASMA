@@ -49,7 +49,7 @@ end
 
 def puti32(p)
     byte ten[4], j[4], k[4]
-    ten[0] = 10; ten[1] = 0; ten[2] = 0; ten[3] = 0 // TODO: nicer initialisation?
+    dword_fromuword(@ten, 10)
     if dword_isult(p, @ten)
 	putc(^p + '0')
     else
@@ -123,20 +123,12 @@ def intmath16()
     log_time(@intmath16str)
 end
 
-def TODO(p)
-    word i
-    for i = 3 downto 0
-	prbyte((p).[i])
-    next
-    putln()
-end
-
 def intmath32()
     byte x[4], y[4], a[4]
     word i
     time(@start)
-    x[0] = 0; x[1] = 0; x[2] = 0; x[3] = 0 // TODO: create helper?
-    y[0] = 9; y[1] = 0; y[2] = 0; y[3] = 0 // TODO: create helper?
+    dword_fromuword(@x, 0)
+    dword_fromuword(@y, 9)
     puts("Start\n")
     for i = 1 to 1000
 	// x = x + (y * y - y) / y
