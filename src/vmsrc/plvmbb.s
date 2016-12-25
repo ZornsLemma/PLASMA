@@ -1113,15 +1113,16 @@ SOMERAM	STX	RAMBANKCOUNT
 
 	;* If we're running on a second processor, we use memory up to $F800, whatever
 	;* OSBYTE $84 says. TODONOW: Make sure mode change code doesn't "undo" this...
-	;* TODONOW: Might be best if we actually check properly for second processor; this
-	;* works but if relocation is disabled for any reason it won't "detect" it.
+	LDA	#$82
+	JSR	$FFF4
+	TYA
+	BMI	NOTTUBE
+	LDY	#$F8
+	BNE	INITFP
+NOTTUBE
 	LDA	#$84
 	JSR	$FFF4
-	LDA	#>START
-	CMP	#$0E
-	BCS	NOTTUBE
-	LDY	#$F8
-NOTTUBE
+INITFP	LDX	#$00
 	STX	IFPL		; INIT FRAME POINTER
 	STY	IFPH
 !IFDEF PLAS128 {
