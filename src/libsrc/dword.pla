@@ -2,7 +2,7 @@
 
 // TODO: This code has not been heavily tested and may be buggy!
 
-// dword_add(result, lhs, rhs)
+// void dword_add(dword *result, const dword *lhs, const dword *rhs)
 export asm dword_add
     BBC=1
     !SOURCE "vmsrc/plvmzp.inc"
@@ -37,7 +37,7 @@ export asm dword_add
     RTS
 end
 
-// dword_sub(result, lhs, rhs)
+// void dword_sub(dword *result, const dword *lhs, const dword *rhs)
 // TODO: This is almost identical to dword_add, should they share code?
 export asm dword_sub
     BBC=1
@@ -73,7 +73,7 @@ export asm dword_sub
     RTS
 end
 
-// dword_mul(result, lhs, rhs)
+// void dword_mul(dword *result, const dword *lhs, const dword *rhs)
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
 // TODO: Should we expose the high 32 bits of the result? Possibly via a
@@ -156,7 +156,7 @@ ROTATE_R:  ror              ;Rotate partial product
     RTS
 end
 
-// dword_div(quotient, remainder, lhs, rhs)
+// void dword_div(dword *quotient, dword *remainder, const dword *lhs, const dword *rhs)
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
 // TODO: No thought given to signedness considerations
@@ -247,7 +247,7 @@ NXT:       dey
     RTS
 end
 
-// dword_isult(lhs, rhs)
+// bool dword_isult(const dword *lhs, const dword *rhs)
 export asm dword_isult
     LDA ESTKL+1,X
     STA SRCL
