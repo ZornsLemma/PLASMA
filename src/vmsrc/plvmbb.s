@@ -1066,8 +1066,6 @@ SEGEND	=	*
 ;* TODO: Tidy up zero page use
 VMINIT				; RELOCATE CODE TO OSHWM
 				; TODO: CURRENTLY THIS WILL GO WRONG IF IT RELOCATES *UP*
-	; TODO: Might be nice if this was a no-op if the relocation count is zero,
-	; rather than relocating with no fixups and then crashing....
 	DELTA   = SCRATCH
 	CODEP   = SCRATCH+1
 	CODEPL  = CODEP
@@ -1102,6 +1100,10 @@ VMINIT				; RELOCATE CODE TO OSHWM
 	STA	COUNTL
 	LDA	VMRELOCCOUNT+1
 	STA	COUNTH
+	; If there are no relocations, the fix up data hasn't been appended.
+	; Justy carry on without relocating.
+	ORA	COUNTL
+	BEQ	VMINITPOSTRELOC
 
 	; None of the following code can contain absolute addresses,
 	; otherwise it will be modified while it's executing and may crash.
