@@ -94,6 +94,14 @@ byte machid       = $BB // Arbitrary value
 //
 word cmdptr       = @hexchar // make it point to a zero
 //
+// Global variables for use by mode()
+//
+byte gm_new_himem_higher
+word gm_new_frame_start
+#ifdef PLAS128
+    word gm_new_ifp
+#endif
+//
 // Standard Library exported functions.
 //
 byte syslibstr[]  = "CMDSYS"
@@ -1101,7 +1109,6 @@ end
 def modenew(n)
     const cpu_stack = $100 // TODO PUT AT TOP LEVEL OF FILE? MAYBE ALREADY THERE?
     word new_himemh, himem, new_himem
-    word new_frame_start
     byte s, frame_size
     word call_jsr_return, ical_jsr_return, possible_jsr_return
     word has_frame_size, has_no_frame_size, working_ifp, working_pp
@@ -1119,17 +1126,17 @@ def modenew(n)
     himem = ^himemh << 8
     new_himem = new_himemh << 8
 #ifdef PLAS128
-    new_frame_start = *pp + (new_himem - himem)
-    // Because we use new_frame_start below, it's important that PP doesn't
+    gm_new_frame_start = *pp + (new_himem - himem)
+    // Because we use gm_new_frame_start below, it's important that PP doesn't
     // move between now and then - which means none of the following code can
     // use constant strings. (We could redo this calculation at that point, but
     // it's nicer not to have to.)
 #else
-    new_frame_start = *ifp + (new_himem - himem)
+    gm_new_frame_start = *ifp + (new_himem - himem)
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
-    if uword_islt(new_frame_start - 512, heap)
+    if uword_islt(gm_new_frame_start - 512, heap)
 	return FALSE
     fin
 
@@ -1192,25 +1199,35 @@ def modenew(n)
     // so we copy what we need to fixed locations beforehand. TODO: These
     // *could* be true global variables, rather than fixed addresses, I
     // think.
-    *$600 = uword_isge(new_himem, himem)
-    *$604 = *ifp + (new_himem - himem)
-    *$606 = new_frame_start
+    gm_new_himem_higher = uword_isge(new_himem, himem)
+#ifdef PLAS128
+    gm_new_ifp = *ifp + (new_himem - himem)
+#endif
+#ifdef PLAS128
     *$608 = *pp // copy from here
     *$60A = himem - *pp // copy size
-    *$60C = n
+#else
+    *$608 = *ifp
+    *$60A = himem - *ifp
+#endif
+    ^$60C = n
     *ifp = heap + 256 // we know there's at least 512 bytes available
 
-    if *$600
+    if gm_new_himem_higher
 	cout(22)
 	cout(^$60C)
     fin
-    memcpy(*$606, *$608, *$60A)
-    if not *$600
+    memcpy(gm_new_frame_start, *$608, *$60A)
+    if not gm_new_himem_higher
 	cout(22)
 	cout(^$60C)
     fin
-    *pp = *$606
-    *ifp = *$604
+#ifdef PLAS128
+    *pp = gm_new_frame_start
+    *ifp = gm_new_ifp
+#else
+    *ifp = gm_new_frame_start
+#endif
     return TRUE
 end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
