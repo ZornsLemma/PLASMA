@@ -17,6 +17,7 @@ end
 def main
     byte key
     word m, result, count
+    puts("SFTODOTEMP")
 
     count = 0
     while 1

@@ -1054,6 +1054,22 @@ asm cpu_stack_ptr
     STA ESTKH,X
     RTS
 end
+asm get_call_jsr_return // TODO!?
+    DEX
+    LDA #<(CALLADR+2)
+    STA ESTKL,X
+    LDA #>(CALLADR+2)
+    STA ESTKH,X
+    RTS
+end
+asm get_ical_jsr_return // TODO!?
+    DEX
+    LDA #<(ICALADR+2)
+    STA ESTKL,X
+    LDA #>(ICALADR+2)
+    STA ESTKH,X
+    RTS
+end
 def mode(n)
     return modeint(heap, n)
 end
@@ -1087,7 +1103,8 @@ def modenew(n)
     word new_himemh, himem, new_himem
     word new_frame_start
     byte s, frame_size
-    word working_ifp, working_pp
+    word call_jsr_return, ical_jsr_return, possible_jsr_return
+    word has_frame_size, has_no_frame_size, working_ifp, working_pp
 
     new_himemh = $60 // TODO! IF ON SP, MUST RETURN $F8, OTHERWISE USE OSBYTE $85
     if ^himemh == new_himemh
@@ -1114,8 +1131,28 @@ def modenew(n)
     // PLAS128 has absolute IFP values stored on the CPU stack, so these need
     // to be patched up so they're correct once the frame stack has been
     // relocated.
+    //
+    // Unfortunately there are two possible CPU stack frames for a function,
+    // depending on whether it uses ENTER/LEAVE or -/RET. The former finishes
+    // by pushing a parameter frame size byte, the latter doesn't (it is implicitly 0).
+    // We work around this by observing that each CPU stack frame contains a
+    // return address pushed by the JSR instruction in either CALL or ICAL. At
+    // each step up the stack, we look at the two possible offsets (with/without
+    // a parameter frame size byte) and see which of the two has a plausible JSR
+    // return address.
+    //
+    // It would be possible to avoid all this by changing to store IFP-PP on the
+    // stack instead of an absolute IFP value, but although it's negligible I'd
+    // rather avoid doing the extra work on every function.
     oscli("save z 100 200")
-    s = cpu_stack_ptr() // TODO: CARE NEEDED AS INSIDE CPU_STACK_PTR WILL BE AN EXTRA FN CALL WHICH WILL DISAPPEAR ON RETURN AND SHOULD BE EXCLUDED
+    s = cpu_stack_ptr()
+    call_jsr_return = get_call_jsr_return()
+    ical_jsr_return = get_ical_jsr_return()
+    prstr("call_jsr_return ")
+    prword(call_jsr_return)
+    prstr("\nical_jsr_return ")
+    prword(ical_jsr_return)
+    crout()
     working_ifp = *ifp
     prstr("working_ifp ")
     prword(working_ifp)
@@ -1124,9 +1161,23 @@ def modenew(n)
 	prstr("----\n")
 	prstr("s ")
 	prbyte(s)
+	// We look for the JSR return address on the stack to infer
+	// whether this stack frame has a frame size or not.
+	possible_jsr_return = *(cpu_stack + s + 4)
+	if possible_jsr_return == call_jsr_return or \
+	   possible_jsr_return == ical_jsr_return:
+	    prstr("other jsr return would be ")
+	    prword(*(cpu_stack + s + 3))
+	    crout()
+	    frame_size = cpu_stack.[s + 1] // 1 byte - stacked by ENTER
+	else
+	    prstr("other jsr return would be ")
+	    prword(*(cpu_stack + s + 4))
+	    crout()
+	    frame_size = 0
+	    s-- // adjust s so the offsets in the following code work
+	fin
 	prstr("\nframe_size ")
-	// TODO HMMM - *THIS* FN WILL BE ENTERED WITH ENTER, BUT WE CAN'T KNOW IF ALL THE FNS ON THE STACK WERE ENTER/LEAVE OR JUST -/RET FNS
-	frame_size = cpu_stack.[s + 1] // 1 byte - stacked by ENTER
 	prbyte(frame_size)
 	prstr("\nworking_pp ")
 	working_pp = working_ifp + frame_size
@@ -1135,6 +1186,9 @@ def modenew(n)
 	prstr("\nworking_ifp ")
 	prword(working_ifp)
 	crout()
+	if uword_islt(working_ifp, working_pp) or uword_isgt(himem)
+	    prstr("TODOBOOM")
+	fin
 	// VM starts up via INTERP so we expect to hit the end of the stack
 	// at this point in the loop after some number of iterations.
 	if working_ifp == himem
