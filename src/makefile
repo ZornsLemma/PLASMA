@@ -289,6 +289,10 @@ mode: samplesrc/mode.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/mode.pla > samplesrc/mode.a
 	acme --setpc 4094 -o MODE\#FE1000 samplesrc/mode.a
 
+mode2: samplesrc/mode2.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/mode2.pla > samplesrc/mode2.a
+	acme --setpc 4094 -o MODE2\#FE1000 samplesrc/mode2.a
+
 hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
@@ -297,5 +301,5 @@ pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/pcw.pla > samplesrc/pcw.a
 	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode hanoi pcw dword $(ACORNOS) samplesrc/pcw.bas
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd
