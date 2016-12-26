@@ -2,7 +2,6 @@
 
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
-include "inc/acornos.plh" // TODO?
 include "inc/dword.plh"
 
 byte intmath16str[] = "intmath16"
@@ -121,6 +120,9 @@ def intmath16()
     putln()
     time(@finish)
     log_time(@intmath16str)
+    if x <> 8000
+	oserror("intmath16 failed")
+    fin
 end
 
 def intmath32()
@@ -142,16 +144,21 @@ def intmath32()
     putln()
     time(@finish)
     log_time(@intmath32str)
+    if not dword_isuword(@x) or dword_touword(@x)<>8000
+	oserror("intmath32 failed")
+    fin
 end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-// TODO: This needs to select mode 3
 def textscrn()
     word i
+    if not mode(3)
+	oserror("Bad mode")
+    fin
     time(@start)
     puts("Start\n")
-    for i = 1 to 10 // TODO: should be 1000, temp reduced
+    for i = 1 to 1000
 	puts(@textscrnlinestr)
 	puti(i)
 	putln()
@@ -161,11 +168,13 @@ def textscrn()
     log_time(@textscrnstr)
 end
 
-// TODO: This needs to select mode 5
 def grafscrn()
     word x, y
     const x_scale = 8
     const y_scale = 4
+    if not mode(5)
+	oserror("Bad mode")
+    fin
     time(@start)
     puts("Start\n")
     for x = 1*x_scale to 100*x_scale step x_scale
@@ -178,10 +187,12 @@ def grafscrn()
     log_time(@grafscrnstr)
 end
 
+mode(7)
 intmath16()
 intmath32()
-// TODO textscrn()
-// TODO grafscrn()
+textscrn()
+grafscrn()
+mode(7)
 show_times()
 done
 
