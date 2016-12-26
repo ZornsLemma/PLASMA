@@ -1208,7 +1208,13 @@ def modenew(n)
     loop
 #endif
 
-    // TODO HORRIBLE ABS ADDRESSES
+    // TODO: Need to document and tidy but the basic idea here is that we
+    // temporarily relocate IFP to the heap so that we can operate without
+    // trampling over the parameter stack while it's being moved. As soon
+    // as we do that, we lose the ability to access any local variables,
+    // so we copy what we need to fixed locations beforehand. TODO: These
+    // *could* be true global variables, rather than fixed addresses, I
+    // think.
     *$600 = new_himem
     *$602 = himem
     *$604 = *ifp + (new_himem - himem)
@@ -1216,7 +1222,7 @@ def modenew(n)
     *$608 = *pp // copy from here
     *$60A = himem - *pp // copy size
     *$60C = n
-    *ifp = heap + 256
+    *ifp = heap + 256 // we know there's at least 512 bytes available
 
     if uword_islt(*$600, *$602)
 	memcpy(*$606, *$608, *$60A)
