@@ -55,7 +55,7 @@ predef setjmp, longjmp
 predef prbyte
 predef osfile, oscli
 predef stocr
-predef modenew // TODONOW
+predef mode
 //
 // System variables.
 //
@@ -164,7 +164,7 @@ word		  = @prbytestr, @prbyte
 word		  = @osfilestr, @osfile
 word              = @osclistr,  @oscli
 word		  = @stocrstr,  @stocr
-word		  = @modestr,   @modenew // TODONOW!
+word		  = @modestr,   @mode
 word              = 0
 word syslibsym    = @exports     
 //
@@ -624,116 +624,6 @@ asm oscli_cr
 	RTS
 end
 
-// TODONOW: SOMETHING'S WRONG, MODE.PLA SHOWS WEIRD BEHAVIOUR EG IF YOU JUST PRESS 7 OVER AND OVER AGAIN THE FREE COUNT DECREMENTS... FRAME POINTER IS THE PROBLEM, NOT THE HEAP (HEAPMARK() IS RETURNING CONST VALUE) - THAT'S FIXED, BUT THERE'S STILL A PROBLEM - I STRONGLY SUSPECT THE STRING POOL NEEDS TO BE MOVED AS WELL, BUT NOT SURE - YOU CAN SEE THAT THE MODE SHOWS WRONGLY AFTER MODE CHANGES AND THERE'S SOMETIMES SOME CORRUPTIO ON THE SCREEN AFTER MODE CHANGE
-// TODONOW: I suspect there's a bit of a problem here with the string pool implementation - moving the frame stack moves the absolute address of the strings in the pool, and any addresses of those strings held in local variables or on the heap won't be fixed up. (I guess actually it's probably *possible* to take the address of a word variable on the frame stack and get into a mess there, even without the string pool implementation - it's just much less likely. I haven't actually tested this, but if I'm right, this may argue for trying to find a BBC BASIC-ish restriction on mode changes only when the frame stack is (nearly; unfortunately it's never completely) empty I can sensibly impose instead.)
-// TODONOW: Ah, I think a big part of the problem is INTERP pushes IFP on the CPU stack and LEAVE/RET pull it - so we're not getting the chance to fix it up properly.
-// TODONOW: We probably need to be adjusting PP in here now of course
-// modeint(heap, mode) -> 0 if OK, -1 if no room TODO: SHOULD PROBABLY RETURN TRUE FOR OK
-asm modeint
-	STX	ESP
-
-	SEC
-	LDA	#0
-	SBC	IFPL
-	STA	TMPL
-	STA	ESTKL-2,X
-	LDA	HIMEMH
-	SBC	IFPH
-	STA	TMPH
-	STA	ESTKH-2,X
-	;* TMP now contains the size of the frame stack
-	;* as does ESTK[HL]-2,X
-
-	;* Stash the mode from ESTKL,X before it gets overwritten
-	LDA	ESTKL,X
-	PHA
-
-	TAX
-	LDA	#$85
-	JSR	$FFF4
-	SEC
-	TXA
-	SBC	TMPL
-	STA	DSTL
-	TYA
-	SBC	TMPH
-	STA	DSTH
-	;* DST now contains the new start of the frame stack
-	LDX	ESP
-	STA	ESTKH,X
-	LDA	DSTL
-	STA	ESTKL,X
-	;* as does ESTK[HL],X
-
-	LDA	DSTH
-	SEC
-	SBC	#2	;* insist on an extra 512 bytes free
-	CMP	ESTKH+1,X
-	BCC	NOROOM
-	BNE	ROOM
-	LDA	DSTL
-	CMP	ESTKL+1,X
-	BCC	NOROOM
-ROOM
-
-	LDA	IFPH
-	STA	ESTKH-1,X
-	LDA	IFPL
-	STA	ESTKL-1,X
-	;* ESTK[HL]-1,X now contains the old start of frame stack
-
-	PLA
-	PHA
-	TAY
-	LDA	DSTH
-	CMP	IFPH
-	BEQ	SAMESIZE
-	STA	IFPH
-	LDA	DSTL
-	STA	IFPL
-	;* If the new mode is larger, we memcpy before the mode change,
-	;* otherwise we mode change then memcpy.
-	PHP
-	BCC	NEWISLARGER
-	LDA	#22
-	JSR	$FFEE
-	TYA
-	JSR	$FFEE
-NEWISLARGER
-	JSR	MEMCPYINT
-	PLP
-	BCS	NEWISSMALLER
-SAMESIZE
-	LDA	#22
-	JSR	$FFEE
-	PLA
-	PHA
-	JSR	$FFEE
-NEWISSMALLER
-	PLA
-
-	;* TODONOW: IF WE'RE ON A SECOND PROCESSOR, OVERRIDE THIS WITH $F800 (CHECK THAT)
-	;* - DON'T FORGET THERE ARE TWO PLACES WHERE WE CALL OSBYTE $84, PERHAPS FACTOR
-	;* THE CODE INTO A SUBROUTINE - ALTHOUGH ARGUABLY IF WE'RE ON A SECOND PROCESSOR
-	;* WE SHOULD SIMPLY HAVE DONE VDU 22,n AND RETURNED ALREADY, AS THERE'S NO NEED TO
-	;* FAFF IN THIS CASE - BUT THE WHOLE MODE CHANGE AREA NEEDS WORK ANYWAY
-	LDA	#$84
-	JSR	$FFF4
-	STY	HIMEMH
-
-	LDA	#0
-	BEQ	COMMON
-
-NOROOM	PLA ;* discard stacked mode
-	LDA	#$FF
-COMMON	LDX	ESP
-	INX
-	STA	ESTKL,X
-	STA	ESTKH,X
-	RTS
-end
-
-
 //
 // NONLOCAL GOTO
 //
@@ -1082,9 +972,6 @@ asm get_ical_jsr_return
     STA ESTKH,X
     RTS
 end
-def mode(n)
-    return modeint(heap, n)
-end
 def crout
     cout($0A)
     return cout($0D)
@@ -1109,12 +996,12 @@ def prword(v)
     prbyte(v >> 8)
     return prbyte(v)
 end
-// TODONOW: modenew() is work in progress, if it pans out get rid of mode()/modeint() and rename this
-def modenew(n)
+// TODONOW: Write about restrictions on calling mode()
+def mode(n)
     word new_himemh, himem, new_himem
     byte s, frame_size
     word call_jsr_return, ical_jsr_return, possible_jsr_return
-    word has_frame_size, has_no_frame_size, working_ifp, working_pp
+    word working_ifp, working_pp
 
     // If the mode change doesn't alter HIMEM, it's trivial. We need to check
     // specifically for the second processor case here; see the code just
