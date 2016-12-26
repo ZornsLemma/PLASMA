@@ -1107,6 +1107,10 @@ def modenew(n)
     word has_frame_size, has_no_frame_size, working_ifp, working_pp
 
     new_himemh = $60 // TODO! IF ON SP, MUST RETURN $F8, OTHERWISE USE OSBYTE $85
+    new_himemh = call($85, n, 0, 0, $FFF4).2
+    prstr("new himemh ")
+    prbyte(new_himemh)
+    crout()
     if ^himemh == new_himemh
 	cout(22)
 	cout(n)
@@ -1141,9 +1145,13 @@ def modenew(n)
     // a parameter frame size byte) and see which of the two has a plausible JSR
     // return address.
     //
-    // It would be possible to avoid all this by changing to store IFP-PP on the
-    // stack instead of an absolute IFP value, but although it's negligible I'd
-    // rather avoid doing the extra work on every function.
+    // For reference, the CPU stack frame looks like this:
+    // IP   IPY  bank JSR-return IFP  (frame_size)
+    // word byte byte word       word byte
+    //
+    // It would be possible to avoid all this by changing to store IFP-PP on
+    // the stack instead of IFP, but although it's negligible I'd rather avoid
+    // doing the extra work on every function.
     oscli("save z 100 200")
     s = cpu_stack_ptr()
     call_jsr_return = get_call_jsr_return()
@@ -1186,9 +1194,10 @@ def modenew(n)
 	prstr("\nworking_ifp ")
 	prword(working_ifp)
 	crout()
-	if uword_islt(working_ifp, working_pp) or uword_isgt(himem)
+	if uword_islt(working_ifp, working_pp) or uword_isgt(working_ifp, himem)
 	    prstr("TODOBOOM")
 	fin
+	*(cpu_stack + s + 2) = working_ifp + (new_himem - himem)
 	// VM starts up via INTERP so we expect to hit the end of the stack
 	// at this point in the loop after some number of iterations.
 	if working_ifp == himem
@@ -1199,8 +1208,28 @@ def modenew(n)
     loop
 #endif
 
+    // TODO HORRIBLE ABS ADDRESSES
+    *$600 = new_himem
+    *$602 = himem
+    *$604 = *ifp + (new_himem - himem)
+    *$606 = *pp + (new_himem - himem) // copy to here
+    *$608 = *pp // copy from here
+    *$60A = himem - *pp // copy size
+    *$60C = n
+    *ifp = heap + 256
 
-    // TODO
+    if uword_islt(*$600, *$602)
+	memcpy(*$606, *$608, *$60A)
+    fin
+    cout(22)
+    cout(*$60C)
+    if uword_isge(*$600, *$602)
+	memcpy(*$606, *$608, *$60A)
+    fin
+    *pp = *$606
+    *ifp = *$604
+    ^himemh = ^$601
+    return TRUE
 end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // TODO: This should probably be coded in assembly

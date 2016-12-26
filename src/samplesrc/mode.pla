@@ -36,7 +36,7 @@ def main
 	putc(key)
 	m = key - '0'
 	result = mode(m)
-	if result == 0
+	if result
 	    puts(@mode_str)
 	    puti(m)
 	    puts(@free_str)
