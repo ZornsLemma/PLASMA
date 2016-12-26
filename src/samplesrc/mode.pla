@@ -8,6 +8,7 @@ byte count_str[] = "Count: "
 byte prompt_str[] = "\n\nPress 0-7 for mode\nor Q to quit: "
 byte mode_str[] = "Mode: "
 byte free_str[] = "\nFree: "
+byte no_room_str[] = "\nNo room!\n\n"
 
 def availheap
     byte fp
@@ -17,13 +18,10 @@ end
 def main
     byte key
     word m, result, count
-    puts("SFTODOTEMP")
 
     count = 0
     while 1
-	// TODONOW oscli("save z1 3000 8000")
 	count++
-	// TODONOW oscli("save z2 3000 8000")
 	puts(@count_str)
 	puti(count)
 	puts(@prompt_str)
@@ -43,7 +41,7 @@ def main
 	    puti(availheap())
 	    putln()
 	else
-	    puts("\nNo room!\n\n") // TODONOW: Needs to use non-inline string
+	    puts(@no_room_str)
 	fin
     loop
 end
