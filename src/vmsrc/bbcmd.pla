@@ -963,52 +963,59 @@ not_escape
 	RTS
 end
 asm cpu_stack_ptr
-    DEX
-    STX ESP
-    TSX
-    TXA
-    ; Don't include our stack frame in the value we return - CALL has pushed
-    ; six bytes, but we don't have an INTERP or ENTER as we're assembly
-    ; language.
-    CLC
-    ADC #6
-    LDX ESP
-    STA ESTKL,X
-    LDA #0
-    STA ESTKH,X
-    RTS
+	DEX
+	STX 	ESP
+	TSX
+	TXA
+	; Don't include our stack frame in the value we return - CALL has pushed
+	; six bytes, but we don't have an INTERP or ENTER as we're assembly
+	; language.
+	CLC
+	ADC 	#6
+	LDX	 ESP
+	STA	 ESTKL,X
+	LDA 	#0
+	STA 	ESTKH,X
+	RTS
 end
 asm get_call_jsr_return
-    DEX
-    LDA #<(CALLADR+2)
-    STA ESTKL,X
-    LDA #>(CALLADR+2)
-    STA ESTKH,X
-    RTS
+	DEX
+	LDA	#<(CALLADR+2)
+	STA	ESTKL,X
+	LDA	#>(CALLADR+2)
+	STA	ESTKH,X
+	RTS
 end
 asm get_ical_jsr_return
-    DEX
-    LDA #<(ICALADR+2)
-    STA ESTKL,X
-    LDA #>(ICALADR+2)
-    STA ESTKH,X
-    RTS
+	DEX
+	LDA	#<(ICALADR+2)
+	STA	ESTKL,X
+	LDA	#>(ICALADR+2)
+	STA	ESTKH,X
+	RTS
+end
+// def prstr(str)
+asm prstr
+	STX	ESP
+	LDA	ESTKL,X
+	STA	TMPL
+	LDA	ESTKH,X
+	STA	TMPH
+	LDY	#0
+	LDA	(TMP),Y
+	BEQ	+
+	TAX
+-	INY
+	LDA	(TMP),Y
+	JSR	$FFE3
+	DEX
+	BNE	- 
++	LDX	ESP
+	RTS
 end
 def crout
     cout($0A)
     return cout($0D)
-end
-def prstr(str)
-    byte i, c
-    i = 1
-    while i <= ^str
-    	c=(str)[i]
-        cout(c)
-	if c == $0D
-	    cout($0A)
-	fin
-	i = i + 1
-    loop
 end
 def prbyte(v)
     cout(hexchar[(v >> 4) & $0F])
