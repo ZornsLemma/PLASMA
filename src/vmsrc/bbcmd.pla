@@ -53,7 +53,7 @@ predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
-predef osfile, oscli
+predef oserror, osfile, oscli
 predef stocr
 predef mode
 //
@@ -133,6 +133,7 @@ byte argstr[]     = "ARGS"
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
+byte oserrorstr[] = "OSERROR"
 byte osfilestr[]  = "OSFILE"
 byte osclistr[]   = "OSCLI"
 byte stocrstr[]   = "STOCR"
@@ -161,6 +162,7 @@ word              = @argstr,    @cmdptr
 word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
 word		  = @prbytestr, @prbyte
+word		  = @oserrorstr,@oserror
 word		  = @osfilestr, @osfile
 word              = @osclistr,  @oscli
 word		  = @stocrstr,  @stocr
@@ -624,6 +626,26 @@ asm oscli_cr
 	RTS
 end
 
+asm oserror(n, msg)
+	LDA	ESTKL+1,X
+	STA	$101
+	LDA	ESTKL,X
+	STA	TMPL
+	LDA	ESTKH,X
+	STA	TMPH
+	LDY	#0
+	LDA	(TMP),Y
+	TAY
+	LDA	#0
+	STA	$100 ; BRK opcode
+	STA	$102,Y
+-	LDA	(TMP),Y
+	STA	$101,Y
+	DEY
+	BNE	-
+	JMP	$100
+end
+
 //
 // NONLOCAL GOTO
 //
@@ -996,7 +1018,23 @@ def prword(v)
     prbyte(v >> 8)
     return prbyte(v)
 end
-// TODONOW: Write about restrictions on calling mode()
+
+// Change the screen mode
+//
+// Care must be taken when calling mode(). The parameter stack starts at the
+// bottom of screen memory (HIMEM) and grows downwards. If a mode change
+// alters HIMEM, the parameter stack needs to be relocated in memory. mode()
+// takes care of this, but any code which has taken the address of local
+// variables on the parameter stack (or, on PLAS128, constant strings, which
+// also live on the parameter stack) will have an invalid address after
+// the relocation. (This isn't an issue if changing between modes which doesn't
+// alter HIMEM.)
+//
+// TL;DR: Call mode() as early as possible and with as few nested function
+// calls in effect as possible and you'll probably be safe.
+//
+// Returns TRUE if the mode change was successful and FALSE if not (typically
+// caused by insufficient memory).
 def mode(n)
     word new_himemh, himem, new_himem
     byte s, frame_size
@@ -1035,14 +1073,14 @@ def mode(n)
     // to be patched up so they're correct once the frame stack has been
     // relocated.
     //
-    // Unfortunately there are two possible CPU stack frames for a function,
-    // depending on whether it uses ENTER/LEAVE or -/RET. The former finishes a
-    // stack frame by pushing a parameter frame size byte, the latter doesn't
-    // (it is implicitly 0). We work around this by observing that each CPU
-    // stack frame contains a return address pushed by the JSR instruction in
-    // either CALL or ICAL. At each step up the stack, we look at the two
-    // possible offsets (with/without a parameter frame size byte) and see
-    // which of the two has a plausible JSR return address.
+    // Unfortunately there are two possible types of CPU stack frame for a
+    // function, depending on whether it uses ENTER/LEAVE or -/RET. The former
+    // finishes a stack frame by pushing a parameter frame size byte, the
+    // latter doesn't (it is implicitly 0). We work around this by observing
+    // that each CPU stack frame contains a return address pushed by the JSR
+    // instruction in either CALL or ICAL. At each step up the stack, we look
+    // at the two possible offsets (with/without a parameter frame size byte)
+    // and see which of the two has a plausible JSR return address.
     //
     // For reference, the CPU stack frame looks like this:
     // IP   IPY  bank JSR-return IFP  (frame_size)
@@ -1067,7 +1105,10 @@ def mode(n)
 	working_pp = working_ifp + frame_size
 	working_ifp = *(cpu_stack + s + 2) // 2 bytes - stacked by (I)INTERP
 	if uword_islt(working_ifp, working_pp) or uword_isgt(working_ifp, himem)
-	    prstr("TODOBOOM")
+	    // If this happens the stack is likely to have been corrupted and
+	    // recovery won't be possible. This shouldn't happen in the first
+	    // place.
+	    oserror(0, "Stack walk failed")
 	fin
 	*(cpu_stack + s + 2) = working_ifp + (new_himem - himem)
 	// VM starts up via INTERP so we expect to hit the end of the stack
@@ -1114,6 +1155,7 @@ def mode(n)
 #endif
     return TRUE
 end
+
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // TODO: This should probably be coded in assembly
 def dcitocr(dci, cr)
@@ -1237,6 +1279,7 @@ def stocr(str, cr)
 end
 
 // oscli(str)
+// TODO: Does 'export' work in this file? Probably not...
 export def oscli(str)
     // TODO: This will go wrong if the command is too long
     byte cr[253]

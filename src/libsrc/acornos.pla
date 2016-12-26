@@ -3,28 +3,6 @@ include "inc/cmdsys.plh"
 const eof = -1
 const osfind_addr = $FFCE
 
-export asm oserror(n, msg)
-    BBC = 1
-    !SOURCE "vmsrc/plvmzp.inc"
-    LDA ESTKL+1,X
-    STA $101
-    LDA ESTKL,X
-    STA TMPL
-    LDA ESTKH,X
-    STA TMPH
-    LDY #0
-    LDA (TMP),Y
-    TAY
-    LDA #0
-    STA $100 ; BRK opcode
-    STA $102,Y
--   LDA (TMP),Y
-    STA $101,Y
-    DEY
-    BNE -
-    JMP $100
-end
-
 export def osfind_open(a, filename)
     // TODO: This will go wrong if the filename is too long
     byte cr[251]

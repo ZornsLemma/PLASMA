@@ -1,5 +1,4 @@
 import acornos
-  predef oserror
   predef oscli, osfind_open, osfind_close, osbget, osrdch
   const eof = -1
   const osfind_input = $40
