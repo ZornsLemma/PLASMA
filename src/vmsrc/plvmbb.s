@@ -1112,7 +1112,7 @@ SOMERAM	STX	RAMBANKCOUNT
 }
 
 	;* If we're running on a second processor, we use memory up to $F800, whatever
-	;* OSBYTE $84 says. TODONOW: Make sure mode change code doesn't "undo" this...
+	;* OSBYTE $84 says.
 	LDA	#$82
 	JSR	$FFF4
 	TYA

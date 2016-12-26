@@ -7,12 +7,17 @@ include "inc/acornos.plh"
 byte count_str[] = "Count: "
 byte prompt_str[] = "\n\nPress 0-7 for mode\nor Q to quit: "
 byte mode_str[] = "Mode: "
-byte free_str[] = "\nFree: "
+byte free_str[] = "\nFree: $"
 byte no_room_str[] = "\nNo room!\n\n"
 
 def availheap
     byte fp
     return @fp - heapmark()
+end
+
+def putw(w)
+    prbyte(w >> 8)
+    prbyte(w)
 end
 
 def main
@@ -38,7 +43,7 @@ def main
 	    puts(@mode_str)
 	    puti(m)
 	    puts(@free_str)
-	    puti(availheap())
+	    putw(availheap())
 	    putln()
 	else
 	    puts(@no_room_str)
