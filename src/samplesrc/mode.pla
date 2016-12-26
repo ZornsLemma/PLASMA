@@ -20,9 +20,9 @@ def main
 
     count = 0
     while 1
-	oscli("save z1 3000 8000")
+	// TODONOW oscli("save z1 3000 8000")
 	count++
-	oscli("save z2 3000 8000")
+	// TODONOW oscli("save z2 3000 8000")
 	puts(@count_str)
 	puti(count)
 	puts(@prompt_str)
