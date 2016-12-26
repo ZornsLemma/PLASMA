@@ -1106,12 +1106,11 @@ def modenew(n)
     word call_jsr_return, ical_jsr_return, possible_jsr_return
     word has_frame_size, has_no_frame_size, working_ifp, working_pp
 
-    new_himemh = $60 // TODO! IF ON SP, MUST RETURN $F8, OTHERWISE USE OSBYTE $85
+    // If the mode change doesn't alter HIMEM, it's trivial. We need to check
+    // specifically for the second processor case here; see the code just
+    // above INITFP.
     new_himemh = call($85, n, 0, 0, $FFF4).2
-    prstr("new himemh ")
-    prbyte(new_himemh)
-    crout()
-    if ^himemh == new_himemh
+    if new_himemh == ^himemh or ^himemh > $80
 	cout(22)
 	cout(n)
 	return TRUE
@@ -1120,16 +1119,19 @@ def modenew(n)
     himem = ^himemh << 8
     new_himem = new_himemh << 8
 #ifdef PLAS128
-    new_frame_start = new_himemh - (himem - *pp)
+    new_frame_start = *pp + (new_himem - himem)
+    // Because we use new_frame_start below, it's important that PP doesn't
+    // move between now and then - which means none of the following code can
+    // use constant strings. (We could redo this calculation at that point, but
+    // it's nicer not to have to.)
 #else
-    new_frame_start = new_himemh - (himem - *ifp)
+    new_frame_start = *ifp + (new_himem - himem)
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
     if uword_islt(new_frame_start - 512, heap)
 	return FALSE
     fin
-    // We have enough memory to do the mode change.
 
 #ifdef PLAS128
     // PLAS128 has absolute IFP values stored on the CPU stack, so these need
@@ -1137,13 +1139,13 @@ def modenew(n)
     // relocated.
     //
     // Unfortunately there are two possible CPU stack frames for a function,
-    // depending on whether it uses ENTER/LEAVE or -/RET. The former finishes
-    // by pushing a parameter frame size byte, the latter doesn't (it is implicitly 0).
-    // We work around this by observing that each CPU stack frame contains a
-    // return address pushed by the JSR instruction in either CALL or ICAL. At
-    // each step up the stack, we look at the two possible offsets (with/without
-    // a parameter frame size byte) and see which of the two has a plausible JSR
-    // return address.
+    // depending on whether it uses ENTER/LEAVE or -/RET. The former finishes a
+    // stack frame by pushing a parameter frame size byte, the latter doesn't
+    // (it is implicitly 0). We work around this by observing that each CPU
+    // stack frame contains a return address pushed by the JSR instruction in
+    // either CALL or ICAL. At each step up the stack, we look at the two
+    // possible offsets (with/without a parameter frame size byte) and see
+    // which of the two has a plausible JSR return address.
     //
     // For reference, the CPU stack frame looks like this:
     // IP   IPY  bank JSR-return IFP  (frame_size)
@@ -1151,49 +1153,22 @@ def modenew(n)
     //
     // It would be possible to avoid all this by changing to store IFP-PP on
     // the stack instead of IFP, but although it's negligible I'd rather avoid
-    // doing the extra work on every function.
-    oscli("save z 100 200")
+    // doing the extra work on every function entry/exit.
     s = cpu_stack_ptr()
     call_jsr_return = get_call_jsr_return()
     ical_jsr_return = get_ical_jsr_return()
-    prstr("call_jsr_return ")
-    prword(call_jsr_return)
-    prstr("\nical_jsr_return ")
-    prword(ical_jsr_return)
-    crout()
     working_ifp = *ifp
-    prstr("working_ifp ")
-    prword(working_ifp)
-    crout()  
     while TRUE
-	prstr("----\n")
-	prstr("s ")
-	prbyte(s)
-	// We look for the JSR return address on the stack to infer
-	// whether this stack frame has a frame size or not.
 	possible_jsr_return = *(cpu_stack + s + 4)
 	if possible_jsr_return == call_jsr_return or \
 	   possible_jsr_return == ical_jsr_return:
-	    prstr("other jsr return would be ")
-	    prword(*(cpu_stack + s + 3))
-	    crout()
 	    frame_size = cpu_stack.[s + 1] // 1 byte - stacked by ENTER
 	else
-	    prstr("other jsr return would be ")
-	    prword(*(cpu_stack + s + 4))
-	    crout()
 	    frame_size = 0
 	    s-- // adjust s so the offsets in the following code work
 	fin
-	prstr("\nframe_size ")
-	prbyte(frame_size)
-	prstr("\nworking_pp ")
 	working_pp = working_ifp + frame_size
-	prword(working_pp)
 	working_ifp = *(cpu_stack + s + 2) // 2 bytes - stacked by (I)INTERP
-	prstr("\nworking_ifp ")
-	prword(working_ifp)
-	crout()
 	if uword_islt(working_ifp, working_pp) or uword_isgt(working_ifp, himem)
 	    prstr("TODOBOOM")
 	fin
@@ -1208,6 +1183,8 @@ def modenew(n)
     loop
 #endif
 
+    ^himemh = new_himemh
+
     // TODO: Need to document and tidy but the basic idea here is that we
     // temporarily relocate IFP to the heap so that we can operate without
     // trampling over the parameter stack while it's being moved. As soon
@@ -1215,26 +1192,25 @@ def modenew(n)
     // so we copy what we need to fixed locations beforehand. TODO: These
     // *could* be true global variables, rather than fixed addresses, I
     // think.
-    *$600 = new_himem
-    *$602 = himem
+    *$600 = uword_isge(new_himem, himem)
     *$604 = *ifp + (new_himem - himem)
-    *$606 = *pp + (new_himem - himem) // copy to here
+    *$606 = new_frame_start
     *$608 = *pp // copy from here
     *$60A = himem - *pp // copy size
     *$60C = n
     *ifp = heap + 256 // we know there's at least 512 bytes available
 
-    if uword_islt(*$600, *$602)
-	memcpy(*$606, *$608, *$60A)
+    if *$600
+	cout(22)
+	cout(^$60C)
     fin
-    cout(22)
-    cout(*$60C)
-    if uword_isge(*$600, *$602)
-	memcpy(*$606, *$608, *$60A)
+    memcpy(*$606, *$608, *$60A)
+    if not *$600
+	cout(22)
+	cout(^$60C)
     fin
     *pp = *$606
     *ifp = *$604
-    ^himemh = ^$601
     return TRUE
 end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
