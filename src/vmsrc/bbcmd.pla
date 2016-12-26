@@ -1,18 +1,19 @@
 // TODO: A lot of this is probably irrelevant and can be removed
 
 const MODADDR      = $1000
-const inbuff       = $700
-const errnum       = $700
-const errstr	   = $701
+const inbuff       = $0700
+const errnum       = $0700
+const errstr	   = $0701
 const freemem      = $0006
-const himemh       = $0078 // TODO!
-const ifp          = $0071 // TODO!
-const pp           = $0073 // TODO!
+const ifp          = $0071
+const pp           = $0073
+const himemh       = $0078
+const cpu_stack	   = $0100
 #ifdef PLAS128
-    const rambankcount = $404
+    const rambankcount = $0404
 #endif
-const errfp	   = $405	// 2 bytes
-const errjb	   = $407	// 2 bytes
+const errfp	   = $0405	// 2 bytes
+const errjb	   = $0407	// 2 bytes
 const FALSE = 0
 const TRUE = NOT FALSE
 //
@@ -101,6 +102,9 @@ word gm_new_frame_start
 #ifdef PLAS128
     word gm_new_ifp
 #endif
+word gm_copy_from
+word gm_copy_size
+byte gm_new_mode
 //
 // Standard Library exported functions.
 //
@@ -1062,7 +1066,7 @@ asm cpu_stack_ptr
     STA ESTKH,X
     RTS
 end
-asm get_call_jsr_return // TODO!?
+asm get_call_jsr_return
     DEX
     LDA #<(CALLADR+2)
     STA ESTKL,X
@@ -1070,7 +1074,7 @@ asm get_call_jsr_return // TODO!?
     STA ESTKH,X
     RTS
 end
-asm get_ical_jsr_return // TODO!?
+asm get_ical_jsr_return
     DEX
     LDA #<(ICALADR+2)
     STA ESTKL,X
@@ -1107,7 +1111,6 @@ def prword(v)
 end
 // TODONOW: modenew() is work in progress, if it pans out get rid of mode()/modeint() and rename this
 def modenew(n)
-    const cpu_stack = $100 // TODO PUT AT TOP LEVEL OF FILE? MAYBE ALREADY THERE?
     word new_himemh, himem, new_himem
     byte s, frame_size
     word call_jsr_return, ical_jsr_return, possible_jsr_return
@@ -1192,35 +1195,29 @@ def modenew(n)
 
     ^himemh = new_himemh
 
-    // TODO: Need to document and tidy but the basic idea here is that we
-    // temporarily relocate IFP to the heap so that we can operate without
-    // trampling over the parameter stack while it's being moved. As soon
-    // as we do that, we lose the ability to access any local variables,
-    // so we copy what we need to fixed locations beforehand. TODO: These
-    // *could* be true global variables, rather than fixed addresses, I
-    // think.
+    // We're now going to copy the parameter frame stack and adjust IFP (and
+    // PP for PLAS128) accordingly. We need a temporary parameter frame
+    // stack so we can call memcpy(); once we've switched to that we can't
+    // access any local variables, so we copy everything into globals first.
     gm_new_himem_higher = uword_isge(new_himem, himem)
 #ifdef PLAS128
     gm_new_ifp = *ifp + (new_himem - himem)
-#endif
-#ifdef PLAS128
-    *$608 = *pp // copy from here
-    *$60A = himem - *pp // copy size
+    gm_copy_from = *pp
 #else
-    *$608 = *ifp
-    *$60A = himem - *ifp
+    gm_copy_from = *ifp
 #endif
-    ^$60C = n
+    gm_copy_size = himem - gm_copy_from
+    gm_new_mode = n
     *ifp = heap + 256 // we know there's at least 512 bytes available
 
     if gm_new_himem_higher
 	cout(22)
-	cout(^$60C)
+	cout(gm_new_mode)
     fin
-    memcpy(gm_new_frame_start, *$608, *$60A)
+    memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
     if not gm_new_himem_higher
 	cout(22)
-	cout(^$60C)
+	cout(gm_new_mode)
     fin
 #ifdef PLAS128
     *pp = gm_new_frame_start
