@@ -668,7 +668,7 @@ asm jmpbufsz
 	RTS
 end
 
-// setjmp(jmp_buf b) -> 0 on save, longjmp val otherwise
+// setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
 asm setjmp
 	STX	ESP
 
@@ -741,7 +741,7 @@ asm setjmp
 	RTS
 end
 
-// longjmp(jmp_buf b, word val)
+// longjmp(jmp_buf *b, word val)
 asm longjmp
 	LDA	ESTKL+1,X
 	STA	TMPL
@@ -769,7 +769,7 @@ asm longjmp
 	STA	ESTKL,X
 ++++
 
-+	SEC
+ 	SEC
 	LDA	#0
 	SBC	(TMP),Y
 	STA	IFPL
@@ -1053,6 +1053,10 @@ def mode(n)
     // above INITFP.
     new_himemh = call($85, n, 0, 0, $FFF4).2
     if new_himemh == ^himemh or ^himemh > $80
+    	if n <> 7
+		prword(n)
+		oserror(42, "TODOTEMP")
+	fin
 	cout(22)
 	cout(n)
 	return TRUE
@@ -1111,6 +1115,8 @@ def mode(n)
 	fin
 	working_pp = working_ifp + frame_size
 	working_ifp = *(cpu_stack + s + 2) // 2 bytes - stacked by (I)INTERP
+	prword(working_ifp)
+	cout(' ')
 	if uword_islt(working_ifp, working_pp) or uword_isgt(working_ifp, himem)
 	    // If this happens the stack is likely to have been corrupted and
 	    // recovery won't be possible. This shouldn't happen in the first
@@ -1118,6 +1124,8 @@ def mode(n)
 	    oserror(0, "Stack walk failed")
 	fin
 	*(cpu_stack + s + 2) = working_ifp + (new_himem - himem)
+	prword(*(cpu_stack + s + 2))
+	crout()
 	// VM starts up via INTERP so we expect to hit the end of the stack
 	// at this point in the loop after some number of iterations.
 	if working_ifp == himem
@@ -1129,6 +1137,7 @@ def mode(n)
 #endif
 
     ^himemh = new_himemh
+    call(0, 0, 0, 0, $FFE0)
 
     // We're now going to copy the parameter frame stack and adjust IFP (and
     // PP for PLAS128) accordingly. We need a temporary parameter frame
@@ -1160,6 +1169,11 @@ def mode(n)
 #else
     *ifp = gm_new_frame_start
 #endif
+// TODO TEMP!
+    if call($84, 0, 0, 0, $FFF4).2 <> ^himemh
+    	prstr("foo")
+    	oserror(255,"foo")
+    fin	
     return TRUE
 end
 

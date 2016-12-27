@@ -7,17 +7,52 @@ include "inc/testlib.plh"
 include "inc/acornos.plh"
 
 byte do_mode_change
+byte jb[jbsz]
 
 def bar(i)
     word j, k
     k = 0
-    for j = 1 to 100
+    j = setjmp(@jb)
+    if j <> 0; osrdch(); fin
+    puts("setjmp k ")
+    if j <> 0; osrdch(); fin
+    puti(k)
+    puts(" j ")
+    if j <> 0; osrdch(); fin
+    puti(j)
+    if j <> 0; osrdch(); fin
+    puts("\n")
+    if j <> 0
+	if j <> 0; osrdch(); fin
+	oscli("save z 100 200")
+	return k + j
+    fin
+    // TODONOW: OK, this isn't working on PLAS128 and I now see why -
+    // setjmp saves the CPU stack, mode() rewrites the actual CPU
+    // stack and longjmp() restores the CPU stack pre-rewriting.
+    // This may frankly argue for the "relative stack" change, given
+    // the cost of the extra work on enter/exit is actually negligible.
+    // An alternative would be to store HIMEMH in the jmp_buf and
+    // use the delta between it and current HIMEMH to perform rewriting
+    // of the CPU stack inside longjmp. We could probably use PLASM
+    // code not asm and allow reuse of the rewrite logic. However, this
+    // is starting to feel brittle, given how practically cheap the
+    // relative stack is.
+    for j = 99 to 100 // TODO TEMP SHOULD BE FROM 1 TO 100
 	k = k + i
-	if do_mode_change:
+	if do_mode_change
+	    puts("baz"); osrdch()
 	    mode(j)
 	fin
+	if j == 99
+	    puts("k ")
+	    puti(k)
+	    puts(" about to longjmp\n")
+	    osrdch()
+	    longjmp(@jb, 42)
+	fin
     next
-    return k
+    oserror(0, "Didn't longjmp!")
 end
 
 def foo
@@ -26,7 +61,8 @@ def foo
     j = -3
     for k = 1 to 100
 	i = i - 199
-	if do_mode_change:
+	if do_mode_change
+	    puts("foo"); osrdch()
 	    mode(j)
 	fin
 	j = j * 2
@@ -45,14 +81,14 @@ def main
 
     mode(7)
     do_mode_change = 0
-    result1 = foo()
+    // TODO TEMP COMMENTED OUT result1 = foo()
     do_mode_change = 1
     result2 = foo()
     mode(7)
     puts("Final result is ")
     puti(result2)
     puts(", should be ")
-    puti(result1)
+    puti(result1) //-23146 TODO
     puts(".\n")
 end
 
