@@ -1,58 +1,55 @@
 Sandbox
 
-Put the VM in a sideways ROM, perhaps with some library code using the free
-space (and/or allow the free space to be used for code/data, if running from
-sideways RAM)
-- note that there's already support for modules to remain resident after
-  loading by returning modkeep or modinitkeep (incidentally, these seem
-  different between Apple I and Apple II for no real reason, we should probably
-  follow Apple II) and a variant on this could probably allow some libraries to
-  be pre-resident inside the sideways ROM area.
-
-Add * command support to PLASMA executable
-
 Add ability to dump memory free to PLASMA executable by issuing a command? (to
-allow seeing how resident modules take up space)
+allow seeing how resident modules take up space) (Possibly just keep my
+relocation of the memory free output from the startup banner to the prompt as a
+permanent feature; this perhaps makes more sense on the BBC, where changing
+mode and so forth can have a big impact on the free memory)
 
 I started from the Apple I version; maybe port over features from the Apple II VM
 and/or "redo" the port using the Apple II version to start with
 
-BAS128-style version; the support for the Apple /// 'aux' storage may be relevant
-
-Tube version
-
-Ability to build standalone executable which runs from main RAM or sideways
+Ability to build a standalone executable which runs from main RAM or sideways
 ROM, so a PLASMA-implemented program can be used by a user without them knowing
 or caring it's running on the PLASMA VM - though possibly the auto-start
 facility is sufficient for main RAM use (this doesn't address the ROM case)
 
-We could potentially make the VM capable of relocating itself - assemble at two
-addresses to work out the bytes needing a constant delta adding, put relocation
-code and a bitmap at the end of the VM in the bit where the other initialisation
-code is already present - this is discarded on startup so it doesn't waste space.
-This would allow us to relocate down to OSHWM to avoid wasting memory - which would
-might allow the same executable to act as HI-PLASMA almost for free (we'd just need
-to decide we're going to take &F800 or whatever as top of workspace, whereas I
-suspect the tube OS tells us &8000 or &B800 - but not checked) (the VM would be running
-at &800 on the tube, not up at the top of memory - but that's absolutely fine)
+A language ROM version would have some value; this would free up more main RAM
+for data and/or non-shadow screen on machines without a second processor
+(PLAS128 doesn't help here). If running from sideways RAM the free space in the
+bank could be made available to the running program - it would "nearly" be
+suitable for use for code or data, although it would be paged out by the OS
+during some OS calls so it would be brittle to allow it to be accessed
+implicitly via the stack frame or heapalloc. We could have a "heapYalloc" but
+that's perhaps a bit specialised. The alternative would be to use the remaining
+space for bytecodes (PLAS128-style), and then we could fall back to allocating
+bytecode space from main RAM if necessary (or if we're running from ROM).
+Probably best to leave development of such a version until PLAS32 and PLAS128
+are "finished" to avoid complexity of fixing bugs in three different places.
+(An alternative possibility would be to pre-load some useful libraries as
+resident modules, e.g. ACORNOS, into the sideways ROM so they're available
+without importing them from disc into RAM. However, without a significant
+quantity of well-tested, "frozen" libtrary code, there's not much value in
+doing this, and it also raises the nasty possibility of needing to version
+modules so you don't get stuck with v1 of FOO in the ROM when there's v2 of FOO
+with some new feature you need on the disc.)
 
-A BAS128 version using 4x16K SWR banks for code could *still* potentially page
-in a fifth 16K bank when not fetching from "instruction space". This space
-couldn't transparently be used for the normal heap or the frame stack because
-any attempt to make an OS call using space allocated there could fail if
-another ROM is temporarily paged in (most obviously a filing system). However,
-it could be made available as a separate heap (say allocyheap() - not
-allocxheap(), as that is the private heap used for the 64K data space) and code
-could call that if it knows it will use the space returned for non-OS-call
-purposes. If allocyheap() could fall back to using the normal heap if there is
-no 'Y' heap, a program could with minimal extra effort be written to take
-advantage of this extra 16K iff it's available. (You'd probably need to mark
-and release both the normal and Y heaps at the same time, and releasing the Y
-heap would be a no-op if it was actually just forwarding requests on to the
-normal heap.)
+PLAS128 using 4x16K sideways RAM banks could *still* potentially page in a
+fifth 16K bank when not fetching from "instruction space". This space couldn't
+transparently be used for the normal heap or the frame stack because any
+attempt to make an OS call using space allocated there could fail if another
+ROM is temporarily paged in (most obviously a filing system). However, it could
+be made available as a separate heap (say allocyheap() - not allocxheap(), as
+that is the private heap used for the 64K data space) and code could call that
+if it knows it will use the space returned for non-OS-call purposes. If
+allocyheap() could fall back to using the normal heap if there is no 'Y' heap,
+a program could with minimal extra effort be written to take advantage of this
+extra 16K iff it's available. (You'd probably need to mark and release both the
+normal and Y heaps at the same time, and releasing the Y heap would be a no-op
+if it was actually just forwarding requests on to the normal heap.)
 
 Could the compiler be enhanced to avoid the problem with constant strings
-inside a loop? I would have though in principle the compile could emit all
+inside a loop? I would have though in principle the compiler could emit all
 constant strings at the top of the function, putting their addresses in local
 variables, and then just use those addresses where it would currently emit the
 constant string opcode.
