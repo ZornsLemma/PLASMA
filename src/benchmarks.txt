@@ -1,9 +1,9 @@
 		Master	  Master    BBC B     Master	    PCW BBC B   PCW Master   Master   Master
 		BASIC 4	  BASIC 4   BASIC 2   BAS128 1.10   BASIC 2	BASIC 4      PLASMA   PLAS128
 			  (shadow)
-intmath16									      0.97     1.00
-intmath32	 3.12	   3.32	     4.32      5.48	     2.6	 2.5          4.73     4.85
-textscrn	21.59	  22.93	    23.15     23.52	    13.7	14.2         16.12    17.43
-grafscrn	21.02	  22.90	    22.09     30.08	    21.5	22.0	     17.15    17.22
+intmath16									      0.97     0.99
+intmath32	 3.12	   3.32	     4.32      5.48	     2.6	 2.5          4.73     4.81
+textscrn	21.59	  22.93	    23.15     23.52	    13.7	14.2         16.12    16.42
+grafscrn	21.02	  22.90	    22.09     30.08	    21.5	22.0	     17.15    17.75
 
 Timings are "best of many runs" using BeebEm and b-em. For some reason my numbers for BBC BASIC are significantly slower than those reported by PCW themselves, even though I've been fairly generous in my coding of the benchmarks (using resident integer variables in particular). I did the Master BASIC 4+shadow run (i.e. *SHADOW before running the benchmark) in order to have a fairer comparison with BAS128 (which uses shadow mode).
