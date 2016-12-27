@@ -86,6 +86,7 @@ byte prompt[]     = "PLASMA"
 byte okstr[]      = "OK"
 byte huhstr[]     = "?\n"
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+byte colonstr[]   = ": "
 //
 // Exported Machine ID.
 //
@@ -1649,9 +1650,9 @@ if setjmp(*errjb) == 0
   *errfp = @error_handler
 else
   crout
-  prstr("Error $")
+  prstr(@errorstr)
   prbyte(^errnum)
-  prstr(": ")
+  prstr(@colonstr)
   prstr(errstr)
   crout
 fin
