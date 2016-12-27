@@ -1492,10 +1492,6 @@ def loadmod(mod)
 	if !(systemflags & modinitkeep)
 #ifdef PLAS128
             xheap = init - defofst + defaddr
-	    cout('Q')
-	    prword(xheap)
-	    cout(13)
-	    cout(10)
 #else
             modend = init - defofst + bytecode
 #endif
