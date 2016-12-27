@@ -121,7 +121,7 @@ def intmath16()
     time(@finish)
     log_time(@intmath16str)
     if x <> 8000
-	oserror("intmath16 failed")
+	oserror(0, "intmath16 failed")
     fin
 end
 
@@ -145,7 +145,7 @@ def intmath32()
     time(@finish)
     log_time(@intmath32str)
     if not dword_isuword(@x) or dword_touword(@x)<>8000
-	oserror("intmath32 failed")
+	oserror(0, "intmath32 failed")
     fin
 end
 
@@ -154,7 +154,7 @@ end
 def textscrn()
     word i
     if not mode(3)
-	oserror("Bad mode")
+	oserror(0, "Bad mode")
     fin
     time(@start)
     puts("Start\n")
@@ -173,7 +173,7 @@ def grafscrn()
     const x_scale = 8
     const y_scale = 4
     if not mode(5)
-	oserror("Bad mode")
+	oserror(0, "Bad mode")
     fin
     time(@start)
     puts("Start\n")

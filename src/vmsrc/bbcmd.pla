@@ -765,6 +765,7 @@ asm longjmp
 	;* if val is 0, force it to be 1
 	ORA	ESTKH,X
 	BNE	++++
+	;* TODO: Can we just do INC ESTKL,X here?
 	LDA	#1
 	STA	ESTKL,X
 ++++
@@ -1053,10 +1054,6 @@ def mode(n)
     // above INITFP.
     new_himemh = call($85, n, 0, 0, $FFF4).2
     if new_himemh == ^himemh or ^himemh > $80
-    	if n <> 7
-		prword(n)
-		oserror(42, "TODOTEMP")
-	fin
 	cout(22)
 	cout(n)
 	return TRUE
@@ -1079,65 +1076,7 @@ def mode(n)
 	return FALSE
     fin
 
-#ifdef PLAS128
-    // PLAS128 has absolute IFP values stored on the CPU stack, so these need
-    // to be patched up so they're correct once the frame stack has been
-    // relocated.
-    //
-    // Unfortunately there are two possible types of CPU stack frame for a
-    // function, depending on whether it uses ENTER/LEAVE or -/RET. The former
-    // finishes a stack frame by pushing a parameter frame size byte, the
-    // latter doesn't (it is implicitly 0). We work around this by observing
-    // that each CPU stack frame contains a return address pushed by the JSR
-    // instruction in either CALL or ICAL. At each step up the stack, we look
-    // at the two possible offsets (with/without a parameter frame size byte)
-    // and see which of the two has a plausible JSR return address.
-    //
-    // For reference, the CPU stack frame looks like this:
-    // IP   IPY  bank JSR-return IFP  (frame_size)
-    // word byte byte word       word byte
-    //
-    // It would be possible to avoid all this by changing to store IFP-PP on
-    // the stack instead of IFP, but although it's negligible I'd rather avoid
-    // doing the extra work on every function entry/exit.
-    s = cpu_stack_ptr()
-    call_jsr_return = get_call_jsr_return()
-    ical_jsr_return = get_ical_jsr_return()
-    working_ifp = *ifp
-    while TRUE
-	possible_jsr_return = *(cpu_stack + s + 4)
-	if possible_jsr_return == call_jsr_return or \
-	   possible_jsr_return == ical_jsr_return:
-	    frame_size = cpu_stack.[s + 1] // 1 byte - stacked by ENTER
-	else
-	    frame_size = 0
-	    s-- // adjust s so the offsets in the following code work
-	fin
-	working_pp = working_ifp + frame_size
-	working_ifp = *(cpu_stack + s + 2) // 2 bytes - stacked by (I)INTERP
-	prword(working_ifp)
-	cout(' ')
-	if uword_islt(working_ifp, working_pp) or uword_isgt(working_ifp, himem)
-	    // If this happens the stack is likely to have been corrupted and
-	    // recovery won't be possible. This shouldn't happen in the first
-	    // place.
-	    oserror(0, "Stack walk failed")
-	fin
-	*(cpu_stack + s + 2) = working_ifp + (new_himem - himem)
-	prword(*(cpu_stack + s + 2))
-	crout()
-	// VM starts up via INTERP so we expect to hit the end of the stack
-	// at this point in the loop after some number of iterations.
-	if working_ifp == himem
-	    break
-	fin
-	// s+4/5 is JSR return address, s+6 is bank, s+7 is IPY, s+8/9 is IP - stacked by CALL
-	s = s + 9
-    loop
-#endif
-
     ^himemh = new_himemh
-    call(0, 0, 0, 0, $FFE0)
 
     // We're now going to copy the parameter frame stack and adjust IFP (and
     // PP for PLAS128) accordingly. We need a temporary parameter frame
