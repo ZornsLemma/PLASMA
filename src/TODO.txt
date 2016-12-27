@@ -53,3 +53,13 @@ inside a loop? I would have though in principle the compiler could emit all
 constant strings at the top of the function, putting their addresses in local
 variables, and then just use those addresses where it would currently emit the
 constant string opcode.
+
+I'm not entirely happy with the idea, but it might be possible to have a small
+separate heap explicitly for use with OS calls. Then it would be possible to
+allow the "normal" heap to grow into sideways RAM (either a fifth bank in
+PLAS128, or the one-and-only bank in the currently nonexistent language ROM
+version) and it wouldn't cause any problems. I'd guess the parameter stack
+should always remain in main RAM so local storage can be used to make OS calls
+too. (Essentially, this idea is "offer the OS-safe guarantee only when code
+asks for it", rather than the opposite "offer the OS-safe guarantee by default
+and possibly offer a separate non-safe option for code to use if it wants".)
