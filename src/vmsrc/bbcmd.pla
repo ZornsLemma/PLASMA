@@ -1569,7 +1569,8 @@ def execmod(modfile)
     // having to allocate a fixed block of memory for it. (We can't
     // allocate on the heap temporarily here, as the space would get
     // 'trapped' below the loaded module if it's to remain resident.)
-    byte jb[100]
+    const ourjbsz = 128
+    byte jb[ourjbsz]
 
     perr = 1
     if stodci(modfile, @moddci)
@@ -1583,6 +1584,11 @@ def execmod(modfile)
 	error = setjmp(@jb)
 	if error == 0
 	    *errjb = @jb
+	    // TODO: This check should never fail and it could be removed
+	    // to shrink the VM size slightly.
+	    if jmpbufsz(@jb) > ourjbsz
+	    	oserror(0, "jmp_buf overflow!")
+	    fin
 	    action = loadmod(@moddci)
 	fin
 	*errjb = olderrjb
