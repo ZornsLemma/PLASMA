@@ -301,5 +301,9 @@ pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/pcw.pla > samplesrc/pcw.a
 	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword $(ACORNOS) samplesrc/pcw.bas
+stdio: samplesrc/stdio.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/stdio.pla > samplesrc/stdio.a
+	acme --setpc 4094 -o STDIO\#FE1000 samplesrc/stdio.a
+
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword stdio $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd

@@ -12,3 +12,4 @@ putfile "HANOI#FE1000", "HANOI", &0000
 putfile "PCW#FE1000", "PCW", &0000
 putbasic "samplesrc/pcw.bas", "B.PCW"
 putfile "DWORD#FE1000", "DWORD", &0000
+putfile "STDIO#FE1000", "STDIO", &0000

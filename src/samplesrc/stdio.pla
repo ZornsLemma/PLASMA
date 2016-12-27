@@ -1,0 +1,119 @@
+// Experimental C-style stdio and test/demonstration code
+// TODO: If this works, the stdio functionality should be moved into
+// a separate module.
+
+include "inc/acornos.plh"
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+
+const TRUE = -1
+const FALSE = 0
+
+const EOF = -1
+
+struc t_FILE
+    byte r_handle
+    byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
+    word r_buffer_index // TODO: byte?
+    word r_buffer_used // TODO: byte?
+    word r_buffer_size // TODO: byte?
+    byte r_buffer // buffer_size bytes
+end
+
+// TODO TEMP
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+// TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
+// void fopen(FILE *file, const char *filename, const char *mode)
+def fopen(file, filename, mode)
+    // TODO: write support, binary support?
+    // TODO: error handling
+    file->r_handle = osfind_open(osfind_input, filename)
+    if file->r_handle == 0
+	return 0
+    fin
+    file->r_eof = FALSE
+    file=>r_buffer_index = 0
+    file=>r_buffer_used = 0
+    return file
+end
+
+// word fgetc(FILE *file)
+// TODO ERROR HANDLING (NOT JUST EOF)
+def fgetc(file)
+    word buffer_index, c, osgbpb_flags
+    byte block[13]
+    buffer_index = file=>r_buffer_index
+    if buffer_index < file=>r_buffer_used
+	c = ^(file + r_buffer + buffer_index)
+	file=>r_buffer_index = buffer_index + 1
+	return c
+    else
+	if file->r_eof
+	    return EOF
+	fin
+	// TODO: careful if this handles EOF occurring at this point
+	file=>r_buffer_index = 0
+	// TODO: magic constants!
+	// TODO: this uses the OS file pointer, do we want that?
+	block.0 = file->r_handle
+	block:1 = file + r_buffer
+	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
+	block:5 = file=>r_buffer_size
+	block:7 = 0
+	osgbpb_flags = call(4, @block, @block >> 8, 0, $FFD1).3
+	// TODO: if C set in flags an error occurred - I suspect BRK error can occur too
+	// - C is set if at EOF, but don't know what happens if we "just reached" EOF
+	file=>r_buffer_used = file=>r_buffer_size - block:5
+	if block:5 > 0
+	    file->r_eof = TRUE
+	fin
+	return fgetc(file)
+    fin
+end
+
+// word fclose(FILE *file) - returns 0 on success, EOF on error
+// TODO: can this return errors or will we always get an OS error?
+def fclose(file)
+    osfind_close(file->r_handle)
+    return 0
+end
+
+def main()
+    byte file[20]
+    word i
+    word count
+    file:r_buffer_size = 5
+    i = fopen(@file, "HELLO", "rb")
+    if i == 0
+	puts("open failed")
+	return
+    fin
+    count = 0
+    repeat
+	if count % 8 == 0
+	    putln()
+	    prword(count)
+	    putc(' ')
+	fin
+	i = fgetc(@file)
+	if i <> EOF
+	    prbyte(i)
+	    putc(' ')
+	fin
+	count++
+    until i == EOF
+    i = fclose(@file)
+    if i ==  EOF
+	puts("close failed")
+	return
+    fin
+end
+
+main()
+done
+
+// vi: sts=4 sw=4
