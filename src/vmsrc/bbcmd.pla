@@ -1193,12 +1193,6 @@ def allocxheap(size)
     if ^rambankcount < 4 and uword_isge(xheap, xheapsize)
 	return 0
     fin
-    cout('X')
-    prword(xaddr)
-    cout(' ')
-    prword(size)
-    cout(13)
-    cout(10)
     return xaddr
 end
 #endif
