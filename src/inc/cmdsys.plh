@@ -48,7 +48,7 @@ import cmdsys
     const errstr = $701
     // The maximum size of a jmp_buf is actually two bytes less on PLAS32
     // but we just use this value all the time.
-    const jbsz = 1 + 7 + 1 + 255
+    const jbsz = 1 + 4 + 1 + 255
     predef setjmp, longjmp
     predef prbyte
     predef oserror, osfile, oscli

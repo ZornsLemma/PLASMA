@@ -652,16 +652,22 @@ end
 //
 
 // TODO: export this?
+// dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
 asm jmpbufsz
 	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
 	STA	TMPH
+	;* Set Y to offset of saved CPU stack size in jmp_buf
+#ifdef PLAS128
 	LDY	#5
+#else
+	LDY	#3
+#endif
 	LDA	(TMP),Y
 	EOR	#255
 	CLC
-	ADC	#9		;* actually 2 bytes smaller on PLAS32 but we just use this
+	ADC	#6		;* actually 2 bytes smaller on PLAS32 but we just use this
 	STA	ESTKL,X
 	LDA	#0
 	ADC	#0
@@ -686,7 +692,7 @@ asm setjmp
 	INY
 
 	;* We store IFP and PP as a delta from HIMEM to avoid problems
-	;* where we do setjmp(); mode(); longjmp(). TODONOW: Does this in fact help? OTOH it's not performance critical
+	;* where we do setjmp(); mode(); longjmp().
 +++	SEC
 	LDA	#0
 	SBC	IFPL
@@ -704,18 +710,6 @@ asm setjmp
 	INY
 	LDA	HIMEMH
 	SBC	PPH
-	STA	(TMP),Y
-	INY
-#endif
-
-	LDA	IPL
-	STA	(TMP),Y
-	INY
-	LDA	IPH
-	STA	(TMP),Y
-	INY
-#ifdef PLAS128
-	LDA	$F4
 	STA	(TMP),Y
 	INY
 #endif
@@ -780,11 +774,6 @@ asm longjmp
 	SBC	(TMP),Y
 	STA	IFPH
 	INY
-	;* TODONOW: This may not need to stack some things (e.g. IFP, $F4) for PLAS128
-	;* because some state is pushed onto the stack by CALL and I think that is what
-	;* really matters. Need to think about this with a clear head! (Don't forget
-	;* that if this is the case, the various calculations of the jmp_buf size/worst
-	;* case may need to return a smaller value.)
 #ifdef PLAS128
 	SEC
 	LDA	#0
@@ -795,21 +784,12 @@ asm longjmp
 	SBC	(TMP),Y
 	STA	PPH
 	INY
-	;* TODONOW Test that the restore of PP is working
 #endif
 
-	LDA	(TMP),Y
-	STA	IPL
-	INY
-	LDA	(TMP),Y
-	STA	IPH
-	INY
-#ifdef PLAS128
-	LDA	(TMP),Y
-	STA	$F4
-	STA	$FE30
-	INY
-#endif
+	;* We don't need to save IP, IPY or (for PLAS128) the current bank at 
+	;* $F4; CALL/ICALL save and restore these themselves. (Remember that
+	;* when longjmp() reaches it RTS, control returns to just after the
+	;* JSR inside the CALL/ICALL which called setjmp.)
 
 	TYA
 	CLC
