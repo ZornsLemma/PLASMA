@@ -920,7 +920,7 @@ asm rdstr
 	LDA	#254
 	INY
 	STA	(TMP),Y
-	LDA	#0
+	LDA	#32
 	INY
 	STA	(TMP),Y
 	LDA	#255
