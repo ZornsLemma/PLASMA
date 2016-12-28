@@ -12,6 +12,10 @@
 
 // TODO: ferror()?
 
+// TODO: could produce an alternate stdio implementation which is a thin
+// wrapper around the OS calls. If do that, compare performance with this
+// one and if this is slower then either ditch it or fix the problem!
+
 // TODO: Careful because BeebWiki says if file is extended the contents are undefined unless written to
 
 // TODO: fread()/fwrite() - these should be able to do fast memcpy
@@ -39,6 +43,8 @@ const SEEK_SET = 0
 
 const scratch = $79
 
+const default_chunk_size = 256
+
 // Note that the buffer size is a word; this means that an application can
 // choose to allocate virtually the entire heap as a buffer for a single file
 // if it wishes.
@@ -50,6 +56,7 @@ struc t_FILE
     word r_buffer_size
     word r_buffer_dirty_low
     word r_buffer_dirty_high
+    word r_chunk_size
     byte r_buffer_file_ptr[4]
     byte r_file_ptr[4]
     byte r_buffer // buffer_size bytes
@@ -68,6 +75,46 @@ def prword(w)
     prbyte(w)
 end
 
+// TODO: COMMENT OUT IN FINAL VSN
+def debug_dump_file(prefix, file)
+    puts(prefix)
+    puts(": "); prbyte(file->r_handle)
+    putc('/'); prword(file + r_buffer)
+    puts(", f/bptr "); prword(file=>r_file_ptr:2); prword(file=>r_file_ptr:0)
+    putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
+    puts(", bs/u "); prword(file=>r_buffer_size)
+    putc('/'); prword(file=>r_buffer_used)
+    puts(", dl/h "); prword(file=>r_buffer_dirty_low)
+    putc('/'); prword(file=>r_buffer_dirty_high)
+    putln()
+end
+
+// TODO: COMMENT OUT IN FINAL VSN
+def debug_dump_osgbpb(a, block)
+    puts("OSGBPB "); prbyte(a)
+    puts(": "); prbyte(block->0)
+    puts(", addr "); prword(block=>3); prword(block=>1)
+    puts(", size "); prword(block=>7); prword(block=>5)
+    puts(", fptr "); prword(block=>11); prword(block=>9)
+    putln()
+end
+
+// TODO: PUT THIS IN DWORD LIBRARY?
+// void dword_adduword(dword *result, const dword *lhs, word rhs)
+def dword_adduword(result, lhs, rhs)
+    dword_fromuword(result, rhs)
+    return dword_add(result, result, lhs)
+end
+
+// TODO: MAKE THIS A STD LIBRARY FUNCTION?
+def minu(lhs, rhs)
+    if isult(lhs, rhs)
+	return lhs
+    else
+	return rhs
+    fin
+end
+
 // TODO: INTERNAL, DON'T EXPORT
 // void get_length(dword *length, int handle)
 def get_length(length, handle)
@@ -82,11 +129,6 @@ end
 
 // TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
 // void fopen(FILE *file, const char *filename, const char *mode)
-// TODO TEMP MODE NOTES
-// "r", "w" map directly to osfind input/output
-// "a" maps to osfind update but a) if doesn't exist we need to create it b) we need to *always* output at end
-// "r+" maps directly to osfind update
-// "w+" is effectively osfind output+close+update
 def fopen(file, filename, mode)
     byte base_mode, update, i, c, osfind_mode, handle
     // PLASMA interprets '\n' as an ASCII CR, not an LF, so we don't need to
@@ -102,7 +144,8 @@ def fopen(file, filename, mode)
 	    update = TRUE
 	fin
 	// We ignore anything else, including 'b' - PLASMA's '\n' is
-	// ASCII CR (13) which is exactly what we want.
+	// ASCII CR (13) which is exactly what we want so text and
+	// binary modes are equivalent.
     next
     file->r_append = (base_mode == 'a')
     when base_mode
@@ -141,13 +184,16 @@ def fopen(file, filename, mode)
     if handle == 0
 	return 0
     fin
+
     file->r_handle = handle
     file->r_eof = FALSE
+    file=>r_chunk_size = minu(file=>r_buffer_size, default_chunk_size)
     file=>r_buffer_dirty_low = $FFFF
     file=>r_buffer_dirty_high = $0000
     file=>r_buffer_used = 0
     dword_fromuword(file + r_file_ptr, 0)
     dword_fromuword(file + r_buffer_file_ptr, 0)
+    debug_dump_file("fopen->", file)
     return file
 end
 
@@ -155,79 +201,102 @@ end
 // TODO: CURRENTLY THIS NEVER RETURNS EOF
 def fflush(file)
     byte block[13]
-    puts("fflush ")
+    //debug_dump_file("fflush-<", file)
     if isult(file=>r_buffer_dirty_low, file=>r_buffer_dirty_high)
-	puts("dirty")
 	block.0 = file->r_handle
-	block:1 = file + r_buffer
+	block:1 = file + r_buffer + file=>r_buffer_dirty_low
 	block:3 = 0 // TODO
 	block:5 = file=>r_buffer_dirty_high - file=>r_buffer_dirty_low
 	block:7 = 0
-	dword_fromuword(@block + 9, file=>r_buffer_dirty_low)
-	dword_add(@block + 9, @block + 9, file + r_buffer_file_ptr)
-	puts("writing dirty, low ")
-	prword(file=>r_buffer_dirty_low)
-	puts(", size ")
-	prword(block:5)
-	putln()
+	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
+	debug_dump_osgbpb(1, @block)
 	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 	file=>r_buffer_dirty_low = $FFFF
 	file=>r_buffer_dirty_high = $0000
 	// TODO: What if anything should this do with r_eof?
+	debug_dump_file("fflush->", file)
     fin
     return 0
 end
 
 // word fgetc(FILE *file)
 // TODO ERROR HANDLING (NOT JUST EOF)
+// TODO: magic constants everywhere
 def fgetc(file)
-    word c, osgbpb_flags
+    byte c
     byte block[13]
-    byte buffer_used_ptr[4]
-    dword_fromuword(@buffer_used_ptr, file=>r_buffer_used)
-    dword_add(@buffer_used_ptr, @buffer_used_ptr, file + r_buffer_file_ptr)
+    byte buffer_used_ptr[4], buffer_end_ptr[4]
+    word read_size
+    //debug_dump_file("fgetc-<", file)
+    dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
 	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
+	debug_dump_file("fgetc->", file)
 	return c
     else
 	if file->r_eof
 	    return EOF
 	fin
-	if fflush(file) == EOF
-	    return EOF
-	fin
 	// TODO: careful if this handles EOF occurring at this point
-	// TODO: magic constants!
+	// The relevant byte isn't in the buffer, so we're going to need to
+	// read some data into the buffer. If the client has used fseek() to
+	// move the pointer ahead, this may involve reading the data between
+	// the current end of the buffer and the new pointer.
+	dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
+	read_size = 0
+	// The buffer might not be full, so we may have room to read the required
+	// data without flushing it. 
+	if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
+	    // The buffer is large enough to read enough additional data to
+	    // read the required byte. How many bytes would we need to read to
+	    // get that byte into the buffer?
+	    read_size = (1 + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0) - file=>r_buffer_used
+	    // However, we always read at least r_chunk_size bytes.
+	    if read_size < file=>r_chunk_size
+		read_size = file=>r_chunk_size
+		// Is the buffer large enough for this newly increased read size?
+		if not dword_isult(file=>r_buffer_used + read_size, file=>r_buffer_size)
+		    read_size = 0 // no, it isn't
+		fin
+	    fin
+	fin
+	if read_size == 0
+	    // We're going to discard the current buffer contents and start
+	    // again.
+	    if fflush(file) == EOF
+		return EOF
+	    fin
+	    // TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
+	    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+	    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
+	    file=>r_buffer_used = 0
+	    read_size = file=>r_chunk_size
+	fin
+
+	// Actually do the read
 	block.0 = file->r_handle
-	block:1 = file + r_buffer
+	block:1 = file + r_buffer + file=>r_buffer_used
 	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
-	// TODO: We should possibly have a "block read" size which can be smaller than the
-	// buffer size - that way if an app has (say) a 20K buffer, it will be able to cache
-	// 20K for random access, but it won't be forced to wait while all 20K gets read in
-	// order to access a single byte.
-	block:5 = file=>r_buffer_size
+	block:5 = read_size
 	block:7 = 0
-	// TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
-	block:9 = file=>r_file_ptr:0
-	block:11 = file=>r_file_ptr:2
-	// TODO puts("CALLING OSGBPB\n")
+	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_used)
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
+	debug_dump_osgbpb(3, @block)
 	call(3, @block, @block >> 8, 0, $FFD1)
-	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
-	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
-	file=>r_buffer_used = file=>r_buffer_size - block:5
+	file=>r_buffer_used = file=>r_buffer_used + read_size - block:5
 	if block:5 <> 0
 	    file->r_eof = TRUE
 	fin
+	debug_dump_file("fgetc-!", file)
 	return fgetc(file)
     fin
 end
 
 // word fputc(char c, FILE *file) - returns c on success, EOF on error
 def fputc(c, file)
-    byte buffer_size_ptr[4]
+    byte buffer_end_ptr[4]
     word index
     // TODO: Perhaps just use 'file == 0' as the stdout indicator? Would save
     // a bit of setup, and the reality is the current approach is still likely
@@ -240,18 +309,15 @@ def fputc(c, file)
 	fin
 	return c
     fin
+    //debug_dump_file("fputc-<", file)
     if file->r_append
 	get_length(file + r_file_ptr, file->r_handle)
 	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
 	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG?
     fin
-    dword_fromuword(@buffer_size_ptr, file=>r_buffer_size)
-    dword_add(@buffer_size_ptr, @buffer_size_ptr, file + r_buffer_file_ptr)
-    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_size_ptr)
-	putc('A');prword(file=>r_file_ptr)
-	putc('B');prword(file=>r_buffer_file_ptr)
+    dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
+    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
-	putc('I');prword(index)
 	^(file + r_buffer + index) = c
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
 	// TODO: In order to minimise problems if an app has (say) a 20K buffer
@@ -268,6 +334,7 @@ def fputc(c, file)
 	if isugt(index, file=>r_buffer_used)
 	    file=>r_buffer_used = index
 	fin
+	debug_dump_file("fputc->", file)
 	return c
     else
 	if fflush(file) == EOF
@@ -276,6 +343,7 @@ def fputc(c, file)
 	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
 	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
 	file=>r_buffer_used = 0
+	debug_dump_file("fputc-!", file)
 	return fputc(c, file)
     fin
 end
@@ -287,6 +355,7 @@ end
 def fseek(file, offset, origin)
     dword_fromuword(file + r_file_ptr, offset)
     file->r_eof = FALSE
+    debug_dump_file("fseek->", file)
     return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
 end
 
@@ -294,7 +363,7 @@ end
 // TODO: can this return errors or will we always get an OS error?
 def fclose(file)
     word result
-    puts("fclose ")
+    debug_dump_file("fclose-<", file)
     if fflush(file) == EOF
 	return EOF
     fin
@@ -303,13 +372,14 @@ def fclose(file)
 end
 
 def main()
-    byte file[20]
+    byte file[32]
     word i
     word count
     file:r_buffer_size = 2 
     puts("foo\nbar\nbaz\n")
     fputc('x', stdout)
     fputc('y', stdout)
+    fputc('\n', stdout)
     i = fopen(@file, "TEST", "w+b")
     if i == 0
 	puts("open failed")
@@ -317,7 +387,7 @@ def main()
     fin
     i = fputc('X', @file)
     i = fputc('Y', @file)
-    puts("\nDOINGZ")
+    puts("DOINGZ\n")
     i = fputc('Z', @file)
     puts("DONEZ\n")
     i = fseek(@file, 2, SEEK_SET)
@@ -325,19 +395,24 @@ def main()
 	puts("fseek failed")
 	return
     fin
-    puts("\nabout to fget Z\n")
+    puts("about to fget Z\n")
     i = fgetc(@file)
     if i <> 'Z'
 	puts("fgetc failed")
 	return
     fin
-    puts("\nfgot Z\n")
-    i = fseek(@file, 2, SEEK_SET)
+    puts("fgot Z\n")
+    i = fseek(@file, 0, SEEK_SET)
     if i <> 0
 	puts("fseek failed")
 	return
     fin
-    puts("\nabout to write Q\n")
+    i = fgetc(@file)
+    if i <> 'X'
+	puts("fgetc2 failed")
+	return
+    fin
+    puts("about to write Q\n")
     i = fputc('Q', @file)
     i = fclose(@file)
     if i == EOF
@@ -378,5 +453,16 @@ dword_fromuword(@dword_one, 1)
 
 main()
 done
+
+// TODO: temp-ish notes 
+//
+// the full buffer_size bytes don't need to be present in the buffer, but the
+// only partially filled state supported if that the buffer contains
+// buffer_used bytes of data which are the file contents starting from
+// buffer_file_ptr
+//
+// this means that if you seek forward but still within the area covered by
+// [buffer_file_ptr, buffer_ptr_ptr + buffer_size), the read will have to read
+// all the intervening data into the buffer as well
 
 // vi: sts=4 sw=4
