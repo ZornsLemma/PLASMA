@@ -69,3 +69,5 @@ It might be possible to do something with the B+ special private 12K
 On a 6502 second processor, we could relocate ourselves down to &500 (say)
 instead of OSHWM=&800 if we aren't using all of the language workspace from
 &400-&800
+
+A vim syntax highlighting mode for PLASMA code might be nice

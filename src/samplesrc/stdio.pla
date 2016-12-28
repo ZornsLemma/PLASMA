@@ -22,7 +22,9 @@
 // convenience function? I would like to leave the door open for an fopen()
 // wrapper which uses a malloc-like library as another option. Maybe I should
 // use fopen_placement() (?) for the real fn which does the work, then I can
-// have fopen_heap() and (later) fopen_malloc() as the wrapper functions.
+// have fopen_heap() and (later) fopen_malloc() as the wrapper functions. The
+// wrapper functions will of course need an argument specifying the buffer
+// size, probably in the same position the _placement one takes the FILE *.
 
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
