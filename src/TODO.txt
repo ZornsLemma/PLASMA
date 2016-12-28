@@ -63,3 +63,5 @@ should always remain in main RAM so local storage can be used to make OS calls
 too. (Essentially, this idea is "offer the OS-safe guarantee only when code
 asks for it", rather than the opposite "offer the OS-safe guarantee by default
 and possibly offer a separate non-safe option for code to use if it wants".)
+
+It might be possible to do something with the B+ special private 12K
