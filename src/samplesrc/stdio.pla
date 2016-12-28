@@ -324,15 +324,30 @@ def fputc(c, file)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
 	^(file + r_buffer + index) = c
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
-	// TODO: In order to minimise problems if an app has (say) a 20K buffer
-	// and modifies the first and last byte, we should probably have a
-	// threshold and if writing this one byte would increase the dirty range
-	// by more than the threshold, we should flush first.
+	// We need to expand the dirty range to include the byte just written.
+	// In order to avoid huge wasteful writes if the client has a big buffer and
+	// touches one byte at the start and one at the end, if this write would
+	// increase the dirty range size significantly we write the current
+	// dirty range and start a new one containing just this byte.
+	// TODO: We could possibly optimise the common case of sequential
+	// writes where index == file=>r_buffer_dirty_high and we don't
+	// need to worry about extra_dirty, or buffer_dirty_low - we just
+	// increment buffer_dirty_high and index
 	if isult(index, file=>r_buffer_dirty_low)
+	    if (file=>r_buffer_dirty_low <> $FFFF) and (file=>r_buffer_dirty_low - index) > file=>r_chunk_size
+		if fflush(file) == EOF
+		    return EOF
+		fin
+	    fin
 	    file=>r_buffer_dirty_low = index
 	fin
 	index++ // high watermark is exclusive
 	if isugt(index, file=>r_buffer_dirty_high)
+	    if (file=>r_buffer_dirty_high <> $0000) and (index - file=>r_buffer_dirty_high) > file=>r_chunk_size
+		if fflush(file) == EOF
+		    return EOF
+		fin
+	    fin
 	    file=>r_buffer_dirty_high = index
 	fin
 	if isugt(index, file=>r_buffer_used)
