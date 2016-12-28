@@ -129,7 +129,6 @@ end
 def fgetc(file)
     word c, osgbpb_flags
     byte block[13]
-    // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
     byte buffer_used_ptr[4]
     dword_fromuword(@buffer_used_ptr, file=>r_buffer_used)
     dword_add(@buffer_used_ptr, @buffer_used_ptr, file + r_buffer_file_ptr)
@@ -165,7 +164,7 @@ def fgetc(file)
 	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
 	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
 	file=>r_buffer_used = file=>r_buffer_size - block:5
-	if block:5 > 0
+	if block:5 <> 0
 	    file->r_eof = TRUE
 	fin
 	return fgetc(file)
@@ -187,7 +186,6 @@ def fputc(c, file)
 	fin
 	return c
     fin
-    // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
     dword_fromuword(@buffer_size_ptr, file=>r_buffer_size)
     dword_add(@buffer_size_ptr, @buffer_size_ptr, file + r_buffer_file_ptr)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_size_ptr)
@@ -208,7 +206,7 @@ def fputc(c, file)
 	if isugt(index, file=>r_buffer_dirty_high)
 	    file=>r_buffer_dirty_high = index
 	fin
-	if index > file=>r_buffer_used
+	if isugt(index, file=>r_buffer_used)
 	    file=>r_buffer_used = index
 	fin
 	return c
