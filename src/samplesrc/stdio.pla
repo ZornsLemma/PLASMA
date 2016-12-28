@@ -12,13 +12,16 @@ const FALSE = 0
 const EOF = -1
 const SEEK_SET = 0
 
+// Note that the buffer size is a word; this means that an application can
+// choose to allocate virtually the entire heap as a buffer for a single file
+// if it wishes.
 struc t_FILE
     byte r_handle
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
     byte r_dirty // TODO: possibly part of a 'flags' byte
-    word r_buffer_index // TODO: byte?
-    word r_buffer_used // TODO: byte?
-    word r_buffer_size // TODO: byte?
+    word r_buffer_used
+    word r_buffer_size
+    word r_buffer_file_ptr // TODO: dword?
     word r_file_ptr // TODO: dword? rename?
     byte r_buffer // buffer_size bytes
 end
@@ -50,29 +53,60 @@ def fopen(file, filename, mode)
     fin
     file->r_eof = FALSE
     file->r_dirty = FALSE
-    file=>r_buffer_index = 0
     file=>r_buffer_used = 0
     file=>r_file_ptr = 0
+    file=>r_buffer_file_ptr = 0
     // TODO: We probably need to record if the file is currently being used for input or output and if the buffer is dirty
     return file
+end
+
+// word fflush(FILE *file) - returns 0 on success, EOF on error
+// TODO: CURRENTLY THIS NEVER RETURNS EOF
+// TODO: MIGHT WANT TO BE CLEVERER AND HANG ON TO OUR BUFFER AFTER WRITING IT, JUST CLEAN
+def fflush(file)
+    // TODO: Does this need to consider r_buffer_used?
+    byte block[13]
+    puts("fflush ")
+    if file->r_dirty
+	puts("dirty")
+	block.0 = file->r_handle
+	block:1 = file + r_buffer
+	block:3 = 0 // TODO
+	// TODO: We could be cleverer and keep a low/high dirty positions to avoid writing the
+	// entire buffer, not sure if worth it - it possibly is if the buffer might be very
+	// large (many kilobytes)
+	block:5 = file=>r_buffer_used
+	block:7 = 0
+	block:9 = file=>r_buffer_file_ptr
+	block:11 = 0 // TODO
+	puti(file=>r_buffer_file_ptr)
+	puts("FOO\n")
+	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+	puts("BAR\n")
+	file->r_dirty = FALSE
+	// TODO: What if anything should this do with r_eof?
+    fin
+    return 0
 end
 
 // word fgetc(FILE *file)
 // TODO ERROR HANDLING (NOT JUST EOF)
 def fgetc(file)
-    word buffer_index, c, osgbpb_flags
+    word c, osgbpb_flags
     byte block[13]
-    buffer_index = file=>r_buffer_index
-    if buffer_index < file=>r_buffer_used
-	c = ^(file + r_buffer + buffer_index)
-	file=>r_buffer_index = buffer_index + 1
+    // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
+    if file=>r_file_ptr >= file=>r_buffer_file_ptr and file=>r_file_ptr < (file=>r_buffer_file_ptr + file=>r_buffer_used)
+	c = ^(file + r_buffer + file=>r_file_ptr - file=>r_buffer_file_ptr)
+	file=>r_file_ptr++
 	return c
     else
 	if file->r_eof
 	    return EOF
 	fin
+	if fflush(file) == EOF
+	    return EOF
+	fin
 	// TODO: careful if this handles EOF occurring at this point
-	file=>r_buffer_index = 0
 	// TODO: magic constants!
 	// TODO: this uses the OS file pointer, do we want that?
 	block.0 = file->r_handle
@@ -86,7 +120,7 @@ def fgetc(file)
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
 	call(3, @block, @block >> 8, 0, $FFD1)
-	file=>r_file_ptr = block:9
+	file=>r_buffer_file_ptr = file=>r_file_ptr
 	file=>r_buffer_used = file=>r_buffer_size - block:5
 	if block:5 > 0
 	    file->r_eof = TRUE
@@ -95,45 +129,26 @@ def fgetc(file)
     fin
 end
 
-// word fflush(FILE *file) - returns 0 on success, EOF on error
-// TODO: CURRENTLY THIS NEVER RETURNS EOF
-// TODO: MIGHT WANT TO BE CLEVERER AND HANG ON TO OUR BUFFER AFTER WRITING IT, JUST CLEAN
-def fflush(file)
-    // TODO: Does this need to consider r_buffer_used?
-    byte block[13]
-    if not file->r_dirty
-	return 0
-    fin
-    block.0 = file->r_handle
-    block:1 = file + r_buffer
-    block:3 = 0 // TODO
-    block:5 = file=>r_buffer_index
-    block:7 = 0
-    block:9 = file=>r_file_ptr
-    block:11 = 0 // TODO
-    call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
-    file=>r_file_ptr = block:9
-    file=>r_buffer_index = 0
-    file->r_dirty = FALSE
-    return 0
-end
-
 // TODO: we may want to try to be clever and avoid flushing if we fseek() within the current byte range held in our buffer
 
 // word fputc(char c, FILE *file) - returns c on success, EOF on error
 def fputc(c, file)
-    word buffer_index
-    buffer_index = file=>r_buffer_index
-    if buffer_index < file=>r_buffer_size
-	^(file + r_buffer + buffer_index) = c
-	file=>r_buffer_index = buffer_index + 1
+    // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
+    if file=>r_file_ptr >= file=>r_buffer_file_ptr and file=>r_file_ptr < (file=>r_buffer_file_ptr + file=>r_buffer_size)
+	^(file + r_buffer + file=>r_file_ptr - file=>r_buffer_file_ptr) = c
+	file=>r_file_ptr++
 	file->r_dirty = TRUE
-	// TODO: any need to update r_buffer_used?
+	if file=>r_file_ptr - file=>r_buffer_file_ptr > file=>r_buffer_used
+	    file=>r_buffer_used = file=>r_file_ptr - file=>r_buffer_file_ptr
+	    puts("XXX"); puti(file=>r_buffer_used)
+	fin
 	return c
     else
 	if fflush(file) == EOF
 	    return EOF
 	fin
+	file=>r_buffer_file_ptr = file=>r_file_ptr
+	file=>r_buffer_used = 0
 	return fputc(c, file)
     fin
 end
@@ -142,17 +157,15 @@ end
 // TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET
 // TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
 def fseek(file, offset, origin)
-    // TODO MIGHT WANT TO BE CLEVERER IF SEEK POSITION IS WITHIN CURRENT BUFFER
-    if fflush(file) == EOF
-	return EOF
-    fin
     file=>r_file_ptr = offset
+    file->r_eof = FALSE
 end
 
 // word fclose(FILE *file) - returns 0 on success, EOF on error
 // TODO: can this return errors or will we always get an OS error?
 def fclose(file)
     word result
+    puts("fclose ")
     if fflush(file) == EOF
 	return EOF
     fin
@@ -172,7 +185,9 @@ def main()
     fin
     i = fputc('X', @file)
     i = fputc('Y', @file)
+    puts("\nDOINGZ")
     i = fputc('Z', @file)
+    puts("DONEZ\n")
     i = fseek(@file, 0, SEEK_SET)
     if i <> 0
 	puts("fseek failed")
@@ -183,7 +198,7 @@ def main()
 	puts("fgetc failed")
 	return
     fin
-    i = fseek(@file, 0, SEEK_SET)
+    i = fseek(@file, 2, SEEK_SET)
     if i <> 0
 	puts("fseek failed")
 	return
