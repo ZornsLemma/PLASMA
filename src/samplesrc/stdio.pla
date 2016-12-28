@@ -128,8 +128,11 @@ end
 // MAIN RAM, WHEREAS BYTECODE CAN BE IN SWR ON PLAS128
 
 // TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
-// void fopen(FILE *file, const char *filename, const char *mode)
-def fopen(file, filename, mode)
+// void fopen_prealloc(FILE *file, const char *filename, const char *mode)
+// Expectes 'file' to point to a large enough block of memory with the
+// r_buffer_size element filled in (to represent the size of the buffer,
+// not the size of the whole memory block)
+def fopen_prealloc(file, filename, mode)
     byte base_mode, update, i, c, osfind_mode, handle
     // PLASMA interprets '\n' as an ASCII CR, not an LF, so we don't need to
     // perform any translation for text files. TODO: WE SHOULD HOWEVER
@@ -195,6 +198,14 @@ def fopen(file, filename, mode)
     dword_fromuword(file + r_buffer_file_ptr, 0)
     debug_dump_file("fopen->", file)
     return file
+end
+
+// TODO: PROTOTYPE
+def fopen_heap(buffer_size, filename, mode)
+    word file
+    file = heapalloc(t_FILE - 1 + buffer_size)
+    file=>r_buffer_size = buffer_size
+    return fopen_prealloc(file, filename, mode)
 end
 
 // word fflush(FILE *file) - returns 0 on success, EOF on error
@@ -391,49 +402,48 @@ def fclose(file)
 end
 
 def main()
-    byte file[32]
+    word file
     word i
     word count
-    file:r_buffer_size = 2 
     puts("foo\nbar\nbaz\n")
     fputc('x', stdout)
     fputc('y', stdout)
     fputc('\n', stdout)
-    i = fopen(@file, "TEST", "w+b")
-    if i == 0
+    file = fopen_heap(2, "TEST", "w+b")
+    if file == 0
 	puts("open failed")
 	return
     fin
-    i = fputc('X', @file)
-    i = fputc('Y', @file)
+    i = fputc('X', file)
+    i = fputc('Y', file)
     puts("DOINGZ\n")
-    i = fputc('Z', @file)
+    i = fputc('Z', file)
     puts("DONEZ\n")
-    i = fseek(@file, 2, SEEK_SET)
+    i = fseek(file, 2, SEEK_SET)
     if i <> 0
 	puts("fseek failed")
 	return
     fin
     puts("about to fget Z\n")
-    i = fgetc(@file)
+    i = fgetc(file)
     if i <> 'Z'
 	puts("fgetc failed")
 	return
     fin
     puts("fgot Z\n")
-    i = fseek(@file, 0, SEEK_SET)
+    i = fseek(file, 0, SEEK_SET)
     if i <> 0
 	puts("fseek failed")
 	return
     fin
-    i = fgetc(@file)
+    i = fgetc(file)
     if i <> 'X'
 	puts("fgetc2 failed")
 	return
     fin
     puts("about to write Q\n")
-    i = fputc('Q', @file)
-    i = fclose(@file)
+    i = fputc('Q', file)
+    i = fclose(file)
     if i == EOF
 	puts("close failed")
 	return
@@ -442,8 +452,8 @@ def main()
 
 
 
-    i = fopen(@file, "HELLO", "rb")
-    if i == 0
+    file = fopen_heap(2, "HELLO", "rb")
+    if file == 0
 	puts("open failed")
 	return
     fin
@@ -454,14 +464,14 @@ def main()
 	    prword(count)
 	    putc(' ')
 	fin
-	i = fgetc(@file)
+	i = fgetc(file)
 	if i <> EOF
 	    prbyte(i)
 	    putc(' ')
 	fin
 	count++
     until i == EOF
-    i = fclose(@file)
+    i = fclose(file)
     if i == EOF
 	puts("close failed")
 	return
