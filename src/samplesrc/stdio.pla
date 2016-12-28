@@ -56,7 +56,7 @@ end
 // void fopen(FILE *file, const char *filename, const char *mode)
 def fopen(file, filename, mode)
     byte osfind_mode
-    // TODO: text mode - what is the plasma newline convention ('\n' I think, but check)
+    // TODO: text mode - I guess this is actually quite easy, because we just need to translate '\n' into '\r' on write and opposite on read - we are not having to change one byte to two or vice versa
     // TODO: Can I continue to support fseek()/ftell() in text mode?
     // TODO: error handling
     // TODO: very poor parsing of mode
