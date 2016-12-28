@@ -17,6 +17,13 @@
 // TODO: fread()/fwrite() - these should be able to do fast memcpy
 // into/out of the buffer where possible
 
+// TODO: convenience wrapper for fopen() which heapallocs() and initialises?
+// Maybe rename fopen() as fopen_not_quite_sure_what() and use fopen() for the
+// convenience function? I would like to leave the door open for an fopen()
+// wrapper which uses a malloc-like library as another option. Maybe I should
+// use fopen_placement() (?) for the real fn which does the work, then I can
+// have fopen_heap() and (later) fopen_malloc() as the wrapper functions.
+
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
