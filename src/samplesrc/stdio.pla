@@ -21,15 +21,6 @@
 // TODO: fread()/fwrite() - these should be able to do fast memcpy
 // into/out of the buffer where possible
 
-// TODO: convenience wrapper for fopen() which heapallocs() and initialises?
-// Maybe rename fopen() as fopen_not_quite_sure_what() and use fopen() for the
-// convenience function? I would like to leave the door open for an fopen()
-// wrapper which uses a malloc-like library as another option. Maybe I should
-// use fopen_placement() (?) for the real fn which does the work, then I can
-// have fopen_heap() and (later) fopen_malloc() as the wrapper functions. The
-// wrapper functions will of course need an argument specifying the buffer
-// size, probably in the same position the _placement one takes the FILE *.
-
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
@@ -102,8 +93,9 @@ end
 // TODO: PUT THIS IN DWORD LIBRARY?
 // void dword_adduword(dword *result, const dword *lhs, word rhs)
 def dword_adduword(result, lhs, rhs)
-    dword_fromuword(result, rhs)
-    return dword_add(result, result, lhs)
+    byte rhs_dword[4]
+    dword_fromuword(@rhs_dword, rhs)
+    return dword_add(result, lhs, @rhs_dword)
 end
 
 // TODO: MAKE THIS A STD LIBRARY FUNCTION?
@@ -134,8 +126,6 @@ end
 // not the size of the whole memory block)
 def fopen_prealloc(file, filename, mode)
     byte base_mode, update, i, c, osfind_mode, handle
-    // PLASMA interprets '\n' as an ASCII CR, not an LF, so we don't need to
-    // perform any translation for text files. TODO: WE SHOULD HOWEVER
     // TODO: error handling
     base_mode = 'r'
     update = FALSE
@@ -211,9 +201,43 @@ end
 // word fflush(FILE *file) - returns 0 on success, EOF on error
 // TODO: CURRENTLY THIS NEVER RETURNS EOF
 def fflush(file)
-    byte block[13]
+    byte block[13], length[4], desired_length[4], size_delta[4]
+    const zero_size = 128
+    byte zero[zero_size]
     //debug_dump_file("fflush-<", file)
     if isult(file=>r_buffer_dirty_low, file=>r_buffer_dirty_high)
+	// If we are going to write past the current end of the file, doing so
+	// by simply specifying a file pointer past the end in the OSGBPB 1 call
+	// would leave a gap with undefined contents. So let's emit zeros to 
+	// grow the file first.
+	// TODO: Test this
+	get_length(@length, file->r_handle)
+	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
+	if dword_isult(@length, @desired_length)
+	    memset(@zero, $0000, zero_size)
+	    while dword_isult(@length, @desired_length)
+		dword_sub(@size_delta, @desired_length, @length)
+		puts("length "); prword(length:2); prword(length:0)
+		puts(", desired_length "); prword(desired_length:2); prword(desired_length:0)
+		puts(", size_delta "); prword(size_delta:2); prword(size_delta:0)
+		putln()
+		block.0 = file->r_handle
+		block:1 = @zero
+		block:3 = 0 // TODO
+		if not dword_isuword(@size_delta)
+		    block:5 = zero_size
+		else
+		    block:5 = minu(zero_size, dword_touword(@size_delta))
+		fin
+		block:7 = 0
+		block:9 = length:0
+		block:11 = length:2
+		dword_adduword(@length, @length, block:5)
+		debug_dump_osgbpb(1, @block)
+		call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+	    loop
+	fin
+
 	block.0 = file->r_handle
 	block:1 = file + r_buffer + file=>r_buffer_dirty_low
 	block:3 = 0 // TODO
@@ -222,9 +246,9 @@ def fflush(file)
 	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
 	debug_dump_osgbpb(1, @block)
 	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+
 	file=>r_buffer_dirty_low = $FFFF
 	file=>r_buffer_dirty_high = $0000
-	// TODO: What if anything should this do with r_eof?
 	debug_dump_file("fflush->", file)
     fin
     return 0
@@ -249,7 +273,7 @@ def fgetc(file)
 	if file->r_eof
 	    return EOF
 	fin
-	// TODO: careful if this handles EOF occurring at this point
+	// TODO: WHAT IF THE CALLER HAS SEEKED PAST THE END OF THE FILE AND IS READING WITHOUT HAVNG WRITTEN? IT'S NOT CLEAR THERE'S AN OBLIGATION ON US TO EXTEND THE FILE IN THIS CASE. HOWEVER, *IF* OSGBPB WOULD EXTEND THE FILE AND LEAVE THE CONTENTS UNDEFINED, WE EITHER NEED TO MAKE SURE WE DEFINE THE CONTENTS OF REFUSE - PROBABLY SIMPLY BY RETURNING EOF - TO GET THAT FAR
 	// The relevant byte isn't in the buffer, so we're going to need to
 	// read some data into the buffer. If the client has used fseek() to
 	// move the pointer ahead, this may involve reading the data between
@@ -328,7 +352,7 @@ def fputc(c, file)
     if file->r_append
 	get_length(file + r_file_ptr, file->r_handle)
 	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
-	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG?
+	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG? - I THINK IT CAN LEAVE IT ALONE, WHICH IS NOT SEEK LIKE, SO BE CAREFUL IF FACTORING OUT
     fin
     dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
@@ -362,6 +386,7 @@ def fputc(c, file)
 	    file=>r_buffer_dirty_high = index
 	fin
 	if isugt(index, file=>r_buffer_used)
+	    // TODONOW: I THINK WE NEED TO FILL THE GAP WITH ZEROS IF THIS IS ADVANCING BY MORE THAN ONE - THIS IS *WITHIN* THE BUFFER, SO THE ZERO FILL DONE BY FFLUSH ISN'T GOING TO HELP US HERE - TEST THIS BUG EXISTS BEFORE FIXING IT
 	    file=>r_buffer_used = index
 	fin
 	debug_dump_file("fputc->", file)
@@ -378,11 +403,12 @@ def fputc(c, file)
     fin
 end
 
-// TODO: DO WE NEED TO ZERO-FILL THE BUFFER WHERE OUR SEEK EXTENDS THE FILE?
+// TODONOW: DO WE NEED TO ZERO-FILL THE BUFFER WHERE OUR SEEK EXTENDS THE FILE? - I THINK WE DO, THOUGH WE SHOULD PROBABLY NOT DO SO UNTIL AN FPUTC() OCCURS (AND IN REALITY WE'D PROBABLY DO IT IN FFLUSH(), OF COURSE)
 // word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
-// TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET
+// TODONOW: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET - REMEMBER THAT WITH SEEK_CUR AND SEEK_END THE OFFSET CAN BE NEGATIVE, SO WE NEED TO TREAT IT AS SIGNED IN BOTH 16 AND 32 BIT VERSIONS
 // TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION (fseek32) FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
 def fseek(file, offset, origin)
+    // TODO: This should be a no-op if file opened as "a" (but not "a+")
     dword_fromuword(file + r_file_ptr, offset)
     file->r_eof = FALSE
     debug_dump_file("fseek->", file)
@@ -414,7 +440,9 @@ def main()
 	puts("open failed")
 	return
     fin
+    puts("DOINGX\n")
     i = fputc('X', file)
+    puts("DONEX\n")
     i = fputc('Y', file)
     puts("DOINGZ\n")
     i = fputc('Z', file)
@@ -439,6 +467,11 @@ def main()
     i = fgetc(file)
     if i <> 'X'
 	puts("fgetc2 failed")
+	return
+    fin
+    i = fseek(file, $82, SEEK_SET)
+    if i <> 0
+	puts("fseek2 failed")
 	return
     fin
     puts("about to write Q\n")
