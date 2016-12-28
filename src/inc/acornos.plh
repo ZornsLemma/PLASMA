@@ -3,4 +3,5 @@ import acornos
   const eof = -1
   const osfind_input = $40
   const osfind_output = $80
+  const osfind_update = $C0
 end

@@ -10,6 +10,7 @@ const TRUE = -1
 const FALSE = 0
 
 const EOF = -1
+const SEEK_SET = 0
 
 struc t_FILE
     byte r_handle
@@ -18,6 +19,7 @@ struc t_FILE
     word r_buffer_index // TODO: byte?
     word r_buffer_used // TODO: byte?
     word r_buffer_size // TODO: byte?
+    word r_file_ptr // TODO: dword? rename?
     byte r_buffer // buffer_size bytes
 end
 
@@ -34,7 +36,10 @@ def fopen(file, filename, mode)
     // TODO: write support, non-binary support?
     // TODO: error handling
     // TODO: very poor parsing of mode
-    if ^(mode + 1) == 'r'
+    // TODO: this ignores the subtleties of w+ vs r+ vs a+
+    if ^mode == 2 and ^(mode + 2) == '+'
+	osfind_mode = osfind_update
+    elsif ^(mode + 1) == 'r'
 	osfind_mode = osfind_input
     elsif ^(mode + 1) == 'w'
 	osfind_mode = osfind_output
@@ -47,6 +52,7 @@ def fopen(file, filename, mode)
     file->r_dirty = FALSE
     file=>r_buffer_index = 0
     file=>r_buffer_used = 0
+    file=>r_file_ptr = 0
     // TODO: We probably need to record if the file is currently being used for input or output and if the buffer is dirty
     return file
 end
@@ -74,10 +80,13 @@ def fgetc(file)
 	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
 	block:5 = file=>r_buffer_size
 	block:7 = 0
+	block:9 = file=>r_file_ptr
+	block:11 = 0 // TODO
 	// TODO puts("CALLING OSGBPB\n")
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
-	call(4, @block, @block >> 8, 0, $FFD1)
+	call(3, @block, @block >> 8, 0, $FFD1)
+	file=>r_file_ptr = block:9
 	file=>r_buffer_used = file=>r_buffer_size - block:5
 	if block:5 > 0
 	    file->r_eof = TRUE
@@ -88,6 +97,7 @@ end
 
 // word fflush(FILE *file) - returns 0 on success, EOF on error
 // TODO: CURRENTLY THIS NEVER RETURNS EOF
+// TODO: MIGHT WANT TO BE CLEVERER AND HANG ON TO OUR BUFFER AFTER WRITING IT, JUST CLEAN
 def fflush(file)
     // TODO: Does this need to consider r_buffer_used?
     byte block[13]
@@ -99,8 +109,10 @@ def fflush(file)
     block:3 = 0 // TODO
     block:5 = file=>r_buffer_index
     block:7 = 0
-    // TODO: Using OS file pointer, OK?
-    call(2, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+    block:9 = file=>r_file_ptr
+    block:11 = 0 // TODO
+    call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+    file=>r_file_ptr = block:9
     file=>r_buffer_index = 0
     file->r_dirty = FALSE
     return 0
@@ -126,6 +138,17 @@ def fputc(c, file)
     fin
 end
 
+// word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
+// TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET
+// TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
+def fseek(file, offset, origin)
+    // TODO MIGHT WANT TO BE CLEVERER IF SEEK POSITION IS WITHIN CURRENT BUFFER
+    if fflush(file) == EOF
+	return EOF
+    fin
+    file=>r_file_ptr = offset
+end
+
 // word fclose(FILE *file) - returns 0 on success, EOF on error
 // TODO: can this return errors or will we always get an OS error?
 def fclose(file)
@@ -142,17 +165,30 @@ def main()
     word i
     word count
     file:r_buffer_size = 2
-    i = fopen(@file, "TEST", "wb")
+    i = fopen(@file, "TEST", "w+b")
     if i == 0
 	puts("open failed")
 	return
     fin
     i = fputc('X', @file)
-    puti(i)
     i = fputc('Y', @file)
-    puti(i)
     i = fputc('Z', @file)
-    puti(i)
+    i = fseek(@file, 0, SEEK_SET)
+    if i <> 0
+	puts("fseek failed")
+	return
+    fin
+    i = fgetc(@file)
+    if i <> 'X'
+	puts("fgetc failed")
+	return
+    fin
+    i = fseek(@file, 0, SEEK_SET)
+    if i <> 0
+	puts("fseek failed")
+	return
+    fin
+    i = fputc('Q', @file)
     i = fclose(@file)
     if i == EOF
 	puts("close failed")
