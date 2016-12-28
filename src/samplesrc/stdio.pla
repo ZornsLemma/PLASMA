@@ -263,7 +263,11 @@ def fgetc(file)
 	fin
 	if read_size == 0
 	    // We're going to discard the current buffer contents and start
-	    // again.
+	    // again. TODO: Should we (sometimes? if we've had an fseek()??)
+	    // actually try setting buffer_file_ptr so file_ptr is in the
+	    // middle of the buffer not the strt. If you're doing random
+	    // access backwards, the current approach will tend to cause
+	    // every seek to be immediately followed by a fresh read (I think)
 	    if fflush(file) == EOF
 		return EOF
 	    fin
