@@ -344,4 +344,25 @@ ISTRUE
     RTS
 end
 
+// bool dword_isuge(const dword *lhs, const dword *rhs)
+export asm dword_isuge
+    LDA ESTKL+1,X
+    STA SRCL
+    LDA ESTKH+1,X
+    STA SRCH
+    LDA ESTKL,X
+    STA DSTL
+    LDA ESTKH,X
+    STA DSTH
+
+    LDY #3
+-   LDA (SRC),Y
+    CMP (DST),Y
+    BCC ISFALSE
+    BNE ISTRUE
+    DEY
+    BPL -
+    BMI ISTRUE
+end
+
 // vi: sts=4 sw=4

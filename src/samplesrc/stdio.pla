@@ -2,8 +2,6 @@
 // TODO: If this works, the stdio functionality should be moved into
 // a separate module.
 
-// TODO: Support for a "stdout" stream?
-
 // TODO: ungetc()
 
 // TODO: ftell()/ftell32()
@@ -28,6 +26,7 @@
 
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
+include "inc/dword.plh"
 include "inc/testlib.plh"
 
 const TRUE = -1
@@ -46,10 +45,17 @@ struc t_FILE
     word r_buffer_size
     word r_buffer_dirty_low
     word r_buffer_dirty_high
-    word r_buffer_file_ptr // TODO: dword?
-    word r_file_ptr // TODO: dword? rename?
+    byte r_buffer_file_ptr[4]
+    byte r_file_ptr[4]
     byte r_buffer // buffer_size bytes
 end
+
+byte stdout_handle = 0 // TODO private
+word stdout = @stdout_handle // TODO export this
+
+// TODO: Move this global into the DWORD module? Note it is initialised below
+// TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
+byte dword_one[4]
 
 // TODO TEMP
 def prword(w)
@@ -65,8 +71,9 @@ end
 // void fopen(FILE *file, const char *filename, const char *mode)
 def fopen(file, filename, mode)
     byte osfind_mode
-    // TODO: text mode - I guess this is actually quite easy, because we just need to translate '\n' into '\r' on write and opposite on read - we are not having to change one byte to two or vice versa
-    // TODO: Can I continue to support fseek()/ftell() in text mode?
+    // PLASMA interprets '\n' as an ASCII CR, not an LF, so we don't need to
+    // perform any translation for text files. TODO: WE SHOULD HOWEVER
+    // HANDLE PARSING THE 'b' FLAG AND QUIETLY IGNORING IT
     // TODO: error handling
     // TODO: very poor parsing of mode
     // TODO: this ignores the subtleties of w+ vs r+ vs a+
@@ -85,8 +92,8 @@ def fopen(file, filename, mode)
     file=>r_buffer_dirty_low = $FFFF
     file=>r_buffer_dirty_high = $0000
     file=>r_buffer_used = 0
-    file=>r_file_ptr = 0
-    file=>r_buffer_file_ptr = 0
+    dword_fromuword(file + r_file_ptr, 0)
+    dword_fromuword(file + r_buffer_file_ptr, 0)
     return file
 end
 
@@ -102,9 +109,8 @@ def fflush(file)
 	block:3 = 0 // TODO
 	block:5 = file=>r_buffer_dirty_high - file=>r_buffer_dirty_low
 	block:7 = 0
-	block:9 = file=>r_buffer_file_ptr + file=>r_buffer_dirty_low
-	block:11 = 0 // TODO
-	puti(file=>r_buffer_file_ptr)
+	dword_fromuword(@block + 9, file=>r_buffer_dirty_low)
+	dword_add(@block + 9, @block + 9, file + r_buffer_file_ptr)
 	puts("writing dirty, low ")
 	prword(file=>r_buffer_dirty_low)
 	puts(", size ")
@@ -124,9 +130,12 @@ def fgetc(file)
     word c, osgbpb_flags
     byte block[13]
     // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
-    if file=>r_file_ptr >= file=>r_buffer_file_ptr and file=>r_file_ptr < (file=>r_buffer_file_ptr + file=>r_buffer_used)
-	c = ^(file + r_buffer + file=>r_file_ptr - file=>r_buffer_file_ptr)
-	file=>r_file_ptr++
+    byte buffer_used_ptr[4]
+    dword_fromuword(@buffer_used_ptr, file=>r_buffer_used)
+    dword_add(@buffer_used_ptr, @buffer_used_ptr, file + r_buffer_file_ptr)
+    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
+	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
+	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
 	return c
     else
 	if file->r_eof
@@ -146,17 +155,15 @@ def fgetc(file)
 	// order to access a single byte.
 	block:5 = file=>r_buffer_size
 	block:7 = 0
-	block:9 = file=>r_file_ptr
-	block:11 = 0 // TODO
-	puts("reading from file ptr ")
-	prword(file=>r_file_ptr)
-	puts(", bytes ")
-	prword(block:5)
+	// TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
+	block:9 = file=>r_file_ptr:0
+	block:11 = file=>r_file_ptr:2
 	// TODO puts("CALLING OSGBPB\n")
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
 	call(3, @block, @block >> 8, 0, $FFD1)
-	file=>r_buffer_file_ptr = file=>r_file_ptr
+	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
 	file=>r_buffer_used = file=>r_buffer_size - block:5
 	if block:5 > 0
 	    file->r_eof = TRUE
@@ -167,12 +174,29 @@ end
 
 // word fputc(char c, FILE *file) - returns c on success, EOF on error
 def fputc(c, file)
+    byte buffer_size_ptr[4]
     word index
+    // TODO: Perhaps just use 'file == 0' as the stdout indicator? Would save
+    // a bit of setup, and the reality is the current approach is still likely
+    // to fail if someone incorrectly passes stdout to another function as
+    // stdout is not a full FILE structure with all the fields
+    if file->r_handle == 0
+	putc(c)
+	if c == '\n' // TODO: use OSASCI, ideally via assembly
+	    putc('\r')
+	fin
+	return c
+    fin
     // TODO: SHOULD BE USE UNSIGNED COMPARISONS HERE
-    if file=>r_file_ptr >= file=>r_buffer_file_ptr and file=>r_file_ptr < (file=>r_buffer_file_ptr + file=>r_buffer_size)
-	index = file=>r_file_ptr - file=>r_buffer_file_ptr
+    dword_fromuword(@buffer_size_ptr, file=>r_buffer_size)
+    dword_add(@buffer_size_ptr, @buffer_size_ptr, file + r_buffer_file_ptr)
+    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_size_ptr)
+	putc('A');prword(file=>r_file_ptr)
+	putc('B');prword(file=>r_buffer_file_ptr)
+	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
+	putc('I');prword(index)
 	^(file + r_buffer + index) = c
-	file=>r_file_ptr++
+	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
 	// TODO: In order to minimise problems if an app has (say) a 20K buffer
 	// and modifies the first and last byte, we should probably have a
 	// threshold and if writing this one byte would increase the dirty range
@@ -184,27 +208,29 @@ def fputc(c, file)
 	if isugt(index, file=>r_buffer_dirty_high)
 	    file=>r_buffer_dirty_high = index
 	fin
-	if file=>r_file_ptr - file=>r_buffer_file_ptr > file=>r_buffer_used
-	    file=>r_buffer_used = file=>r_file_ptr - file=>r_buffer_file_ptr
-	    puts("XXX"); puti(file=>r_buffer_used)
+	if index > file=>r_buffer_used
+	    file=>r_buffer_used = index
 	fin
 	return c
     else
 	if fflush(file) == EOF
 	    return EOF
 	fin
-	file=>r_buffer_file_ptr = file=>r_file_ptr
+	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
 	file=>r_buffer_used = 0
 	return fputc(c, file)
     fin
 end
 
+// TODO: DO WE NEED TO ZERO-FILL THE BUFFER WHERE OUR SEEK EXTENDS THE FILE?
 // word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
 // TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET
 // TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION (fseek32) FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
 def fseek(file, offset, origin)
-    file=>r_file_ptr = offset
+    dword_fromuword(file + r_file_ptr, offset)
     file->r_eof = FALSE
+    return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
 end
 
 // word fclose(FILE *file) - returns 0 on success, EOF on error
@@ -224,6 +250,9 @@ def main()
     word i
     word count
     file:r_buffer_size = 2 
+    puts("foo\nbar\nbaz\n")
+    fputc('x', stdout)
+    fputc('y', stdout)
     i = fopen(@file, "TEST", "w+b")
     if i == 0
 	puts("open failed")
@@ -287,6 +316,8 @@ def main()
 	return
     fin
 end
+
+dword_fromuword(@dword_one, 1)
 
 main()
 done
