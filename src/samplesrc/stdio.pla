@@ -386,7 +386,7 @@ def fputc(c, file)
 	    file=>r_buffer_dirty_high = index
 	fin
 	if isugt(index, file=>r_buffer_used)
-	    // TODONOW: I THINK WE NEED TO FILL THE GAP WITH ZEROS IF THIS IS ADVANCING BY MORE THAN ONE - THIS IS *WITHIN* THE BUFFER, SO THE ZERO FILL DONE BY FFLUSH ISN'T GOING TO HELP US HERE - TEST THIS BUG EXISTS BEFORE FIXING IT
+	    memset(file + r_buffer + file=>r_buffer_used, $0000, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
 	fin
 	debug_dump_file("fputc->", file)
@@ -403,7 +403,6 @@ def fputc(c, file)
     fin
 end
 
-// TODONOW: DO WE NEED TO ZERO-FILL THE BUFFER WHERE OUR SEEK EXTENDS THE FILE? - I THINK WE DO, THOUGH WE SHOULD PROBABLY NOT DO SO UNTIL AN FPUTC() OCCURS (AND IN REALITY WE'D PROBABLY DO IT IN FFLUSH(), OF COURSE)
 // word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
 // TODONOW: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET - REMEMBER THAT WITH SEEK_CUR AND SEEK_END THE OFFSET CAN BE NEGATIVE, SO WE NEED TO TREAT IT AS SIGNED IN BOTH 16 AND 32 BIT VERSIONS
 // TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION (fseek32) FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
@@ -435,7 +434,7 @@ def main()
     fputc('x', stdout)
     fputc('y', stdout)
     fputc('\n', stdout)
-    file = fopen_heap(2, "TEST", "w+b")
+    file = fopen_heap(256, "TEST", "w+b")
     if file == 0
 	puts("open failed")
 	return
