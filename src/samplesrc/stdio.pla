@@ -403,15 +403,22 @@ def fputc(c, file)
     fin
 end
 
-// word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
-// TODONOW: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET - REMEMBER THAT WITH SEEK_CUR AND SEEK_END THE OFFSET CAN BE NEGATIVE, SO WE NEED TO TREAT IT AS SIGNED IN BOTH 16 AND 32 BIT VERSIONS
-// TODO: IDEALLY WE SHOULD HAVE A DWORD VERSION (fseek32) FOR FILES >64K OR SOME MEANS TO SUPPORT THIS ANYWAY
-def fseek(file, offset, origin)
-    // TODO: This should be a no-op if file opened as "a" (but not "a+")
-    dword_fromuword(file + r_file_ptr, offset)
+// word fseek32(FILE *file, const dword *offset, word origin) - returns 0 on success, non-0 on error
+def fseek32(file, offset, origin)
+    *(file + r_file_ptr) = *offset
+    *(file + r_file_ptr + 2) = *(offset + 2)
     file->r_eof = FALSE
     debug_dump_file("fseek->", file)
     return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
+end
+
+// word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
+// TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET - REMEMBER THAT WITH SEEK_CUR AND SEEK_END THE OFFSET CAN BE NEGATIVE, SO WE NEED TO TREAT IT AS SIGNED IN BOTH 16 AND 32 BIT VERSIONS
+def fseek(file, offset, origin)
+    byte offset32[4]
+    // TODO: This should be a no-op if file opened as "a" (but not "a+")
+    dword_fromuword(@offset32, offset)
+    return fseek32(file, @offset32, origin)
 end
 
 // word fclose(FILE *file) - returns 0 on success, EOF on error
