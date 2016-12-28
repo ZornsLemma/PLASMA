@@ -2,6 +2,21 @@
 // TODO: If this works, the stdio functionality should be moved into
 // a separate module.
 
+// TODO: Support for a "stdout" stream?
+
+// TODO: ungetc()
+
+// TODO: ftell()/ftell32()
+
+// TODO: rewind()?
+
+// TODO: feof()
+
+// TODO: ferror()?
+
+// TODO: fread()/fwrite() - these should be able to do fast memcpy
+// into/out of the buffer where possible
+
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
@@ -41,7 +56,8 @@ end
 // void fopen(FILE *file, const char *filename, const char *mode)
 def fopen(file, filename, mode)
     byte osfind_mode
-    // TODO: write support, non-binary support?
+    // TODO: text mode - what is the plasma newline convention ('\n' I think, but check)
+    // TODO: Can I continue to support fseek()/ftell() in text mode?
     // TODO: error handling
     // TODO: very poor parsing of mode
     // TODO: this ignores the subtleties of w+ vs r+ vs a+
@@ -115,6 +131,10 @@ def fgetc(file)
 	block.0 = file->r_handle
 	block:1 = file + r_buffer
 	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
+	// TODO: We should possibly have a "block read" size which can be smaller than the
+	// buffer size - that way if an app has (say) a 20K buffer, it will be able to cache
+	// 20K for random access, but it won't be forced to wait while all 20K gets read in
+	// order to access a single byte.
 	block:5 = file=>r_buffer_size
 	block:7 = 0
 	block:9 = file=>r_file_ptr
@@ -144,6 +164,10 @@ def fputc(c, file)
 	index = file=>r_file_ptr - file=>r_buffer_file_ptr
 	^(file + r_buffer + index) = c
 	file=>r_file_ptr++
+	// TODO: In order to minimise problems if an app has (say) a 20K buffer
+	// and modifies the first and last byte, we should probably have a
+	// threshold and if writing this one byte would increase the dirty range
+	// by more than the threshold, we should flush first.
 	if isult(index, file=>r_buffer_dirty_low)
 	    file=>r_buffer_dirty_low = index
 	fin
