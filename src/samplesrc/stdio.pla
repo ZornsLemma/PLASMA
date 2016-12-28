@@ -12,6 +12,8 @@
 
 // TODO: ferror()?
 
+// TODO: Careful because BeebWiki says if file is extended the contents are undefined unless written to
+
 // TODO: fread()/fwrite() - these should be able to do fast memcpy
 // into/out of the buffer where possible
 
@@ -35,12 +37,15 @@ const FALSE = 0
 const EOF = -1
 const SEEK_SET = 0
 
+const scratch = $79
+
 // Note that the buffer size is a word; this means that an application can
 // choose to allocate virtually the entire heap as a buffer for a single file
 // if it wishes.
 struc t_FILE
     byte r_handle
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
+    byte r_append // TODO: move into flags byte?
     word r_buffer_used
     word r_buffer_size
     word r_buffer_dirty_low
@@ -63,31 +68,80 @@ def prword(w)
     prbyte(w)
 end
 
+// TODO: INTERNAL, DON'T EXPORT
+// void get_length(dword *length, int handle)
+def get_length(length, handle)
+    // TODO: AUG says OSARGS control block is always in I/O processor memory!?
+    call(2, scratch, handle, 0, $FFDA)
+    memcpy(length, scratch, 4)
+end
+
 // TODO BENCHMARK IT, BUT MAY WANT TO WRITE THE 'IN MEMORY' BRANCH OF FGETC AND
 // FPUTC IN ASSEMBLER - BUT DON'T GO NUTS, BECAUSE ASSEMBLER ALWAYS BURNS
 // MAIN RAM, WHEREAS BYTECODE CAN BE IN SWR ON PLAS128
 
 // TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
 // void fopen(FILE *file, const char *filename, const char *mode)
+// TODO TEMP MODE NOTES
+// "r", "w" map directly to osfind input/output
+// "a" maps to osfind update but a) if doesn't exist we need to create it b) we need to *always* output at end
+// "r+" maps directly to osfind update
+// "w+" is effectively osfind output+close+update
 def fopen(file, filename, mode)
-    byte osfind_mode
+    byte base_mode, update, i, c, osfind_mode, handle
     // PLASMA interprets '\n' as an ASCII CR, not an LF, so we don't need to
     // perform any translation for text files. TODO: WE SHOULD HOWEVER
-    // HANDLE PARSING THE 'b' FLAG AND QUIETLY IGNORING IT
     // TODO: error handling
-    // TODO: very poor parsing of mode
-    // TODO: this ignores the subtleties of w+ vs r+ vs a+
-    if ^mode == 2 and ^(mode + 2) == '+'
-	osfind_mode = osfind_update
-    elsif ^(mode + 1) == 'r'
-	osfind_mode = osfind_input
-    elsif ^(mode + 1) == 'w'
-	osfind_mode = osfind_output
+    base_mode = 'r'
+    update = FALSE
+    for i = 1 to ^mode
+	c = (mode).[i]
+	if c == 'r' or c == 'w' or c == 'a'
+	    base_mode = c
+	elsif c == '+'
+	    update = TRUE
+	fin
+	// We ignore anything else, including 'b' - PLASMA's '\n' is
+	// ASCII CR (13) which is exactly what we want.
+    next
+    file->r_append = (base_mode == 'a')
+    when base_mode
+	is 'r'
+	    if update
+		osfind_mode = osfind_update
+	    else
+		osfind_mode = osfind_input
+	    fin
+	    break
+	is 'w'
+	    osfind_mode = osfind_output
+	    break
+	is 'a'
+	    osfind_mode = osfind_update
+	    break
+    wend
+    handle = osfind_open(osfind_mode, filename)
+    if base_mode == 'w' and update and handle <> 0
+	// "w+" must truncate the file if it exists; we opened it in write
+	// mode to get this behaviour, we now need to re-open it in update
+	// mode.
+	osfind_close(handle)
+	handle = osfind_open(osfind_update, filename)
+    elsif file->r_append and handle == 0
+	// "a" must create the file if it doesn't exist but OSFIND's update
+	// mode doesn't ever create the file, so we do it explicitly if the
+	// open failed.
+	handle = osfind_open(osfind_output, filename)
+	if handle == 0
+	    return 0
+	fin
+	osfind_close(handle)
+	handle = osfind_open(osfind_update, filename)
     fin
-    file->r_handle = osfind_open(osfind_mode, filename)
-    if file->r_handle == 0
+    if handle == 0
 	return 0
     fin
+    file->r_handle = handle
     file->r_eof = FALSE
     file=>r_buffer_dirty_low = $FFFF
     file=>r_buffer_dirty_high = $0000
@@ -185,6 +239,11 @@ def fputc(c, file)
 	    putc('\r')
 	fin
 	return c
+    fin
+    if file->r_append
+	get_length(file + r_file_ptr, file->r_handle)
+	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
+	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG?
     fin
     dword_fromuword(@buffer_size_ptr, file=>r_buffer_size)
     dword_add(@buffer_size_ptr, @buffer_size_ptr, file + r_buffer_file_ptr)
