@@ -65,6 +65,7 @@ byte random_increment[4]
 
 // TODO: Move this global into the DWORD module? Note it is initialised below
 // TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
+byte dword_zero[4]
 byte dword_one[4]
 
 // TODO TEMP
@@ -212,29 +213,21 @@ end
 // word fflush(FILE *file) - returns 0 on success, EOF on error
 // TODO: CURRENTLY THIS NEVER RETURNS EOF
 def fflush(file)
-    byte block[13], length[4], desired_length[4], size_delta[4]
+    byte block[13], length[4], size_delta[4]
     const zero_size = 128
     byte zero[zero_size]
     //debug_dump_file("fflush-<", file)
     if file->r_dirty
-	// If we are going to write past the current end of the file, doing so
-	// by simply specifying a file pointer past the end in the OSGBPB 1 call
-	// would leave a gap with undefined contents. So let's emit zeros to 
-	// grow the file first. TODO: Is there any way to tell if the FS we're
-	// on defines the behaviour so we can avoid this? Alternatively, we could
-	// just document this behaviour.
+	// If the first byte in the buffer comes after the current end of the file,
+	// specifying the appropriate file pointer in the OSGBP 1 call would cause
+	// the filing system to extend the file with undefined contents. So we have
+	// to emit zeros to grow the file to the appropriate length first.
 	get_length(@length, file->r_handle)
-	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_used)
-	puts("length "); prword(length:2); prword(length:0)
-	puts(", desired_length "); prword(desired_length:2); prword(desired_length:0)
-	putln()
-	if dword_isult(@length, @desired_length)
+	dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
+	if dword_isugt(@size_delta, @dword_zero)
 	    memset(@zero, empty_fill, zero_size)
-	    while dword_isult(@length, @desired_length)
-		dword_sub(@size_delta, @desired_length, @length)
-		puts("length "); prword(length:2); prword(length:0)
-		puts(", desired_length "); prword(desired_length:2); prword(desired_length:0)
-		puts(", size_delta "); prword(size_delta:2); prword(size_delta:0)
+	    while dword_isugt(@size_delta, @dword_zero)
+		puts("size_delta "); prword(size_delta:2); prword(size_delta:0)
 		putln()
 		block.0 = file->r_handle
 		block:1 = @zero
@@ -245,9 +238,9 @@ def fflush(file)
 		    block:5 = minu(zero_size, dword_touword(@size_delta))
 		fin
 		block:7 = 0
+		dword_sub(@size_delta, @size_delta, block + 5)
 		block:9 = length:0
 		block:11 = length:2
-		dword_adduword(@length, @length, block:5)
 		debug_dump_osgbpb(1, @block)
 		call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 	    loop
@@ -544,7 +537,7 @@ def random_test(seed)
     prword(@random_state)
     saved_heap = heapmark()
     seedrand(seed)
-    file = fopen_heap(2, "T.DATA", "w+b")
+    file = fopen_heap(8192, "T.DATA", "w+b")
     puts("SFTODO1\n")
     ptr = 0
     max_ptr = 0
@@ -617,6 +610,7 @@ end
 // BUFFER IS VERY LARGE
 
 puts("SFTODOX1\n")
+dword_fromuword(@dword_zero, 0)
 dword_fromuword(@dword_one, 1)
 puts("SFTODOX2\n")
 random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
