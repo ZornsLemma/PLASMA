@@ -16,8 +16,6 @@
 // wrapper around the OS calls. If do that, compare performance with this
 // one and if this is slower then either ditch it or fix the problem!
 
-// TODO: Careful because BeebWiki says if file is extended the contents are undefined unless written to
-
 // TODO: fread()/fwrite() - these should be able to do fast memcpy
 // into/out of the buffer where possible
 
@@ -31,6 +29,10 @@ const FALSE = 0
 
 const EOF = -1
 const SEEK_SET = 0
+
+// This should normally be $0000, but it's handy for testing to be able
+// to alter it.
+const empty_fill = $2A2B
 
 const scratch = $79
 
@@ -55,6 +57,12 @@ end
 
 byte stdout_handle = 0 // TODO private
 word stdout = @stdout_handle // TODO export this
+
+// TODO TEMP
+byte random_state[4]
+byte random_multiplier[4]
+byte random_increment[4]
+
 
 // TODO: Move this global into the DWORD module? Note it is initialised below
 // TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
@@ -214,7 +222,7 @@ def fflush(file)
 	get_length(@length, file->r_handle)
 	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
 	if dword_isult(@length, @desired_length)
-	    memset(@zero, $0000, zero_size)
+	    memset(@zero, empty_fill, zero_size)
 	    while dword_isult(@length, @desired_length)
 		dword_sub(@size_delta, @desired_length, @length)
 		puts("length "); prword(length:2); prword(length:0)
@@ -386,7 +394,7 @@ def fputc(c, file)
 	    file=>r_buffer_dirty_high = index
 	fin
 	if isugt(index, file=>r_buffer_used)
-	    memset(file + r_buffer + file=>r_buffer_used, $0000, index - file=>r_buffer_used - 1)
+	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
 	fin
 	debug_dump_file("fputc->", file)
@@ -517,9 +525,105 @@ def main()
     fin
 end
 
-dword_fromuword(@dword_one, 1)
+def assert(b, message)
+    if not b
+	oserror(42, message)
+    fin
+end
 
-main()
+def seedrand(seed)
+    dword_fromuword(@random_state, seed)
+end
+
+def rand(n)
+    byte r[4], SFTODO[100]
+    dword_mul(@random_state, @random_state, @random_multiplier)
+    dword_add(@random_state, @random_state, @random_increment)
+    dword_fromuword(@r, n)
+    dword_div(0, @r, @random_state, @r)
+    return dword_touword(@r)
+end
+
+def random_test(seed)
+    const memory_size = 8192
+    word saved_heap
+    word file
+    word i
+    word memory
+    word ptr, max_ptr
+    word op
+    word c
+    prword(@random_state)
+    saved_heap = heapmark()
+    seedrand(seed)
+    file = fopen_heap(256, "T.DATA", "w+b")
+    puts("SFTODO1\n")
+    ptr = 0
+    max_ptr = 0
+    puts("SFTODO2\n")
+    memory = heapalloc(memory_size)
+    puts("SFTODO3\n")
+    memset(memory, empty_fill, memory_size)
+    puts("SFTODO4\n")
+    assert(file, "open")
+    for i = 1 to 40 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
+	op = rand(10)
+	puts("SFTODO5\n")
+	putc('Q'); prword(i); putc(' '); prbyte(op)
+	if op == 0
+	    ptr = rand(memory_size)
+	    assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
+	elsif op <= 5
+	    c = rand(256)
+	    ^(memory + ptr) = c
+	    ptr++
+	    assert(fputc(c, file) <> EOF, "fputc")
+	else
+	    putc('x'); prword(ptr);
+	    if ptr >= max_ptr
+		c = EOF
+	    else
+		c = ^(memory + ptr)
+		ptr++
+	    fin
+	    putc(' '); prword(c)
+	    assert(fgetc(file) == c, "fgetc")
+	fin
+	if ptr >= memory_size
+	    ptr = 0
+	    assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
+	fin
+	if ptr > max_ptr
+	    max_ptr = ptr
+	fin
+    next
+    assert(fclose(file) == 0, "close")
+    
+    seedrand(seed)
+    file = fopen_heap(256, "T.DATA", "rb")
+    assert(file, "open verify")
+    ptr = 0
+    while ptr < max_ptr
+	putc('V'); prword(ptr); putln()
+	assert(fgetc(file) == ^(memory + ptr), "fgetc verify")
+	ptr++
+    loop
+    assert(fgetc(file) == EOF, "fgetc EOF verify")
+    assert(fclose(file) == 0, "close verify")
+
+    heaprelease(saved_heap)
+end
+
+puts("SFTODOX1\n")
+dword_fromuword(@dword_one, 1)
+puts("SFTODOX2\n")
+random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
+puts("SFTODOX3\n")
+random_increment[0] = $5F; random_increment[1] = $F3; random_increment[2] = $6E; random_increment[3] = $3C
+puts("SFTODOX4\n")
+
+//main()
+random_test(42)
 done
 
 // TODO: temp-ish notes 
