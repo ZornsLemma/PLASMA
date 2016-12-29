@@ -300,25 +300,13 @@ def fgetc(file)
 	// data without flushing it. 
 	if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
 	    // The buffer is large enough to read enough additional data to
-	    // read the required byte. How many bytes would we need to read to
-	    // get that byte into the buffer?
-	    // TODONOW: Possible simplification - we could always read the full
-	    // buffer size, then we'd never need to "top it up". Or we could
-	    // just cap this read at the available space in the buffer and if
-	    // that's just one byte, so be it. (If the buffer is a multiple of
-	    // the chunk size and we're doing simple sequential reads, this
-	    // would always read exactly the chunk size anyway.)
-	    read_size = 1 + *(file + r_file_ptr) - *(file + r_buffer_file_ptr) - file=>r_buffer_used
-	    // However, we always read at least r_chunk_size bytes.
-	    if read_size < file=>r_chunk_size
-		read_size = file=>r_chunk_size
-		// Is the buffer large enough for this newly increased read size?
-		if not isult(file=>r_buffer_used + read_size, file=>r_buffer_size)
-		    read_size = 0 // no, it isn't
-		fin
-	    fin
-	fin
-	if read_size == 0
+	    // read the required byte. We read enough bytes to get the required
+	    // byte into the buffer, and if there's room for more we read up to
+	    // the chunk size. (This means that if the buffer isn't a multiple of
+	    // the chunk size we may do reads smaller than the chunk size 
+	    // sometimes.)
+	    read_size = minu(file=>r_buffer_size - file=>r_buffer_used, file=>r_chunk_size)
+	else
 	    // We're going to discard the current buffer contents and start
 	    // again. TODO: Should we (sometimes? if we've had an fseek()??)
 	    // actually try setting buffer_file_ptr so file_ptr is in the
