@@ -32,7 +32,7 @@ const SEEK_SET = 0
 
 // This should normally be $0000, but it's handy for testing to be able
 // to alter it.
-const empty_fill = $2A2A
+const empty_fill = $2B2B
 
 const scratch = $79
 
@@ -106,7 +106,7 @@ def dword_adduword(result, lhs, rhs)
     return dword_add(result, lhs, @rhs_dword)
 end
 
-// TODO: MAKE THIS A STD LIBRARY FUNCTION?
+// TODO: MAKE THIS A STD LIBRARY FUNCTION? IF DO SO THINK ABOUT THE NAME, SHOULD IT BE UMIN??
 def minu(lhs, rhs)
     if isult(lhs, rhs)
 	return lhs
@@ -298,12 +298,12 @@ def fgetc(file)
 	    // The buffer is large enough to read enough additional data to
 	    // read the required byte. How many bytes would we need to read to
 	    // get that byte into the buffer?
-	    read_size = (1 + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0) - file=>r_buffer_used
+	    read_size = 1 + *(file + r_file_ptr) - *(file + r_buffer_file_ptr) - file=>r_buffer_used
 	    // However, we always read at least r_chunk_size bytes.
 	    if read_size < file=>r_chunk_size
 		read_size = file=>r_chunk_size
 		// Is the buffer large enough for this newly increased read size?
-		if not dword_isult(file=>r_buffer_used + read_size, file=>r_buffer_size)
+		if not isult(file=>r_buffer_used + read_size, file=>r_buffer_size)
 		    read_size = 0 // no, it isn't
 		fin
 	    fin
@@ -577,9 +577,10 @@ def random_test(seed)
     memset(memory, empty_fill, memory_size)
     puts("SFTODO4\n")
     assert(file, "open")
-    for i = 1 to 40 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
+    for i = 1 to 512 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	op = rand(10)
 	puts("SFTODO5\n")
+	puts("XXX"); prbyte(^(memory+1)); putln()
 	putc('Q'); prword(i); putc(' '); prbyte(op)
 	if op == 0
 	    ptr = rand(memory_size)
