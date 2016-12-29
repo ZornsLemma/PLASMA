@@ -272,6 +272,7 @@ def fgetc(file)
     byte c
     byte block[13]
     byte buffer_used_ptr[4], buffer_end_ptr[4]
+    byte length[4]
     word read_size
     //debug_dump_file("fgetc-<", file)
     dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
@@ -335,10 +336,14 @@ def fgetc(file)
 	// returned consistently, so we just use the updated number of bytes.
 	// TODONOW: THIS *READ* WILL STILL GROW THE FILE IF THE FILE POINTER IS
 	// PAST THE END - AND WE AREN'T EXPECTING THAT (NOR, I THINK, DO WE WANT IT
-	// TO HAPPEN AT ALL).
-	debug_dump_osgbpb(3, @block)
-	call(3, @block, @block >> 8, 0, $FFD1)
-	file=>r_buffer_used = file=>r_buffer_used + read_size - block:5
+	// TO HAPPEN AT ALL). FOR NOW LET'S USE THIS HACK, WE MAYBE WANT/NEED TO TRACK
+	// THE LENGTH OF THE FILE AS A MEMBER OF THE FILE OBJECT
+	get_length(@length, file->r_handle)
+	if not dword_isuge(@block + 9, @length)
+	    debug_dump_osgbpb(3, @block)
+	    call(3, @block, @block >> 8, 0, $FFD1)
+	    file=>r_buffer_used = file=>r_buffer_used + read_size - block:5
+	fin
 	if block:5 <> 0
 	    file->r_eof = TRUE
 	fin
