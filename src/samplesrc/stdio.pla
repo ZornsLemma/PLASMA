@@ -221,6 +221,9 @@ def fflush(file)
 	// TODO: Test this
 	get_length(@length, file->r_handle)
 	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
+	puts("length "); prword(length:2); prword(length:0)
+	puts(", desired_length "); prword(desired_length:2); prword(desired_length:0)
+	putln()
 	if dword_isult(@length, @desired_length)
 	    memset(@zero, empty_fill, zero_size)
 	    while dword_isult(@length, @desired_length)
@@ -330,6 +333,9 @@ def fgetc(file)
 	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_used)
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
+	// TODONOW: THIS *READ* WILL STILL GROW THE FILE IF THE FILE POINTER IS
+	// PAST THE END - AND WE AREN'T EXPECTING THAT (NOR, I THINK, DO WE WANT IT
+	// TO HAPPEN AT ALL).
 	debug_dump_osgbpb(3, @block)
 	call(3, @block, @block >> 8, 0, $FFD1)
 	file=>r_buffer_used = file=>r_buffer_used + read_size - block:5
