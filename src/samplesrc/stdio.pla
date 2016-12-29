@@ -36,8 +36,6 @@ const empty_fill = $2B2B
 
 const scratch = $79
 
-const default_chunk_size = 256
-
 // Note that the buffer size is a word; this means that an application can
 // choose to allocate virtually the entire heap as a buffer for a single file
 // if it wishes.
@@ -48,7 +46,6 @@ struc t_FILE
     byte r_append // TODO: move into flags byte?
     word r_buffer_used
     word r_buffer_size
-    word r_chunk_size
     byte r_buffer_file_ptr[4]
     byte r_file_ptr[4]
     byte r_buffer // buffer_size bytes
@@ -193,7 +190,6 @@ def fopen_prealloc(file, filename, mode)
 
     file->r_handle = handle
     file->r_eof = FALSE
-    file=>r_chunk_size = minu(file=>r_buffer_size, default_chunk_size)
     file->r_dirty = FALSE
     file=>r_buffer_used = 0
     dword_fromuword(file + r_file_ptr, 0)
@@ -219,15 +215,14 @@ def fflush(file)
     //debug_dump_file("fflush-<", file)
     if file->r_dirty
 	// If the first byte in the buffer comes after the current end of the file,
-	// specifying the appropriate file pointer in the OSGBP 1 call would cause
+	// specifying the appropriate file pointer in the OSGBPB 1 call would cause
 	// the filing system to extend the file with undefined contents. So we have
 	// to emit zeros to grow the file to the appropriate length first.
 	get_length(@length, file->r_handle)
-	dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
-	if dword_isugt(@size_delta, @dword_zero)
+	if dword_isugt(file + r_buffer_file_ptr, @length)
 	    memset(@zero, empty_fill, zero_size)
-	    while dword_isugt(@size_delta, @dword_zero)
-		puts("size_delta "); prword(size_delta:2); prword(size_delta:0)
+	    while dword_isugt(file + r_buffer_file_ptr, @length)
+		puts("length "); prword(length:2); prword(length:0)
 		putln()
 		block.0 = file->r_handle
 		block:1 = @zero
@@ -238,9 +233,9 @@ def fflush(file)
 		    block:5 = minu(zero_size, dword_touword(@size_delta))
 		fin
 		block:7 = 0
-		dword_sub(@size_delta, @size_delta, block + 5)
 		block:9 = length:0
 		block:11 = length:2
+		dword_adduword(@length, @length, block:5)
 		debug_dump_osgbpb(1, @block)
 		call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 	    loop
@@ -269,9 +264,8 @@ end
 def fgetc(file)
     byte c
     byte block[13]
-    byte buffer_used_ptr[4], buffer_end_ptr[4]
+    byte buffer_used_ptr[4]
     byte length[4]
-    word read_size
     //debug_dump_file("fgetc-<", file)
     dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
@@ -283,57 +277,38 @@ def fgetc(file)
 	if file->r_eof
 	    return EOF
 	fin
-	// The relevant byte isn't in the buffer, so we're going to need to
-	// read some data into the buffer. If the client has used fseek() to
-	// move the pointer ahead, this may involve reading the data between
-	// the current end of the buffer and the new pointer.
-	dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
-	read_size = 0
-	// The buffer might not be full, so we may have room to read the required
-	// data without flushing it. 
-	if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
-	    // The buffer is large enough to read enough additional data to
-	    // read the required byte. We read enough bytes to get the required
-	    // byte into the buffer, and if there's room for more we read up to
-	    // the chunk size. (This means that if the buffer isn't a multiple of
-	    // the chunk size we may do reads smaller than the chunk size 
-	    // sometimes.)
-	    read_size = minu(file=>r_buffer_size - file=>r_buffer_used, file=>r_chunk_size)
-	else
-	    // We're going to discard the current buffer contents and start
-	    // again. TODO: Should we (sometimes? if we've had an fseek()??)
-	    // actually try setting buffer_file_ptr so file_ptr is in the
-	    // middle of the buffer not the strt. If you're doing random
-	    // access backwards, the current approach will tend to cause
-	    // every seek to be immediately followed by a fresh read (I think)
-	    if fflush(file) == EOF
-		return EOF
-	    fin
-	    // TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
-	    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
-	    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
-	    file=>r_buffer_used = 0
-	    read_size = file=>r_chunk_size
-	fin
 
-	// Actually do the read
-	block.0 = file->r_handle
-	block:1 = file + r_buffer + file=>r_buffer_used
-	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
-	block:5 = read_size
-	block:7 = 0
-	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_used)
-	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
-	// returned consistently, so we just use the updated number of bytes.
+	// The relevant byte isn't in the buffer, so either:
+	// - r_file_ptr is past EOF, in which case we enter EOF state, or
+	// - we flush the current buffer contents and read a buffer full of
+	//   data starting at r_file_ptr
+
+	// TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
 	// TODONOW: THIS *READ* WILL STILL GROW THE FILE IF THE FILE POINTER IS
 	// PAST THE END - AND WE AREN'T EXPECTING THAT (NOR, I THINK, DO WE WANT IT
 	// TO HAPPEN AT ALL). FOR NOW LET'S USE THIS HACK, WE MAYBE WANT/NEED TO TRACK
 	// THE LENGTH OF THE FILE AS A MEMBER OF THE FILE OBJECT
+	block:5 = file=>r_buffer_size
 	get_length(@length, file->r_handle)
-	if not dword_isuge(@block + 9, @length)
+	if not dword_isuge(file + r_file_ptr, @length)
+	    if fflush(file) == EOF
+		return EOF
+	    fin
+
+	    block.0 = file->r_handle
+	    block:1 = file + r_buffer
+	    block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
+	    block:7 = 0
+	    block:9 = file=>r_file_ptr:0
+	    block:11 = file=>r_file_ptr:2
+	    // We ignore the carry returned by OSGBPB; BeebWiki says it's not
+	    // returned consistently, so we just use the updated number of bytes.
 	    debug_dump_osgbpb(3, @block)
 	    call(3, @block, @block >> 8, 0, $FFD1)
-	    file=>r_buffer_used = file=>r_buffer_used + read_size - block:5
+
+	    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+	    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
+	    file=>r_buffer_used = file=>r_buffer_size - block:5
 	fin
 	if block:5 <> 0
 	    file->r_eof = TRUE
@@ -372,13 +347,8 @@ def fputc(c, file)
 	index++
 	file->r_dirty = TRUE
 
-	// If a seek means we've grown the buffer, we need to clear the gap.
-	// TODONOW: This is buggy, if the file had data before we started but
-	// we haven't read it into our buffer, we will incorrectly put zeros
-	// there instead of the actual file contents. We either need to fill
-	// the entire buffer on read, or we need to read the same range of
-	// bytes we're currently memsetting (if there aren't enough, we fill
-	// the rest of the gap with zeros).
+	// If a seek means we've grown the buffer (and the file), we need to
+	// clear the gap created.
 	if isugt(index, file=>r_buffer_used)
 	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
@@ -541,16 +511,19 @@ def random_test(seed)
     word ptr, max_ptr
     word op
     word c, d
+    word subseed
     prword(@random_state)
-    seedrand(seed)
     puts("SFTODO1\n")
     max_ptr = 0
     puts("SFTODO2\n")
     puts("SFTODO3\n")
+    seedrand(seed)
     memory = heapalloc(memory_size)
     memset(memory, empty_fill, memory_size)
     saved_heap = heapmark()
     for i = 1 to 5
+	subseed = rand($FFFF)
+	seedrand(subseed)
 	puts("j "); puti(i); putln()
 	if i == 1
 	    file = fopen_heap(buffer_size, "T.DATA", "w+b")
@@ -602,7 +575,7 @@ def random_test(seed)
 	next
 	assert(fclose(file) == 0, "close")
 	
-	seedrand(seed)
+	seedrand(subseed)
 	file = fopen_heap(256, "T.DATA", "rb")
 	assert(file, "open verify")
 	ptr = 0
