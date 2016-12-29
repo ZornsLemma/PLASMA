@@ -577,7 +577,7 @@ def random_test(seed)
     memset(memory, empty_fill, memory_size)
     puts("SFTODO4\n")
     assert(file, "open")
-    for i = 1 to 512 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
+    for i = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	op = rand(10)
 	puts("SFTODO5\n")
 	putc('Q'); prword(i); putc(' '); prbyte(op); putln()
