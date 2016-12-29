@@ -314,6 +314,19 @@ export asm dword_touword
     RTS
 end
 
+// bool dword_isugt(const dword *lhs, const dword *rhs)
+export asm dword_isugt
+    LDA ESTKL+1,X
+    LDY ESTKL,X
+    STY ESTKL+1,X
+    STA ESTKL,X
+    LDA ESTKH+1,X
+    LDY ESTKH,X
+    STY ESTKH+1,X
+    STA ESTKH,X
+    ; fall through to dword_isult
+end
+
 // bool dword_isult(const dword *lhs, const dword *rhs)
 export asm dword_isult
     LDA ESTKL+1,X

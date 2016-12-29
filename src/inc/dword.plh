@@ -6,5 +6,5 @@ import dword
   predef dword_fromuword
   predef dword_isuword
   predef dword_touword
-  predef dword_isult, dword_isuge
+  predef dword_isult, dword_isuge, dword_isugt
 end
