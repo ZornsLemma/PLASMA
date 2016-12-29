@@ -83,6 +83,9 @@ def debug_dump_file(prefix, file)
     putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
     puts(", bs/u "); prword(file=>r_buffer_size)
     putc('/'); prword(file=>r_buffer_used)
+    // TODONOW: NOT SURE IF IT'S A PROBLEM, BUT OBSERVED IN OUTPUT OF CURRENT
+    // TEST THAT THERE IS SOME OUTPUT WHERE DL/H HAS WHAT LOOKS LIKE HALF OF
+    // A DIRTY - IIRC SOMETHING LIKE FFFF/1865 - INVESTIGATE
     puts(", dl/h "); prword(file=>r_buffer_dirty_low)
     putc('/'); prword(file=>r_buffer_dirty_high)
     putln()
@@ -567,7 +570,7 @@ def random_test(seed)
     prword(@random_state)
     saved_heap = heapmark()
     seedrand(seed)
-    file = fopen_heap(256, "T.DATA", "w+b")
+    file = fopen_heap(8192, "T.DATA", "w+b")
     puts("SFTODO1\n")
     ptr = 0
     max_ptr = 0
@@ -581,7 +584,7 @@ def random_test(seed)
 	op = rand(10)
 	puts("SFTODO5\n")
 	putc('Q'); prword(i); putc(' '); prbyte(op); putln()
-	puts("XXX"); prbyte(^(memory+$1F3B)); putln()
+	puts("XXX"); prbyte(^(memory+$0EB0)); putln()
 	if op == 0
 	    ptr = rand(memory_size)
 	    assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
@@ -618,6 +621,7 @@ def random_test(seed)
     file = fopen_heap(256, "T.DATA", "rb")
     assert(file, "open verify")
     ptr = 0
+    // TODONOW: VERIFY FAILS AT $0EB0 WITH $2B and $C4 - PROBABLY LOOK AT TODONOW RE POSSIBLE ODD DL/H OUTPUT AND SEE IF THAT'S A PROBLEM BEFORE PROBING OTHERWISE
     while ptr < max_ptr
 	putc('V'); prword(ptr); 
 	c = fgetc(file)
@@ -632,6 +636,10 @@ def random_test(seed)
 
     heaprelease(saved_heap)
 end
+
+// TODONOW: EXAMINE OUTPUT OF CURRENT TEST AND SEE IF ALL THE OSGBPB CALLS ARE
+// "REASONABLE" - PROBABLY ARE, BUT GOOD TO CHECK IN THIS EXTREME CASE WHERE
+// BUFFER IS VERY LARGE
 
 puts("SFTODOX1\n")
 dword_fromuword(@dword_one, 1)
