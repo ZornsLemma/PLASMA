@@ -68,6 +68,10 @@ byte random_increment[4]
 // TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
 byte dword_one[4]
 
+asm foo // TODO
+    JMP $900
+end
+
 // TODO TEMP
 def prword(w)
     prbyte(w >> 8)
@@ -359,6 +363,9 @@ end
 def fputc(c, file)
     byte buffer_end_ptr[4]
     word index
+    word old_buffer_dirty_low, tmp_buffer_dirty_low
+    word old_buffer_dirty_high, tmp_buffer_dirty_high
+    word dirty_growth
     // TODO: Perhaps just use 'file == 0' as the stdout indicator? Would save
     // a bit of setup, and the reality is the current approach is still likely
     // to fail if someone incorrectly passes stdout to another function as
@@ -381,32 +388,41 @@ def fputc(c, file)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
 	^(file + r_buffer + index) = c
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
+
 	// We need to expand the dirty range to include the byte just written.
-	// In order to avoid huge wasteful writes if the client has a big buffer and
-	// touches one byte at the start and one at the end, if this write would
-	// increase the dirty range size significantly we write the current
-	// dirty range and start a new one containing just this byte.
 	// TODO: We could possibly optimise the common case of sequential
 	// writes where index == file=>r_buffer_dirty_high and we don't
 	// need to worry about extra_dirty, or buffer_dirty_low - we just
 	// increment buffer_dirty_high and index
+	old_buffer_dirty_low = file=>r_buffer_dirty_low
+	old_buffer_dirty_high = file=>r_buffer_dirty_high
 	if isult(index, file=>r_buffer_dirty_low)
-	    if (file=>r_buffer_dirty_low <> $FFFF) and (file=>r_buffer_dirty_low - index) > file=>r_chunk_size
-		if fflush(file) == EOF
-		    return EOF
-		fin
-	    fin
 	    file=>r_buffer_dirty_low = index
 	fin
 	index++ // high watermark is exclusive
 	if isugt(index, file=>r_buffer_dirty_high)
-	    if (file=>r_buffer_dirty_high <> $0000) and (index - file=>r_buffer_dirty_high) > file=>r_chunk_size
+	    file=>r_buffer_dirty_high = index
+	fin
+
+	// In order to avoid huge wasteful writes if the client has a big buffer and
+	// touches one byte at the start and one at the end, if this write has
+	// increases the dirty range size significantly we flush the previous
+	// dirty range and start a new one containing just this byte.
+	if old_buffer_dirty_low <> $FFFF
+	    dirty_growth = (file=>r_buffer_dirty_high - file=>r_buffer_dirty_low) - (old_buffer_dirty_high - old_buffer_dirty_low)
+	    if isugt(dirty_growth, file=>r_chunk_size)
+		tmp_buffer_dirty_low = file=>r_buffer_dirty_low
+		tmp_buffer_dirty_high = file=>r_buffer_dirty_high
+		file=>r_buffer_dirty_low = old_buffer_dirty_low
+		file=>r_buffer_dirty_high = old_buffer_dirty_high
 		if fflush(file) == EOF
 		    return EOF
 		fin
+		file=>r_buffer_dirty_low = tmp_buffer_dirty_low
+		file=>r_buffer_dirty_high = tmp_buffer_dirty_high
 	    fin
-	    file=>r_buffer_dirty_high = index
 	fin
+
 	if isugt(index, file=>r_buffer_used)
 	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
@@ -580,6 +596,8 @@ def random_test(seed)
     memset(memory, empty_fill, memory_size)
     puts("SFTODO4\n")
     assert(file, "open")
+    *$A00=memory+$EB)
+    putc('!'); prword(memory + $0EB0); putln()
     for i = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	op = rand(10)
 	puts("SFTODO5\n")
@@ -621,7 +639,7 @@ def random_test(seed)
     file = fopen_heap(256, "T.DATA", "rb")
     assert(file, "open verify")
     ptr = 0
-    // TODONOW: VERIFY FAILS AT $0EB0 WITH $2B and $C4 - PROBABLY LOOK AT TODONOW RE POSSIBLE ODD DL/H OUTPUT AND SEE IF THAT'S A PROBLEM BEFORE PROBING OTHERWISE
+    // TODONOW: VERIFY FAILS AT $0EB0 WITH $2B (file) and $C4 (memory) - PROBABLY LOOK AT TODONOW RE POSSIBLE ODD DL/H OUTPUT AND SEE IF THAT'S A PROBLEM BEFORE PROBING OTHERWISE
     while ptr < max_ptr
 	putc('V'); prword(ptr); 
 	c = fgetc(file)
