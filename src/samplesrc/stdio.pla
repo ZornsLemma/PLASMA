@@ -533,82 +533,95 @@ end
 
 def random_test(seed)
     const memory_size = 8192
+    const buffer_size = 8192
     word saved_heap
     word file
-    word i
+    word i, j
     word memory
     word ptr, max_ptr
     word op
-    word c
+    word c, d
     prword(@random_state)
-    saved_heap = heapmark()
     seedrand(seed)
-    file = fopen_heap(8192, "T.DATA", "w+b")
     puts("SFTODO1\n")
-    ptr = 0
     max_ptr = 0
     puts("SFTODO2\n")
-    memory = heapalloc(memory_size)
     puts("SFTODO3\n")
+    memory = heapalloc(memory_size)
     memset(memory, empty_fill, memory_size)
-    puts("SFTODO4\n")
-    assert(file, "open")
-    *$A00=memory+$EB)
-    putc('!'); prword(memory + $0EB0); putln()
-    for i = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
-	op = rand(10)
-	puts("SFTODO5\n")
-	putc('Q'); prword(i); putc(' '); prbyte(op); putln()
-	puts("XXX"); prbyte(^(memory+$0EB0)); putln()
-	if op == 0
-	    ptr = rand(memory_size)
-	    assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
-	elsif op <= 5
-	    c = rand(256)
-	    ^(memory + ptr) = c
-	    ptr++
-	    assert(fputc(c, file) <> EOF, "fputc")
-
-	    // Merely seeking to a point doesn't grow the file; only if we
-	    // try to write at that point does it grow.
-	    if ptr > max_ptr
-		max_ptr = ptr
-	    fin
+    saved_heap = heapmark()
+    for i = 1 to 5
+	puts("j "); puti(i); putln()
+	if i == 1
+	    file = fopen_heap(buffer_size, "T.DATA", "w+b")
 	else
-	    putc('x'); prword(ptr);
-	    if ptr >= max_ptr
-		c = EOF
-	    else
-		c = ^(memory + ptr)
+	    file = fopen_heap(buffer_size, "T.DATA", "r+b")
+	fin
+	puts("SFTODO4\n")
+	assert(file, "open")
+	ptr = 0
+	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
+	    op = rand(10)
+	    puts("SFTODO5\n")
+	    putc('Q'); prword(i); putc(' '); prbyte(op); putln()
+	    puts("XXX"); prbyte(^(memory+$0EB0)); putln()
+	    if op == 0
+		ptr = rand(memory_size)
+		assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
+	    elsif op <= 5
+		c = rand(256)
+		^(memory + ptr) = c
 		ptr++
-	    fin
-	    putc(' '); prword(c)
-	    assert(fgetc(file) == c, "fgetc")
-	fin
-	if ptr >= memory_size
-	    ptr = 0
-	    assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
-	fin
-    next
-    assert(fclose(file) == 0, "close")
-    
-    seedrand(seed)
-    file = fopen_heap(256, "T.DATA", "rb")
-    assert(file, "open verify")
-    ptr = 0
-    while ptr < max_ptr
-	putc('V'); prword(ptr); 
-	c = fgetc(file)
-	i = ^(memory + ptr)
-	putc(' '); prbyte(c); putc(' '); prbyte(i)
-	putln()
-	assert(c == i, "fgetc verify")
-	ptr++
-    loop
-    assert(fgetc(file) == EOF, "fgetc EOF verify")
-    assert(fclose(file) == 0, "close verify")
+		assert(fputc(c, file) <> EOF, "fputc")
 
-    heaprelease(saved_heap)
+		// Merely seeking to a point doesn't grow the file; only if we
+		// try to write at that point does it grow.
+		if ptr > max_ptr
+		    max_ptr = ptr
+		fin
+	    else
+		putc('x'); prword(ptr);
+		if ptr >= max_ptr
+		    c = EOF
+		else
+		    c = ^(memory + ptr)
+		    ptr++
+		fin
+		putc(' '); prword(c)
+		d = fgetc(file)
+		if c <> d
+		    putc(' '); prbyte(c); putc(' '); prbyte(d)
+		    putln()
+		    assert(FALSE, "fgetc")
+		fin
+	    fin
+	    if ptr >= memory_size
+		ptr = 0
+		assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
+	    fin
+	next
+	assert(fclose(file) == 0, "close")
+	
+	seedrand(seed)
+	file = fopen_heap(256, "T.DATA", "rb")
+	assert(file, "open verify")
+	ptr = 0
+	while ptr < max_ptr
+	    c = fgetc(file)
+	    d = ^(memory + ptr)
+	    if c <> d
+		putc('V'); prword(ptr); 
+		putc(' '); prbyte(c); putc(' '); prbyte(d)
+		putln()
+		assert(FALSE, "fgetc verify")
+	    fin
+	    ptr++
+	loop
+	assert(fgetc(file) == EOF, "fgetc EOF verify")
+	assert(fclose(file) == 0, "close verify")
+
+	heaprelease(saved_heap)
+    next
 end
 
 // TODONOW: EXAMINE OUTPUT OF TEST WITH 8192 SIZE BUFFER AND SEE IF ALL THE OSGBPB CALLS ARE
