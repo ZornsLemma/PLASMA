@@ -222,6 +222,7 @@ def fflush(file)
 	if dword_isugt(file + r_buffer_file_ptr, @length)
 	    memset(@zero, empty_fill, zero_size)
 	    while dword_isugt(file + r_buffer_file_ptr, @length)
+		dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
 		puts("length "); prword(length:2); prword(length:0)
 		putln()
 		block.0 = file->r_handle
@@ -503,7 +504,7 @@ end
 
 def random_test(seed)
     const memory_size = 8192
-    const buffer_size = 8192
+    const buffer_size = 2
     word saved_heap
     word file
     word i, j
