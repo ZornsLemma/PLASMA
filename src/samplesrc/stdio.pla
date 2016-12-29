@@ -32,7 +32,7 @@ const SEEK_SET = 0
 
 // This should normally be $0000, but it's handy for testing to be able
 // to alter it.
-const empty_fill = $2A2B
+const empty_fill = $2A2A
 
 const scratch = $79
 
@@ -615,8 +615,12 @@ def random_test(seed)
     assert(file, "open verify")
     ptr = 0
     while ptr < max_ptr
-	putc('V'); prword(ptr); putln()
-	assert(fgetc(file) == ^(memory + ptr), "fgetc verify")
+	putc('V'); prword(ptr); 
+	c = fgetc(file)
+	i = ^(memory + ptr)
+	putc(' '); prbyte(c); putc(' '); prbyte(i)
+	putln()
+	assert(c == i, "fgetc verify")
 	ptr++
     loop
     assert(fgetc(file) == EOF, "fgetc EOF verify")
