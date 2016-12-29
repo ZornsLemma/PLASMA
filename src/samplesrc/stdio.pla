@@ -373,6 +373,12 @@ def fputc(c, file)
 	file->r_dirty = TRUE
 
 	// If a seek means we've grown the buffer, we need to clear the gap.
+	// TODONOW: This is buggy, if the file had data before we started but
+	// we haven't read it into our buffer, we will incorrectly put zeros
+	// there instead of the actual file contents. We either need to fill
+	// the entire buffer on read, or we need to read the same range of
+	// bytes we're currently memsetting (if there aren't enough, we fill
+	// the rest of the gap with zeros).
 	if isugt(index, file=>r_buffer_used)
 	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
