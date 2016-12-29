@@ -580,8 +580,8 @@ def random_test(seed)
     for i = 1 to 512 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	op = rand(10)
 	puts("SFTODO5\n")
-	puts("XXX"); prbyte(^(memory+1)); putln()
-	putc('Q'); prword(i); putc(' '); prbyte(op)
+	putc('Q'); prword(i); putc(' '); prbyte(op); putln()
+	puts("XXX"); prbyte(^(memory+$1F3B)); putln()
 	if op == 0
 	    ptr = rand(memory_size)
 	    assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
@@ -590,6 +590,12 @@ def random_test(seed)
 	    ^(memory + ptr) = c
 	    ptr++
 	    assert(fputc(c, file) <> EOF, "fputc")
+
+	    // Merely seeking to a point doesn't grow the file; only if we
+	    // try to write at that point does it grow.
+	    if ptr > max_ptr
+		max_ptr = ptr
+	    fin
 	else
 	    putc('x'); prword(ptr);
 	    if ptr >= max_ptr
@@ -604,9 +610,6 @@ def random_test(seed)
 	if ptr >= memory_size
 	    ptr = 0
 	    assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
-	fin
-	if ptr > max_ptr
-	    max_ptr = ptr
 	fin
     next
     assert(fclose(file) == 0, "close")
