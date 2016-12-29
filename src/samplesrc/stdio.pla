@@ -44,12 +44,10 @@ const default_chunk_size = 256
 struc t_FILE
     byte r_handle
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
+    byte r_dirty // TODO: possibly 'flags' byte?
     byte r_append // TODO: move into flags byte?
     word r_buffer_used
     word r_buffer_size
-    // TODONOW: possible simplification - just have a dirty bit and don't track a range
-    word r_buffer_dirty_low
-    word r_buffer_dirty_high
     word r_chunk_size
     byte r_buffer_file_ptr[4]
     byte r_file_ptr[4]
@@ -84,8 +82,13 @@ def debug_dump_file(prefix, file)
     putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
     puts(", bs/u "); prword(file=>r_buffer_size)
     putc('/'); prword(file=>r_buffer_used)
-    puts(", dl/h "); prword(file=>r_buffer_dirty_low)
-    putc('/'); prword(file=>r_buffer_dirty_high)
+    puts(", f: ")
+    if file->r_eof
+	puts("EOF ")
+    fin
+    if file->r_dirty
+	puts("dirty ")
+    fin
     putln()
 end
 
@@ -190,8 +193,7 @@ def fopen_prealloc(file, filename, mode)
     file->r_handle = handle
     file->r_eof = FALSE
     file=>r_chunk_size = minu(file=>r_buffer_size, default_chunk_size)
-    file=>r_buffer_dirty_low = $FFFF
-    file=>r_buffer_dirty_high = $0000
+    file->r_dirty = FALSE
     file=>r_buffer_used = 0
     dword_fromuword(file + r_file_ptr, 0)
     dword_fromuword(file + r_buffer_file_ptr, 0)
@@ -214,7 +216,7 @@ def fflush(file)
     const zero_size = 128
     byte zero[zero_size]
     //debug_dump_file("fflush-<", file)
-    if isult(file=>r_buffer_dirty_low, file=>r_buffer_dirty_high)
+    if file->r_dirty
 	// If we are going to write past the current end of the file, doing so
 	// by simply specifying a file pointer past the end in the OSGBPB 1 call
 	// would leave a gap with undefined contents. So let's emit zeros to 
@@ -222,7 +224,7 @@ def fflush(file)
 	// on defines the behaviour so we can avoid this? Alternatively, we could
 	// just document this behaviour.
 	get_length(@length, file->r_handle)
-	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
+	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_used)
 	puts("length "); prword(length:2); prword(length:0)
 	puts(", desired_length "); prword(desired_length:2); prword(desired_length:0)
 	putln()
@@ -251,17 +253,18 @@ def fflush(file)
 	    loop
 	fin
 
+	// Now we can actually write the buffer out
 	block.0 = file->r_handle
-	block:1 = file + r_buffer + file=>r_buffer_dirty_low
+	block:1 = file + r_buffer
 	block:3 = 0 // TODO
-	block:5 = file=>r_buffer_dirty_high - file=>r_buffer_dirty_low
+	block:5 = file=>r_buffer_used
 	block:7 = 0
-	dword_adduword(@block + 9, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
+	block:9 = file=>r_buffer_file_ptr:0
+	block:11 = file=>r_buffer_file_ptr:2
 	debug_dump_osgbpb(1, @block)
 	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 
-	file=>r_buffer_dirty_low = $FFFF
-	file=>r_buffer_dirty_high = $0000
+	file->r_dirty = FALSE
 	debug_dump_file("fflush->", file)
     fin
     return 0
@@ -363,9 +366,6 @@ end
 def fputc(c, file)
     byte buffer_end_ptr[4]
     word index
-    word old_buffer_dirty_low, tmp_buffer_dirty_low
-    word old_buffer_dirty_high, tmp_buffer_dirty_high
-    word dirty_growth
     // TODO: Perhaps just use 'file == 0' as the stdout indicator? Would save
     // a bit of setup, and the reality is the current approach is still likely
     // to fail if someone incorrectly passes stdout to another function as
@@ -388,48 +388,15 @@ def fputc(c, file)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
 	^(file + r_buffer + index) = c
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
+	index++
+	file->r_dirty = TRUE
 
-	// We need to expand the dirty range to include the byte just written.
-	// TODO: We could possibly optimise the common case of sequential
-	// writes where index == file=>r_buffer_dirty_high and we don't
-	// need to worry about extra_dirty, or buffer_dirty_low - we just
-	// increment buffer_dirty_high and index
-	old_buffer_dirty_low = file=>r_buffer_dirty_low
-	old_buffer_dirty_high = file=>r_buffer_dirty_high
-	if isult(index, file=>r_buffer_dirty_low)
-	    file=>r_buffer_dirty_low = index
-	fin
-	index++ // high watermark is exclusive
-	if isugt(index, file=>r_buffer_dirty_high)
-	    file=>r_buffer_dirty_high = index
-	fin
-
-	// In order to avoid huge wasteful writes if the client has a big buffer and
-	// touches one byte at the start and one at the end, if this write has
-	// increases the dirty range size significantly we flush the previous
-	// dirty range and start a new one containing just this byte.
-	// TODONOW: Possible simplification - don't bother with this, the client
-	// should not specify a big buffer if they don't want this (not *ideal*, as
-	// they might still want it so reads can be fulfilled from it).
-	if old_buffer_dirty_low <> $FFFF
-	    dirty_growth = (file=>r_buffer_dirty_high - file=>r_buffer_dirty_low) - (old_buffer_dirty_high - old_buffer_dirty_low)
-	    if isugt(dirty_growth, file=>r_chunk_size)
-		tmp_buffer_dirty_low = file=>r_buffer_dirty_low
-		tmp_buffer_dirty_high = file=>r_buffer_dirty_high
-		file=>r_buffer_dirty_low = old_buffer_dirty_low
-		file=>r_buffer_dirty_high = old_buffer_dirty_high
-		if fflush(file) == EOF
-		    return EOF
-		fin
-		file=>r_buffer_dirty_low = tmp_buffer_dirty_low
-		file=>r_buffer_dirty_high = tmp_buffer_dirty_high
-	    fin
-	fin
-
+	// If a seek means we've grown the buffer, we need to clear the gap.
 	if isugt(index, file=>r_buffer_used)
 	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
 	fin
+
 	debug_dump_file("fputc->", file)
 	return c
     else
