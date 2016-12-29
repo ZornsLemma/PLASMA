@@ -586,7 +586,7 @@ def random_test(seed)
     prword(@random_state)
     saved_heap = heapmark()
     seedrand(seed)
-    file = fopen_heap(8192, "T.DATA", "w+b")
+    file = fopen_heap(2, "T.DATA", "w+b")
     puts("SFTODO1\n")
     ptr = 0
     max_ptr = 0
