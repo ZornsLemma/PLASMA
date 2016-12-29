@@ -47,6 +47,7 @@ struc t_FILE
     byte r_append // TODO: move into flags byte?
     word r_buffer_used
     word r_buffer_size
+    // TODONOW: possible simplification - just have a dirty bit and don't track a range
     word r_buffer_dirty_low
     word r_buffer_dirty_high
     word r_chunk_size
@@ -68,10 +69,6 @@ byte random_increment[4]
 // TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
 byte dword_one[4]
 
-asm foo // TODO
-    JMP $900
-end
-
 // TODO TEMP
 def prword(w)
     prbyte(w >> 8)
@@ -87,9 +84,6 @@ def debug_dump_file(prefix, file)
     putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
     puts(", bs/u "); prword(file=>r_buffer_size)
     putc('/'); prword(file=>r_buffer_used)
-    // TODONOW: NOT SURE IF IT'S A PROBLEM, BUT OBSERVED IN OUTPUT OF CURRENT
-    // TEST THAT THERE IS SOME OUTPUT WHERE DL/H HAS WHAT LOOKS LIKE HALF OF
-    // A DIRTY - IIRC SOMETHING LIKE FFFF/1865 - INVESTIGATE
     puts(", dl/h "); prword(file=>r_buffer_dirty_low)
     putc('/'); prword(file=>r_buffer_dirty_high)
     putln()
@@ -224,8 +218,9 @@ def fflush(file)
 	// If we are going to write past the current end of the file, doing so
 	// by simply specifying a file pointer past the end in the OSGBPB 1 call
 	// would leave a gap with undefined contents. So let's emit zeros to 
-	// grow the file first.
-	// TODO: Test this
+	// grow the file first. TODO: Is there any way to tell if the FS we're
+	// on defines the behaviour so we can avoid this? Alternatively, we could
+	// just document this behaviour.
 	get_length(@length, file->r_handle)
 	dword_adduword(@desired_length, file + r_buffer_file_ptr, file=>r_buffer_dirty_low)
 	puts("length "); prword(length:2); prword(length:0)
@@ -292,7 +287,6 @@ def fgetc(file)
 	if file->r_eof
 	    return EOF
 	fin
-	// TODO: WHAT IF THE CALLER HAS SEEKED PAST THE END OF THE FILE AND IS READING WITHOUT HAVNG WRITTEN? IT'S NOT CLEAR THERE'S AN OBLIGATION ON US TO EXTEND THE FILE IN THIS CASE. HOWEVER, *IF* OSGBPB WOULD EXTEND THE FILE AND LEAVE THE CONTENTS UNDEFINED, WE EITHER NEED TO MAKE SURE WE DEFINE THE CONTENTS OF REFUSE - PROBABLY SIMPLY BY RETURNING EOF - TO GET THAT FAR
 	// The relevant byte isn't in the buffer, so we're going to need to
 	// read some data into the buffer. If the client has used fseek() to
 	// move the pointer ahead, this may involve reading the data between
@@ -305,6 +299,12 @@ def fgetc(file)
 	    // The buffer is large enough to read enough additional data to
 	    // read the required byte. How many bytes would we need to read to
 	    // get that byte into the buffer?
+	    // TODONOW: Possible simplification - we could always read the full
+	    // buffer size, then we'd never need to "top it up". Or we could
+	    // just cap this read at the available space in the buffer and if
+	    // that's just one byte, so be it. (If the buffer is a multiple of
+	    // the chunk size and we're doing simple sequential reads, this
+	    // would always read exactly the chunk size anyway.)
 	    read_size = 1 + *(file + r_file_ptr) - *(file + r_buffer_file_ptr) - file=>r_buffer_used
 	    // However, we always read at least r_chunk_size bytes.
 	    if read_size < file=>r_chunk_size
@@ -408,6 +408,9 @@ def fputc(c, file)
 	// touches one byte at the start and one at the end, if this write has
 	// increases the dirty range size significantly we flush the previous
 	// dirty range and start a new one containing just this byte.
+	// TODONOW: Possible simplification - don't bother with this, the client
+	// should not specify a big buffer if they don't want this (not *ideal*, as
+	// they might still want it so reads can be fulfilled from it).
 	if old_buffer_dirty_low <> $FFFF
 	    dirty_growth = (file=>r_buffer_dirty_high - file=>r_buffer_dirty_low) - (old_buffer_dirty_high - old_buffer_dirty_low)
 	    if isugt(dirty_growth, file=>r_chunk_size)
@@ -639,7 +642,6 @@ def random_test(seed)
     file = fopen_heap(256, "T.DATA", "rb")
     assert(file, "open verify")
     ptr = 0
-    // TODONOW: VERIFY FAILS AT $0EB0 WITH $2B (file) and $C4 (memory) - PROBABLY LOOK AT TODONOW RE POSSIBLE ODD DL/H OUTPUT AND SEE IF THAT'S A PROBLEM BEFORE PROBING OTHERWISE
     while ptr < max_ptr
 	putc('V'); prword(ptr); 
 	c = fgetc(file)
@@ -655,7 +657,7 @@ def random_test(seed)
     heaprelease(saved_heap)
 end
 
-// TODONOW: EXAMINE OUTPUT OF CURRENT TEST AND SEE IF ALL THE OSGBPB CALLS ARE
+// TODONOW: EXAMINE OUTPUT OF TEST WITH 8192 SIZE BUFFER AND SEE IF ALL THE OSGBPB CALLS ARE
 // "REASONABLE" - PROBABLY ARE, BUT GOOD TO CHECK IN THIS EXTREME CASE WHERE
 // BUFFER IS VERY LARGE
 
