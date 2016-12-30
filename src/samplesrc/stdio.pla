@@ -38,7 +38,15 @@ const scratch = $79
 
 // Note that the buffer size is a word; this means that an application can
 // choose to allocate virtually the entire heap as a buffer for a single file
-// if it wishes.
+// if it wishes. TODO: However, I wonder if this has much value - if you're do
+// serial access it's probably not important, and if you're doing random access
+// the benefits from a larger buffer are probably outweighed by the fact that
+// "buffer misses" then need to read/write a much larger chunk of data. I think
+// some kind of block-based caching layer (perhaps with the ability for stdio
+// to use it instead of talking directly to OSGBPB) would be the answer for
+// random access, and that complexity should be separate from stdio. It may
+// therefore be best to restrict the buffer to 256 bytes, and perhaps even to
+// make it always exactly 256 bytes.
 struc t_FILE
     byte r_handle
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
@@ -520,7 +528,7 @@ end
 
 def random_test(seed)
     const memory_size = 8192
-    const buffer_size = 4096
+    const buffer_size = 257
     word saved_heap
     word file
     word i, j
