@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import sys
+
 hexdump_width = 16
 MODADDR = 0x1000
 
@@ -46,8 +48,14 @@ class Module:
         s += chr(self.byterel(i))
         return s
 
+    # "label" annotation at point addr
+    def annotate_point(self, addr, text):
+        a = Annotation(addr, addr, text)
+        self.annotations.append(a)
+
+    # range annotation: [start, end] (i.e. inclusive)
     def annotate(self, start, end, text):
-        a = Annotation(start, end, text)
+        a = Annotation(start, end + 1, text)
         self.annotations.append(a)
 
     def walk(self):
@@ -57,9 +65,13 @@ class Module:
         moddep = header + 1
         self.annotate(2, 3, "magic number")
         defofst = modsize
+        init = 0
 
         if self.wordrel(2) == 0xda7e:
-            self.annotate(6, 7, "defofst"); defofst = self.wordrel(6)
+            self.annotate_point(modsize+2, "SEGEND")
+            self.annotate(4, 5, "system flags")
+            defofst = self.wordrel(6)
+            self.annotate(6, 7, "defofst => %04x" % (defofst - (MODADDR-2)))
             self.annotate(8, 9, "defcnt"); defcnt = self.wordrel(8)
             self.annotate(10, 11, "init"); init = self.wordrel(10)
             moddep = header + 12
@@ -162,6 +174,11 @@ class Module:
             # TODO
             esd += 3
 
+        # Call init routine if it exists
+        if init != 0:
+            def_addr = init - defofst + bytecode
+            self.annotate(def_addr, def_addr, "Start of INIT")
+
     def hexdump(self, start, end, text=""):
         gap = start % hexdump_width
         line_addr = (start // hexdump_width) * hexdump_width
@@ -184,24 +201,23 @@ class Module:
             header += "%02x " % i
         print(header)
 
-        self.annotations.sort(key=lambda a: a.start)
+        self.annotations.sort(key=lambda a: (a.start, a.end))
         prev_end = -1
         i = 0
         for a in self.annotations:
-            if a.start <= prev_end:
-                print("skipping overlapping annotation: %s" % a)
-                continue
-            prev_end = a.end
             if i < a.start:
                 self.hexdump(i, a.start - 1)
                 i = a.start
-            self.hexdump(i, a.end, a.text)
-            i = a.end + 1
+            if a.start == a.end:
+                print("     " + "   "*hexdump_width + "  " + a.text)
+            else:
+                self.hexdump(i, a.end - 1, a.text)
+                i = a.end
         if i < len(self.data):
             self.hexdump(i, len(self.data) - 1)
 
 
 
 
-module = Module("STDIO#FE1000")
+module = Module(sys.argv[1])
 module.dump()
