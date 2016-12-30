@@ -147,7 +147,18 @@ class Module:
             sym = esd
             s = self.dcistrrel(esd)
             esd += len(s)
-            self.annotate(sym, esd - 1, "ESD symbol name: " + s)
+            self.annotate(sym, esd-1, "ESD symbol name: " + s)
+            esd_type = self.byterel(esd)
+            if esd_type & 0x08:
+                self.annotate(esd, esd, "ESD type (EXPORT symbol)")
+                addr = self.wordrel(esd+1) + modfix - MODADDR
+                if addr < bytecode:
+                    TODO
+                else:
+                    index = deftbl.index(addr)
+                    self.annotate(esd+1, esd+2, "ESD reference to %04x (deftbl entry %d = TODO)" % (addr, index))
+            else:
+                self.annotate(esd, esd, "ESD type (ignored)")
             # TODO
             esd += 3
 
