@@ -1,6 +1,15 @@
 from __future__ import print_function
 
 hexdump_width = 16
+MODADDR = 0x1000
+
+def comma_list(l):
+    s = ""
+    sep = ""
+    for i in l:
+        s += sep + i
+        sep = ", "
+    return s
 
 class Annotation:
     def __init__(self, start, end, text):
@@ -43,10 +52,12 @@ class Module:
 
     def walk(self):
         header = 0
+        rdlen = len(self.data)
         self.annotate(0, 1, "modsize"); modsize = self.wordrel(0)
         moddep = header + 1
         self.annotate(2, 3, "magic number")
         defofst = modsize
+
         if self.wordrel(2) == 0xda7e:
             self.annotate(6, 7, "defofst"); defofst = self.wordrel(6)
             self.annotate(8, 9, "defcnt"); defcnt = self.wordrel(8)
@@ -56,9 +67,89 @@ class Module:
             # Load module dependencies
             while self.byterel(moddep):
                 s = self.dcistrrel(moddep)
-                self.annotate(moddep, moddep + len(s) - 1, "module dependency: " + s)
+                self.annotate(moddep, moddep + len(s) - 1, "dependency: " + s)
                 moddep += len(s)
-            self.annotate(moddep, moddep, "end of module dependency list")
+            self.annotate(moddep, moddep, "dependency end marker")
+
+            # Init def table
+            deftbl = []
+
+        # Alloc heap space for relocated module (data + bytecode)
+        heap = 0
+        moddep = moddep + 1 - header + heap
+        modfix = moddep - (heap + 2)
+        modsize = modsize - modfix
+        rdlen = rdlen - modfix - 2
+        modaddr = moddep
+
+        # Apply all fixups and symbol import/export
+        modfix = modaddr - modfix
+        bytecode = defofst + modfix - MODADDR
+        modend = modaddr + modsize
+        rld = modend # Re-Locatable Directory
+        esd = rld # Extern+Entry Symbol Directory
+        # Scan to end of ESD
+        while self.byterel(esd):
+            esd += 4
+        self.annotate(esd, esd, "ESD end marker")
+        esd += 1
+
+        # Run through the Re-Location Dictionary
+        while self.byterel(rld):
+            rld_type = self.byterel(rld)
+            s = []
+            if rld_type & 0x02:
+                s.append("bytecode def")
+            else:
+                if rld_type & 0x80:
+                    s.append("word-sized fixup")
+                else:
+                    s.append("byte-sized fixup")
+                if rld_type & 0x10:
+                    s.append("EXTERN reference")
+                else:
+                    s.append("INTERN fixup")
+            self.annotate(rld, rld, "RLD entry type (" + comma_list(s) + ")")
+            if rld_type & 0x02:
+                # This is a bytecode def entry - add it to the def directory
+                def_addr = self.wordrel(rld+1) - defofst + bytecode
+                self.annotate(rld+1, rld+2, "RLD bytecode def %d, %04x" % (len(deftbl), def_addr))
+                deftbl.append(def_addr)
+            else:
+                addr = self.wordrel(rld+1) + modfix
+                if addr < modaddr:
+                    self.annotate(rld+1, rld+2, "RLD reference to %04x, skipped" % addr)
+                else:
+                    if rld_type & 0x80:
+                        fixup = self.wordrel(addr)
+                    else:
+                        fixup = self.byterel(addr)
+                    if rld_type & 0x10: # EXTERN reference
+                        self.annotate(rld+1, rld+2, "RLD reference to %04x" % addr)
+                        index = self.byterel(rld+3)
+                        self.annotate(rld+3, rld+3, "RLD EXTERN reference index %d (= %s)" % (index, "TODO"))
+                        fixup = 0xffff # SFTODO
+                    else: # INTERN fixup
+                        fixup = fixup + modfix - MODADDR
+                        if fixup < bytecode:
+                            self.annotate(rld+1, rld+2, "RLD reference to %04x, skipped" % fixup)
+                        else:
+                            index = deftbl.index(fixup)
+                            self.annotate(rld+1, rld+2, "RLD reference to %04x (deftbl entry %d = TODO)" % (fixup, index))
+                    if rld_type & 0x80:
+                        self.annotate(addr, addr + 1, "RLD word fixup to %04x" % fixup)
+                    else:
+                        self.annotate(addr, addr, "RLD byte fixup to %02x" % fixup)
+            rld += 4
+
+        # Run through the External/Entry Symbol Directory
+        while self.byterel(esd):
+            sym = esd
+            s = self.dcistrrel(esd)
+            esd += len(s)
+            self.annotate(sym, esd - 1, "ESD symbol name: " + s)
+            # TODO
+            esd += 3
 
     def hexdump(self, start, end, text=""):
         gap = start % hexdump_width
