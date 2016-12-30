@@ -2,7 +2,8 @@
 // TODO: If this works, the stdio functionality should be moved into
 // a separate module.
 
-// TODO: ungetc()
+// TODONOW: ungetc() - this could have a big impact on the
+// implementation so be good to get it done now
 
 // TODO: ftell()/ftell32()
 
@@ -16,8 +17,9 @@
 // wrapper around the OS calls. If do that, compare performance with this
 // one and if this is slower then either ditch it or fix the problem!
 
-// TODO: fread()/fwrite() - these should be able to do fast memcpy
-// into/out of the buffer where possible
+// TODONOW: fread()/fwrite() - these should be able to do fast memcpy
+// into/out of the buffer where possible - this could have a big impact
+// on the implementation so be good to get it done now.
 
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
@@ -137,7 +139,10 @@ end
 
 // TODO BENCHMARK IT, BUT MAY WANT TO WRITE THE 'IN MEMORY' BRANCH OF FGETC AND
 // FPUTC IN ASSEMBLER - BUT DON'T GO NUTS, BECAUSE ASSEMBLER ALWAYS BURNS
-// MAIN RAM, WHEREAS BYTECODE CAN BE IN SWR ON PLAS128
+// MAIN RAM, WHEREAS BYTECODE CAN BE IN SWR ON PLAS128 - PROBABLY A GOOD IDEA
+// TO LET THE CODE "BED IN" BEFORE DOING THIS, AS I WILL PROBABLY STUMBLE
+// ACROSS BUGS AS I USE IT, AND LOOKING AT IT WITH FRESH EYES MAY MAKE SOME
+// ERRORS GLARINGLY OBVIOUS
 
 // TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
 // void fopen_prealloc(FILE *file, const char *filename, const char *mode)
