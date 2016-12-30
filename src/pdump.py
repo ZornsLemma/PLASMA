@@ -2,8 +2,14 @@ from __future__ import print_function
 
 import sys
 
-hexdump_width = 16
+hexdump_width = 4
 MODADDR = 0x1000
+
+# Modules are assembled at 4094, so dumping as though the first byte
+# of the file has this offset makes the raw hex offsets clearer.
+# However, sometimes it might be simpler if the offset shown is the
+# offset within the file, i.e. this is 0.
+hexdump_offset = 4094
 
 def comma_list(l):
     s = ""
@@ -180,27 +186,20 @@ class Module:
             self.annotate(def_addr, def_addr, "Start of INIT")
 
     def hexdump(self, start, end, text=""):
-        gap = start % hexdump_width
-        line_addr = (start // hexdump_width) * hexdump_width
-        s = ("%04x " % line_addr) + ("   " * gap)
+        line_addr = start
+        count = 0
+        hex = ""
         while start <= end:
-            s += "%02x " % self.data[start]
+            hex += "%02x " % self.data[start]
             start += 1
-            if start % hexdump_width == 0:
-                print(s + "  " + text)
-                text = ""
-                s = "%04x " % start
-        if len(s) > 5:
-            s += " " * (5 + 3*hexdump_width - len(s)) + "  " + text
-            print(s)
+            count += 1
+            if count % hexdump_width == 0 or start > end:
+                print("\t%04x: %-*s %s" % (hexdump_offset + line_addr, hexdump_width*3, hex, text))
+                line_addr = start
+                count = 0
+                hex = ""
 
     def dump(self):
-
-        header = "     "
-        for i in range(hexdump_width):
-            header += "%02x " % i
-        print(header)
-
         self.annotations.sort(key=lambda a: (a.start, a.end))
         prev_end = -1
         i = 0
@@ -209,7 +208,7 @@ class Module:
                 self.hexdump(i, a.start - 1)
                 i = a.start
             if a.start == a.end:
-                print("     " + "   "*hexdump_width + "  " + a.text)
+                print(a.text)
             else:
                 self.hexdump(i, a.end - 1, a.text)
                 i = a.end
