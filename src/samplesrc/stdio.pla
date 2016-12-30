@@ -277,6 +277,10 @@ def fill_buffer(file)
     byte block[13]
     byte length[4]
 
+    // TODO: This doesn't check for the case where r_file_ptr is >= r_length
+    // but would fit within the buffer; in that case we could choose to grow
+    // the buffer as fputc() does and not flush the buffer. It works as it is,
+    // but it means the buffer will be flushed unnecessarily sometimes.
     if fflush(file) == EOF
 	return EOF
     fin
@@ -518,7 +522,7 @@ def seedrand(seed)
 end
 
 def rand(n)
-    byte r[4], SFTODO[100]
+    byte r[4]
     dword_mul(@random_state, @random_state, @random_multiplier)
     dword_add(@random_state, @random_state, @random_increment)
     dword_fromuword(@r, n)
@@ -528,7 +532,7 @@ end
 
 def random_test(seed)
     const memory_size = 8192
-    const buffer_size = 257
+    const buffer_size = 8192
     word saved_heap
     word file
     word i, j
@@ -538,10 +542,7 @@ def random_test(seed)
     word c, d
     word subseed
     prword(@random_state)
-    puts("SFTODO1\n")
     max_ptr = 0
-    puts("SFTODO2\n")
-    puts("SFTODO3\n")
     seedrand(seed)
     memory = heapalloc(memory_size)
     memset(memory, empty_fill, memory_size)
@@ -555,12 +556,10 @@ def random_test(seed)
 	else
 	    file = fopen_heap(buffer_size, "T.DATA", "r+b")
 	fin
-	puts("SFTODO4\n")
 	assert(file, "open")
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	    op = rand(10)
-	    puts("SFTODO5\n")
 	    putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
 	    puts("XXX"); prbyte(^(memory+$0EB0)); putln()
 	    if op == 0
@@ -626,28 +625,12 @@ end
 // "REASONABLE" - PROBABLY ARE, BUT GOOD TO CHECK IN THIS EXTREME CASE WHERE
 // BUFFER IS VERY LARGE
 
-puts("SFTODOX1\n")
 dword_fromuword(@dword_zero, 0)
 dword_fromuword(@dword_one, 1)
-puts("SFTODOX2\n")
+
 random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
-puts("SFTODOX3\n")
 random_increment[0] = $5F; random_increment[1] = $F3; random_increment[2] = $6E; random_increment[3] = $3C
-puts("SFTODOX4\n")
 
 //main()
 random_test(42)
 done
-
-// TODO: temp-ish notes 
-//
-// the full buffer_size bytes don't need to be present in the buffer, but the
-// only partially filled state supported if that the buffer contains
-// buffer_used bytes of data which are the file contents starting from
-// buffer_file_ptr
-//
-// this means that if you seek forward but still within the area covered by
-// [buffer_file_ptr, buffer_ptr_ptr + buffer_size), the read will have to read
-// all the intervening data into the buffer as well
-
-// vi: sts=4 sw=4
