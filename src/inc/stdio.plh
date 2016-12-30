@@ -1,0 +1,11 @@
+import stdio
+    const EOF = -1
+    const SEEK_SET = 0
+    const stdout = 0
+    predef fopen_prealloc, fopen_heap, fclose
+    predef fflush
+    predef fgetc, fputc
+    predef fseek32, fseek
+end
+
+// vi: sts=4 sw=4

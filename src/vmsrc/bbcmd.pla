@@ -1127,7 +1127,7 @@ def readfile(filename, buffer)
     byte block[18]
     block:0 = filename
     block:2 = buffer
-    block:4 = 0
+    block:4 = 0 // TODO: might cause problems for PLAS128 with 2P enabled
     block:6 = 0
     perr = (osfile($FF, @block) == 0)
     return perr
@@ -1305,15 +1305,23 @@ def loadmod(mod)
     word moddep, rld, esd, sym
     byte str[17], filename[17]
     byte header[128]
+    word SFTODO
     //
     // Read the RELocatable module header (first 128 bytes)
     //
     dcitocr(mod, @filename)
+    prstr("loadmod ")
+    SFTODO = @filename
+    while ^SFTODO <> 13
+    	cout(^SFTODO)
+	SFTODO++
+    loop
+    crout()
     header.0 = @filename
     header.1 = (@filename) >> 8
     perr = (osfile(5, @header) <> 1)
     rdlen = header.10 + (header.11 << 8)
-    crout()
+    crout() // TODO: get rid of this
     if perr
         return -perr
     fin
@@ -1441,6 +1449,7 @@ def loadmod(mod)
             sym = esd
             esd = esd + dcitos(esd, @str)
             if ^esd & $08
+		prstr(" extsym "); prstr(@str); cout(' '); prword(esd); crout()
 		//
                 // EXPORT symbol - add it to the global symbol table.
 		//
@@ -1495,6 +1504,13 @@ def loadmod(mod)
     // Free up the end-of-module in main memory.
     //
     releaseheap(modend)
+    prstr("~loadmod ")
+    SFTODO = @filename
+    while ^SFTODO <> 13
+    	cout(^SFTODO)
+	SFTODO++
+    loop
+    crout()
     return fixup | (systemflags & modkeep)
 end
 //

@@ -1,0 +1,235 @@
+// stdio test/demonstration code
+
+include "inc/cmdsys.plh"
+include "inc/dword.plh"
+include "inc/stdio.plh"
+include "inc/testlib.plh"
+
+// This should normally be $0000, but it's handy for testing to be able
+// to alter it.
+const empty_fill = $2B2B // TODO: Change back!
+
+const TRUE = -1
+const FALSE = 0
+
+// TODO TEMP
+byte random_state[4]
+byte random_multiplier[4]
+byte random_increment[4]
+
+// TODO: Move this global into the DWORD module? Note it is initialised below
+// TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
+byte dword_zero[4]
+byte dword_one[4]
+
+// TODO TEMP
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+def main()
+    word file
+    word i
+    word count
+    puts("foo\nbar\nbaz\n")
+    fputc('x', stdout)
+    fputc('y', stdout)
+    fputc('\n', stdout)
+    file = fopen_heap(256, "TEST", "w+b")
+    if file == 0
+	puts("open failed")
+	return
+    fin
+    puts("DOINGX\n")
+    i = fputc('X', file)
+    puts("DONEX\n")
+    i = fputc('Y', file)
+    puts("DOINGZ\n")
+    i = fputc('Z', file)
+    puts("DONEZ\n")
+    i = fseek(file, 2, SEEK_SET)
+    if i <> 0
+	puts("fseek failed")
+	return
+    fin
+    puts("about to fget Z\n")
+    i = fgetc(file)
+    if i <> 'Z'
+	puts("fgetc failed")
+	return
+    fin
+    puts("fgot Z\n")
+    i = fseek(file, 0, SEEK_SET)
+    if i <> 0
+	puts("fseek failed")
+	return
+    fin
+    i = fgetc(file)
+    if i <> 'X'
+	puts("fgetc2 failed")
+	return
+    fin
+    i = fseek(file, $82, SEEK_SET)
+    if i <> 0
+	puts("fseek2 failed")
+	return
+    fin
+    puts("about to write Q\n")
+    i = fputc('Q', file)
+    i = fclose(file)
+    if i == EOF
+	puts("close failed")
+	return
+    fin
+    return
+
+
+
+    file = fopen_heap(2, "HELLO", "rb")
+    if file == 0
+	puts("open failed")
+	return
+    fin
+    count = 0
+    repeat
+	if count % 8 == 0
+	    putln()
+	    prword(count)
+	    putc(' ')
+	fin
+	i = fgetc(file)
+	if i <> EOF
+	    prbyte(i)
+	    putc(' ')
+	fin
+	count++
+    until i == EOF
+    i = fclose(file)
+    if i == EOF
+	puts("close failed")
+	return
+    fin
+end
+
+def assert(b, message)
+    if not b
+	oserror(42, message)
+    fin
+end
+
+def seedrand(seed)
+    dword_fromuword(@random_state, seed)
+end
+
+def rand(n)
+    byte r[4]
+    dword_mul(@random_state, @random_state, @random_multiplier)
+    dword_add(@random_state, @random_state, @random_increment)
+    dword_fromuword(@r, n)
+    dword_div(0, @r, @random_state, @r)
+    return dword_touword(@r)
+end
+
+def random_test(seed)
+    const memory_size = 8192
+    const buffer_size = 8192
+    word saved_heap
+    word file
+    word i, j
+    word memory
+    word ptr, max_ptr
+    word op
+    word c, d
+    word subseed
+    prword(@random_state)
+    max_ptr = 0
+    seedrand(seed)
+    memory = heapalloc(memory_size)
+    memset(memory, empty_fill, memory_size)
+    saved_heap = heapmark()
+    for i = 1 to 5
+	subseed = rand($FFFF)
+	seedrand(subseed)
+	puts("j "); puti(i); putln()
+	if i == 1
+	    file = fopen_heap(buffer_size, "T.DATA", "w+b")
+	else
+	    file = fopen_heap(buffer_size, "T.DATA", "r+b")
+	fin
+	assert(file, "open")
+	ptr = 0
+	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
+	    op = rand(10)
+	    putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
+	    puts("XXX"); prbyte(^(memory+$0EB0)); putln()
+	    if op == 0
+		ptr = rand(memory_size)
+		assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
+	    elsif op <= 5
+		c = rand(256)
+		^(memory + ptr) = c
+		ptr++
+		assert(fputc(c, file) <> EOF, "fputc")
+
+		// Merely seeking to a point doesn't grow the file; only if we
+		// try to write at that point does it grow.
+		if ptr > max_ptr
+		    max_ptr = ptr
+		fin
+	    else
+		putc('x'); prword(ptr);
+		if ptr >= max_ptr
+		    c = EOF
+		else
+		    c = ^(memory + ptr)
+		    ptr++
+		fin
+		putc(' '); prword(c)
+		d = fgetc(file)
+		if c <> d
+		    putc(' '); prbyte(c); putc(' '); prbyte(d)
+		    putln()
+		    assert(FALSE, "fgetc")
+		fin
+	    fin
+	    if ptr >= memory_size
+		ptr = 0
+		assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
+	    fin
+	next
+	assert(fclose(file) == 0, "close")
+	
+	seedrand(subseed)
+	file = fopen_heap(256, "T.DATA", "rb")
+	assert(file, "open verify")
+	ptr = 0
+	while ptr < max_ptr
+	    c = fgetc(file)
+	    d = ^(memory + ptr)
+	    if c <> d
+		putc('V'); prword(ptr); 
+		putc(' '); prbyte(c); putc(' '); prbyte(d)
+		putln()
+		assert(FALSE, "fgetc verify")
+	    fin
+	    ptr++
+	loop
+	assert(fgetc(file) == EOF, "fgetc EOF verify")
+	assert(fclose(file) == 0, "close verify")
+
+	heaprelease(saved_heap)
+    next
+end
+
+dword_fromuword(@dword_zero, 0)
+dword_fromuword(@dword_one, 1)
+
+random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
+random_increment[0] = $5F; random_increment[1] = $F3; random_increment[2] = $6E; random_increment[3] = $3C
+
+main()
+//random_test(42)
+done
+
+// vi: sts=4 sw=4
