@@ -1385,7 +1385,7 @@ def loadmod(mod)
         modend   = modaddr + modsize
         rld      = modend  // Re-Locatable Directory
         esd      = rld     // Extern+Entry Symbol Directory
-        while ^esd         // Scan to end of ESD
+        while ^esd         // Scan to end of ESD (SF: actually, scan to start of ESD?)
             esd = esd + 4
 	loop
         esd = esd + 1
