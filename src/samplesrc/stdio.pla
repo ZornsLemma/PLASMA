@@ -621,10 +621,6 @@ def random_test(seed)
     next
 end
 
-// TODONOW: EXAMINE OUTPUT OF TEST WITH 8192 SIZE BUFFER AND SEE IF ALL THE OSGBPB CALLS ARE
-// "REASONABLE" - PROBABLY ARE, BUT GOOD TO CHECK IN THIS EXTREME CASE WHERE
-// BUFFER IS VERY LARGE
-
 dword_fromuword(@dword_zero, 0)
 dword_fromuword(@dword_one, 1)
 
