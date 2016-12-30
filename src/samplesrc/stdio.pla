@@ -46,6 +46,7 @@ struc t_FILE
     byte r_append // TODO: move into flags byte?
     word r_buffer_used
     word r_buffer_size
+    byte r_length[4] // conceptual length; OS length may be shorter if we've extended and not yet flushed
     byte r_buffer_file_ptr[4]
     byte r_file_ptr[4]
     byte r_buffer // buffer_size bytes
@@ -76,16 +77,17 @@ def debug_dump_file(prefix, file)
     puts(prefix)
     puts(": "); prbyte(file->r_handle)
     putc('/'); prword(file + r_buffer)
-    puts(", f/bptr "); prword(file=>r_file_ptr:2); prword(file=>r_file_ptr:0)
+    puts(", f/bptr/l "); prword(file=>r_file_ptr:2); prword(file=>r_file_ptr:0)
     putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
+    putc('/'); prword(file=>r_length:2); prword(file=>r_length:0)
     puts(", bs/u "); prword(file=>r_buffer_size)
     putc('/'); prword(file=>r_buffer_used)
     puts(", f: ")
     if file->r_eof
-	puts("EOF ")
+	putc('E')
     fin
     if file->r_dirty
-	puts("dirty ")
+	putc('D')
     fin
     putln()
 end
@@ -192,6 +194,7 @@ def fopen_prealloc(file, filename, mode)
     file->r_eof = FALSE
     file->r_dirty = FALSE
     file=>r_buffer_used = 0
+    get_length(file + r_length, handle)
     dword_fromuword(file + r_file_ptr, 0)
     dword_fromuword(file + r_buffer_file_ptr, 0)
     debug_dump_file("fopen->", file)
@@ -217,7 +220,8 @@ def fflush(file)
 	// If the first byte in the buffer comes after the current end of the file,
 	// specifying the appropriate file pointer in the OSGBPB 1 call would cause
 	// the filing system to extend the file with undefined contents. So we have
-	// to emit zeros to grow the file to the appropriate length first.
+	// to emit zeros to grow the file to the appropriate length first. We can't
+	// use r_length here as we need the length of the file on disc.
 	get_length(@length, file->r_handle)
 	if dword_isugt(file + r_buffer_file_ptr, @length)
 	    memset(@zero, empty_fill, zero_size)
@@ -259,14 +263,52 @@ def fflush(file)
     return 0
 end
 
+// TODO: PROTOTYPE
+// TODO: DOCUMENT AS INTERNAL ONLY, NOT TO EXPORT
+def fill_buffer(file)
+    byte block[13]
+    byte length[4]
+
+    if fflush(file) == EOF
+	return EOF
+    fin
+
+    // TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
+    // If we specify a file pointer past the end of the file, OSGBPB 3 will (at
+    // least on Acorn DFS 2.24) grow the file; this may not be defined behaviour, and
+    // even if it is presumably the gap is allowed to be filled with arbitrary
+    // data. In any case, we don't *want* to grow the file here (only seek+write should
+    // do so), so we don't call OSGBPB 3 if this is the case. We need the length of the
+    // file on disc, not the conceptual length, but since we just called fflush() the
+    // two are the same.
+    block:5 = file=>r_buffer_size
+    if not dword_isuge(file + r_file_ptr, file + r_length)
+	block.0 = file->r_handle
+	block:1 = file + r_buffer
+	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
+	block:7 = 0
+	block:9 = file=>r_file_ptr:0
+	block:11 = file=>r_file_ptr:2
+	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
+	// returned consistently, so we just use the updated number of bytes.
+	debug_dump_osgbpb(3, @block)
+	call(3, @block, @block >> 8, 0, $FFD1)
+    fin
+    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
+    file=>r_buffer_used = file=>r_buffer_size - block:5
+    if block:5 <> 0
+	file->r_eof = TRUE
+    fin
+    return 0
+end
+
 // word fgetc(FILE *file)
 // TODO ERROR HANDLING (NOT JUST EOF)
 // TODO: magic constants everywhere
 def fgetc(file)
     byte c
-    byte block[13]
     byte buffer_used_ptr[4]
-    byte length[4]
     //debug_dump_file("fgetc-<", file)
     dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
@@ -279,40 +321,10 @@ def fgetc(file)
 	    return EOF
 	fin
 
-	// The relevant byte isn't in the buffer, so either:
-	// - r_file_ptr is past EOF, in which case we enter EOF state, or
-	// - we flush the current buffer contents and read a buffer full of
-	//   data starting at r_file_ptr
-
-	// TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
-	// TODONOW: THIS *READ* WILL STILL GROW THE FILE IF THE FILE POINTER IS
-	// PAST THE END - AND WE AREN'T EXPECTING THAT (NOR, I THINK, DO WE WANT IT
-	// TO HAPPEN AT ALL). FOR NOW LET'S USE THIS HACK, WE MAYBE WANT/NEED TO TRACK
-	// THE LENGTH OF THE FILE AS A MEMBER OF THE FILE OBJECT
-	block:5 = file=>r_buffer_size
-	get_length(@length, file->r_handle)
-	if not dword_isuge(file + r_file_ptr, @length)
-	    if fflush(file) == EOF
-		return EOF
-	    fin
-
-	    block.0 = file->r_handle
-	    block:1 = file + r_buffer
-	    block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
-	    block:7 = 0
-	    block:9 = file=>r_file_ptr:0
-	    block:11 = file=>r_file_ptr:2
-	    // We ignore the carry returned by OSGBPB; BeebWiki says it's not
-	    // returned consistently, so we just use the updated number of bytes.
-	    debug_dump_osgbpb(3, @block)
-	    call(3, @block, @block >> 8, 0, $FFD1)
-
-	    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
-	    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
-	    file=>r_buffer_used = file=>r_buffer_size - block:5
-	fin
-	if block:5 <> 0
-	    file->r_eof = TRUE
+	// The relevant byte isn't in the buffer, so we try to read it in. It
+	// may not exist if r_file_ptr is past EOF.
+	if fill_buffer(file) == EOF
+	    return EOF
 	fin
 	debug_dump_file("fgetc-!", file)
 	return fgetc(file)
@@ -336,7 +348,8 @@ def fputc(c, file)
     fin
     //debug_dump_file("fputc-<", file)
     if file->r_append
-	get_length(file + r_file_ptr, file->r_handle)
+	file=>r_file_ptr:0 = file=>r_length:0
+	file=>r_file_ptr:2 = file=>r_length:2
 	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
 	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG? - I THINK IT CAN LEAVE IT ALONE, WHICH IS NOT SEEK LIKE, SO BE CAREFUL IF FACTORING OUT
     fin
@@ -348,22 +361,25 @@ def fputc(c, file)
 	index++
 	file->r_dirty = TRUE
 
-	// If a seek means we've grown the buffer (and the file), we need to
-	// clear the gap created.
+	// If a seek means we've grown the buffer, we need to clear any gap 
+	// created.
 	if isugt(index, file=>r_buffer_used)
 	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
 	    file=>r_buffer_used = index
+	    // This may also have increased the conceptual length of the file.
+	    dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, index)
+	    if dword_isugt(@buffer_end_ptr, file + r_length)
+		file=>r_length:0 = buffer_end_ptr:0
+		file=>r_length:2 = buffer_end_ptr:2
+	    fin
 	fin
 
 	debug_dump_file("fputc->", file)
 	return c
     else
-	if fflush(file) == EOF
+	if fill_buffer(file) == EOF
 	    return EOF
 	fin
-	file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
-	file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
-	file=>r_buffer_used = 0 // TODONOW: THIS IS WRONG, NOW THE BUFFER SHOULD ALWAYS BE FILLED EXCEPT AT EOF
 	debug_dump_file("fputc-!", file)
 	return fputc(c, file)
     fin
@@ -537,7 +553,7 @@ def random_test(seed)
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	    op = rand(10)
 	    puts("SFTODO5\n")
-	    putc('Q'); prword(i); putc(' '); prbyte(op); putln()
+	    putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
 	    puts("XXX"); prbyte(^(memory+$0EB0)); putln()
 	    if op == 0
 		ptr = rand(memory_size)
