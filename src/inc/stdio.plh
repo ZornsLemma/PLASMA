@@ -5,6 +5,7 @@ import stdio
     predef fopen_prealloc, fopen_heap, fclose
     predef fflush
     predef fgetc, fputc
+    predef fputs
     predef fseek32, fseek
 end
 

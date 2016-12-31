@@ -29,9 +29,21 @@ NEXT
 PRINT "Finish"
 C%=TIME-T%
 MODE 7
+T%=TIME
+PRINT "Start"
+F%=OPENOUT("X.TEST")
+FOR I%=1 TO 1000
+PRINT #F%,"1234567890qwertyuiop"
+NEXT
+CLOSE #F%
+*DELETE X.TEST
+PRINT "Finish"
+D%=TIME-T%
+MODE 7
 Z%=@%
 @%=&2020A
 PRINT "intmath",A%/100
 PRINT "textscrn",B%/100
 PRINT "grafscrn",C%/100
+PRINT "store",D%/100
 @%=Z%

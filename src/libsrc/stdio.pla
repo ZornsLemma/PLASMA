@@ -387,6 +387,21 @@ export def fputc(c, file)
     fin
 end
 
+// TODO: write this in assembler?
+// int fputs(const char *s, FILE *file) - returns nonnegative on success, EOF on error
+export def fputs(s, file)
+    word i, len
+    len = ^s
+    while len > 0
+	s++
+	len--
+	if fputc(^s, file) == EOF
+	    return EOF
+	fin
+    loop
+    return 1
+end
+
 // word fseek32(FILE *file, const dword *offset, word origin) - returns 0 on success, non-0 on error
 export def fseek32(file, offset, origin)
     *(file + r_file_ptr) = *offset

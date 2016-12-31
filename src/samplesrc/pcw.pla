@@ -1,14 +1,17 @@
 // Personal Computer World benchmarks (from December 1986 issue)
 
 include "inc/cmdsys.plh"
-include "inc/testlib.plh"
 include "inc/dword.plh"
+include "inc/testlib.plh"
+include "inc/stdio.plh"
 
 byte intmath16str[] = "intmath16"
 byte intmath32str[] = "intmath32"
 byte textscrnstr[] = "textscrn"
 byte textscrnlinestr[] = "1234567890qwertyuiop "
 byte grafscrnstr[] = "grafscrn"
+byte storestr[] = "store"
+byte storelinestr[] = "1234567890qwertyuiop\n"
 
 // Benchmark start/finish times
 byte start[5]
@@ -187,12 +190,41 @@ def grafscrn()
     log_time(@grafscrnstr)
 end
 
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def store()
+    word i, file
+    time(@start)
+    puts("Start\n")
+    file = fopen_heap(256, "X.TEST", "w")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    for i = 1 to 1000
+	// TODO: The benchmark specifies "record handling"; is this reasonable?
+	// I think I'd write it like this in C on any platform, but it's
+	// not the same as the BBC BASIC benchmark in pcw.bas...
+	if fputs(@storelinestr, file) == EOF
+	    fclose(file)
+	    oserror(0, "Error writing test file")
+	fin
+    next
+    if fclose(file) == EOF
+	oserror(0, "Can't close test file")
+    fin
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storestr)
+end
+
+//mode(7)
+//intmath16()
+//intmath32()
+//textscrn()
+//grafscrn()
 mode(7)
-intmath16()
-intmath32()
-textscrn()
-grafscrn()
-mode(7)
+store()
 show_times()
 done
 
