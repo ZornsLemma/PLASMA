@@ -1606,7 +1606,7 @@ heap = *freemem
 //
 // Init symbol table.
 //
-symtbl   = allocheap($400) // TODO!!!!
+symtbl   = allocheap($400) // TODONOW!!!! At the very least I think we need to oserror() if this overflows. I think it *may* not be too hard to dynamically allocate new chunks of heap for the symbol table if this fills (in which case the initial table can go back to 512 bytes)
 lastsym  = symtbl
 ^lastsym = 0
 stodci(@syslibstr, heap)
