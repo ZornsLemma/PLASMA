@@ -1,5 +1,9 @@
 // stdio test/demonstration code
 
+// TODONOW: I THINK THIS FAILS ON PLAS128 - HAVEN'T INVESTIGATED IN
+// ANY DETAIL, SO TRY RUNNING IT A FEW TIMES ON PLAS32 AND PLAS128
+// BEFORE GOING INTO DEPTH
+
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/stdio.plh"
