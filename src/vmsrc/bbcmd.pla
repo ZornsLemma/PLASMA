@@ -1127,7 +1127,7 @@ def readfile(filename, buffer)
     byte block[18]
     block:0 = filename
     block:2 = buffer
-    block:4 = 0 // TODO: might cause problems for PLAS128 with 2P enabled
+    block:4 = 0 // TODO: probably want machine high order address
     block:6 = 0
     perr = (osfile($FF, @block) == 0)
     return perr
