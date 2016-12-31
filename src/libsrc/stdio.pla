@@ -120,7 +120,6 @@ def minu(lhs, rhs)
     fin
 end
 
-// TODO: INTERNAL, DON'T EXPORT
 // void get_length(dword *length, int handle)
 def get_length(length, handle)
     // TODO: AUG says OSARGS control block is always in I/O processor memory!?
@@ -208,11 +207,8 @@ end
 // TODO: PROTOTYPE
 export def fopen_heap(buffer_size, filename, mode)
     word file
-    puts("SFTODOH1\n")
     file = heapalloc(t_FILE - 1 + buffer_size)
-    puts("SFTODOH2\n")
     file=>r_buffer_size = buffer_size
-    puts("SFTODOH3\n")
     return fopen_prealloc(file, filename, mode)
 end
 
@@ -238,7 +234,7 @@ export def fflush(file)
 		putln()
 		block.0 = file->r_handle
 		block:1 = @zero
-		block:3 = 0 // TODO
+		block:3 = 0 // TODO: Probably want machine high order address
 		if not dword_isuword(@size_delta)
 		    block:5 = zero_size
 		else
@@ -256,7 +252,7 @@ export def fflush(file)
 	// Now we can actually write the buffer out
 	block.0 = file->r_handle
 	block:1 = file + r_buffer
-	block:3 = 0 // TODO
+	block:3 = 0 // TODO: Probably want machine high order address
 	block:5 = file=>r_buffer_used
 	block:7 = 0
 	block:9 = file=>r_buffer_file_ptr:0
@@ -271,7 +267,6 @@ export def fflush(file)
 end
 
 // TODO: PROTOTYPE
-// TODO: DOCUMENT AS INTERNAL ONLY, NOT TO EXPORT
 def fill_buffer(file)
     byte block[13]
     byte length[4]
@@ -296,7 +291,7 @@ def fill_buffer(file)
     if not dword_isuge(file + r_file_ptr, file + r_length)
 	block.0 = file->r_handle
 	block:1 = file + r_buffer
-	block:3 = 0 // TODO: what to do with high order to get correct behaviour in all cases?
+	block:3 = 0 // TODO: Probably want machine high order address
 	block:7 = 0
 	block:9 = file=>r_file_ptr:0
 	block:11 = file=>r_file_ptr:2
