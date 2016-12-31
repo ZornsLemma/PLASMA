@@ -1125,6 +1125,16 @@ end
 //end
 def readfile(filename, buffer)
     byte block[18]
+    word SFTODO
+    prstr("readfile")
+    SFTODO = filename
+    while ^SFTODO <> 13
+    	cout(^SFTODO)
+	SFTODO++
+    loop
+    cout('-')
+    prword(buffer)
+    crout()
     block:0 = filename
     block:2 = buffer
     block:4 = 0 // TODO: might cause problems for PLAS128 with 2P enabled
@@ -1269,6 +1279,7 @@ def lookupextern(esd, index)
 		prstr(@str)
 		crout
 	    fin
+	    prstr("lookupextern for "); prstr(@str); cout('='); prword(addr); crout()
             return addr
         fin
         esd = esd + 3
@@ -1372,6 +1383,7 @@ def loadmod(mod)
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
 	modaddr = allocheap(modsize)
+	cout('T'); prword(modaddr); cout('-'); prword(moddep); cout('-'); prword(rdlen)
 	memcpy(modaddr, moddep, rdlen)
 	//
 	// Add module to symbol table.
@@ -1431,6 +1443,8 @@ def loadmod(mod)
 #else
                             fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
 #endif
+			else
+			    prstr("NBFIXUP "); prword(fixup); prword(addr); crout()
                         fin
                     fin
                     if ^rld & $80 // WORD sized fixup.
@@ -1463,10 +1477,15 @@ def loadmod(mod)
 #else
                     addr = lookupdef(addr - bytecode + bytecode, deftbl)
 #endif
+		else
+		    prstr("NBE "); prstr(@str); cout(' '); prword(addr); crout()
                 fin
+		prstr("calling addsym\n")
                 addsym(sym, addr)
+		prstr("called addsym\n")
             fin
             esd = esd + 3
+	    prstr("incremented esd by 3\n")
         loop
 #ifdef PLAS128
 	//
@@ -1623,7 +1642,7 @@ heap = *freemem
 //
 // Init symbol table.
 //
-symtbl   = allocheap($200)
+symtbl   = allocheap($400) // TODO!!!!
 lastsym  = symtbl
 ^lastsym = 0
 stodci(@syslibstr, heap)

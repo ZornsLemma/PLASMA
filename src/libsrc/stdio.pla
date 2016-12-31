@@ -110,6 +110,7 @@ def dword_adduword(result, lhs, rhs)
     puts("dword_adduword "); prword(result); putc(' '); prword(lhs); putc(' '); prword(rhs); putln()
     dword_fromuword(@rhs_dword, rhs)
     puts("dword_adduword2\n")
+    //^$9F0=42
     return dword_add(result, lhs, @rhs_dword)
 end
 
