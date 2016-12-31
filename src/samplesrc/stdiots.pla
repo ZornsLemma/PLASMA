@@ -228,8 +228,8 @@ dword_fromuword(@dword_one, 1)
 random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
 random_increment[0] = $5F; random_increment[1] = $F3; random_increment[2] = $6E; random_increment[3] = $3C
 
-main()
-//random_test(42)
+//main()
+random_test(42)
 done
 
 // vi: sts=4 sw=4

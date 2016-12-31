@@ -107,10 +107,7 @@ end
 // void dword_adduword(dword *result, const dword *lhs, word rhs)
 def dword_adduword(result, lhs, rhs)
     byte rhs_dword[4]
-    puts("dword_adduword "); prword(result); putc(' '); prword(lhs); putc(' '); prword(rhs); putln()
     dword_fromuword(@rhs_dword, rhs)
-    puts("dword_adduword2\n")
-    //^$9F0=42
     return dword_add(result, lhs, @rhs_dword)
 end
 
@@ -356,7 +353,7 @@ export def fputc(c, file)
 	fin
 	return c
     fin
-    debug_dump_file("fputc-<", file)
+    //debug_dump_file("fputc-<", file)
     if file->r_append
 	file=>r_file_ptr:0 = file=>r_length:0
 	file=>r_file_ptr:2 = file=>r_length:2
@@ -364,15 +361,11 @@ export def fputc(c, file)
 	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG? - I THINK IT CAN LEAVE IT ALONE, WHICH IS NOT SEEK LIKE, SO BE CAREFUL IF FACTORING OUT
     fin
     dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
-    puts("SFTODOP1\n")
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
-	puts("index "); prword(index); putln()
 	^(file + r_buffer + index) = c
 	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
 	index++
-	puts("index2 "); prword(index); putln()
-	debug_dump_file("foo1", file)
 	file->r_dirty = TRUE
 
 	// If a seek means we've grown the buffer, we need to clear any gap 
@@ -428,5 +421,10 @@ export def fclose(file)
     osfind_close(file->r_handle)
     return 0
 end
+
+// TODO: TEMP?!
+dword_fromuword(@dword_zero, 0)
+dword_fromuword(@dword_one, 1)
+done
 
 // vi: sts=4 sw=4
