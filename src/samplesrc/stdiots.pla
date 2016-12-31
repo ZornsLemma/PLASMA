@@ -1,9 +1,5 @@
 // stdio test/demonstration code
 
-// TODONOW: I THINK THIS FAILS ON PLAS128 - HAVEN'T INVESTIGATED IN
-// ANY DETAIL, SO TRY RUNNING IT A FEW TIMES ON PLAS32 AND PLAS128
-// BEFORE GOING INTO DEPTH
-
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/stdio.plh"
@@ -25,6 +21,12 @@ byte random_increment[4]
 // TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
 byte dword_zero[4]
 byte dword_one[4]
+
+byte fputcstr[] = "fputc"
+byte seekstr[] = "seek"
+byte seek2str[] = "seek2"
+byte fgetcverifystr[] = "fgetc verify"
+
 
 // TODO TEMP
 def prword(w)
@@ -165,16 +167,16 @@ def random_test(seed)
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	    op = rand(10)
-	    putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
-	    puts("XXX"); prbyte(^(memory+$0EB0)); putln()
+	    //putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
+	    //puts("XXX"); prbyte(^(memory+$1EB4)); putln()
 	    if op == 0
 		ptr = rand(memory_size)
-		assert(fseek(file, ptr, SEEK_SET) == 0, "seek")
+		assert(fseek(file, ptr, SEEK_SET) == 0, @seekstr)
 	    elsif op <= 5
 		c = rand(256)
 		^(memory + ptr) = c
 		ptr++
-		assert(fputc(c, file) <> EOF, "fputc")
+		assert(fputc(c, file) <> EOF, @fputcstr)
 
 		// Merely seeking to a point doesn't grow the file; only if we
 		// try to write at that point does it grow.
@@ -199,7 +201,7 @@ def random_test(seed)
 	    fin
 	    if ptr >= memory_size
 		ptr = 0
-		assert(fseek(file, 0, SEEK_SET) == 0, "seek2")
+		assert(fseek(file, 0, SEEK_SET) == 0, @seek2str)
 	    fin
 	next
 	assert(fclose(file) == 0, "close")
@@ -215,7 +217,7 @@ def random_test(seed)
 		putc('V'); prword(ptr); 
 		putc(' '); prbyte(c); putc(' '); prbyte(d)
 		putln()
-		assert(FALSE, "fgetc verify")
+		assert(FALSE, @fgetcverifystr)
 	    fin
 	    ptr++
 	loop
