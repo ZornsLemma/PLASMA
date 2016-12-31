@@ -62,11 +62,6 @@ struc t_FILE
     byte r_buffer // buffer_size bytes
 end
 
-// TODO: Move this global into the DWORD module? Note it is initialised below
-// TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
-byte dword_zero[4]
-byte dword_one[4]
-
 // TODO TEMP
 def prword(w)
     prbyte(w >> 8)
@@ -103,14 +98,6 @@ def debug_dump_osgbpb(a, block)
     putln()
 end
 
-// TODO: PUT THIS IN DWORD LIBRARY?
-// void dword_adduword(dword *result, const dword *lhs, word rhs)
-def dword_adduword(result, lhs, rhs)
-    byte rhs_dword[4]
-    dword_fromuword(@rhs_dword, rhs)
-    return dword_add(result, lhs, @rhs_dword)
-end
-
 // TODO: MAKE THIS A STD LIBRARY FUNCTION? IF DO SO THINK ABOUT THE NAME, SHOULD IT BE UMIN??
 def minu(lhs, rhs)
     if isult(lhs, rhs)
@@ -134,11 +121,11 @@ end
 // ACROSS BUGS AS I USE IT, AND LOOKING AT IT WITH FRESH EYES MAY MAKE SOME
 // ERRORS GLARINGLY OBVIOUS
 
-// TODO: RETURN TYPE IS POSSIBLY NOT BOOL, IT'S POSSIBLY 'file or 0'
-// void fopen_prealloc(FILE *file, const char *filename, const char *mode)
-// Expectes 'file' to point to a large enough block of memory with the
+// FILE *fopen_prealloc(FILE *file, const char *filename, const char *mode)
+// Expects 'file' to point to a large enough block of memory with the
 // r_buffer_size element filled in (to represent the size of the buffer,
-// not the size of the whole memory block)
+// not the size of the whole memory block). Returns 'file' on success or
+// 0 on error.
 export def fopen_prealloc(file, filename, mode)
     byte base_mode, update, i, c, osfind_mode, handle
     // TODO: error handling
@@ -204,7 +191,8 @@ export def fopen_prealloc(file, filename, mode)
     return file
 end
 
-// TODO: PROTOTYPE
+// FILE *fopen_heap(size_t buffer_size, const char *filename, const char *mode)
+// Returns a pointer to a heap-allocated FILE or 0 on error
 export def fopen_heap(buffer_size, filename, mode)
     word file
     file = heapalloc(t_FILE - 1 + buffer_size)
@@ -319,7 +307,7 @@ export def fgetc(file)
     dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
 	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
-	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
+	dword_inc(file + r_file_ptr)
 	debug_dump_file("fgetc->", file)
 	return c
     else
@@ -359,7 +347,7 @@ export def fputc(c, file)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
 	^(file + r_buffer + index) = c
-	dword_add(file + r_file_ptr, file + r_file_ptr, @dword_one)
+	dword_inc(file + r_file_ptr)
 	index++
 	file->r_dirty = TRUE
 
@@ -431,10 +419,5 @@ export def fclose(file)
     osfind_close(file->r_handle)
     return 0
 end
-
-// TODO: TEMP?!
-dword_fromuword(@dword_zero, 0)
-dword_fromuword(@dword_one, 1)
-done
 
 // vi: sts=4 sw=4

@@ -17,11 +17,6 @@ byte random_state[4]
 byte random_multiplier[4]
 byte random_increment[4]
 
-// TODO: Move this global into the DWORD module? Note it is initialised below
-// TODO: Alternatively, perhaps just provide a dword_inc() and dword_dec()?
-byte dword_zero[4]
-byte dword_one[4]
-
 byte fputcstr[] = "fputc"
 byte seekstr[] = "seek"
 byte seek2str[] = "seek2"
@@ -167,6 +162,7 @@ def random_test(seed)
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
 	    op = rand(10)
+	    //TODO TEMP
 	    //putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
 	    //puts("XXX"); prbyte(^(memory+$1EB4)); putln()
 	    if op == 0
@@ -227,9 +223,6 @@ def random_test(seed)
 	heaprelease(saved_heap)
     next
 end
-
-dword_fromuword(@dword_zero, 0)
-dword_fromuword(@dword_one, 1)
 
 random_multiplier[0] = $0D; random_multiplier[1] = $66; random_multiplier[2] = $19; random_multiplier[3] = $00
 random_increment[0] = $5F; random_increment[1] = $F3; random_increment[2] = $6E; random_increment[3] = $3C

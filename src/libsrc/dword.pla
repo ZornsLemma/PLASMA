@@ -257,6 +257,55 @@ NOQUOTIENT
     RTS
 end
 
+// void dword_inc(dword *n)
+export asm dword_inc
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+
+    LDY #0
+    LDA (TMP),Y
+    CLC
+    ADC #1
+    STA (TMP),Y
+    BCC DONEINC
+-   SEC
+    INY
+    LDA (TMP),Y
+    ADC #0
+    STA (TMP),Y
+    BCC DONEINC
+    CPY #3 ; will clear carry
+    BNE -
+DONEINC
+    RTS
+end
+
+// void dword_dec(dword *n)
+export asm dword_dec
+    LDA ESTKL,X
+    STA TMPL
+    LDA ESTKH,X
+    STA TMPH
+
+    LDY #0
+    LDA (TMP),Y
+    SEC
+    SBC #1
+    STA (TMP),Y
+    BCS DONEDEC
+-   INY
+    LDA (TMP),Y
+    SBC #0
+    STA (TMP),Y
+    BCS DONEDEC
+    CPY #3 ; will clear carry
+    BNE -
+DONEDEC
+    RTS
+end
+
 // void dword_fromuword(dword *lhs, word rhs)
 export asm dword_fromuword
     LDA ESTKL+1,X
@@ -376,6 +425,14 @@ export asm dword_isuge
     DEY
     BPL -
     BMI ISTRUE
+end
+
+// void dword_adduword(dword *result, const dword *lhs, word rhs)
+// TODO: rewrite in assembler?
+export def dword_adduword(result, lhs, rhs)
+    byte rhs_dword[4]
+    dword_fromuword(@rhs_dword, rhs)
+    return dword_add(result, lhs, @rhs_dword)
 end
 
 // vi: sts=4 sw=4
