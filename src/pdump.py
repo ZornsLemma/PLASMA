@@ -1,3 +1,5 @@
+# TODO: Might be nice if this could disassemble bytecode
+
 from __future__ import print_function
 
 import sys
