@@ -1615,6 +1615,10 @@ heap = *freemem
 //
 // Init symbol table.
 //
+// TODO: If the symbol table remains fixed size, we may be able to
+// locate it in the $0400-$0800 region set aside for the current
+// language; we currently use bits of this, but we could relocate
+// the other users.
 symtbl   = allocheap(symtblsz)
 lastsym  = symtbl
 ^lastsym = 0
