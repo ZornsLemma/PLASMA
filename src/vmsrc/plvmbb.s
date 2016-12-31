@@ -508,10 +508,145 @@ CS	DEX
 	STA	IPH
 !IFNDEF PLAS128 {
 	STA	ESTKH,X
+	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
+	TAY
+	JMP	NEXTOP
 }
 !IFDEF PLAS128 {
+	POOLSIZE = 16*2 ; 2 byte entries
+	HASHMASK = $1E ; %00011110
+
+	PREVNEXTPTR = SRC
+	THISPTR = DST
+
+	; To avoid problems where the CS opcode is used inside a loop and
+	; chews up all the memory, we create a per-function string pool
+	; on the frame stack. The address of the CS opcode (actually the
+	; byte immediately after it) provides a unique key which identifies
+	; the string within the function so we can avoid comparing the
+	; actual strings. (This means of course that two CS opcodes with
+	; the same string will create two entries in the string pool, but
+	; this is still better than the naive approach used earlier, and
+	; I think the extra performance of this is worth it.)
+	;
+	; Just below IFP is a POOLSIZE hash table;
+	; each entry is a pointer to the first element of a linked list
+	; of entries for that hash key. Each linked list element has the
+	; following structure:
+	; offset 0 - IP value (2 bytes)
+	; offset 2 - pointer to next entry (2 bytes)
+	; offset 4 - string
+
+	; Remember that we have normalised IP, so Y=0, (IP),Y addresses
+	; the byte after the CS opcode. We therefore don't need to save Y
+	; or factor it into the hash lookup.
+
+	; If this is the first allocation in this stack frame (i.e. PP=IFP)
+	; we need to create a hash table.
+	LDA	PPL
+	CMP	IFPL
+	BNE	HAVEPOOL
+	LDA	PPH
+	CMP	IFPH
+	BNE	HAVEPOOL
+	; We need to create a hash table. Lower PP to create space for it.
+	SEC
+	LDA	IFPL
+	SBC	#POOLSIZE
+	STA	PPL
+	LDA	IFPH
+	SBC	#0
+	STA	PPH
+	; Now zero the hash table.
+	LDY	#POOLSIZE-1
+	LDA	#0
+-	STA	(PP),Y
+	DEY
+	BPL	-
+
+HAVEPOOL
+	; OK, we have a hash table just below IFP. Set SRC to point to it.
+	SEC
+	LDA	IFPL
+	SBC	#POOLSIZE
+	STA	SRCL
+	LDA	IFPH
+	SBC	#0
+	STA	SRCH
+
+	; Hash the key (the value of IP) to determine which linked list to
+	; work with. The hash is simply IPL & HASHMASK; this takes the low
+	; n bits excluding bit 0, which should be fairly well distributed and
+	; can be directly used as an index into the hash table.
+	LDA	IPL
+	AND	#HASHMASK
+	CLC
+	ADC	SRCL
+	STA	PREVNEXTPTR
+	LDA	SRCH
+	ADC	#0
+	STA	PREVNEXTPTR+1
+
+NEXTENTRY
+	; PREVNEXTPTR contains the address of the 'next' pointer we need to
+	; follow. If that pointer is null, we've failed to find a match and
+	; we need to create a new entry and put its address at PREVNEXTPTR.
+	; Otherwise, put the address from the 'next' pointer into THISPTR.
+	LDY	#0
+	LDA	(PREVNEXTPTR),Y
+	INY
+	STA	THISPTR
+	ORA	(PREVNEXTPTR),Y
+	BEQ	ATENDOFLIST
+	LDA	(PREVNEXTPTR),Y
+	STA	THISPTR+1
+	; Does the element pointed to by THISPTR have a matching IP value?
+	LDY	#0
+	LDA	(THISPTR),Y
+	INY
+	CMP	IPL
+	BNE 	NOTMATCH
+	LDA	(THISPTR),Y
+	CMP	IPH
+	BEQ	MATCH
+NOTMATCH
+	; It didn't match, so put the address of the 'next' pointer within
+	; this element into PREVNEXTPTR and loop round.
+	CLC
+	LDA	THISPTR
+	ADC	#2
+	STA	PREVNEXTPTR
+	LDA	THISPTR+1
+	ADC	#0
+	STA	PREVNEXTPTR+1
+	JMP	NEXTENTRY
+
+MATCH
+	; The string is in the pool, starting at (THISPTR),4.
+	CLC
+	LDA	#4
+	ADC	THISPTR
+	STA	ESTKL,X
+	LDA	THISPTR+1
+	ADC	#0
+	STA	ESTKH,X
+	JMP	CSDONE
+
+ATENDOFLIST
+
+	; We hit the end of the list, so this string isn't in the pool. We
+	; need to create a new entry. PREVNEXTPTR contains the address of 
+	; the 'next' pointer which is null and which needs updating to contain
+	; the address of the new entry.
+	; TODO: It might be best to insert new entries into the linked list
+	; at the head instead of the tail ; this way strings used in inner loops 
+	; will probably be found with fewer lookups.
+
+	; Lower PP to allocate (string length+1)+4 bytes for the new linked
+	; list entry. We first lower by string length+1 and set that
+	; address as the return value of the CS opcode.
+	LDY	#0
 	LDA	(IP),Y
-	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
 	EOR	#$FF
 	CLC
 	ADC	PPL
@@ -520,17 +655,53 @@ CS	DEX
 	LDA	#$FF
 	ADC	PPH
 	STA	PPH
-	STA	ESTKH,X		; COPY STRING FROM AUX MEM BYTECODE TO MAIN MEM POOL
+	STA	ESTKH,X
+	; Copy the string into the pool. Y is already 0.
+	LDA	(IP),Y
+	TAY
 -	LDA	(IP),Y		; ALTRD IS ON,  NO NEED TO CHANGE IT HERE
 	STA	(PP),Y		; ALTWR IS OFF, NO NEED TO CHANGE IT HERE
 	DEY
 	CPY	#$FF
 	BNE	-
+
+	; Lower PP a further 4 bytes for the first part of the entry.
+	SEC
+	LDA	PPL
+	SBC	#4
+	STA	PPL
+	BCS	+
+	DEC	PPH
++
+	
+	; Copy IP to offset 0 of the new entry. Y is $FF.
+	LDA	IPL
 	INY
-}
+	STA	(PP),Y
+	LDA	IPH
+	INY
+	STA	(PP),Y
+	; Zero the next pointer on this new entry.
+	LDA	#0
+	INY
+	STA	(PP),Y
+	INY
+	STA	(PP),Y
+	; Link the new entry in at the tail of the list.
+	LDY	#0
+	LDA	PPL
+	STA	(PREVNEXTPTR),Y
+	INY
+	LDA	PPH
+	STA	(PREVNEXTPTR),Y
+
+CSDONE
+	; We're done.
+	LDY	#0
 	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 	TAY
 	JMP	NEXTOP
+}
 ;*
 ;* LOAD VALUE FROM ADDRESS TAG
 ;*

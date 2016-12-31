@@ -14,3 +14,4 @@ putbasic "samplesrc/pcw.bas", "B.PCW"
 putfile "DWORD#FE1000", "DWORD", &0000
 putfile "STDIO#FE1000", "STDIO", &0000
 putfile "STDIOTS#FE1000", "STDIOTS", &0000
+putfile "STRPOOL#FE1000", "STRPOOL", &0000

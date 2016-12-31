@@ -309,5 +309,9 @@ stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/stdiots.pla > samplesrc/stdiots.a
 	acme --setpc 4094 -o STDIOTS\#FE1000 samplesrc/stdiots.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword stdio stdiots $(ACORNOS) samplesrc/pcw.bas
+strpool: samplesrc/strpool.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/strpool.pla > samplesrc/strpool.a
+	acme --setpc 4094 -o STRPOOL\#FE1000 samplesrc/strpool.a
+
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword stdio stdiots strpool $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd

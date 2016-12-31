@@ -1,0 +1,36 @@
+// Demonstration of mode changes
+
+include "inc/cmdsys.plh"
+
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+def foo(s)
+    puts("s is: ")
+    puts(s)
+    puts(" (")
+    prword(s)
+    puts(")\n")
+end
+
+def bar()
+    word i
+    for i = 1 to 500
+	foo("The quick")
+	foo("brown fox")
+	foo("jumps over")
+	foo("the lazy")
+	foo("dog. My")
+	foo("faxed joke")
+	foo("won a")
+	foo("pager in")
+	foo("the cable")
+	foo("TV quiz")
+	foo("show.")
+    next
+end
+
+bar()
+done
