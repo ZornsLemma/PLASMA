@@ -1,5 +1,11 @@
 // Personal Computer World benchmarks (from December 1986 issue)
 
+// TODO: this uses puti() for output but that treats its argument as
+// signed, which isn't strictly correct and gives invalid results if
+// the times are very high.
+
+// TODO: do stdio and "native" versions of store benchmark
+
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/testlib.plh"

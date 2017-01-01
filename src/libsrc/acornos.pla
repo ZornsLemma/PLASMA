@@ -1,5 +1,12 @@
 include "inc/cmdsys.plh"
 
+// TODO: Now I've got used to the call() interface, it may be that this
+// isn't worth it - though perhaps for "performance sensitive" calls like
+// OSBGET/OSBPUT (but not, say, OSFIND) it might be worth having custom
+// assembly wrappers. Perhaps some of these should be deleted and this
+// library mostly consists of constants for OS entry points and special
+// values (like A values for OSFIND) in the header.
+
 const eof = -1
 const osfind_addr = $FFCE
 

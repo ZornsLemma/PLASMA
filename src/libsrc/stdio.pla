@@ -4,6 +4,8 @@
 // extent of checking for it and returning a failure indicator. But
 // I'm not sure I want the overhead.
 
+// TODO: stdin support?
+
 // TODONOW: ungetc() - this could have a big impact on the
 // implementation so be good to get it done now
 
@@ -25,6 +27,41 @@
 
 // TODO: If we allow BRK errors to escape, we need to be sure that the
 // FILE object is left in a valid state afterwards ("exception safety")
+
+// TODO: Error handling - notes:
+//
+// There are two possibilities:
+//
+// "native" API - we can allow OS errors to escape and expect the caller to
+// install an error handler via *errjb (or accept that an error will cause
+// termination of the program to the prompt) at a suitable point.
+//
+// "portable" API - we can install an error handler via *errjb inside these
+// functions and indicate errors via the appropriate return codes.
+//
+// Pros and cons:
+//
+// A native API is likely to be faster and simpler, as it doesn't need to faff
+// with setjmp() or pay the associated performance penalty.
+//
+// A portable API could be re-implemented on a non-Acorn platform and a program
+// written to use it would work on that other platform with hopefully no
+// changes required.
+//
+// A portable API could not have a "naive" implementation which is just a thin
+// wrapper around the Acorn OS calls (e.g. fgetc() wraps OSBGET), as the
+// overhead of setjmp() on each fgetc() would be unreasonably high. The
+// internal buffer on this implementation means "most" API functions don't need
+// to make OS calls most of the time, which reduces the setjmp() overhead. A
+// "naive" implementation would either need to be a loose implementation (e.g.
+// fseek() might cause the file to grow, since it would just be a naive OSARGS
+// call to move PTR#) or it would need to contain internal logic anyway, which
+// might mean it's just not worth it anyway.
+//
+// A portable API might be preferable for use with a hypothetical C compiler
+// targetting the PLASMA VM, as existing C code compiled with it would expect
+// the stdio functions to return error codes and wouldn't handle BRK-style
+// errors. But the stdio code could be tweaked or rewritten for that use case.
 
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
@@ -61,7 +98,7 @@ struc t_FILE
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
     byte r_dirty // TODO: possibly 'flags' byte?
     byte r_append // TODO: move into flags byte?
-    word r_pushback
+    word r_pushback // TODO: word so we can set EOF for no pushback - could make this a byte if we have a 'pushback valid' bit in a flags byte
     word r_buffer_used
     word r_buffer_size
     byte r_length[4] // conceptual length; OS length may be shorter if we've extended and not yet flushed
@@ -117,7 +154,15 @@ end
 
 // void get_length(dword *length, int handle)
 def get_length(length, handle)
-    // TODO: AUG says OSARGS control block is always in I/O processor memory!?
+    // The AUG says "the control block always resides in the I/O processor's
+    // memory, regardless of the existence of a Tube processor", but I don't
+    // think this is true, as a) a look at the source code of the tube host
+    // code and the 6502 tube client code shows the four bytes being copied
+    // across the tube (and the host always using &00 in zero page for the
+    // control block) b) this code does seem to work on a second processor.
+    // I suspect the AUG means that if you use OSARGS with A=1 to read the
+    // address of the command line, the command line address returned in the
+    // zero page control block is in the I/O processor.
     call(2, scratch, handle, 0, $FFDA)
     memcpy(length, scratch, 4)
 end
