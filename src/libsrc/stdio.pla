@@ -1,5 +1,9 @@
 // Experimental C-style stdio
 
+// TODO: possibly more functions should "support" a stdio FILE to the
+// extent of checking for it and returning a failure indicator. But
+// I'm not sure I want the overhead.
+
 // TODONOW: ungetc() - this could have a big impact on the
 // implementation so be good to get it done now
 
@@ -18,6 +22,9 @@
 // TODONOW: fread()/fwrite() - these should be able to do fast memcpy
 // into/out of the buffer where possible - this could have a big impact
 // on the implementation so be good to get it done now.
+
+// TODO: If we allow BRK errors to escape, we need to be sure that the
+// FILE object is left in a valid state afterwards ("exception safety")
 
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
@@ -54,6 +61,7 @@ struc t_FILE
     byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
     byte r_dirty // TODO: possibly 'flags' byte?
     byte r_append // TODO: move into flags byte?
+    word r_pushback
     word r_buffer_used
     word r_buffer_size
     byte r_length[4] // conceptual length; OS length may be shorter if we've extended and not yet flushed
@@ -183,6 +191,7 @@ export def fopen_prealloc(file, filename, mode)
     file->r_handle = handle
     file->r_eof = FALSE
     file->r_dirty = FALSE
+    file=>r_pushback = EOF
     file=>r_buffer_used = 0
     get_length(file + r_length, handle)
     dword_fromuword(file + r_file_ptr, 0)
@@ -297,15 +306,27 @@ def fill_buffer(file)
     return 0
 end
 
+def file_ptr_in_buffer(file)
+    byte buffer_used_ptr[4]
+    dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
+    return dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
+end
+
 // word fgetc(FILE *file)
 // TODO ERROR HANDLING (NOT JUST EOF)
 // TODO: magic constants everywhere
 export def fgetc(file)
     byte c
-    byte buffer_used_ptr[4]
     //debug_dump_file("fgetc-<", file)
-    dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
-    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
+
+    if file=>r_pushback <> EOF
+	c = file=>r_pushback
+	file=>r_pushback = EOF
+	dword_inc(file + r_file_ptr)
+	return c
+    fin
+
+    if file_ptr_in_buffer(file)
 	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
 	dword_inc(file + r_file_ptr)
 	debug_dump_file("fgetc->", file)
@@ -337,12 +358,20 @@ export def fputc(c, file)
 	return c
     fin
     //debug_dump_file("fputc-<", file)
+
+    // Discard any pushback character; this conceptually exists at the
+    // current file pointer and we're going to overwrite it.
+    // TODO: should we defer this until we know we aren't going to
+    // experience an error?
+    file=>r_pushback = EOF
+
     if file->r_append
 	file=>r_file_ptr:0 = file=>r_length:0
 	file=>r_file_ptr:2 = file=>r_length:2
 	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
 	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG? - I THINK IT CAN LEAVE IT ALONE, WHICH IS NOT SEEK LIKE, SO BE CAREFUL IF FACTORING OUT
     fin
+
     dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
     if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
 	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
@@ -375,6 +404,18 @@ export def fputc(c, file)
     fin
 end
 
+// TODO: DOCUMENT/PROTOTYPE
+// TODO: I THINK IT'S ACCEPTABLE TO DO UNGETC() WITHOUT READING ANY BYTES - THIS CURRENT IMPLEMENTATION WOULD DECREMENT FILE_PTR BACK PAST 0 IN THIS CASE - NOT SURE EXACTLY HOW TO HANDLE THIS
+export def ungetc(c, file)
+    // TODO
+    if c == EOF or file=>r_pushback <> EOF
+	return EOF
+    fin
+    file->r_eof = FALSE
+    file=>r_pushback = c
+    dword_dec(file + r_file_ptr)
+end
+
 // TODO: write this in assembler?
 // int fputs(const char *s, FILE *file) - returns nonnegative on success, EOF on error
 export def fputs(s, file)
@@ -390,11 +431,83 @@ export def fputs(s, file)
     return 1
 end
 
+// int fread(void *ptr, size_t size, size_t count, FILE *file)
+// Returns number of records of 'size'-bytes; error or EOF
+// indicated by returning a number less than count. TODO: make that so!
+// TODO: WORK IN PROGRESS
+export def fread(ptr, size, count, file)
+    byte bytes_available[4]
+    word bytes_to_read, index, bytes_from_buffer
+
+    // This must be a no-op if size or count is 0. We could nearly just let
+    // this go through the normal control flow, but that might set the EOF 
+    // flag if the file pointer is at or past the length.
+    if size == 0 or count == 0
+	return 0
+    fin
+
+    // We can assume count * size fits in a 16-bit unsigned word, as the
+    // returned data could be that large and the address space is only 16-bit.
+
+    // If the file pointer is at or past the length, signal EOF.
+    if dword_isuge(file + r_file_ptr, file + r_length)
+	file->r_eof = TRUE
+	return 0
+    fin
+
+    // Adjust 'count' if necessary to reflect the amount of data left; we will
+    // only try to read this many records, so we can't encounter EOF in the
+    // rest of this function.
+    dword_sub(@bytes_available, file + r_length, file + r_buffer_file_ptr)
+    if dword_isuword(@bytes_available)
+	// TODO: Will this work if @bytes_available has b15 set? We need unsigned
+	// division rounding down.
+	count = dword_touword(@bytes_available) / size
+    else
+	// More than 64K available to read, so we can return the full 'count'
+	// records requested.
+    fin
+
+    bytes_to_read = count * size
+
+    // Handle any pushed back character
+    if bytes_to_read <> 0 and file=>r_pushback <> EOF
+	^ptr = file=>r_pushback
+	ptr++
+	bytes_to_read--
+	file=>r_pushback = EOF
+	dword_inc(file + r_file_ptr)
+    fin
+	
+    // Do we have any bytes in the buffer to start with?
+    if file_ptr_in_buffer(file)
+	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
+    else
+	index = file=>r_buffer_used // no bytes in buffer
+    fin
+
+    while isugt(bytes_to_read, 0)
+	bytes_from_buffer = minu(file=>r_buffer_used - index, bytes_to_read)
+	memcpy(ptr, file + r_buffer + index, bytes_from_buffer)
+	ptr = ptr + bytes_from_buffer
+	bytes_to_read = bytes_to_read - bytes_from_buffer
+	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
+
+	if fill_buffer(file) == EOF
+	    return ((count * size) - bytes_to_read) / size // records actually read
+	fin
+	index = 0
+    loop
+
+    return count
+end
+
 // word fseek32(FILE *file, const dword *offset, word origin) - returns 0 on success, non-0 on error
 export def fseek32(file, offset, origin)
     *(file + r_file_ptr) = *offset
     *(file + r_file_ptr + 2) = *(offset + 2)
     file->r_eof = FALSE
+    file=>r_pushback = EOF
     debug_dump_file("fseek->", file)
     return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
 end
