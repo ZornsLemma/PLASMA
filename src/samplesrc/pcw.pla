@@ -4,8 +4,7 @@
 // signed, which isn't strictly correct and gives invalid results if
 // the times are very high.
 
-// TODO: do stdio and "native" versions of store benchmark
-
+include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/testlib.plh"
@@ -16,7 +15,9 @@ byte intmath32str[] = "intmath32"
 byte textscrnstr[] = "textscrn"
 byte textscrnlinestr[] = "1234567890qwertyuiop "
 byte grafscrnstr[] = "grafscrn"
-byte storestr[] = "store"
+byte storestdiostr[] = "storestdio"
+byte storebputstr[] = "storebput"
+byte storegbpbstr[] = "storegbpb"
 byte storelinestr[] = "1234567890qwertyuiop\n"
 
 // Benchmark start/finish times
@@ -198,7 +199,7 @@ end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-def store()
+def storestdio()
     word i, file
     time(@start)
     puts("Start\n")
@@ -221,7 +222,67 @@ def store()
     oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
-    log_time(@storestr)
+    log_time(@storestdiostr)
+end
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def storebput()
+    // TODO: magic constants!
+    // TODO: we could install an error handler at errjb here to close the
+    // file before passing the error on
+    word file, i, j, p
+    time(@start)
+    puts("Start\n")
+    file = osfind_open(osfind_output, "X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    for i = 1 to 1000
+	// TODO: Keep this in sync with storestdio() if that changes.
+	p = @storelinestr
+	j = ^p
+	while j > 0
+	    p++
+	    osbput(^p, file)
+	    j--
+	loop
+    next
+    osfind_close(file)
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storebputstr)
+end
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def storegbpb()
+    // TODO: magic constants!
+    // TODO: we could install an error handler at errjb here to close the
+    // file before passing the error on
+    word file, i, j, p
+    byte block[13]
+    time(@start)
+    puts("Start\n")
+    file = osfind_open(osfind_output, "X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    block.0 = file
+    for i = 1 to 1000
+	// TODO: Keep this in sync with storestdio() if that changes.
+	block:1 = @storelinestr + 1
+	block:3 = 0
+	block:5 = ^@storelinestr
+	block:7 = 0
+	call(2, @block, @block >> 8, 0, $FFD1)
+    next
+    osfind_close(file)
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storegbpbstr)
 end
 
 mode(7)
@@ -230,7 +291,9 @@ intmath32()
 textscrn()
 grafscrn()
 mode(7)
-store()
+storestdio()
+storebput()
+storegbpb()
 show_times()
 done
 

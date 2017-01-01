@@ -10,6 +10,20 @@ include "inc/cmdsys.plh"
 const eof = -1
 const osfind_addr = $FFCE
 
+asm equates
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+    osbput_addr = $FFD4
+end
+
+// void osbput(byte c, int handle)
+export asm osbput
+    LDA ESTKL+1,X
+    LDY ESTKL,X
+    INX
+    JMP osbput_addr ; TODO: magic constant
+end
+
 export def osfind_open(a, filename)
     // TODO: This will go wrong if the filename is too long
     byte cr[251]
