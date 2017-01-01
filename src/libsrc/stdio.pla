@@ -250,6 +250,10 @@ end
 export def fopen_heap(buffer_size, filename, mode)
     word file
     file = heapalloc(t_FILE - 1 + buffer_size)
+    if file == 0
+	// TODO: do we need to save the reason for failure so it can be queried?
+	return file
+    fin
     file=>r_buffer_size = buffer_size
     return fopen_prealloc(file, filename, mode)
 end
@@ -354,6 +358,7 @@ end
 def file_ptr_in_buffer(file)
     byte buffer_used_ptr[4]
     dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
+    // TODO: next line doesn't short-circuit evaluate, could rewrite to get that behaviour
     return dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
 end
 

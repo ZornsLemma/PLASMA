@@ -9,7 +9,7 @@ const ifp          = $0071
 const pp           = $0073
 const himemh       = $0078
 const cpu_stack	   = $0100
-const symtblsz     = $0400
+const symtblsz     = $0800 // TODO TEMP MOVED UP FROM 400
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
@@ -679,6 +679,12 @@ end
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
 asm setjmp
 	STX	ESP
+	; TODO START TMP
+	CPX	#(ESTKSZ/2)-1 ; we expect one value - the 'b' arg to us
+	BCS	TODOOK
+DEBUGBREAKHERE
+	NOP
+TODOOK
 
 	LDY	#0
 	LDA	ESTKL,X
@@ -1143,11 +1149,17 @@ end
 // TODO: We should maybe have an xallocheap() which generates an OS-style
 // error if the allocation fails, and use that everywhere - we don't
 // normally check the return code so this would be better than nothing.
+// TODO: And/or maybe we should have a global flag which if set causes
+// this to oserror() if it would return 0 - because lots of code won't
+// bother checking one way or another.
 def allocheap(size)
     word addr
+    prstr("allocheap heap "); prword(heap); prstr(", size "); prword(size); crout();
     addr = heap
     heap = heap + size
     if uword_isge(heap, @addr)
+    	prstr("allocheap failed\n")
+	oserror(0, "Heap full") // TODO SEMI TEMP
         return 0
     fin
     return addr
@@ -1238,15 +1250,18 @@ def addsym(sym, addr)
     // lastsym->0 after the loop is the top-bit-clear last character of the
     // 16 character name.
     const max_entry_size = 16 + 3 // 16 character name plus 3 following bytes
+    prstr("TODOST "); prword(lastsym - symtbl); cout(' ')
     if lastsym - symtbl + max_entry_size > symtblsz
         oserror(0, "Symbol table full")
     fin
     while ^sym & $80
         ^lastsym = ^sym
+	cout(^lastsym & $7f)
         lastsym  = lastsym + 1
         sym      = sym     + 1
     loop
     lastsym->0 = ^sym
+    cout(^sym); crout()
     lastsym=>1 = addr
     lastsym    = lastsym + 3
     ^lastsym   = 0
@@ -1470,6 +1485,7 @@ def loadmod(mod)
             fin
             esd = esd + 3
         loop
+	prstr("FINISHEDESDWALK\n")
 #ifdef PLAS128
 	//
 	// Move bytecode to AUX bank.
@@ -1683,6 +1699,7 @@ fin
 // Handle commands.
 //
 while 1
+    cout('C') 
     if ^cmdptr
         when toupper(parsecmd(cmdptr))
             is 'Q'

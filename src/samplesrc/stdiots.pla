@@ -158,6 +158,7 @@ def random_test(seed)
 	else
 	    file = fopen_heap(buffer_size, "T.DATA", "r+b")
 	fin
+	puts("TODO"); prword(file); putln()
 	assert(file, "open")
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
