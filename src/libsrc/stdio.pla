@@ -1,4 +1,4 @@
-// Experimental C-style stdio and test/demonstration code
+// Experimental C-style stdio
 
 // TODONOW: ungetc() - this could have a big impact on the
 // implementation so be good to get it done now
