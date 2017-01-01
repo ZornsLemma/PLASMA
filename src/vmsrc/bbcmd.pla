@@ -1234,6 +1234,9 @@ def addsym(sym, addr)
     // it to grow via a series of discontiguous heap allocations - at the cost
     // of (slightly?) slowing down the symbol lookups, and an extra two bytes
     // per entry. Or we could use a "deque"-type structure (but singly linked).
+    // TODO: Is it actually a 16 character name plus 2 following bytes? Because
+    // lastsym->0 after the loop is the top-bit-clear last character of the
+    // 16 character name.
     const max_entry_size = 16 + 3 // 16 character name plus 3 following bytes
     if lastsym - symtbl + max_entry_size > symtblsz
         oserror(0, "Symbol table full")
