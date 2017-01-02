@@ -1158,11 +1158,10 @@ end
 // bother checking one way or another.
 def allocheap(size)
     word addr
-    prstr("allocheap heap "); prword(*heapptr); prstr(", size "); prword(size); crout();
     addr = *heapptr
     *heapptr = *heapptr + size
     if uword_isge(*heapptr, @addr)
-    	prstr("allocheap failed\n")
+    	prstr("allocheap failed\n") // TODO TEMP
 	oserror(0, "Heap full") // TODO SEMI TEMP
         return 0
     fin
@@ -1254,18 +1253,15 @@ def addsym(sym, addr)
     // lastsym->0 after the loop is the top-bit-clear last character of the
     // 16 character name.
     const max_entry_size = 16 + 3 // 16 character name plus 3 following bytes
-    prstr("TODOST "); prword(lastsym - symtbl); cout(' ')
     if lastsym - symtbl + max_entry_size > symtblsz
         oserror(0, "Symbol table full")
     fin
     while ^sym & $80
         ^lastsym = ^sym
-	cout(^lastsym & $7f)
         lastsym  = lastsym + 1
         sym      = sym     + 1
     loop
     lastsym->0 = ^sym
-    cout(^sym); crout()
     lastsym=>1 = addr
     lastsym    = lastsym + 3
     ^lastsym   = 0
@@ -1489,7 +1485,6 @@ def loadmod(mod)
             fin
             esd = esd + 3
         loop
-	prstr("FINISHEDESDWALK\n")
 #ifdef PLAS128
 	//
 	// Move bytecode to AUX bank.
@@ -1703,7 +1698,6 @@ fin
 // Handle commands.
 //
 while 1
-    cout('C') 
     if ^cmdptr
         when toupper(parsecmd(cmdptr))
             is 'Q'
