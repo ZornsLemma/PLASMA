@@ -19,6 +19,7 @@ byte storestdiostr[] = "storestdio"
 byte storebputstr[] = "storebput"
 byte storegbpbstr[] = "storegbpb"
 byte storelinestr[] = "1234567890qwertyuiop\n"
+byte fncallstr[] = "fncall"
 
 // Benchmark start/finish times
 byte start[5]
@@ -183,8 +184,36 @@ def storegbpb()
     log_time(@storegbpbstr)
 end
 
+def sum(n)
+    if n == 0
+	return 0
+    fin
+    return n + sum(n - 1)
+end
+
+def fncall()
+    // Test of function call performance
+    const n = 1000
+    word i, j
+    time(@start)
+    puts("Start\n")
+    j = 0
+    for i = 1 to n
+	// We musn't use a large argument to sum() as otherwise the recursion
+	// overruns the 16 element stack.
+	j = j + sum(10)
+    next
+    puts("Finish\n")
+    time(@finish)
+    log_time(@fncallstr)
+    if j <> n*10*11/2
+	oserror(0, "fncall failed")
+    fin
+end
+
 mode(7)
-storestdio()
+fncall()
+// TODO TEMP COMMENTED OUT storestdio()
 storebput()
 storegbpb()
 show_times()
