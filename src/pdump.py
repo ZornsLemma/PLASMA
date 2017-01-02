@@ -266,6 +266,8 @@ class Module:
 
         resident_size = self.get("segend") - self.get("modaddr")
         print("\nMemory resident size: %s" % format_size(resident_size))
+        # TODO: Could print sub-sizes showing assembler and bytecode sizes,
+        # as these count against different memory areas on PLAS128.
         print("Size on disc:         %s" % format_size(len(self.data)))
 
 
