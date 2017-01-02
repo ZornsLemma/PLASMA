@@ -257,6 +257,10 @@ NOQUOTIENT
     RTS
 end
 
+// TODO: Maybe get rid of dword_inc() and dword_dec() and export a dword_one
+// variable with a value of 1? Note that you *can* export variables - testlib
+// does it - you just mustn't declare them with 'predef'
+
 // void dword_inc(dword *n)
 export asm dword_inc
     LDA ESTKL,X

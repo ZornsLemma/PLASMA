@@ -6,10 +6,7 @@
 
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
-include "inc/testlib.plh"
 
-byte intmath16str[] = "intmath16"
-byte intmath32str[] = "intmath32"
 byte textscrnstr[] = "textscrn"
 byte textscrnlinestr[] = "1234567890qwertyuiop "
 byte grafscrnstr[] = "grafscrn"
@@ -27,17 +24,14 @@ end
 word results_head = 0
 word results_tail_ptr = @results_head
 
-// TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
-asm equates
-    BBC = 1
-    !SOURCE "vmsrc/plvmzp.inc"
-end
-
 // plot(x, y)
 // TODO: Obviously it's slightly out of order to be using assembler in
 // this benchmark, but this could be trivially "promoted" into a standard
 // library, so I don't think it's terribly unreasonable.
+// TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
 asm plot
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
     LDA #25
     JSR $FFEE
     LDA #69
@@ -53,16 +47,14 @@ asm plot
     JMP $FFEE
 end
 
-def puti32(p)
-    byte ten[4], j[4], k[4]
-    dword_fromuword(@ten, 10)
-    if dword_isult(p, @ten)
-	putc(^p + '0')
-    else
-	dword_div(@j, @k, p, @ten)
-	puti32(@j)
-	putc(k[0] + '0')
-    fin
+def puti(i)
+  if i < 0; putc('-'); i = -i; fin
+  if i < 10
+    putc(i + '0')
+  else
+    puti(i / 10)
+    putc(i % 10 + '0')
+  fin
 end
 
 def time_delta(start, finish)
@@ -113,49 +105,6 @@ end
 
 // Actual benchmarks
 
-def intmath16()
-    word x, y, i
-    time(@start)
-    x = 0
-    y = 9
-    puts("Start\n")
-    for i = 1 to 1000
-	x = x + (y * y - y) / y
-    next
-    puts("Finish ")
-    puti(x) // should be 8000
-    putln()
-    time(@finish)
-    log_time(@intmath16str)
-    if x <> 8000
-	oserror(0, "intmath16 failed")
-    fin
-end
-
-def intmath32()
-    byte x[4], y[4], a[4]
-    word i
-    time(@start)
-    dword_fromuword(@x, 0)
-    dword_fromuword(@y, 9)
-    puts("Start\n")
-    for i = 1 to 1000
-	// x = x + (y * y - y) / y
-	dword_mul(@a, @y, @y)
-	dword_sub(@a, @a, @y)
-	dword_div(@a, 0, @a, @y)
-	dword_add(@x, @x, @a)
-    next
-    puts("Finish ")
-    puti32(@x) // should be 8000
-    putln()
-    time(@finish)
-    log_time(@intmath32str)
-    if not dword_isuword(@x) or dword_touword(@x)<>8000
-	oserror(0, "intmath32 failed")
-    fin
-end
-
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
 def textscrn()
@@ -194,9 +143,6 @@ def grafscrn()
     log_time(@grafscrnstr)
 end
 
-mode(7)
-intmath16()
-intmath32()
 textscrn()
 grafscrn()
 mode(7)

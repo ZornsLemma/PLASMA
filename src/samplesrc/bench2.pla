@@ -1,4 +1,4 @@
-// Benchmarks, including some based on "store" from Personal Computer World
+// Benchmarks, including some based on the Personal Computer World
 // benchmarks (from December 1986 issue). These are split from bench1.pla as
 // those need to be small enough to allow mode 3 for textscrn even on a
 // machine with 32K RAM with no sideways or shadow RAM.
@@ -15,6 +15,8 @@ include "inc/dword.plh"
 include "inc/testlib.plh"
 include "inc/stdio.plh"
 
+byte intmath16str[] = "intmath16"
+byte intmath32str[] = "intmath32"
 byte storestdiostr[] = "storestdio"
 byte storebputstr[] = "storebput"
 byte storegbpbstr[] = "storegbpb"
@@ -93,6 +95,49 @@ def time(t)
 end
 
 // Actual benchmarks
+
+def intmath16()
+    word x, y, i
+    time(@start)
+    x = 0
+    y = 9
+    puts("Start\n")
+    for i = 1 to 1000
+	x = x + (y * y - y) / y
+    next
+    puts("Finish ")
+    puti(x) // should be 8000
+    putln()
+    time(@finish)
+    log_time(@intmath16str)
+    if x <> 8000
+	oserror(0, "intmath16 failed")
+    fin
+end
+
+def intmath32()
+    byte x[4], y[4], a[4]
+    word i
+    time(@start)
+    dword_fromuword(@x, 0)
+    dword_fromuword(@y, 9)
+    puts("Start\n")
+    for i = 1 to 1000
+	// x = x + (y * y - y) / y
+	dword_mul(@a, @y, @y)
+	dword_sub(@a, @a, @y)
+	dword_div(@a, 0, @a, @y)
+	dword_add(@x, @x, @a)
+    next
+    puts("Finish ")
+    puti32(@x) // should be 8000
+    putln()
+    time(@finish)
+    log_time(@intmath32str)
+    if not dword_isuword(@x) or dword_touword(@x)<>8000
+	oserror(0, "intmath32 failed")
+    fin
+end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
@@ -212,6 +257,8 @@ def fncall()
 end
 
 mode(7)
+intmath16()
+intmath32()
 fncall()
 // TODO TEMP COMMENTED OUT storestdio()
 storebput()
