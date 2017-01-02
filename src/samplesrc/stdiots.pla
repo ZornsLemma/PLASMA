@@ -143,7 +143,6 @@ def random_test(seed)
     word op
     word c, d
     word subseed
-    prword(@random_state)
     max_ptr = 0
     seedrand(seed)
     memory = heapalloc(memory_size)
@@ -158,7 +157,6 @@ def random_test(seed)
 	else
 	    file = fopen_heap(buffer_size, "T.DATA", "r+b")
 	fin
-	puts("TODO"); prword(file); putln()
 	assert(file, "open")
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
@@ -181,14 +179,12 @@ def random_test(seed)
 		    max_ptr = ptr
 		fin
 	    else
-		putc('x'); prword(ptr);
 		if ptr >= max_ptr
 		    c = EOF
 		else
 		    c = ^(memory + ptr)
 		    ptr++
 		fin
-		putc(' '); prword(c)
 		d = fgetc(file)
 		if c <> d
 		    putc(' '); prbyte(c); putc(' '); prbyte(d)

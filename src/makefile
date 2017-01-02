@@ -302,7 +302,7 @@ pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < libsrc/stdio.pla > libsrc/stdio.a
+	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
 	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
 
 stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)

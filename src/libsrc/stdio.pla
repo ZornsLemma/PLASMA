@@ -112,13 +112,13 @@ struc t_FILE
     byte r_buffer // buffer_size bytes
 end
 
-// TODO TEMP
+#ifdef DEBUG
+
 def prword(w)
     prbyte(w >> 8)
     prbyte(w)
 end
 
-// TODO: COMMENT OUT IN FINAL VSN
 def debug_dump_file(prefix, file)
     puts(prefix)
     puts(": "); prbyte(file->r_handle)
@@ -148,6 +148,8 @@ def debug_dump_osgbpb(a, block)
     putln()
 end
 
+#endif
+
 // TODO: MAKE THIS A STD LIBRARY FUNCTION? IF DO SO THINK ABOUT THE NAME, SHOULD IT BE UMIN??
 def minu(lhs, rhs)
     if isult(lhs, rhs)
@@ -168,14 +170,12 @@ def get_length(length, handle)
     // I suspect the AUG means that if you use OSARGS with A=1 to read the
     // address of the command line, the command line address returned in the
     // zero page control block is in the I/O processor.
-    puts("get_length1 "); prword(length); prbyte(handle); putln();
     call(2, scratch, handle, 0, $FFDA)
-    puts("get_length1b "); prword(*scratch); putln();
-    // TODONOW: BeebEm has a bug which means this memcpy fails - may want
-    // to simply copy the value via 2 word assignments to work around this,
-    // and put a comment in to stop me reverting it later.
-    memcpy(length, scratch, 4)
-    puts("get_length2 "); prword(length); prword(*length); prbyte(handle); putln();
+    // It's tempting to do "memcpy(length, scratch, 4)" here but BeebEm has
+    // a bug (it doesn't wrap (zp),Y addressing at the top of memory) which
+    // stops memcpy to zero page working, so we just do this.
+    length=>0 = scratch:0
+    length=>2 = scratch:2
 end
 
 // TODO BENCHMARK IT, BUT MAY WANT TO WRITE THE 'IN MEMORY' BRANCH OF FGETC AND
@@ -252,7 +252,9 @@ export def fopen_prealloc(file, filename, mode)
     get_length(file + r_length, handle)
     dword_fromuword(file + r_file_ptr, 0)
     dword_fromuword(file + r_buffer_file_ptr, 0)
+#ifdef DEBUG
     debug_dump_file("fopen->", file)
+#endif
     return file
 end
 
@@ -275,7 +277,9 @@ export def fflush(file)
     byte block[13], length[4], size_delta[4]
     const zero_size = 128
     byte zero[zero_size]
-    //debug_dump_file("fflush-<", file)
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fflush-<", file)
+#endif
     if file->r_dirty
 	// If the first byte in the buffer comes after the current end of the file,
 	// specifying the appropriate file pointer in the OSGBPB 1 call would cause
@@ -283,15 +287,10 @@ export def fflush(file)
 	// to emit zeros to grow the file to the appropriate length first. We can't
 	// use r_length here as we need the length of the file on disc.
 	get_length(@length, file->r_handle)
-	puts("length0 "); prword(length); putc(' '); prword(length:2); prword(length:0)
 	if dword_isugt(file + r_buffer_file_ptr, @length)
-	    puts("length1 "); prword(length:2); prword(length:0)
 	    memset(@zero, empty_fill, zero_size)
-	    puts("length2 "); prword(length:2); prword(length:0)
 	    while dword_isugt(file + r_buffer_file_ptr, @length)
 		dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
-		puts("length "); prword(length:2); prword(length:0)
-		putln()
 		block.0 = file->r_handle
 		block:1 = @zero
 		block:3 = 0 // TODO: Probably want machine high order address
@@ -304,7 +303,9 @@ export def fflush(file)
 		block:9 = length:0
 		block:11 = length:2
 		dword_adduword(@length, @length, block:5)
+#ifdef DEBUG
 		debug_dump_osgbpb(1, @block)
+#endif
 		call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 	    loop
 	fin
@@ -317,11 +318,15 @@ export def fflush(file)
 	block:7 = 0
 	block:9 = file=>r_buffer_file_ptr:0
 	block:11 = file=>r_buffer_file_ptr:2
+#ifdef DEBUG
 	debug_dump_osgbpb(1, @block)
+#endif
 	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
 
 	file->r_dirty = FALSE
+#ifdef DEBUG
 	debug_dump_file("fflush->", file)
+#endif
     fin
     return 0
 end
@@ -357,7 +362,9 @@ def fill_buffer(file)
 	block:11 = file=>r_file_ptr:2
 	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
 	// returned consistently, so we just use the updated number of bytes.
+#ifdef DEBUG
 	debug_dump_osgbpb(3, @block)
+#endif
 	call(3, @block, @block >> 8, 0, $FFD1)
     fin
     file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
@@ -381,7 +388,9 @@ end
 // TODO: magic constants everywhere
 export def fgetc(file)
     byte c
-    //debug_dump_file("fgetc-<", file)
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fgetc-<", file)
+#endif
 
     if file=>r_pushback <> EOF
 	c = file=>r_pushback
@@ -393,7 +402,9 @@ export def fgetc(file)
     if file_ptr_in_buffer(file)
 	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
 	dword_inc(file + r_file_ptr)
+#ifdef DEBUG
 	debug_dump_file("fgetc->", file)
+#endif
 	return c
     else
 	if file->r_eof
@@ -405,7 +416,9 @@ export def fgetc(file)
 	if fill_buffer(file) == EOF
 	    return EOF
 	fin
+#ifdef DEBUG
 	debug_dump_file("fgetc-!", file)
+#endif
 	return fgetc(file)
     fin
 end
@@ -421,7 +434,9 @@ export def fputc(c, file)
 	fin
 	return c
     fin
-    //debug_dump_file("fputc-<", file)
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fputc-<", file)
+#endif
 
     // Discard any pushback character; this conceptually exists at the
     // current file pointer and we're going to overwrite it.
@@ -457,13 +472,17 @@ export def fputc(c, file)
 	    fin
 	fin
 
+#ifdef DEBUG
 	debug_dump_file("fputc->", file)
+#endif
 	return c
     else
 	if fill_buffer(file) == EOF
 	    return EOF
 	fin
+#ifdef DEBUG
 	debug_dump_file("fputc-!", file)
+#endif
 	return fputc(c, file)
     fin
 end
@@ -572,7 +591,9 @@ export def fseek32(file, offset, origin)
     *(file + r_file_ptr + 2) = *(offset + 2)
     file->r_eof = FALSE
     file=>r_pushback = EOF
+#ifdef DEBUG
     debug_dump_file("fseek->", file)
+#endif
     return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
 end
 
@@ -589,7 +610,9 @@ end
 // TODO: can this return errors or will we always get an OS error?
 export def fclose(file)
     word result
+#ifdef DEBUG
     debug_dump_file("fclose-<", file)
+#endif
     if fflush(file) == EOF
 	return EOF
     fin
