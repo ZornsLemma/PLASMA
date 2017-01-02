@@ -21,6 +21,9 @@ def comma_list(l):
         sep = ", "
     return s
 
+def format_size(bytes):
+    return "&%04x bytes/%.1fKB" % (bytes, bytes / 1024.0)
+
 class Annotation:
     def __init__(self, start, end, text):
         assert start <= end
@@ -65,6 +68,13 @@ class Module:
     def annotate(self, start, end, text):
         a = Annotation(start, end + 1, text)
         self.annotations.append(a)
+
+    def get(self, text):
+        for a in self.annotations:
+            if a.text == text:
+                assert a.start == a.end
+                return a.start
+        assert False, "Can't get '" + text + "'"
 
     def walk(self):
         da_labels = {}
@@ -254,6 +264,9 @@ class Module:
         if i < len(self.data):
             self.hexdump(i, len(self.data) - 1)
 
+        resident_size = self.get("segend") - self.get("modaddr")
+        print("\nMemory resident size: %s" % format_size(resident_size))
+        print("Size on disc:         %s" % format_size(len(self.data)))
 
 
 
