@@ -413,12 +413,20 @@ export def fgetc(file)
 
 	// The relevant byte isn't in the buffer, so we try to read it in. It
 	// may not exist if r_file_ptr is past EOF.
+	// TODO: Not specific to stdio, but some sort of utility function which
+	// allows assembler to call back into a PLASMA compile function (ideally
+	// looked up at module load time once) would be handy for allowing an
+	// assembler version of this to call fill_buffer() [file_ptr_in_buffer()
+	// would be written inline as assembler]
 	if fill_buffer(file) == EOF
 	    return EOF
 	fin
 #ifdef DEBUG
 	debug_dump_file("fgetc-!", file)
 #endif
+	// TODO: This code is now sufficiently simple it may be easiest to call
+	// fill_buffer if necessary early on and then just do the simple fgetc()
+	// case without calling back into itself.
 	return fgetc(file)
     fin
 end
