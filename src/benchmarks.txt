@@ -7,3 +7,11 @@ textscrn	21.59	  22.93	    23.15     23.52	    13.7	14.2         16.12    16.42
 grafscrn	21.02	  22.90	    22.09     30.08	    21.5	22.0	     17.15    17.75
 
 Timings are "best of many runs" using BeebEm and b-em. For some reason my numbers for BBC BASIC are significantly slower than those reported by PCW themselves, even though I've been fairly generous in my coding of the benchmarks (using resident integer variables in particular). I did the Master BASIC 4+shadow run (i.e. *SHADOW before running the benchmark) in order to have a fairer comparison with BAS128 (which uses shadow mode).
+
+
+Temporary timings with experimental out-of-memory detection on PLAS128:
+intmath16	 0.97
+intmath32	 4.77
+textscrn	17.31
+grafscrn	19.00
+(So far this is based on one run in b-em only; I honestly wouldn't expect to see any significant difference here, given none of these make significant use of either CS opcode or function calls - well, intmath32 makes a lot of function calls, but they're all assembly so don't touch parameter stack)

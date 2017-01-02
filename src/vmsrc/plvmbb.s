@@ -6,8 +6,11 @@
 ;*
 ;**********************************************************
 
-; TODO: Add (optional?) support for checking we aren't colliding
-; with the heap when we decrease IFP and PP?
+	; If this is defined, code is included when lowering IFP/PP
+	; to ensure they don't drop below the top of the heap.
+	; TODO: Benchmark this and see whether it's a significant
+	; penalty - may want to have it on always.
+	CHECKPARAMETERSTACK = 1
 
 	BBC = 1
 !IFDEF PLAS128 {
@@ -31,11 +34,35 @@
 	BNE	*+4
 	INC	IPH
 	}
+
+	!MACRO	CHECKVSHEAP .P {
+		!IFDEF CHECKPARAMETERSTACK {
+			LDA	.P+1
+			CMP	HEAPH
+			BEQ	.CHECKLOW
+			BCS	.OK
+.FAIL
+			JMP HITHEAP
+.CHECKLOW
+			LDA	.P
+			CMP	HEAPL
+			BCC	.FAIL
+.OK
+		}
+	}
 ;*
 ;* INTERPRETER HEADER+INITIALIZATION
 ;*
 	*=	START
 SEGBEGIN JMP	VMINIT
+
+!IFDEF CHECKPARAMETERSTACK {
+HITHEAP
+	BRK
+	!BYTE $00
+	!TEXT "No room" ; TODO: Better message
+	BRK
+}
 
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
@@ -532,7 +559,7 @@ CS	DEX
 	; this is still better than the naive approach used earlier, and
 	; I think the extra performance of this is worth it.)
 	;
-	; Just below IFP is a POOLSIZE hash table;
+	; Just below IFP is a POOLSIZE-byte hash table;
 	; each entry is a pointer to the first element of a linked list
 	; of entries for that hash key. Each linked list element has the
 	; following structure:
@@ -560,6 +587,7 @@ CS	DEX
 	LDA	IFPH
 	SBC	#0
 	STA	PPH
+	+CHECKVSHEAP PP
 	; Now zero the hash table.
 	LDY	#POOLSIZE-1
 	LDA	#0
@@ -659,6 +687,7 @@ ATENDOFLIST
 	ADC	PPH
 	STA	PPH
 	STA	ESTKH,X
+	+CHECKVSHEAP PP
 	; Copy the string into the pool. Y is already 0.
 	LDA	(IP),Y
 	TAY
@@ -676,6 +705,7 @@ ATENDOFLIST
 	BCS	+
 	DEC	PPH
 +
+	+CHECKVSHEAP PP
 	
 	; Copy IP to offset 0 of the new entry. Y is $FF.
 	LDA	IPL
@@ -1172,6 +1202,7 @@ ENTER	INY
 	STA	PPH
 	STA	IFPH
 }
+	+CHECKVSHEAP IFP
 	INY
 	LDA	(IP),Y
 	ASL

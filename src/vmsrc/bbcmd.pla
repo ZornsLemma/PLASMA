@@ -62,7 +62,11 @@ predef mode
 //
 word version     = $0092 // 00.92
 word systemflags = 0
-word heap
+// TODO: I've experimentally moved heap to a fixed location in zero
+// page to support run-time detection of the parameter stack colliding
+// with the heap. May want to revert this, or make it conditionally
+// compiled.
+const heapptr = $0089
 #ifdef PLAS128
     word xheapsize
     // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
@@ -1060,7 +1064,7 @@ def mode(n)
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
-    if uword_islt(gm_new_frame_start - 512, heap)
+    if uword_islt(gm_new_frame_start - 512, *heapptr)
 	return FALSE
     fin
 
@@ -1079,7 +1083,7 @@ def mode(n)
 #endif
     gm_copy_size = himem - gm_copy_from
     gm_new_mode = n
-    *ifp = heap + 256 // we know there's at least 512 bytes available
+    *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
     if gm_new_himem_higher
 	cout(22)
@@ -1144,7 +1148,7 @@ end
 //
 def availheap
     byte fp
-    return @fp - heap
+    return @fp - *heapptr
 end
 // TODO: We should maybe have an xallocheap() which generates an OS-style
 // error if the allocation fails, and use that everywhere - we don't
@@ -1154,10 +1158,10 @@ end
 // bother checking one way or another.
 def allocheap(size)
     word addr
-    prstr("allocheap heap "); prword(heap); prstr(", size "); prword(size); crout();
-    addr = heap
-    heap = heap + size
-    if uword_isge(heap, @addr)
+    prstr("allocheap heap "); prword(*heapptr); prstr(", size "); prword(size); crout();
+    addr = *heapptr
+    *heapptr = *heapptr + size
+    if uword_isge(*heapptr, @addr)
     	prstr("allocheap failed\n")
 	oserror(0, "Heap full") // TODO SEMI TEMP
         return 0
@@ -1167,22 +1171,22 @@ end
 def allocalignheap(size, pow2, freeaddr)
     word align, addr
     if freeaddr
-        *freeaddr = heap
+        *freeaddr = *heapptr
     fin
     align = (1 << pow2) - 1
-    addr = (heap | align) + 1
-    heap = addr + size
-    if uword_isge(heap, @addr)
+    addr = (*heapptr | align) + 1
+    *heapptr = addr + size
+    if uword_isge(*heapptr, @addr)
         return 0
     fin
     return addr
 end
 def markheap
-    return heap
+    return *heapptr
 end
 def releaseheap(newheap)
-    heap = newheap
-    return @newheap - heap
+    *heapptr = newheap
+    return @newheap - *heapptr
 end
 #ifdef PLAS128
 def allocxheap(size)
@@ -1346,13 +1350,13 @@ def loadmod(mod)
     if rdlen > 0
     	// TODO: Note that we re-read the file below, so this is potentially a waste - we should
 	// probably just read the first 128 bytes here, as the Apple II code does.
-        readfile(@filename, heap)
-	memcpy(@header, heap, 128)
+        readfile(@filename, *heapptr)
+	memcpy(@header, *heapptr, 128)
 	modsize = header:0
 	moddep  = @header.1
 	defofst = modsize
         init    = 0
-        if rdlen > 4 and heap=>2 == $DA7E // DAVE = magic number :-)
+        if rdlen > 4 and (*heapptr)=>2 == $DA7E // DAVE = magic number :-)
             //
             // This is an EXTended RELocatable (data+bytecode) module.
             //
@@ -1380,13 +1384,13 @@ def loadmod(mod)
 	    //
 	    // Re-read file
 	    //
-	    readfile(@filename, heap)
+	    readfile(@filename, *heapptr)
         fin
 	//
 	// Alloc heap space for relocated module (data + bytecode).
 	//
-	moddep  = moddep  + 1 - @header + heap
-	modfix  = moddep  - (heap + 2) // Adjust to skip header
+	moddep  = moddep  + 1 - @header + *heapptr
+	modfix  = moddep  - (*heapptr + 2) // Adjust to skip header
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
 	modaddr = allocheap(modsize)
@@ -1591,7 +1595,7 @@ def execmod(modfile)
 
     perr = 1
     if stodci(modfile, @moddci)
-        saveheap  = heap
+        saveheap  = *heapptr
 #ifdef PLAS128
 	savexheap = xheap
 #endif
@@ -1614,7 +1618,7 @@ def execmod(modfile)
 #ifdef PLAS128
 	    xheap   = savexheap
 #endif
-	    heap    = saveheap
+	    *heapptr= saveheap
 	fin
 	^lastsym    = 0
 	systemflags = saveflags
@@ -1627,7 +1631,7 @@ end
 //
 // Get heap start.
 //
-heap = *freemem
+*heapptr = *freemem
 #ifdef PLAS128
     xheapsize = ^rambankcount * 16 * 1024
 #endif
@@ -1641,11 +1645,11 @@ heap = *freemem
 symtbl   = allocheap(symtblsz)
 lastsym  = symtbl
 ^lastsym = 0
-stodci(@syslibstr, heap)
-addmod(heap, @version)
+stodci(@syslibstr, *heapptr)
+addmod(*heapptr, @version)
 while *syslibsym
-    stodci(syslibsym=>0, heap)
-    addsym(heap, syslibsym=>2)
+    stodci(syslibsym=>0, *heapptr)
+    addsym(*heapptr, syslibsym=>2)
     syslibsym = syslibsym + 4
 loop
 //
@@ -1668,7 +1672,7 @@ fin
 // TODO: This is disabled; it's awkward as it can cause an OS error, and
 // it's not all that useful as a !BOOT file can do the same job.
 //
-cmdptr = heap
+cmdptr = *heapptr
 memset(cmdptr, 0, 128)
 //readfile(@autorun, cmdptr + 1)
 while ^(cmdptr + ^cmdptr + 1) >= ' '
