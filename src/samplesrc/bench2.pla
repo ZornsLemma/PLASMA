@@ -1,0 +1,193 @@
+// Benchmarks, including some based on "store" from Personal Computer World
+// benchmarks (from December 1986 issue). These are split from bench1.pla as
+// those need to be small enough to allow mode 3 for textscrn even on a
+// machine with 32K RAM with no sideways or shadow RAM.
+
+// TODO: this uses puti() for output but that treats its argument as
+// signed, which isn't strictly correct and gives invalid results if
+// the times are very high.
+
+// TODO: Factor out common code from bench1.pla and bench2.pla
+
+include "inc/acornos.plh"
+include "inc/cmdsys.plh"
+include "inc/dword.plh"
+include "inc/testlib.plh"
+include "inc/stdio.plh"
+
+byte storestdiostr[] = "storestdio"
+byte storebputstr[] = "storebput"
+byte storegbpbstr[] = "storegbpb"
+byte storelinestr[] = "1234567890qwertyuiop\n"
+
+// Benchmark start/finish times
+byte start[5]
+byte finish[5]
+
+struc t_result
+    word r_next
+    word r_name
+    word r_time
+end
+
+word results_head = 0
+word results_tail_ptr = @results_head
+
+def puti32(p)
+    byte ten[4], j[4], k[4]
+    dword_fromuword(@ten, 10)
+    if dword_isult(p, @ten)
+	putc(^p + '0')
+    else
+	dword_div(@j, @k, p, @ten)
+	puti32(@j)
+	putc(k[0] + '0')
+    fin
+end
+
+def time_delta(start, finish)
+    // We can get away with ignoring the fifth byte; the result will be
+    // correct unless there's a difference of more than one in the fifth
+    // byte, and that's just not going to happen.
+    byte delta_dword[4]
+    dword_sub(@delta_dword, finish, start)
+    if dword_isuword(@delta_dword)
+	return dword_touword(@delta_dword)
+    else
+	return 0
+    fin
+end
+
+def log_time(name)
+    word result
+
+    result = heapalloc(t_result)
+    result=>r_next = 0
+    result=>r_name = name
+    result=>r_time = time_delta(@start, @finish)
+    *results_tail_ptr = result
+    results_tail_ptr = result+r_next
+end
+
+def show_times()
+    word p, i
+    p = results_head
+    while p <> 0
+	puts(p=>r_name)
+	for i = 1 to 10 - ^(p=>r_name)
+	    putc(' ')
+	next
+	// TODO: Would be nice to align the decimal points
+	puti(p=>r_time / 100)
+	putc('.')
+	puti(p=>r_time % 100)
+	putc('s')
+	putln()
+	p = p=>r_next
+    loop
+end
+
+def time(t)
+    call(1, t, t >> 8, 0, $FFF1)
+end
+
+// Actual benchmarks
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def storestdio()
+    word i, file, oldheap
+    oldheap = heapmark()
+    time(@start)
+    puts("Start\n")
+    file = fopen_heap(256, "X.TEST", "w")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    for i = 1 to 1000
+	// TODO: The benchmark specifies "record handling"; is this reasonable?
+	// I think I'd write it like this in C on any platform, but it's
+	// not the same as the BBC BASIC benchmark in pcw.bas...
+	if fputs(@storelinestr, file) == EOF
+	    fclose(file)
+	    oserror(0, "Error writing test file")
+	fin
+    next
+    if fclose(file) == EOF
+	oserror(0, "Can't close test file")
+    fin
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    heaprelease(oldheap)
+    log_time(@storestdiostr)
+end
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def storebput()
+    // TODO: magic constants!
+    // TODO: we could install an error handler at errjb here to close the
+    // file before passing the error on
+    word file, i, j, p
+    time(@start)
+    puts("Start\n")
+    file = osfind_open(osfind_output, "X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    for i = 1 to 1000
+	// TODO: Keep this in sync with storestdio() if that changes.
+	p = @storelinestr
+	j = ^p
+	while j > 0
+	    p++
+	    osbput(^p, file)
+	    j--
+	loop
+    next
+    osfind_close(file)
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storebputstr)
+end
+
+// This isn't quite a literal translation of the benchmark in the magazine, but
+// this is necessary to avoid problems with the string pool.
+def storegbpb()
+    // TODO: magic constants!
+    // TODO: we could install an error handler at errjb here to close the
+    // file before passing the error on
+    word file, i, j, p
+    byte block[13]
+    time(@start)
+    puts("Start\n")
+    file = osfind_open(osfind_output, "X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    block.0 = file
+    for i = 1 to 1000
+	// TODO: Keep this in sync with storestdio() if that changes.
+	block:1 = @storelinestr + 1
+	block:3 = 0
+	block:5 = ^@storelinestr
+	block:7 = 0
+	call(2, @block, @block >> 8, 0, $FFD1)
+    next
+    osfind_close(file)
+    oscli("DELETE X.TEST")
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storegbpbstr)
+end
+
+mode(7)
+storestdio()
+storebput()
+storegbpb()
+show_times()
+done
+
+// vi: sts=4 sw=4

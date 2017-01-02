@@ -297,9 +297,13 @@ hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
-pcw: samplesrc/pcw.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/pcw.pla > samplesrc/pcw.a
-	acme --setpc 4094 -o PCW\#FE1000 samplesrc/pcw.a
+bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/bench1.pla > samplesrc/bench1.a
+	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
+
+bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/bench2.pla > samplesrc/bench2.a
+	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
 	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
@@ -313,5 +317,5 @@ strpool: samplesrc/strpool.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/strpool.pla > samplesrc/strpool.a
 	acme --setpc 4094 -o STRPOOL\#FE1000 samplesrc/strpool.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi pcw dword stdio stdiots strpool $(ACORNOS) samplesrc/pcw.bas
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd
