@@ -40,6 +40,9 @@ asm equates
 end
 
 // plot(x, y)
+// TODO: Obviously it's slightly out of order to be using assembler in
+// this benchmark, but this could be trivially "promoted" into a standard
+// library, so I don't think it's terribly unreasonable.
 asm plot
     LDA #25
     JSR $FFEE

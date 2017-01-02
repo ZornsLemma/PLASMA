@@ -108,7 +108,7 @@ export def main(range)
   wend
   putln
 end
-def error_handler
+def error_handler // TODO: DELETE? THINK THIS IS OLD...
   //longjmp($B00, 42)
 end
 puti(array[0]);putc(' ')

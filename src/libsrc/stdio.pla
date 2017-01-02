@@ -17,6 +17,11 @@
 
 // TODO: ferror()?
 
+// TODO: careful I haven't been too tight with the sizes of the
+// control blocks for my OS calls - need to be sure on second processor
+// it won't copy a larger control block back than I'm expecting and
+// smash some other data
+
 // TODO: could produce an alternate stdio implementation which is a thin
 // wrapper around the OS calls. If do that, compare performance with this
 // one and if this is slower then either ditch it or fix the problem!
@@ -163,8 +168,14 @@ def get_length(length, handle)
     // I suspect the AUG means that if you use OSARGS with A=1 to read the
     // address of the command line, the command line address returned in the
     // zero page control block is in the I/O processor.
+    puts("get_length1 "); prword(length); prbyte(handle); putln();
     call(2, scratch, handle, 0, $FFDA)
+    puts("get_length1b "); prword(*scratch); putln();
+    // TODONOW: BeebEm has a bug which means this memcpy fails - may want
+    // to simply copy the value via 2 word assignments to work around this,
+    // and put a comment in to stop me reverting it later.
     memcpy(length, scratch, 4)
+    puts("get_length2 "); prword(length); prword(*length); prbyte(handle); putln();
 end
 
 // TODO BENCHMARK IT, BUT MAY WANT TO WRITE THE 'IN MEMORY' BRANCH OF FGETC AND
@@ -272,8 +283,11 @@ export def fflush(file)
 	// to emit zeros to grow the file to the appropriate length first. We can't
 	// use r_length here as we need the length of the file on disc.
 	get_length(@length, file->r_handle)
+	puts("length0 "); prword(length); putc(' '); prword(length:2); prword(length:0)
 	if dword_isugt(file + r_buffer_file_ptr, @length)
+	    puts("length1 "); prword(length:2); prword(length:0)
 	    memset(@zero, empty_fill, zero_size)
+	    puts("length2 "); prword(length:2); prword(length:0)
 	    while dword_isugt(file + r_buffer_file_ptr, @length)
 		dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
 		puts("length "); prword(length:2); prword(length:0)
