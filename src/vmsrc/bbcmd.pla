@@ -656,30 +656,6 @@ end
 // NONLOCAL GOTO
 //
 
-// TODO: export this?
-// dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
-asm jmpbufsz
-	LDA	ESTKL,X
-	STA	TMPL
-	LDA	ESTKH,X
-	STA	TMPH
-	;* Set Y to offset of saved CPU stack size in jmp_buf
-#ifdef PLAS128
-	LDY	#5
-#else
-	LDY	#3
-#endif
-	LDA	(TMP),Y
-	EOR	#255
-	CLC
-	ADC	#6		;* actually 2 bytes smaller on PLAS32 but we just use this
-	STA	ESTKL,X
-	LDA	#0
-	ADC	#0
-	STA	ESTKH,X
-	RTS
-end
-
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
 asm setjmp
 	STX	ESP
@@ -701,6 +677,19 @@ TODOOK
 	TXA
 	STA	(TMP),Y
 	INY
+
+	; Note that we know there's at least one element on ESTK as
+	; we received our 'b' argument on it. We could avoid saving
+	; that but it seems simplest just to include it.
+----	LDA	ESTKL,X
+	STA	(TMP),Y
+	INY
+	LDA	ESTKH,X
+	STA	(TMP),Y
+	INY
+	INX
+    	CPX	#ESTKSZ/2
+	BNE	----
 
 	;* We store IFP and PP as a delta from HIMEM to avoid problems
 	;* where we do setjmp(); mode(); longjmp().
@@ -736,11 +725,19 @@ TODOOK
 	TSX
 	TXA
 	STA	(TMP),Y
---	INY
-	INX
+	INC	TMPL
+	; We must start this loop with Y=0 so we have the ability to store a
+	; full 256 bytes of stack without wrapping Y; this will never happen
+	; in practice, but still... So we need to bump TMP past the stack
+	; pointer just saved instead of incrementing Y.
+	BNE	++++
+	INC	TMPH
+++++ 	
+--	INX
 	BEQ	++
 	LDA	$0100,X
 	STA	(TMP),Y
+	INY
 	JMP	--
 
 ++	LDX	ESP
@@ -761,8 +758,20 @@ asm longjmp
 	LDY	#0
 	LDA	(TMP),Y
 	STA	ESP
+	PHA
 	TAX
 	INY
+-	LDA	(TMP),Y
+	STA	ESTKL,X
+	INY
+	LDA	(TMP),Y
+	STA	ESTKH,X
+	INY
+	INX
+	CPX 	#ESTKSZ/2
+	BNE	-
+	PLA
+	TAX
 
 	PLA
 	STA	ESTKH,X
@@ -813,11 +822,16 @@ asm longjmp
 	LDA	(TMP),Y
 	TAX
 	TXS
---	INY
-	INX
+	INC	TMPL
+	BNE	+++++
+	INC	TMPH
++++++
+
+--	INX
 	BEQ	+++
 	LDA	(TMP),Y
 	STA	$0100,X
+	INY
 	JMP	--
 
 +++	LDX	ESP
@@ -1017,6 +1031,28 @@ end
 def prword(v)
     prbyte(v >> 8)
     return prbyte(v)
+end
+
+// TODO: export this?
+// dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
+def jmpbufsz(jb)
+	const esp_size = 1
+	const esp_offset = 0
+#ifdef PLAS128
+	const pp_size = 2
+#else
+	const pp_size = 0
+#endif
+	const ifp_size = 2
+	const stack_ptr_size = 1
+	const estksz = 32
+	const estksz_elems = estksz / 2
+	word size
+	word stack_ptr
+	size = esp_size + 2 * (estksz_elems - jb->esp_offset) + ifp_size + pp_size
+	stack_ptr = ^(jb + size)
+	size = size + stack_ptr_size + (255 - stack_ptr)
+	return size
 end
 
 // Change the screen mode

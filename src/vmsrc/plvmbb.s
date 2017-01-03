@@ -1289,8 +1289,25 @@ ERRCPD	DEY
 	
 	LDX	#$FF
 	TXS
-	; TODONOW I AM NOT SURE THE NEXT LINE IS RIGHT - THIS WILL MEAN THAT THE LONGJMP() DONE BY OUR ERROR HANDLING FUNCTION WILL START USING THE TOP OF THE ESTK FOR ITS ARGS, BUT THE CODE WHICH DID THE SETJMP() MAY HAVE HAD SOMETHING OF ITS OWN ON THAT STACK WHICH IT WILL EXPECT TO BE ABLE TO RETRIEVE - IT MAY BE NOTHING TO DO WITH THAT, BUT I AM SEEING *INTERMITTENT* FAILURES WHEN OS ERRORS OCCUR (E.G. CURRENTLY WITH STDIO STUFF ETC PCW BENCHMARKS CAN'T CHANGE INTO MODE 3, *SOMETIMES* I GET A HANG AFTER THE CODE THROWS A BAD MODE ERROR, SOMETIMES IT WORKS FINE AND WE RETURN TO THE PROMPT AFTER THE BAD MODE ERROR) - WHAT I THINK WE PROBABLY NEED TO DO IS SET X TO POINT TO "BOTTOM" OF ESTK SPACE IN LONGJMP, AND IN SETJMP REFUSE TO ALLOW SETJMP TO SUCCEED IF X IS CURRENTLY POINTING DOWN INTO THE "BOTTOM" OF THE ESTK (IE THE RESTORE MIGHT TRAMPLE OVER PART OF THE ESTK NEEDED WHEN WE RETURN FROM SETJMP VIA LONGJMP) - HOWEVER, IT'S NOT SO CLEAR TO ME THAT THIS BUG *IS* ACTUALLY CAUSING PROBLEMS YET (NOT TO SAY IT SHOULDN'T BE FIXED)
-        LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
+	; We reset X (ESP) so the error handler has the
+	; full expression stack available - at the point the error occurred,
+	; it might have been (nearly) full and so any expression stack use
+	; in the error handler would trample on memory outside the stack if
+	; we left it alone.
+	; This will trample on any values which were pushed onto the
+	; expression stack before the call to setjmp() and which might be
+	; expected to be there after setjmp() returns via longjmp(). This is
+	; OK because longjmp() will restore X and the expression stack from the
+	; jmp_buf. (We could partially avoid the need for this by just saving
+	; X (ESP) in jmp_buf, but not the expression stack itself, and setting X=2 here so the error handlers runs
+	; with a tiny expression stack, just enough to call longjmp(). We'd
+	; make setjmp() fail if X<=2 on entry. This isn't a perfect solution
+	; as the expression stack can shrink after the setjmp() and before
+	; the longjmp(), so important state could still be lost. setjmp.pla
+	; is an example of this. The expression stack plays the same role as
+	; registers, and really it needs to be restored by longjmp(), so
+	; we do that.)
+	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 	JSR	BRKJMP
 	;* TODO: Better "abort" behaviour
 	LDA	#'!'
