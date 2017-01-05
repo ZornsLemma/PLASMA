@@ -56,6 +56,14 @@ class Node:
                 if (not self.children[0].is_constant() or
                     self.children[1].evaluate() == 2):
                         self.children[0], self.children[1] = self.children[1], self.children[0]
+
+        # 'CB 2:MUL:ADD' == 'IDXW'
+        if (self.instruction[0] == 'ADD' and
+            self.children[0].instruction[0] == 'MUL' and
+            self.children[0].children[0].is_constant() and
+            self.children[0].children[0].evaluate() == 2):
+            self.instruction = ['IDXW']
+            self.children[0] = self.children[0].children[1]
                 
 
     def is_constant(self):
@@ -86,6 +94,11 @@ class Node:
             assert False
         value = value & 0xffff
         return value
+
+    def serialise(self):
+        for child in self.children[::-1]:
+            child.serialise()
+        print(' '.join(self.instruction))
 
 
 
@@ -127,9 +140,12 @@ opcodes = {
 
 
 instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
+#instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
 node = tree(instructions)
 print('Before:\n')
 node.dump()
 print('\nAfter:\n')
 node.optimise()
 node.dump()
+print('\nSerialised:\n')
+node.serialise()
