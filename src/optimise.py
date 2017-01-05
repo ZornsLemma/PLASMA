@@ -8,6 +8,14 @@ import sys
 # is 2, not the other way around.
 
 
+def multi_opcode(opcode, operands):
+    assert len(operands) > 0
+    if len(operands) == 1:
+        return operands[0]
+    else:
+        node = Node([opcode])
+        node.children = [operands[0], multi_opcode(opcode, operands[1:])]
+        return node
 
 class Node:
     def __init__(self, instruction):
@@ -27,6 +35,9 @@ class Node:
     # how many arguments CALL consumes. So we would be able to optimise the
     # instructions between CALLs, but not the CALLs themselves.)
 
+    # TODO: We probably need to repeat this more than once, as I think some
+    # optimisations both depend on (e.g.) const folding of children, and in
+    # turn make more const folding possible
     def optimise(self):
         for child in self.children:
             child.optimise()
@@ -64,6 +75,44 @@ class Node:
             self.children[0].children[0].evaluate() == 2):
             self.instruction = ['IDXW']
             self.children[0] = self.children[0].children[1]
+
+        # If this operation is associative (TODO: we just use the 'commutative'
+        # property for now, as I am not sure we have any which are one but not
+        # the other, but think about it) and one or both of its children are
+        # the same operation, we can swap the children around - this may allow
+        # more constant folding. TODO: I may *actually* require commutativity
+        # here
+        # TODO: Do we actually need the recursive nature of
+        # same_opcode_operand_set() here? Hard to think about it right now, but
+        # the fact that we always optimise child nodes first might mean that
+        # this isn't necessary.
+        if self.is_commutative():
+            s = self.same_opcode_operand_set(self.instruction[0])
+            s_constant = [node for node in s if node.is_constant()]
+            s_nonconstant = [node for node in s if not node.is_constant()]
+            if len(s_constant) >= 2:
+                # The order in the next line is important; this pushes the
+                # constant operands down the tree, keeping them together, so
+                # they can be constant folded.
+                s = s_nonconstant + s_constant                                  
+                self.children = [s[0], multi_opcode(self.instruction[0], s[1:])]
+                for child in self.children:
+                    child.optimise()
+
+
+    # Given an opcode like "MUL", this pulls out all the nodes
+    # which are being multiplied together, flattening out any nested MUL nodes.
+    def same_opcode_operand_set(self, opcode):
+        if self.instruction[0] == opcode:
+            result = []
+            for child in self.children:
+                result.extend(child.same_opcode_operand_set(opcode))
+            return result
+        else:
+            return [self]
+
+
+
                 
 
     def is_constant(self):
@@ -139,8 +188,9 @@ opcodes = {
 
 
 
-instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
+#instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
 #instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
+instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
 node = tree(instructions)
 print('Before:\n')
 node.dump()
