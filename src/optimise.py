@@ -153,9 +153,11 @@ class Node:
         return value
 
     def serialise(self):
+        instructions = []
         for child in self.children[::-1]:
-            child.serialise()
-        print(' '.join(self.instruction))
+            instructions.extend(child.serialise())
+        instructions.append(self.instruction)
+        return instructions
 
 
 
@@ -173,7 +175,12 @@ def tree(instructions):
     # that they are not re-ordered.
     unknown_count = 0
     for instruction in instructions:
-        s = instruction.split()
+        # TODO: Nasty hack to make us accept either a string or a
+        # pre-split list
+        if type(instruction) == list:
+            s = instruction
+        else:
+            s = instruction.split()
         opcode = s[0]
         opcode_info = opcodes[opcode]
         node = Node(s)
@@ -187,8 +194,7 @@ def tree(instructions):
         assert opcode_info['produce'] <= 1
         if opcode_info['produce'] == 1:
             stack.append(node)
-    assert len(stack) == 1 # TODO: don't assert, bad input could cause this
-    return stack[0]
+    return stack
 
 
 
@@ -220,9 +226,9 @@ opcodes = {
     'LAB':  { 'byte' : 0x68, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
     'LAW':  { 'byte' : 0x6a, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
     'LW':  { 'byte' : 0x62, 'consume' : 1, 'produce' : 1},
-    'LLA':  { 'byte' : 0x28, 'consume' : 1, 'produce' : 1},
-    'LLB':  { 'byte' : 0x64, 'consume' : 1, 'produce' : 1},
-    'LLW':  { 'byte' : 0x66, 'consume' : 1, 'produce' : 1},
+    'LLA':  { 'byte' : 0x28, 'consume' : 0, 'produce' : 1},
+    'LLB':  { 'byte' : 0x64, 'consume' : 0, 'produce' : 1},
+    'LLW':  { 'byte' : 0x66, 'consume' : 0, 'produce' : 1},
     'INCR':  { 'byte' : 0x0c, 'consume' : 1, 'produce' : 1},
     'DECR':  { 'byte' : 0x0e, 'consume' : 1, 'produce' : 1},
     'UNKNOWN' : { 'consume' : 0, 'produce': 1},
@@ -257,9 +263,24 @@ def test():
     #instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
     #instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
     #instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
-    ########instructions = ['CW 5', 'CW 6', 'ADD', 'ADD']
-    instructions = ['CW 5', 'ADD', 'ADD', 'ZERO', 'MUL']
+    #instructions = ['CW 5', 'CW 6', 'ADD', 'ADD']
+    #instructions = ['CW 5', 'ADD', 'ADD', 'ZERO', 'MUL']
+    instructions = [
+        'CB 1',
+        'CB 2',
+        'CB 16',
+        'LLW [0]',
+        'LB',
+        'SUB',
+        'MUL',
+        'CB 2',
+        'ADD',
+        'ZERO',
+        'ADD',
+        'ADD']
     node = tree(instructions)
+    assert len(node) == 1
+    node = node[0]
     print('Before:\n')
     node.dump()
     print('\nAfter:\n')
@@ -270,10 +291,27 @@ def test():
 
 
 def optimise(instructions):
-    # TODO!
+    if len(instructions) > 0:
+        nodes = tree(instructions)
+        for node in nodes:
+            node.optimise()
+            instructions = node.serialise()
+            emit(instructions)
+
+def emit(instructions):
+    # Spit the instructions out again, taking pains to make the output
+    # near-identical to the input for minimal pain diffing.
+    last_unknown = -1
     for instruction in instructions:
         opcode = instruction[0]
         info = opcodes[opcode]
+        if opcode == 'UNKNOWN':
+            assert last_unknown <> -999
+            if last_unknown <> -1:
+                assert int(instruction[1]) == last_unknown - 1
+            last_unknown = int(instruction[1])
+            continue
+        last_unknown = -999
         opcode_byte = info['byte']
         if opcode == 'CS':
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
@@ -305,6 +343,8 @@ def optimise(instructions):
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
 
 
+test()
+sys.exit(0)
 
 in_function = False
 lines = fileinput.input()
