@@ -1,4 +1,5 @@
 from __future__ import print_function
+import fileinput
 import sys
 
 
@@ -6,6 +7,9 @@ import sys
 # Taking precedent from SUB, which subtracts next from top from top, if we have
 # CW 2:CW 3:SUB (== CW 1), the first child of the SUB node is 3 and the second
 # is 2, not the other way around.
+
+
+# TODO: We should optimise ADD/SUB by 1 to INCR/DECR
 
 
 def multi_opcode(opcode, operands):
@@ -188,29 +192,224 @@ def tree(instructions):
 
 
 
+# TODO: We need to add support for evaluating many of these operations
 opcodes = {
-    'CB':  { 'consume' : 0, 'produce' : 1, 'constant' : True },
-    'CW':  { 'consume' : 0, 'produce' : 1, 'constant' : True },
-    'ADD': { 'consume' : 2, 'produce' : 1, 'commutative' : True },
-    'SUB': { 'consume' : 2, 'produce' : 1},
-    'MUL': { 'consume' : 2, 'produce' : 1, 'commutative' : True },
-    'LW':  { 'consume' : 1, 'produce' : 1},
+    'CB':  { 'byte' : 0x2a, 'consume' : 0, 'produce' : 1, 'constant' : True },
+    'CW':  { 'byte' : 0x2c, 'consume' : 0, 'produce' : 1, 'constant' : True },
+    'ADD': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1, 'commutative' : True },
+    'SUB': { 'byte' : 0x04, 'consume' : 2, 'produce' : 1},
+    'MUL': { 'byte' : 0x06, 'consume' : 2, 'produce' : 1, 'commutative' : True },
+    'SHR': { 'byte' : 0x1c, 'consume' : 2, 'produce' : 1},
+    'SHL': { 'byte' : 0x1a, 'consume' : 2, 'produce' : 1},
+    'AND': { 'byte' : 0x14,'consume' : 2, 'produce' : 1},
+    'LAND': { 'byte' : 0x24, 'consume' : 2, 'produce' : 1},
+    'LOR': { 'byte' : 0x22, 'consume' : 2, 'produce' : 1},
+    'IOR': { 'byte' : 0x16, 'consume' : 2, 'produce' : 1},
+    'XOR': { 'byte' : 0x18, 'consume' : 2, 'produce' : 1},
+    'NOT': { 'byte' : 0x20, 'consume' : 1, 'produce' : 1},
+    'NEG': { 'byte' : 0x10, 'consume' : 1, 'produce' : 1},
+    'ISEQ': { 'byte' : 0x40, 'consume' : 2, 'produce' : 1},
+    'ISNE': { 'byte' : 0x42, 'consume' : 2, 'produce' : 1},
+    'ISGT': { 'byte' : 0x44, 'consume' : 2, 'produce' : 1},
+    'ISGE': { 'byte' : 0x48, 'consume' : 2, 'produce' : 1},
+    'ISLE': { 'byte' : 0x4a, 'consume' : 2, 'produce' : 1},
+    'ISLT': { 'byte' : 0x46, 'consume' : 2, 'produce' : 1},
+    'IDXB': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1},
+    'LB':  { 'byte' : 0x60, 'consume' : 1, 'produce' : 1},
+    'LA':  { 'byte' : 0x26, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
+    'LAB':  { 'byte' : 0x68, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
+    'LAW':  { 'byte' : 0x6a, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
+    'LW':  { 'byte' : 0x62, 'consume' : 1, 'produce' : 1},
+    'LLA':  { 'byte' : 0x28, 'consume' : 1, 'produce' : 1},
+    'LLB':  { 'byte' : 0x64, 'consume' : 1, 'produce' : 1},
+    'LLW':  { 'byte' : 0x66, 'consume' : 1, 'produce' : 1},
+    'INCR':  { 'byte' : 0x0c, 'consume' : 1, 'produce' : 1},
+    'DECR':  { 'byte' : 0x0e, 'consume' : 1, 'produce' : 1},
     'UNKNOWN' : { 'consume' : 0, 'produce': 1},
-    'ZERO': { 'consume' : 0, 'produce' : 1, 'constant' : True }
+    'ZERO': { 'byte' : 0x00, 'consume' : 0, 'produce' : 1, 'constant' : True },
+    'CS' : { 'byte' : 0x2e, 'consume' : 0, 'produce' : 1, 'arguments' : 999 },
+    'CALL' : { 'branch' : True, 'arguments' : 1 },
+    'ICAL' : { 'branch' : True },
+    'BRFLS' : { 'branch' : True, 'arguments' : 1 },
+    'BRNCH' : { 'branch' : True, 'arguments' : 1 },
+    'BRGT' : { 'branch' : True, 'arguments' : 1 },
+    'BRNE' : { 'branch' : True, 'arguments' : 1 },
+    'RET' : { 'branch' : True },
+    # TODO: DROP is temporarily marked as branch=True; it can actually be
+    # handled as part of a sequence of straight line instructions but needs a
+    # bit of special handling so I'm postponing that for now.
+    'DROP' : { 'branch' : True, 'consume' : 1, 'produce' : 0 },
+    'ENTER' : { 'branch' : True },
+    'LEAVE' : { 'branch' : True },
+    'SLB' : { 'branch' : True },
+    'DLB' : { 'branch' : True },
+    'SLW' : { 'branch' : True },
+    'SAW' : { 'branch' : True },
+    'SB' : { 'branch' : True },
+    'SW' : { 'branch' : True },
+    'SAB' : { 'branch' : True },
 }
 
 
 
-#instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
-#instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
-#instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
-########instructions = ['CW 5', 'CW 6', 'ADD', 'ADD']
-instructions = ['CW 5', 'ADD', 'ADD', 'ZERO', 'MUL']
-node = tree(instructions)
-print('Before:\n')
-node.dump()
-print('\nAfter:\n')
-node.optimise()
-node.dump()
-print('\nSerialised:\n')
-node.serialise()
+# TODO!?
+def test():
+    #instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
+    #instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
+    #instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
+    ########instructions = ['CW 5', 'CW 6', 'ADD', 'ADD']
+    instructions = ['CW 5', 'ADD', 'ADD', 'ZERO', 'MUL']
+    node = tree(instructions)
+    print('Before:\n')
+    node.dump()
+    print('\nAfter:\n')
+    node.optimise()
+    node.dump()
+    print('\nSerialised:\n')
+    node.serialise()
+
+
+def optimise(instructions):
+    # TODO!
+    for instruction in instructions:
+        opcode = instruction[0]
+        info = opcodes[opcode]
+        opcode_byte = info['byte']
+        if opcode == 'CS':
+            print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
+            length = int(instruction[1])
+            print("\t!BYTE\t$%02X" % length)
+            i = 2
+            while length > 0:
+                print("\t!BYTE\t%s" % instruction[i])
+                length -= instruction[i].count('$')
+                assert length >= 0
+                i += 1
+        elif info.has_key('arguments') and info['arguments']:
+            print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode_byte, opcode, instruction[1]))
+            padded_label = (instruction[-1] + "   ")[:6]
+            print("%s\t!WORD\t%s\t\t" % (padded_label, instruction[1]))
+        elif opcode == 'CB':
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]), opcode, instruction[1]))
+        elif opcode == 'CW':
+            value = int(instruction[1])
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, value))
+        elif opcode in ('LLA', 'LLB', 'LLW'):
+            value = instruction[1]
+            assert value[0] == '['
+            assert value[-1] == ']'
+            value = value[1:-1]
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(value), opcode, instruction[1]))
+        else:
+            #assert len(instructions) == 1
+            print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
+
+
+
+in_function = False
+lines = fileinput.input()
+line_it = lines.__iter__()
+while True:
+    try:
+        line = line_it.next()
+    except StopIteration:
+        break
+    line = line[:-1]
+    if line.find('JSR\tINTERP') != -1:
+        print(line)
+        in_function = True
+        near_end_function = False
+        instructions = []
+        continue
+    if not in_function:
+        print(line)
+        continue
+
+    signature1 = '; <stdin>: '
+    signature2 = ': end'
+    if line[0:len(signature1)] == signature1 and line.strip()[-len(signature2):] == signature2:
+        # We need to keep consuming lines which start with a tab; a few
+        # bytecodes may follow the comment for the function 'end' line.
+        near_end_function = True
+    if near_end_function and line[0] != '\t':
+        in_function = False
+        print(line)
+        continue
+
+    if line[0] == ';':
+        print(line)
+        continue
+
+    if line[0] != '\t':
+        # We've seen a label, so we can't optimise across this point.
+        # TODO: This code is duplicated in a few places I think
+        optimise(instructions)
+        instructions = []
+        print(line)
+        continue
+
+    # It's almost certainly an instruction. We just rely on the "disassembly"
+    # in the comments.
+    s = line.strip()
+    if s.find(';') == 0:
+        # It's a comment-only line, so the comment isn't a disassembly. Just
+        # pass it through.
+        print(line)
+        continue
+    instruction = line[line.find(';')+1:].split()
+    opcode = instruction[0]
+    info = opcodes[opcode]
+
+    # Some instructions take an argument, which appears on the following line
+    # along with a (harmless, but valuable) label for fix-up purposes. We take
+    # that line now. TODO: The 'arguments' keyword is a bit misnamed; it
+    # doesn't apply to every opcode which takes an argument, it applies to ones
+    # which take "separate line arguments" in the assembly.
+    if info.has_key('arguments') and info['arguments'] > 0:
+        if opcode == 'CS':
+            cs_length = -1
+            while True:
+                try:
+                    line2 = line_it.next()
+                    line2 = line2[:-1]
+                except StopIteration:
+                    die("Missing argument line")
+                line += '\n' + line2
+                s = line2.split()
+                if cs_length == -1:
+                    cs_length = int(s[1][1:], 16)
+                    instruction.append(str(cs_length))
+                else:
+                    instruction.append(s[1])
+                    cs_length -= s[1].count('$')
+                    assert cs_length >= 0
+                if cs_length == 0:
+                    break
+        else:
+            assert info['arguments'] == 1
+            try:
+                line2 = line_it.next()
+                line2 = line2[:-1]
+            except StopIteration:
+                die("Missing argument line")
+            line += '\n' + line2
+            label = line2.split()[0]
+            assert len(instruction) == 2
+            instruction.append(label)
+
+    # Some instructions aren't straight-line instructions and delimit blocks of
+    # optimisable code. TODO: Note that CALL needn't be treated specially if we
+    # knew how many arguments the function took; this information is available
+    # to the compiler, and if we were to view the assembler source in its
+    # entirety for local functions the ENTER opcode would tell us this.
+    # TODO: The keyword 'branch' may be misleading; it really just means 'we
+    # don't/can't optimise sequences of instructions containing this opcode'.
+    if info.has_key('branch') and info['branch']:
+        # TODO: This code is duplicated in a few places I think
+        optimise(instructions)
+        instructions = []
+        print(line)
+        continue
+
+    instructions.append(instruction)
+
