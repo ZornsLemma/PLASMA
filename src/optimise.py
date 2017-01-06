@@ -48,7 +48,9 @@ class Node:
         if (self.can_evaluate() and 
             all(child.is_constant() for child in self.children)):
             value = self.evaluate()
-            if value >= 0 and value <= 255:
+            if value == 0:
+                self.instruction = ['ZERO']
+            elif value > 0 and value <= 255:
                 self.instruction = ['CB', str(value)]
             else:
                 self.instruction = ['CW', str(value)]
@@ -127,11 +129,13 @@ class Node:
 
     def can_evaluate(self):
         return (all(child.is_constant() for child in self.children) and
-                self.instruction[0] in ('CW', 'CB', 'ADD', 'SUB', 'MUL'))
+                self.instruction[0] in ('ZERO', 'CW', 'CB', 'ADD', 'SUB', 'MUL'))
 
     def evaluate(self):
         assert self.can_evaluate()
-        if self.instruction[0] in ('CW', 'CB'):
+        if self.instruction[0] == 'ZERO':
+            value = 0
+        elif self.instruction[0] in ('CW', 'CB'):
             value = int(self.instruction[1])
         elif self.instruction[0] == 'ADD':
             value = self.children[0].evaluate() + self.children[1].evaluate()
@@ -157,18 +161,25 @@ def die(error):
 
 
 
+# instructions should be a straight-line sequence of instructions, i.e. no
+# branches or labels.
 def tree(instructions):
     stack = []
+    # UNKNOWN nodes are only numbered for debugging; this allows us to see
+    # that they are not re-ordered.
+    unknown_count = 0
     for instruction in instructions:
         s = instruction.split()
         opcode = s[0]
         opcode_info = opcodes[opcode]
         node = Node(s)
-        if len(stack) < opcode_info['consume']:
-            die('Stack underflow')
         arguments = []
         for i in range(opcode_info['consume']):
-            node.children.append(stack.pop())
+            if stack:
+                node.children.append(stack.pop())
+            else:
+                node.children.append(Node(['UNKNOWN', str(unknown_count)]))
+                unknown_count += 1
         assert opcode_info['produce'] <= 1
         if opcode_info['produce'] == 1:
             stack.append(node)
@@ -183,14 +194,18 @@ opcodes = {
     'ADD': { 'consume' : 2, 'produce' : 1, 'commutative' : True },
     'SUB': { 'consume' : 2, 'produce' : 1},
     'MUL': { 'consume' : 2, 'produce' : 1, 'commutative' : True },
-    'LW':  { 'consume' : 1, 'produce' : 1}
+    'LW':  { 'consume' : 1, 'produce' : 1},
+    'UNKNOWN' : { 'consume' : 0, 'produce': 1},
+    'ZERO': { 'consume' : 0, 'produce' : 1, 'constant' : True }
 }
 
 
 
 #instructions = ['CW 1000', 'LW', 'CB 2', 'CW 3', 'CW 5', 'SUB', 'CW 10', 'ADD', 'CW 1001', 'LW', 'ADD', 'MUL', 'ADD']
 #instructions = ['CW 1000', 'LW', 'CW 10', 'SUB']
-instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
+#instructions = ['CW 1000', 'LW', 'CB 5', 'MUL', 'CB 4', 'MUL']
+########instructions = ['CW 5', 'CW 6', 'ADD', 'ADD']
+instructions = ['CW 5', 'ADD', 'ADD', 'ZERO', 'MUL']
 node = tree(instructions)
 print('Before:\n')
 node.dump()
