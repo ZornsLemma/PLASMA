@@ -170,23 +170,13 @@ class Node:
         return info.has_key('commutative') and info['commutative']
 
     def can_evaluate(self):
+        info = opcodes[self.instruction[0]]
         return (all(child.is_constant() for child in self.children) and
-                self.instruction[0] in ('ZERO', 'CW', 'CB', 'ADD', 'SUB', 'MUL'))
+                info.has_key('evaluate_fn'))
 
     def evaluate(self):
         assert self.can_evaluate()
-        if self.instruction[0] == 'ZERO':
-            value = 0
-        elif self.instruction[0] in ('CW', 'CB'):
-            value = int(self.instruction[1])
-        elif self.instruction[0] == 'ADD':
-            value = self.children[0].evaluate() + self.children[1].evaluate()
-        elif self.instruction[0] == 'SUB':
-            value = self.children[1].evaluate() - self.children[0].evaluate()
-        elif self.instruction[0] == 'MUL':
-            value = self.children[0].evaluate() * self.children[1].evaluate()
-        else:
-            assert False
+        value = opcodes[self.instruction[0]]['evaluate_fn'](self)
         value = value & 0xffff
         return value
 
@@ -238,11 +228,17 @@ def tree(instructions):
 
 # TODO: We need to add support for evaluating many of these operations
 opcodes = {
-    'CB':  { 'byte' : 0x2a, 'consume' : 0, 'produce' : 1, 'constant' : True },
-    'CW':  { 'byte' : 0x2c, 'consume' : 0, 'produce' : 1, 'constant' : True },
-    'ADD': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1, 'commutative' : True },
-    'SUB': { 'byte' : 0x04, 'consume' : 2, 'produce' : 1},
-    'MUL': { 'byte' : 0x06, 'consume' : 2, 'produce' : 1, 'commutative' : True },
+    'CB':  { 'byte' : 0x2a, 'consume' : 0, 'produce' : 1, 'constant' : True,
+        'evaluate_fn' : lambda node : int(node.instruction[1]) },
+    'CW':  { 'byte' : 0x2c, 'consume' : 0, 'produce' : 1, 'constant' : True,
+        'evaluate_fn' : lambda node : int(node.instruction[1]) },
+    'ADD': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1, 'commutative' : True,
+        'evaluate_fn' : lambda node : node.children[0].evaluate() +
+        node.children[1].evaluate()},
+    'SUB': { 'byte' : 0x04, 'consume' : 2, 'produce' : 1, 
+        'evaluate_fn' : lambda node : node.children[1].evaluate() - node.children[0].evaluate() },
+    'MUL': { 'byte' : 0x06, 'consume' : 2, 'produce' : 1, 'commutative' : True,
+        'evaluate_fn' : lambda node : node.children[0].evaluate() * node.children[1].evaluate() },
     'SHR': { 'byte' : 0x1c, 'consume' : 2, 'produce' : 1},
     'SHL': { 'byte' : 0x1a, 'consume' : 2, 'produce' : 1},
     'AND': { 'byte' : 0x14,'consume' : 2, 'produce' : 1},
@@ -271,7 +267,8 @@ opcodes = {
     'INCR':  { 'byte' : 0x0c, 'consume' : 1, 'produce' : 1},
     'DECR':  { 'byte' : 0x0e, 'consume' : 1, 'produce' : 1},
     'UNKNOWN' : { 'consume' : 0, 'produce': 1},
-    'ZERO': { 'byte' : 0x00, 'consume' : 0, 'produce' : 1, 'constant' : True },
+    'ZERO': { 'byte' : 0x00, 'consume' : 0, 'produce' : 1, 'constant' : True,
+        'evaluate_fn': lambda node: 0},
     'CS' : { 'byte' : 0x2e, 'consume' : 0, 'produce' : 1, 'arguments' : 999 },
     'CALL' : { 'branch' : True, 'arguments' : 1 },
     'ICAL' : { 'branch' : True },
