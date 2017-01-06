@@ -4,9 +4,12 @@ import sys
 
 
 
-# Taking precedent from SUB, which subtracts next from top from top, if we have
-# CW 2:CW 3:SUB (== CW 1), the first child of the SUB node is 3 and the second
-# is 2, not the other way around.
+# Despite the comments in the README, looking at the code shows that SUB does
+# (next from top)-top. 
+
+# When we build a tree node from a two-argument opcode, we make the topmost
+# argument the first child of our tree nodes. This has the minor advantage that
+# any "UNKNOWN" nodes should stay together at the front (TODO: I think).
 
 
 # TODO: We should optimise ADD/SUB by 1 to INCR/DECR
@@ -102,6 +105,20 @@ class Node:
                 for child in self.children:
                     child.optimise()
 
+        # Adding 1 can be accomplished via INCR.
+        if (self.instruction[0] == 'ADD' and
+            self.children[0].is_constant() and
+            self.children[0].evaluate() == 1):
+            self.instruction[0] = 'INCR'
+            del self.children[0]
+
+        # Subtracting 1 can be accomplished via DECR.
+        if (self.instruction[0] == 'SUB' and
+            self.children[0].is_constant() and
+            self.children[0].evaluate() == 1):
+            self.instruction[0] = 'DECR'
+            del self.children[0]
+
         # 'CB 2:MUL:ADD' == 'IDXW' TODO: Possibly we should expand IDXW out at
         # some earlier point, to open up constant folding opportunities? This
         # might obviate/improve on the need for the optimisation below.
@@ -165,7 +182,7 @@ class Node:
         elif self.instruction[0] == 'ADD':
             value = self.children[0].evaluate() + self.children[1].evaluate()
         elif self.instruction[0] == 'SUB':
-            value = self.children[0].evaluate() - self.children[1].evaluate()
+            value = self.children[1].evaluate() - self.children[0].evaluate()
         elif self.instruction[0] == 'MUL':
             value = self.children[0].evaluate() * self.children[1].evaluate()
         else:
@@ -309,7 +326,7 @@ def test():
     node.optimise()
     node.dump()
     print('\nSerialised:\n')
-    node.serialise()
+    print(node.serialise())
 
 
 def optimise(instructions):
