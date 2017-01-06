@@ -41,7 +41,12 @@ class Node:
 
     # TODO: We probably need to repeat this more than once, as I think some
     # optimisations both depend on (e.g.) const folding of children, and in
-    # turn make more const folding possible
+    # turn make more const folding possible. But I may have managed to avoid
+    # this, not sure, think about it.
+
+    # TODO: I think this needs to be much more reticent about making changes
+    # where there are UNKNOWN values in the tree. (That's what they're there
+    # for...)
     def optimise(self):
         for child in self.children:
             child.optimise()
@@ -74,14 +79,6 @@ class Node:
                     self.children[1].evaluate() == 2):
                         self.children[0], self.children[1] = self.children[1], self.children[0]
 
-        # 'CB 2:MUL:ADD' == 'IDXW'
-        if (self.instruction[0] == 'ADD' and
-            self.children[0].instruction[0] == 'MUL' and
-            self.children[0].children[0].is_constant() and
-            self.children[0].children[0].evaluate() == 2):
-            self.instruction = ['IDXW']
-            self.children[0] = self.children[0].children[1]
-
         # If this operation is associative (TODO: we just use the 'commutative'
         # property for now, as I am not sure we have any which are one but not
         # the other, but think about it) and one or both of its children are
@@ -104,6 +101,30 @@ class Node:
                 self.children = [s[0], multi_opcode(self.instruction[0], s[1:])]
                 for child in self.children:
                     child.optimise()
+
+        # 'CB 2:MUL:ADD' == 'IDXW' TODO: Possibly we should expand IDXW out at
+        # some earlier point, to open up constant folding opportunities? This
+        # might obviate/improve on the need for the optimisation below.
+        if (self.instruction[0] == 'ADD' and
+            self.children[0].instruction[0] == 'MUL' and
+            self.children[0].children[0].is_constant() and
+            self.children[0].children[0].evaluate() == 2):
+            self.instruction = ['IDXW']
+            self.children[0] = self.children[0].children[1]
+
+        # If we're adding (TODO: or subtracting) a constant to the result of an
+        # IDXW which has a constant base address, we can fold our constant into
+        # it. 
+        if (self.instruction[0] == 'ADD' and 
+            self.children[0].is_constant() and
+            self.children[1].instruction[0] == 'IDXW' and
+            self.children[1].children[1].is_constant()):
+            self.instruction = self.children[1].instruction
+            new_children = self.children[1].children
+            new_children[1].instruction[1] = str((new_children[1].evaluate() + self.children[0].evaluate() & 0xfff))
+            self.children = new_children
+
+
 
 
     # Given an opcode like "MUL", this pulls out all the nodes
@@ -221,6 +242,7 @@ opcodes = {
     'ISLE': { 'byte' : 0x4a, 'consume' : 2, 'produce' : 1},
     'ISLT': { 'byte' : 0x46, 'consume' : 2, 'produce' : 1},
     'IDXB': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1},
+    'IDXW': { 'byte' : 0x1e, 'consume' : 2, 'produce' : 1},
     'LB':  { 'byte' : 0x60, 'consume' : 1, 'produce' : 1},
     'LA':  { 'byte' : 0x26, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
     'LAB':  { 'byte' : 0x68, 'consume' : 1, 'produce' : 1, 'arguments' : 1},
@@ -343,8 +365,8 @@ def emit(instructions):
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
 
 
-test()
-sys.exit(0)
+#test()
+#sys.exit(0)
 
 in_function = False
 lines = fileinput.input()

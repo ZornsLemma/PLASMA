@@ -1052,6 +1052,7 @@ def jmpbufsz(jb)
 	size = esp_size + 2 * (estksz_elems - jb->esp_offset) + ifp_size + pp_size
 	stack_ptr = ^(jb + size)
 	size = size + stack_ptr_size + (255 - stack_ptr)
+	cout('E'); prword(size) // TODO TEMP
 	return size
 end
 

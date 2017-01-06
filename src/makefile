@@ -98,6 +98,9 @@ $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
 	./$(PLASM) -A < vmsrc/32cmd.pla > vmsrc/32cmd.a
+	# TODO TEMP
+	mv vmsrc/32cmd.a vmsrc/32cmd.a.orig
+	python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
