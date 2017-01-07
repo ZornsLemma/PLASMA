@@ -12,6 +12,10 @@ import sys
 # any "UNKNOWN" nodes should stay together at the front (TODO: I think).
 
 
+# TODO: Note that my idea of optimising directly on bytecode modules is great,
+# *except* that the bytecode included in the PLASMA/PLAS128 binaries doesn't
+# (currently; this might be changeable, I think that Apple II VM does work like
+# that) get compiled to a module, so it then couldn't be optimised.
 
 # TODO: It may not fit neatly into the current framework, but if we have
 # repeated CB/CW instructions, we could optimised all but the first into DUP
