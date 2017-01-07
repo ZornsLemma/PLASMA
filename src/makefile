@@ -308,7 +308,7 @@ bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
-	cc -DDEBUG -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
+	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
 	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
 
 stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)

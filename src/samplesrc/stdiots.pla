@@ -134,7 +134,7 @@ end
 
 def random_test(seed)
     const memory_size = 8192
-    const buffer_size = 8192
+    const buffer_size = 4096
     const block_size = 128
     const record_size = 2
     word saved_heap
@@ -201,14 +201,10 @@ def random_test(seed)
 		// TODO: Get rid of literal strings in here
 		random_count = rand(block_size) / record_size
 		count_stdio = fread(@block, record_size, random_count, file)
-		putc('P'); prword(count_stdio); putln();
 		count_mem = 0
 		tmp_ptr = @block
 		while random_count > 0 and (max_ptr - ptr) >= record_size
-		    putc('C'); prword(count_mem); putln();
 		    for k = 0 to record_size - 1
-			putc('D'); prword(k); putln();
-			prbyte(^(memory + ptr+k)); putc('-'); prbyte(^(tmp_ptr+k))
 			assert(^(memory + ptr + k) == ^(tmp_ptr + k), "fread1")
 		    next
 		    random_count--
@@ -216,7 +212,6 @@ def random_test(seed)
 		    ptr = ptr + record_size
 		    tmp_ptr = tmp_ptr + record_size
 		loop
-		putc('!'); prword(count_stdio); putc('-'); prword(count_mem)
 		assert(count_stdio == count_mem, "fread2")
 	    fin
 	    if ptr >= memory_size

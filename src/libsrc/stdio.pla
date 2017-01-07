@@ -6,7 +6,7 @@
 
 // TODO: stdin support?
 
-// TODO: ungetc(), fread() and fwrite() are completely untested
+// TODO: ungetc(), fwrite() are completely untested
 
 // TODO: ftell()/ftell32()
 
@@ -25,9 +25,7 @@
 // wrapper around the OS calls. If do that, compare performance with this
 // one and if this is slower then either ditch it or fix the problem!
 
-// TODONOW: fread()/fwrite() - these should be able to do fast memcpy
-// into/out of the buffer where possible - this could have a big impact
-// on the implementation so be good to get it done now.
+// TODONOW: fwrite()
 
 // TODO: If we allow BRK errors to escape, we need to be sure that the
 // FILE object is left in a valid state afterwards ("exception safety")
@@ -524,7 +522,6 @@ end
 // int fread(void *ptr, size_t size, size_t count, FILE *file)
 // Returns number of records of 'size'-bytes; error or EOF
 // indicated by returning a number less than count. TODO: make that so!
-// TODO: WORK IN PROGRESS
 export def fread(ptr, size, count, file)
     byte bytes_available[4]
     word bytes_to_read, index, bytes_from_buffer
@@ -556,13 +553,11 @@ export def fread(ptr, size, count, file)
     if dword_isuword(@bytes_available)
 	// TODO: Will this work if @bytes_available has b15 set? We need unsigned
 	// division rounding down.
-	putc('B'); prword(dword_touword(@bytes_available)); putln()
 	count = minu(count, dword_touword(@bytes_available) / size)
     else
 	// More than 64K available to read, so we can return the full 'count'
 	// records requested.
     fin
-    putc('A'); prword(count); putln()
 
     bytes_to_read = count * size
 
@@ -582,16 +577,12 @@ export def fread(ptr, size, count, file)
 	index = file=>r_buffer_used // no bytes in buffer
     fin
 
-    putc('Z'); prword(bytes_to_read); putln()
     // We know we're reading at least one record if we get this far.
     while TRUE
 	bytes_from_buffer = minu(file=>r_buffer_used - index, bytes_to_read)
-	putc('Y'); prword(bytes_from_buffer); putln()
-	putc('X'); prword(index); putln()
 	memcpy(ptr, file + r_buffer + index, bytes_from_buffer)
 	ptr = ptr + bytes_from_buffer
 	bytes_to_read = bytes_to_read - bytes_from_buffer
-	putc('Q'); prword(bytes_to_read); putln()
 	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
 
 	if bytes_to_read == 0
