@@ -134,7 +134,7 @@ end
 
 def random_test(seed)
     const memory_size = 8192
-    const buffer_size = 4096
+    const buffer_size = 2048
     const block_size = 128
     const record_size = 2
     word saved_heap
