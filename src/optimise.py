@@ -12,8 +12,24 @@ import sys
 # any "UNKNOWN" nodes should stay together at the front (TODO: I think).
 
 
-# TODO: We should optimise ADD/SUB by 1 to INCR/DECR
 
+# TODO: It may not fit neatly into the current framework, but if we have
+# repeated CB/CW instructions, we could optimised all but the first into DUP
+# instructions (which are 1-2 bytes shorter)
+
+# TODO: I don't know if it ever happens, but if we have a store followed by a
+# load fom the same address, we could optimise by changing STORE:LOAD into
+# DUP:STORE. This doesn't fit well with the current framework as stores aren't
+# in the node tree, but it would be trivial for a peephole optimiser to do on
+# the serialised output. (There is an instance of this towards the end of
+# readfile() in 32cmd.a.)
+
+# TODO: I am getting the idea that the tree-based optimisation is good for some
+# things, but some optimisations would be better done on the serialised output
+# - and ideally (obviously not if a label intervenes) this is done on the whole
+# serialised output, not on little chunks.
+
+# TODO: NOT+BRFLS can be replaced by BRTRU and vice versa
 
 def remove_square_brackets(s):
     assert s[0] == '['
