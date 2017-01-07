@@ -15,6 +15,12 @@ import sys
 # TODO: We should optimise ADD/SUB by 1 to INCR/DECR
 
 
+def remove_square_brackets(s):
+    assert s[0] == '['
+    assert s[-1] == ']'
+    return s[1:-1]
+
+
 def multi_opcode(opcode, operands):
     assert len(operands) > 0
     if len(operands) == 1:
@@ -140,6 +146,15 @@ class Node:
             new_children = self.children[1].children
             new_children[1].instruction[1] = str((new_children[1].evaluate() + self.children[0].evaluate() & 0xfff))
             self.children = new_children
+
+        # LLW [n]:CB 8:SHR can be replaced by LLB [n+1] TODO: There are
+        # probably similar optimisations for other opcodes
+        if (self.instruction[0] == 'SHR' and
+            self.children[0].is_constant() and
+            self.children[0].evaluate() == 8 and
+            self.children[1].instruction[0] == 'LLW'):
+            self.instruction = ['LLB', '[' + str(int(remove_square_brackets(self.children[1].instruction[1])) + 1) + ']']
+            self.children = []
 
 
 
@@ -369,10 +384,7 @@ def emit(instructions):
             value = int(instruction[1])
             print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, value))
         elif opcode in ('LLA', 'LLB', 'LLW'):
-            value = instruction[1]
-            assert value[0] == '['
-            assert value[-1] == ']'
-            value = value[1:-1]
+            value = remove_square_brackets(instruction[1])
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(value), opcode, instruction[1]))
         else:
             #assert len(instructions) == 1
