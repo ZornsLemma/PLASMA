@@ -9,7 +9,7 @@ const ifp          = $0071
 const pp           = $0073
 const himemh       = $0078
 const cpu_stack	   = $0100
-const symtblsz     = $0800 // TODO TEMP MOVED UP FROM 400
+const symtblsz     = $0400
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
