@@ -6,6 +6,7 @@ import stdio
     predef fflush
     predef fgetc, fputc
     predef fputs
+    predef fread
     predef fseek32, fseek
 end
 

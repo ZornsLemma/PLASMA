@@ -135,14 +135,20 @@ end
 def random_test(seed)
     const memory_size = 8192
     const buffer_size = 8192
+    const block_size = 128
+    const record_size = 2
     word saved_heap
     word file
     word i, j
+    word k
     word memory
-    word ptr, max_ptr
+    word ptr, max_ptr, tmp_ptr
     word op
     word c, d
     word subseed
+    word random_count
+    byte block[block_size]
+    word count_mem, count_stdio
     max_ptr = 0
     seedrand(seed)
     memory = heapalloc(memory_size)
@@ -160,7 +166,7 @@ def random_test(seed)
 	assert(file, "open")
 	ptr = 0
 	for j = 1 to 1024 // TODO: SHOULD BE RANDOM OR LARGE-ISH FIXED
-	    op = rand(10)
+	    op = rand(15)
 	    //TODO TEMP
 	    //putc('Q'); prbyte(i); putc(' '); prword(j); putc(' '); prbyte(op); putln()
 	    //puts("XXX"); prbyte(^(memory+$1EB4)); putln()
@@ -178,7 +184,7 @@ def random_test(seed)
 		if ptr > max_ptr
 		    max_ptr = ptr
 		fin
-	    else
+	    elsif op <= 10
 		if ptr >= max_ptr
 		    c = EOF
 		else
@@ -191,6 +197,27 @@ def random_test(seed)
 		    putln()
 		    assert(FALSE, "fgetc")
 		fin
+	    else
+		// TODO: Get rid of literal strings in here
+		random_count = rand(block_size) / record_size
+		count_stdio = fread(@block, record_size, random_count, file)
+		putc('P'); prword(count_stdio); putln();
+		count_mem = 0
+		tmp_ptr = @block
+		while random_count > 0 and (max_ptr - ptr) >= record_size
+		    putc('C'); prword(count_mem); putln();
+		    for k = 0 to record_size - 1
+			putc('D'); prword(k); putln();
+			prbyte(^(memory + ptr+k)); putc('-'); prbyte(^(tmp_ptr+k))
+			assert(^(memory + ptr + k) == ^(tmp_ptr + k), "fread1")
+		    next
+		    random_count--
+		    count_mem++
+		    ptr = ptr + record_size
+		    tmp_ptr = tmp_ptr + record_size
+		loop
+		putc('!'); prword(count_stdio); putc('-'); prword(count_mem)
+		assert(count_stdio == count_mem, "fread2")
 	    fin
 	    if ptr >= memory_size
 		ptr = 0

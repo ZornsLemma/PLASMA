@@ -529,6 +529,10 @@ export def fread(ptr, size, count, file)
     byte bytes_available[4]
     word bytes_to_read, index, bytes_from_buffer
 
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fread-<", file)
+#endif
+
     // This must be a no-op if size or count is 0. We could nearly just let
     // this go through the normal control flow, but that might set the EOF 
     // flag if the file pointer is at or past the length.
@@ -548,15 +552,17 @@ export def fread(ptr, size, count, file)
     // Adjust 'count' if necessary to reflect the amount of data left; we will
     // only try to read this many records, so we can't encounter EOF in the
     // rest of this function.
-    dword_sub(@bytes_available, file + r_length, file + r_buffer_file_ptr)
+    dword_sub(@bytes_available, file + r_length, file + r_file_ptr)
     if dword_isuword(@bytes_available)
 	// TODO: Will this work if @bytes_available has b15 set? We need unsigned
 	// division rounding down.
-	count = dword_touword(@bytes_available) / size
+	putc('B'); prword(dword_touword(@bytes_available)); putln()
+	count = minu(count, dword_touword(@bytes_available) / size)
     else
 	// More than 64K available to read, so we can return the full 'count'
 	// records requested.
     fin
+    putc('A'); prword(count); putln()
 
     bytes_to_read = count * size
 
@@ -576,13 +582,20 @@ export def fread(ptr, size, count, file)
 	index = file=>r_buffer_used // no bytes in buffer
     fin
 
+    putc('Z'); prword(bytes_to_read); putln()
     while isugt(bytes_to_read, 0)
 	bytes_from_buffer = minu(file=>r_buffer_used - index, bytes_to_read)
+	putc('Y'); prword(bytes_from_buffer); putln()
+	putc('X'); prword(index); putln()
 	memcpy(ptr, file + r_buffer + index, bytes_from_buffer)
 	ptr = ptr + bytes_from_buffer
 	bytes_to_read = bytes_to_read - bytes_from_buffer
+	putc('Q'); prword(bytes_to_read); putln()
 	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
 
+	// TODO: I THINK WE NEED TO AVOID DOING THIS IF WE'VE ALREADY READ
+	// EVERYTHING WE WANT, OTHERWISE IT MAY DISCARD USEFUL PARTIAL BUFFER
+	// CONTENTS
 	if fill_buffer(file) == EOF
 	    // TODO: As above, is this division safe? We want unsigned division.
 	    return ((count * size) - bytes_to_read) / size // records actually read
@@ -590,6 +603,9 @@ export def fread(ptr, size, count, file)
 	index = 0
     loop
 
+#ifdef DEBUG
+	debug_dump_file("fread->", file)
+#endif
     return count
 end
 

@@ -99,8 +99,7 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
 	./$(PLASM) -A < vmsrc/32cmd.pla > vmsrc/32cmd.a
 	# TODO TEMP
-	mv vmsrc/32cmd.a vmsrc/32cmd.a.orig
-	python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
+	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
@@ -309,7 +308,7 @@ bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
-	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
+	cc -DDEBUG -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
 	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
 
 stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)
