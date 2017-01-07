@@ -1193,6 +1193,13 @@ end
 // TODO: And/or maybe we should have a global flag which if set causes
 // this to oserror() if it would return 0 - because lots of code won't
 // bother checking one way or another.
+// TODO: Maybe that global flag should be a size threshold; below that
+// threshold we oserror(), above it we return 0. Setting threshold to
+// 0 will allow all allocations to return 0 if they fail. The idea
+// being that I suspect "most" programs won't expect small allocations
+// to fail and will have no way to cope if they do, whereas large
+// allocations are more likely to be special and failures can be
+// handled correctly.
 def allocheap(size)
     word addr
     addr = *heapptr

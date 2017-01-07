@@ -6,8 +6,7 @@
 
 // TODO: stdin support?
 
-// TODONOW: ungetc() - this could have a big impact on the
-// implementation so be good to get it done now
+// TODO: ungetc(), fread() and fwrite() are completely untested
 
 // TODO: ftell()/ftell32()
 
@@ -562,7 +561,7 @@ export def fread(ptr, size, count, file)
     bytes_to_read = count * size
 
     // Handle any pushed back character
-    if bytes_to_read <> 0 and file=>r_pushback <> EOF
+    if file=>r_pushback <> EOF and bytes_to_read <> 0
 	^ptr = file=>r_pushback
 	ptr++
 	bytes_to_read--
@@ -585,6 +584,7 @@ export def fread(ptr, size, count, file)
 	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
 
 	if fill_buffer(file) == EOF
+	    // TODO: As above, is this division safe? We want unsigned division.
 	    return ((count * size) - bytes_to_read) / size // records actually read
 	fin
 	index = 0
