@@ -583,7 +583,8 @@ export def fread(ptr, size, count, file)
     fin
 
     putc('Z'); prword(bytes_to_read); putln()
-    while isugt(bytes_to_read, 0)
+    // We know we're reading at least one record if we get this far.
+    while TRUE
 	bytes_from_buffer = minu(file=>r_buffer_used - index, bytes_to_read)
 	putc('Y'); prword(bytes_from_buffer); putln()
 	putc('X'); prword(index); putln()
@@ -593,9 +594,10 @@ export def fread(ptr, size, count, file)
 	putc('Q'); prword(bytes_to_read); putln()
 	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
 
-	// TODO: I THINK WE NEED TO AVOID DOING THIS IF WE'VE ALREADY READ
-	// EVERYTHING WE WANT, OTHERWISE IT MAY DISCARD USEFUL PARTIAL BUFFER
-	// CONTENTS
+	if bytes_to_read == 0
+	    break
+	fin
+
 	if fill_buffer(file) == EOF
 	    // TODO: As above, is this division safe? We want unsigned division.
 	    return ((count * size) - bytes_to_read) / size // records actually read
