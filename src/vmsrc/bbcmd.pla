@@ -1623,14 +1623,7 @@ def execmod(modfile)
 #ifdef PLAS128
     word savexheap
 #endif
-    word savesym, saveflags, error, action, olderrjb
-    // We know that we have a fairly shallow CPU stack here so we can
-    // get away with this small jmp_buf on the stack; this saves us
-    // having to allocate a fixed block of memory for it. (We can't
-    // allocate on the heap temporarily here, as the space would get
-    // 'trapped' below the loaded module if it's to remain resident.)
-    const ourjbsz = 128
-    byte jb[ourjbsz]
+    word savesym, saveflags, error, action, olderrjb, jb
 
     perr = 1
     if stodci(modfile, @moddci)
@@ -1641,14 +1634,18 @@ def execmod(modfile)
 	savesym   = lastsym
 	saveflags = systemflags
         olderrjb = *errjb
-	error = setjmp(@jb)
+	// We allocate a jmp_buf on the heap; it will get trapped and
+	// leaked if the module being executed remains resident, but
+	// that can't really be helped (and it will be fairly small).
+	// We can't allocate a local jmp_buf because the address of
+	// it would change if the executed module changes mode and
+	// thereby alters HIMEM; mode() will relocate the frame
+	// stack but it won't patch up the address at *errjb.
+	jb = saveheap
+	error = setjmp(jb)
 	if error == 0
-	    *errjb = @jb
-	    // TODO: This check should never fail and it could be removed
-	    // to shrink the VM size slightly.
-	    if jmpbufsz(@jb) > ourjbsz
-	    	oserror(0, "jmp_buf overflow!")
-	    fin
+	    allocheap(jmpbufsz(jb))
+	    *errjb = jb
 	    action = loadmod(@moddci)
 	fin
 	*errjb = olderrjb
