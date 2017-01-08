@@ -21,19 +21,10 @@ import sys
 # repeated CB/CW instructions, we could optimised all but the first into DUP
 # instructions (which are 1-2 bytes shorter)
 
-# TODO: I don't know if it ever happens, but if we have a store followed by a
-# load fom the same address, we could optimise by changing STORE:LOAD into
-# DUP:STORE. This doesn't fit well with the current framework as stores aren't
-# in the node tree, but it would be trivial for a peephole optimiser to do on
-# the serialised output. (There is an instance of this towards the end of
-# readfile() in 32cmd.a.)
-
 # TODO: I am getting the idea that the tree-based optimisation is good for some
 # things, but some optimisations would be better done on the serialised output
 # - and ideally (obviously not if a label intervenes) this is done on the whole
 # serialised output, not on little chunks.
-
-# TODO: NOT+BRFLS can be replaced by BRTRU and vice versa
 
 def remove_square_brackets(s):
     assert s[0] == '['
@@ -308,6 +299,7 @@ opcodes = {
     'CALL' : { 'byte' : 0x54, 'branch' : True, 'arguments' : 1 },
     'ICAL' : { 'byte' : 0x56, 'branch' : True },
     'BRFLS' : { 'byte' : 0x4c, 'branch' : True, 'arguments' : 1 },
+    'BRTRU' : { 'byte' : 0x4e, 'branch' : True, 'arguments' : 1 },
     'BRNCH' : { 'byte' : 0x50, 'branch' : True, 'arguments' : 1 },
     'BRGT' : { 'byte' : 0x38, 'branch' : True, 'arguments' : 1 },
     'BRNE' : { 'byte' : 0x3e, 'branch' : True, 'arguments' : 1 },
@@ -486,6 +478,14 @@ def peephole_optimise(function_body):
             new_body.append(this_instruction)
             new_body.extend(pending_comments)
             new_body.append(['DUP'])
+            i = j
+            continue
+
+        if (this_instruction[0] == 'NOT' and
+            next_instruction[0] in ('BRFLS', 'BRTRU')):
+            new_body.extend(pending_comments)
+            new_opcode = 'BRFLS' if next_instruction[0] == 'BRTRU' else 'BRTRU'
+            new_body.append([new_opcode] + next_instruction[1:])
             i = j
             continue
 
