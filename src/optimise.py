@@ -305,26 +305,26 @@ opcodes = {
     'ZERO': { 'byte' : 0x00, 'consume' : 0, 'produce' : 1, 'constant' : True,
         'evaluate_fn': lambda node: 0},
     'CS' : { 'byte' : 0x2e, 'consume' : 0, 'produce' : 1, 'arguments' : 999 },
-    'CALL' : { 'branch' : True, 'arguments' : 1 },
-    'ICAL' : { 'branch' : True },
-    'BRFLS' : { 'branch' : True, 'arguments' : 1 },
-    'BRNCH' : { 'branch' : True, 'arguments' : 1 },
-    'BRGT' : { 'branch' : True, 'arguments' : 1 },
-    'BRNE' : { 'branch' : True, 'arguments' : 1 },
-    'RET' : { 'branch' : True },
+    'CALL' : { 'byte' : 0x54, 'branch' : True, 'arguments' : 1 },
+    'ICAL' : { 'byte' : 0x56, 'branch' : True },
+    'BRFLS' : { 'byte' : 0x4c, 'branch' : True, 'arguments' : 1 },
+    'BRNCH' : { 'byte' : 0x50, 'branch' : True, 'arguments' : 1 },
+    'BRGT' : { 'byte' : 0x38, 'branch' : True, 'arguments' : 1 },
+    'BRNE' : { 'byte' : 0x3e, 'branch' : True, 'arguments' : 1 },
+    'RET' : { 'byte' : 0x5c, 'branch' : True },
     # TODO: DROP is temporarily marked as branch=True; it can actually be
     # handled as part of a sequence of straight line instructions but needs a
     # bit of special handling so I'm postponing that for now.
-    'DROP' : { 'branch' : True, 'consume' : 1, 'produce' : 0 },
-    'ENTER' : { 'branch' : True },
-    'LEAVE' : { 'branch' : True },
-    'SLB' : { 'branch' : True },
-    'DLB' : { 'branch' : True },
-    'SLW' : { 'branch' : True },
-    'SAW' : { 'branch' : True },
-    'SB' : { 'branch' : True },
-    'SW' : { 'branch' : True },
-    'SAB' : { 'branch' : True },
+    'DROP' : { 'byte' : 0x30, 'branch' : True, 'consume' : 1, 'produce' : 0 },
+    'ENTER' : { 'byte' : 0x58, 'branch' : True },
+    'LEAVE' : { 'byte' : 0x5a, 'branch' : True },
+    'SLB' : { 'byte' : 0x74, 'branch' : True },
+    'DLB' : { 'byte' : 0x6c, 'branch' : True },
+    'SLW' : { 'byte' : 0x76, 'branch' : True},
+    'SAW' : { 'byte' : 0x7a, 'branch' : True, 'arguments' : 1 },
+    'SB' : { 'byte' : 0x70, 'branch' : True },
+    'SW' : { 'byte' : 0x72, 'branch' : True },
+    'SAB' : { 'byte' : 0x78, 'branch' : True, 'arguments' : 1 },
 }
 
 
@@ -375,6 +375,9 @@ def emit(instructions):
     last_unknown = -1
     for instruction in instructions:
         opcode = instruction[0]
+        if opcode in ('COMMENT', 'LABEL'):
+            print(instruction[1])
+            continue
         info = opcodes[opcode]
         if opcode == 'UNKNOWN':
             assert last_unknown <> -999
@@ -383,6 +386,7 @@ def emit(instructions):
             last_unknown = int(instruction[1])
             continue
         last_unknown = -999
+        #print(instruction) # TODO TEMP
         opcode_byte = info['byte']
         if opcode == 'CS':
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
@@ -396,23 +400,46 @@ def emit(instructions):
                 i += 1
         elif info.has_key('arguments') and info['arguments']:
             print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode_byte, opcode, instruction[1]))
-            padded_label = (instruction[-1] + "   ")[:6]
-            print("%s\t!WORD\t%s\t\t" % (padded_label, instruction[1]))
+            if instruction[-2]:
+                padded_label = (instruction[-2] + "   ")[:6]
+                print("%s\t!WORD\t%s\t\t" % (padded_label, instruction[-1]))
+            else:
+                print("\t!WORD\t%s" % instruction[-1])
         elif opcode == 'CB':
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]), opcode, instruction[1]))
         elif opcode == 'CW':
             value = int(instruction[1])
             print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, value))
-        elif opcode in ('LLA', 'LLB', 'LLW'):
+        elif opcode in ('LLA', 'LLB', 'LLW', 'SLB', 'SLW', 'DLB'):
             value = remove_square_brackets(instruction[1])
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(value), opcode, instruction[1]))
+        elif opcode == 'ENTER':
+            s = instruction[1].split(',')
+            a = int(s[0])
+            b = int(s[1])
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, a, b, opcode, instruction[1]))
         else:
             #assert len(instructions) == 1
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
 
 
+def peephole_optimise(function_body):
+    pass # TODO!
+
+
+def tree_optimise(function_body):
+    pass # TODO!
+
+
+def optimise_function(function_body):
+    peephole_optimise(function_body)
+    tree_optimise(function_body)
+    emit(function_body)
+
+
 #test()
 #sys.exit(0)
+
 
 in_function = False
 lines = fileinput.input()
@@ -421,13 +448,15 @@ while True:
     try:
         line = line_it.next()
     except StopIteration:
+        if function_body:
+            optimise_function(function_body)
         break
     line = line[:-1]
     if line.find('JSR\tINTERP') != -1:
         print(line)
         in_function = True
         near_end_function = False
-        instructions = []
+        function_body = []
         continue
     if not in_function:
         print(line)
@@ -441,29 +470,28 @@ while True:
         near_end_function = True
     if near_end_function and line[0] != '\t':
         in_function = False
+        optimise_function(function_body)
         print(line)
         continue
 
     if line[0] == ';':
-        print(line)
+        function_body.append(['COMMENT', line])
         continue
 
     if line[0] != '\t':
-        # We've seen a label, so we can't optimise across this point.
-        # TODO: This code is duplicated in a few places I think
-        optimise(instructions)
-        instructions = []
-        print(line)
+        # We've seen a label
+        function_body.append(['LABEL', line])
         continue
 
-    # It's almost certainly an instruction. We just rely on the "disassembly"
-    # in the comments.
     s = line.strip()
     if s.find(';') == 0:
         # It's a comment-only line, so the comment isn't a disassembly. Just
         # pass it through.
-        print(line)
+        function_body.append(['COMMENT', line])
         continue
+
+    # It's almost certainly an instruction. We just rely on the "disassembly"
+    # in the comments.
     instruction = line[line.find(';')+1:].split()
     opcode = instruction[0]
     info = opcodes[opcode]
@@ -501,23 +529,9 @@ while True:
             except StopIteration:
                 die("Missing argument line")
             line += '\n' + line2
-            label = line2.split()[0]
+            label = line2.split('\t')[0]
+            value = line2.split('\t')[2]
             assert len(instruction) == 2
-            instruction.append(label)
+            instruction.extend([label, value])
 
-    # Some instructions aren't straight-line instructions and delimit blocks of
-    # optimisable code. TODO: Note that CALL needn't be treated specially if we
-    # knew how many arguments the function took; this information is available
-    # to the compiler, and if we were to view the assembler source in its
-    # entirety for local functions the ENTER opcode would tell us this.
-    # TODO: The keyword 'branch' may be misleading; it really just means 'we
-    # don't/can't optimise sequences of instructions containing this opcode'.
-    if info.has_key('branch') and info['branch']:
-        # TODO: This code is duplicated in a few places I think
-        optimise(instructions)
-        instructions = []
-        print(line)
-        continue
-
-    instructions.append(instruction)
-
+    function_body.append(instruction)
