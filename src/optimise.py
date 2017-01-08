@@ -423,7 +423,44 @@ def emit(instructions):
 
 
 def peephole_optimise(function_body):
-    pass # TODO!
+    new_body = []
+    i = -1
+    while i + 1 < len(function_body):
+        i += 1
+
+        # Get this instruction; if it's a COMMENT or a LABEL, just pass it
+        # through
+        this_instruction = function_body[i]
+        if this_instruction[0] in ('COMMENT', 'LABEL'):
+            new_body.append(this_instruction)
+            continue
+
+        # Get the next instruction, ignoring any number of COMMENT 'instructions'
+        j = i
+        pending_comments = []
+        while True:
+            j += 1
+            if j == len(function_body):
+                next_instruction = ['LABEL']
+                break
+            next_instruction = function_body[j]
+            if next_instruction[0] == 'COMMENT':
+                pending_comments.append(next_instruction)
+            else:
+                break
+
+        # If the next instruction is a LABEL, we can't optimise across it, so
+        # just pass the current instruction through.
+        if next_instruction[0] == 'LABEL':
+            new_body.append(this_instruction)
+            continue
+
+        # OK, we have two consecutive instructions (possibly with comments in
+        # between).
+        # TODO
+        new_body.append(this_instruction)
+
+    return new_body
 
 
 def tree_optimise(function_body):
@@ -449,7 +486,7 @@ def tree_optimise(function_body):
 
 
 def optimise_function(function_body):
-    peephole_optimise(function_body)
+    function_body = peephole_optimise(function_body)
     function_body = tree_optimise(function_body)
     emit(function_body)
 
