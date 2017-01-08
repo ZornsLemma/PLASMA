@@ -316,6 +316,7 @@ opcodes = {
     # handled as part of a sequence of straight line instructions but needs a
     # bit of special handling so I'm postponing that for now.
     'DROP' : { 'byte' : 0x30, 'branch' : True, 'consume' : 1, 'produce' : 0 },
+    'DUP' : { 'byte' : 0x32, 'branch' : True },
     'ENTER' : { 'byte' : 0x58, 'branch' : True },
     'LEAVE' : { 'byte' : 0x5a, 'branch' : True },
     'SLB' : { 'byte' : 0x74, 'branch' : True },
@@ -422,6 +423,8 @@ def emit(instructions):
             print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode_byte, opcode))
 
 
+# TODO: We probably need to repeatedly call this until it stops changing the
+# size of function_body
 def peephole_optimise(function_body):
     new_body = []
     i = -1
@@ -457,7 +460,17 @@ def peephole_optimise(function_body):
 
         # OK, we have two consecutive instructions (possibly with comments in
         # between).
-        # TODO
+
+        # TODO: Have I got all the relevant instructions here?
+        if (this_instruction == next_instruction and 
+            this_instruction[0] in ('CB', 'CW', 'CS', 'LA', 'LAB', 'LAW', 'LLA', 'LLB', 'LLW')):
+            new_body.append(this_instruction)
+            new_body.append(['DUP'])
+            i += 1
+            continue
+
+        # Just pass this instruction through if we haven't found anything to
+        # improve.
         new_body.append(this_instruction)
 
     return new_body
@@ -487,7 +500,7 @@ def tree_optimise(function_body):
 
 def optimise_function(function_body):
     function_body = peephole_optimise(function_body)
-    function_body = tree_optimise(function_body)
+    # TODO TEMP COMMENTED OUT function_body = tree_optimise(function_body)
     emit(function_body)
 
 
