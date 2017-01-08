@@ -325,6 +325,7 @@ opcodes = {
     'SB' : { 'byte' : 0x70, 'branch' : True },
     'SW' : { 'byte' : 0x72, 'branch' : True },
     'SAB' : { 'byte' : 0x78, 'branch' : True, 'arguments' : 1 },
+    'LABEL': { 'branch' : True },
 }
 
 
@@ -362,17 +363,20 @@ def test():
 
 
 def optimise(instructions):
+    # TODO print("OPTIMISE ENTER: " + repr(instructions))
+    new_instructions = []
     if len(instructions) > 0:
         nodes = tree(instructions)
         for node in nodes:
             node.optimise()
             instructions = node.serialise()
-            emit(instructions)
+            new_instructions.extend(instructions)
+    # TODO print("OPTIMISE EXIT: " + repr(new_instructions))
+    return new_instructions
 
 def emit(instructions):
     # Spit the instructions out again, taking pains to make the output
     # near-identical to the input for minimal pain diffing.
-    last_unknown = -1
     for instruction in instructions:
         opcode = instruction[0]
         if opcode in ('COMMENT', 'LABEL'):
@@ -380,12 +384,7 @@ def emit(instructions):
             continue
         info = opcodes[opcode]
         if opcode == 'UNKNOWN':
-            assert last_unknown <> -999
-            if last_unknown <> -1:
-                assert int(instruction[1]) == last_unknown - 1
-            last_unknown = int(instruction[1])
             continue
-        last_unknown = -999
         #print(instruction) # TODO TEMP
         opcode_byte = info['byte']
         if opcode == 'CS':
@@ -428,12 +427,30 @@ def peephole_optimise(function_body):
 
 
 def tree_optimise(function_body):
-    pass # TODO!
+    new_body = []
+    instructions = []
+    for instruction in function_body:
+        opcode = instruction[0]
+        if opcode == 'COMMENT':
+            new_body.append(instruction)
+            continue
+        info = opcodes[opcode]
+        if info.has_key('branch') and info['branch']:
+            if instructions:
+                new_body.extend(optimise(instructions))
+            new_body.append(instruction)
+            instructions = []
+            continue
+        instructions.append(instruction)
+
+    if instructions:
+        new_body.extend(optimise(instructions))
+    return new_body
 
 
 def optimise_function(function_body):
     peephole_optimise(function_body)
-    tree_optimise(function_body)
+    function_body = tree_optimise(function_body)
     emit(function_body)
 
 
