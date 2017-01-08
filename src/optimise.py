@@ -521,7 +521,9 @@ def tree_optimise(function_body):
 def optimise_function(function_body):
     # TODO: Is this repeated optimisation actually helpful?
     while True:
-        l1 = len(function_body)
+        l = len(function_body)
+
+        function_body = tree_optimise(function_body)
 
         while True:
             l2 = len(function_body)
@@ -530,11 +532,8 @@ def optimise_function(function_body):
             if len(function_body) == l2:
                 break
 
-        assert len(function_body) <= l1
-        function_body = tree_optimise(function_body)
-
-        assert len(function_body) <= l1
-        if len(function_body) == l1:
+        assert len(function_body) <= l
+        if len(function_body) == l:
             break
 
     emit(function_body)
