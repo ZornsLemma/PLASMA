@@ -321,6 +321,9 @@ opcodes = {
     'LEAVE' : { 'byte' : 0x5a, 'branch' : True },
     'SLB' : { 'byte' : 0x74, 'branch' : True },
     'DLB' : { 'byte' : 0x6c, 'branch' : True },
+    'DLW' : { 'byte' : 0x6e, 'branch' : True },
+    'DAB' : { 'byte' : 0x7c, 'branch' : True, 'arguments' : 1 },
+    'DAW' : { 'byte' : 0x7e, 'branch' : True, 'arguments' : 1 },
     'SLW' : { 'byte' : 0x76, 'branch' : True},
     'SAW' : { 'byte' : 0x7a, 'branch' : True, 'arguments' : 1 },
     'SB' : { 'byte' : 0x70, 'branch' : True },
@@ -373,7 +376,7 @@ def optimise(instructions):
             instructions = node.serialise()
             new_instructions.extend(instructions)
     # TODO print("OPTIMISE EXIT: " + repr(new_instructions))
-    return new_instructions
+    return [instruction for instruction in  new_instructions if instruction[0] != 'UNKNOWN']
 
 def emit(instructions):
     # Spit the instructions out again, taking pains to make the output
@@ -410,7 +413,7 @@ def emit(instructions):
         elif opcode == 'CW':
             value = int(instruction[1])
             print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, value))
-        elif opcode in ('LLA', 'LLB', 'LLW', 'SLB', 'SLW', 'DLB'):
+        elif opcode in ('LLA', 'LLB', 'LLW', 'SLB', 'SLW', 'DLB', 'DLW'):
             value = remove_square_brackets(instruction[1])
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(value), opcode, instruction[1]))
         elif opcode == 'ENTER':
@@ -461,12 +464,29 @@ def peephole_optimise(function_body):
         # OK, we have two consecutive instructions (possibly with comments in
         # between).
 
+        # If we save and then load from the same address, we can use the
+        # corresponding 'store duplicate' opcode for the store and get rid of
+        # the load.
+        # TODO: For SAB and SAW, we will be removing a relocation on
+        # next_instruction here; currently the output will fail to assemble.
+        if (this_instruction[0] in ('SLB', 'SLW', 'SAB', 'SAW') and
+            next_instruction[0] == 'L'+this_instruction[0][1:] and
+            this_instruction[1] == next_instruction[1]):
+            new_body.append(['D'+this_instruction[0][1:]] + this_instruction[1:])
+            new_body.extend(pending_comments)
+            i = j
+            continue
+
+        # The second of two identical loads can be replaced by a DUP
+        # TODO: If there are three in a row, this will replace the second load
+        # with a DUP and thereby miss the opportunity to do the third as well.
         # TODO: Have I got all the relevant instructions here?
         if (this_instruction == next_instruction and 
             this_instruction[0] in ('CB', 'CW', 'CS', 'LA', 'LAB', 'LAW', 'LLA', 'LLB', 'LLW')):
             new_body.append(this_instruction)
+            new_body.extend(pending_comments)
             new_body.append(['DUP'])
-            i += 1
+            i = j
             continue
 
         # Just pass this instruction through if we haven't found anything to
@@ -499,8 +519,24 @@ def tree_optimise(function_body):
 
 
 def optimise_function(function_body):
-    function_body = peephole_optimise(function_body)
-    # TODO TEMP COMMENTED OUT function_body = tree_optimise(function_body)
+    # TODO: Is this repeated optimisation actually helpful?
+    while True:
+        l1 = len(function_body)
+
+        while True:
+            l2 = len(function_body)
+            function_body = peephole_optimise(function_body)
+            assert len(function_body) <= l2
+            if len(function_body) == l2:
+                break
+
+        assert len(function_body) <= l1
+        function_body = tree_optimise(function_body)
+
+        assert len(function_body) <= l1
+        if len(function_body) == l1:
+            break
+
     emit(function_body)
 
 
