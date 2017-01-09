@@ -1376,6 +1376,12 @@ def loadmod(mod)
     word moddep, rld, esd, sym
     byte str[17], filename[17]
     byte header[128]
+
+    // We use OSGBPB to read the first 128 bytes of the module, but we use 
+    // OSFILE to load the entire module later; tests on Acorn DFS 2.24 on 
+    // BeebEm suggest OSFILE can load 6.25K in 1.74s compared with 4.47s 
+    // for OSGBPB. TODO: ACTUALLY FOLLOW THAT!
+
     //
     // Read the RELocatable module header (first 128 bytes)
     //
@@ -1389,13 +1395,18 @@ def loadmod(mod)
     fin
     if rdlen > 0
     	// TODO: Note that we re-read the file below, so this is potentially a waste - we should
-	// probably just read the first 128 bytes here, as the Apple II code does.
+	// probably just read the first 128 bytes here, as the Apple II code does. We should
+	// probably actually use the Apple II code as a model here - though not quite, because
+	// we are going to load the entire module later, *not* just everything after the first
+	// 128 bytes.
         readfile(@filename, *heapptr)
 	memcpy(@header, *heapptr, 128)
 	modsize = header:0
 	moddep  = @header.1
 	defofst = modsize
         init    = 0
+	// TODO: Once finished reworking this, should test with a file which doesn't
+	// have $DA7E special stuff, if I can find or create one.
         if rdlen > 4 and (*heapptr)=>2 == $DA7E // DAVE = magic number :-)
             //
             // This is an EXTended RELocatable (data+bytecode) module.
@@ -1407,6 +1418,12 @@ def loadmod(mod)
 	    //
 	    // Load module dependencies.
 	    //
+	    // TODO: If we only read 128 bytes, we could possibly not actually read
+	    // the full header. Not very likely, but maybe we should read more. Given
+	    // we are going to re-read the entire file later, maybe there's no good
+	    // reason not to read (say) 256 bytes onto the heap, instead of 128 bytes
+	    // onto the frame stack. In any case, we should possibly detect stepping
+	    // past the number of bytes read and error if that happens.
             while ^moddep
                 if !lookupmod(moddep)
                     if loadmod(moddep) < 0
