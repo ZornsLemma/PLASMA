@@ -1434,7 +1434,9 @@ def loadmod(mod)
                 fin
                 moddep = moddep + dcitos(moddep, @str)
 		// This isn't very likely, but let's detect it rather than fail in
-		// nasty subtle ways.
+		// nasty subtle ways. TODO: Actually we should check against rdlen
+		// (with a suitable offset), not 128 - but maybe that's a bit too
+		// anal.
 		if (moddep - @header) >= 128
 		    oserror(0, "Header too long")
 		fin
