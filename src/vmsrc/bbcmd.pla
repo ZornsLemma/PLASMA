@@ -1375,7 +1375,7 @@ def loadmod(mod)
     word deftbl, deflast
     word moddep, rld, esd, sym
     byte str[17], filename[17]
-    byte header[128]
+    byte header[128] // SFTODO: Make the size a constant and use it everywhere
 
     // We use OSGBPB to read the first 128 bytes of the module, but we use 
     // OSFILE to load the entire module later; tests on Acorn DFS 2.24 on 
@@ -1423,7 +1423,9 @@ def loadmod(mod)
 	    // we are going to re-read the entire file later, maybe there's no good
 	    // reason not to read (say) 256 bytes onto the heap, instead of 128 bytes
 	    // onto the frame stack. In any case, we should possibly detect stepping
-	    // past the number of bytes read and error if that happens.
+	    // past the number of bytes read and error if that happens. (No, we can't
+	    // just read onto the heap - because if we're loading any dependencies,
+	    // we'd end up with our header stuck on the heap, taking up space.)
             while ^moddep
                 if !lookupmod(moddep)
                     if loadmod(moddep) < 0
@@ -1431,6 +1433,11 @@ def loadmod(mod)
 		    fin
                 fin
                 moddep = moddep + dcitos(moddep, @str)
+		// This isn't very likely, but let's detect it rather than fail in
+		// nasty subtle ways.
+		if (moddep - @header) >= 128
+		    oserror(0, "Header too long")
+		fin
             loop
 	    //
 	    // Init def table.
