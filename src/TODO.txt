@@ -68,7 +68,12 @@ It might be possible to do something with the B+ special private 12K
 
 On a 6502 second processor, we could relocate ourselves down to &500 (say)
 instead of OSHWM=&800 if we aren't using all of the language workspace from
-&400-&800
+&400-&800 - though if we can productively use that space for something else it
+would be best, since otherwise we are "wasting" that space on non-2P machines,
+or we say "it's available for user code" and then that code is no longer
+compatible with PLASMA-on-2P. Perhaps the best bet would be a deque-style
+symbol table and we put the first block of the symbol table in the 2-3 pages of
+this space we aren't using for other things.
 
 A vim syntax highlighting mode for PLASMA code might be nice
 
