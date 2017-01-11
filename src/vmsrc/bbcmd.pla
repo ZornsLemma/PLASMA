@@ -1830,6 +1830,9 @@ fin
 //
 while 1
     if ^cmdptr
+	// TODO: A mode change command would be nice, but I'm a bit
+	// reluctant to bloat the VM size with code to parse numbers
+	// from the command line. Which is probably ridiculously stingy.
         when toupper(parsecmd(cmdptr))
             is 'Q'
 	        quit
