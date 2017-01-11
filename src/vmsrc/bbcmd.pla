@@ -21,6 +21,11 @@ const errfp	   = $0405	// 2 bytes
 const errjb	   = $0407	// 2 bytes
 const FALSE = 0
 const TRUE = NOT FALSE
+// TODO: allocheap_fail_threshold should probably be a non-constant
+// and be modifiable under program control (if so, execmod() should
+// probably reset it to a default on successful or unsuccessful
+// execution). While we're developing, we just stick with this.
+const allocheap_fail_threshold = $FFFF
 //
 // System flags: memory allocator screen holes.
 //
@@ -1195,27 +1200,38 @@ def availheap
     byte fp
     return @fp - *heapptr
 end
-// TODO: We should maybe have an xallocheap() which generates an OS-style
-// error if the allocation fails, and use that everywhere - we don't
-// normally check the return code so this would be better than nothing.
-// TODO: And/or maybe we should have a global flag which if set causes
-// this to oserror() if it would return 0 - because lots of code won't
-// bother checking one way or another.
-// TODO: Maybe that global flag should be a size threshold; below that
-// threshold we oserror(), above it we return 0. Setting threshold to
-// 0 will allow all allocations to return 0 if they fail. The idea
-// being that I suspect "most" programs won't expect small allocations
-// to fail and will have no way to cope if they do, whereas large
-// allocations are more likely to be special and failures can be
-// handled correctly.
+def heapfull()
+    prstr("allocheap failed\n") // TODO TEMP
+    oserror(0, "Heap full")
+end
+// allocheap() generates an OS error if the allocation fails and is
+// no larger than allocheap_fail_threshold; failures otherwise return
+// 0. The idea here is that as well as allowing "always" and "never"
+// generating an OS error, a program may take more care to check big
+// allocations (e.g. loading a file containing user data) than it will
+// do with small allocations (where it might not be able to do much
+// except die even if it checks and notices that they failed).
 def allocheap(size)
     word addr
     addr = *heapptr
     *heapptr = *heapptr + size
     if uword_isge(*heapptr, @addr)
-    	prstr("allocheap failed\n") // TODO TEMP
-	oserror(0, "Heap full") // TODO SEMI TEMP
-        return 0
+	*heapptr = addr
+	if uword_isle(size, allocheap_fail_threshold)
+	    heapfull()
+	fin
+	return 0
+    fin
+    return addr
+end
+// Like allocheap(), but *always* generates an error if the allocation
+// fails, regardless of the size requested and the fail threshold.
+// TODO: Should we export this?
+def xallocheap(size)
+    word addr
+    addr = allocheap(size)
+    if addr == 0
+	heapfull()
     fin
     return addr
 end
@@ -1469,7 +1485,7 @@ def loadmod(mod)
 	    //
 	    // Init def table.
 	    //
-	    deftbl   = allocheap(defcnt * 5 + 1)
+	    deftbl   = xallocheap(defcnt * 5 + 1)
 	    deflast  = deftbl
 	    ^deflast = 0
         fin
@@ -1478,13 +1494,11 @@ def loadmod(mod)
 	// dependencies have been loaded.
 	//
 	addr = 0
-	if file_length:2 == 0 // if file is <64K
-	    rdlen = file_length:0
-	    addr = allocheap(rdlen)
+	if file_length:2 <> 0 // if file is >=64K
+	    heapfull()
 	fin
-	if addr == 0
-	    oserror(0, "Too big")
-	fin
+	rdlen = file_length:0
+	addr = xallocheap(rdlen)
 	//
 	// Load the file
 	//
@@ -1505,7 +1519,7 @@ def loadmod(mod)
 	modfix  = moddep  - (*heapptr + 2) // Adjust to skip header
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
-	modaddr = allocheap(modsize)
+	modaddr = xallocheap(modsize) // can't fail anyway
 	memcpy(modaddr, moddep, rdlen)
 	//
 	// Add module to symbol table.
@@ -1717,7 +1731,7 @@ def execmod(modfile)
 	jb = saveheap
 	error = setjmp(jb)
 	if error == 0
-	    allocheap(jmpbufsz(jb))
+	    xallocheap(jmpbufsz(jb))
 	    *errjb = jb
 	    action = loadmod(@moddci)
 	fin
@@ -1754,7 +1768,7 @@ end
 // locate it in the $0400-$0800 region set aside for the current
 // language; we currently use bits of this, but we could relocate
 // the other users.
-symtbl   = allocheap(symtblsz)
+symtbl   = xallocheap(symtblsz)
 lastsym  = symtbl
 ^lastsym = 0
 stodci(@syslibstr, *heapptr)
@@ -1769,7 +1783,7 @@ loop
 //
 *errjb = markheap()
 if setjmp(*errjb) == 0
-  allocheap(jmpbufsz(*errjb))
+  xallocheap(jmpbufsz(*errjb))
   *errfp = @error_handler
 else
   crout
