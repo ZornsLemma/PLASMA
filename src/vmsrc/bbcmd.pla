@@ -1802,16 +1802,10 @@ else
   crout
 fin
 //
-// Try to load autorun.
-// TODO: This is disabled; it's awkward as it can cause an OS error, and
-// it's not all that useful as a !BOOT file can do the same job.
+// Initialise cmdptr
 //
 cmdptr = *heapptr
-memset(cmdptr, 0, 128)
-//readfile(@autorun, cmdptr + 1)
-while ^(cmdptr + ^cmdptr + 1) >= ' '
-    ^cmdptr = ^cmdptr + 1
-loop
+^cmdptr = 0
 perr = 0
 // TODO: Might be best to base this on cmd.pla's version not the Apple I code
 //
