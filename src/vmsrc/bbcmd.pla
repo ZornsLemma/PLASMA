@@ -1527,8 +1527,10 @@ def loadmod(mod)
 	//
 	// Locate bytecode defs in appropriate bank.
 	//
-	// TODO: We should fail gracefully if allocxheap() returns 0
 	defaddr = allocxheap(rld - bytecode)
+	if defaddr == 0
+	    heapfull()
+	fin
 	modend  = bytecode
 #endif
         //
