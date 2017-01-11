@@ -1754,6 +1754,27 @@ def execmod(modfile)
     fin
     return -perr
 end
+// The parsing in here is deliberately naive to avoid bloating the virtual
+// machine too much. It also works in our favour because parsecmd() only pays
+// attention to the first character, so this means that "M7" and "MODE 7" both
+// work (as, in fact, will things like " M O D E    1 3  5").
+def modechange(cmdptr)
+    word n, i
+    byte c
+    n = 0
+    i = 1
+    while i <= ^cmdptr
+	c = ^(cmdptr + i)
+	cout(c)
+	if c >= '0' and c <= '9'
+	    n = (n * 10) + (c - '0')
+	fin
+	i++
+    loop
+    if not mode(n)
+	oserror(0, "Bad mode")
+    fin
+end
 //
 // Get heap start.
 //
@@ -1830,15 +1851,12 @@ fin
 //
 while 1
     if ^cmdptr
-	// TODO: A mode change command would be nice, but I'm a bit
-	// reluctant to bloat the VM size with code to parse numbers
-	// from the command line. Which is probably ridiculously stingy.
         when toupper(parsecmd(cmdptr))
             is 'Q'
 	        quit
-//	    is 'M'
-//	        syscall($02)
-//		break
+	    is 'M'
+		modechange(cmdptr)
+		break
 	    is '+'
 	        execmod(cmdptr)
 		break
