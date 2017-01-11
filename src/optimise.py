@@ -11,6 +11,11 @@ import sys
 # argument the first child of our tree nodes. This has the minor advantage that
 # any "UNKNOWN" nodes should stay together at the front (TODO: I think).
 
+# TODO: Can we optimise the bytecode for things like 'if foo <> 0' to as if
+# it was written 'if foo'? And maybe 'if foo == 0' to 'if not foo', if the
+# latter is shorter. Need to have a quick think to make sure the transformation
+# does behave identically; I think anything non-0 is true, but need to check.
+
 
 # TODO: Note that my idea of optimising directly on bytecode modules is great,
 # *except* that the bytecode included in the PLASMA/PLAS128 binaries doesn't
