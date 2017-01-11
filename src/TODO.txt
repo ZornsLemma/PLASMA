@@ -71,3 +71,6 @@ instead of OSHWM=&800 if we aren't using all of the language workspace from
 &400-&800
 
 A vim syntax highlighting mode for PLASMA code might be nice
+
+It would probably be possible to produce a Matchbox co-pro specific version
+which uses bank-switching PLAS128-style on the second processor.

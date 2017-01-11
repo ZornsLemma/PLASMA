@@ -672,12 +672,6 @@ end
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
 asm setjmp
 	STX	ESP
-	; TODO START TMP
-	CPX	#(ESTKSZ/2)-1 ; we expect one value - the 'b' arg to us
-	BCS	TODOOK
-DEBUGBREAKHERE
-	NOP
-TODOOK
 
 	LDY	#0
 	LDA	ESTKL,X
@@ -793,9 +787,7 @@ asm longjmp
 	;* if val is 0, force it to be 1
 	ORA	ESTKH,X
 	BNE	++++
-	;* TODO: Can we just do INC ESTKL,X here?
-	LDA	#1
-	STA	ESTKL,X
+	INC	ESTKL,X
 ++++
 
  	SEC
@@ -1159,7 +1151,9 @@ def mode(n)
 end
 
 // Convert a DCI string to an Acorn OS-style string terminated by CR
-// TODO: This should probably be coded in assembly
+// TODO: This should probably be coded in assembly - though given it's
+// only used in one place and that isn't performance critical, what's
+// really important is saving space - so use assembly iff it's smaller.
 def dcitocr(dci, cr)
     byte len, c
     len = 0
@@ -1171,19 +1165,9 @@ def dcitocr(dci, cr)
     (cr).[len] = $D
     return len
 end
-
 //
-// CFFA1 routines
 // FILE I/O
 //
-//def opendir
-//    perr = syscall($10)
-//    return perr
-//end
-//def readdir
-//    perr = syscall($12)
-//    return *CFFAEntryPtr
-//end
 def readfile(filename, buffer)
     byte block[18]
     block:0 = filename
@@ -1285,7 +1269,9 @@ end
 // Acorn MOS API
 //
 
-// TODO: This should probably be coded in assembly
+// TODO: This should probably be coded in assembly. Maybe not though,
+// if bytecode is smaller, since it's probably never used anywhere
+// performance critical.
 def stocr(str, cr)
     byte len, c
     len = ^str
