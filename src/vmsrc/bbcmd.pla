@@ -1,5 +1,8 @@
 // TODO: A lot of this is probably irrelevant and can be removed
 
+// TODO: Lots of magic constants, especially A and call address in
+// call()
+
 const MODADDR      = $1000
 const inbuff       = $0700
 const errnum       = $0700
@@ -8,6 +11,7 @@ const freemem      = $0006
 const ifp          = $0071
 const pp           = $0073
 const himemh       = $0078
+const scratch	   = $0079
 const cpu_stack	   = $0100
 const symtblsz     = $0400
 #ifdef PLAS128
@@ -100,6 +104,10 @@ byte machid       = $BB // Arbitrary value
 // Command line pointer
 //
 word cmdptr       = @hexchar // make it point to a zero
+//
+// File handle used by loadmod
+//
+byte loadmod_handle
 //
 // Global variables for use by mode()
 //
@@ -1375,39 +1383,63 @@ def loadmod(mod)
     word deftbl, deflast
     word moddep, rld, esd, sym
     byte str[17], filename[17]
-    byte header[128] // SFTODO: Make the size a constant and use it everywhere
+    const header_size = 128
+    byte header[header_size]
+    byte handle
+    byte block[16]
+    byte file_length[4]
 
-    // We use OSGBPB to read the first 128 bytes of the module, but we use 
-    // OSFILE to load the entire module later; tests on Acorn DFS 2.24 on 
-    // BeebEm suggest OSFILE can load 6.25K in 1.74s compared with 4.47s 
-    // for OSGBPB. TODO: ACTUALLY FOLLOW THAT!
+    perr = 0
+
+    // We use OSGBPB to read the first header_size bytes of the module, but we
+    // use OSFILE to load the entire module later; tests on Acorn DFS 2.24 on
+    // BeebEm suggest OSFILE can load 6.25K in 1.74s compared with 4.47s for
+    // OSGBPB. So it's well worth the "waste" of reading the header twice.
+
+    // TODO: The filename could in principle be very long and could overflow
+    // the filename[] array; we could perhaps use the fixed space at inbuff
+    // for the filename. But this might not be the only place filenames
+    // are held in small arrays, so check before changing anything. (On the
+    // other hand, filenames are embedded in modules as dependencies, and
+    // those "have" to be short, so we might want to just refuse to handle
+    // long filenames anyway. Then again, perhaps eventually we might
+    // support a "library" where things are searched for if not in CSD.)
+
+    // TODO: Do I need to be setting perr in any situations here? Can I
+    // perhaps get rid of perr altogether (e.g. and replace it with calls
+    // to oserror())?
 
     //
-    // Read the RELocatable module header (first 128 bytes)
+    // Read the RELocatable module header (first header_size bytes); we also
+    // get the file length while we have the file open.
     //
     dcitocr(mod, @filename)
-    header.0 = @filename
-    header.1 = (@filename) >> 8
-    perr = (osfile(5, @header) <> 1)
-    rdlen = header.10 + (header.11 << 8)
-    if perr
-        return -perr
+    handle = call($40, @filename, @filename >> 8, 0, $FFCE).0
+    if handle == 0
+	oserror(0, "Not found")
     fin
-    if rdlen > 0
-    	// TODO: Note that we re-read the file below, so this is potentially a waste - we should
-	// probably just read the first 128 bytes here, as the Apple II code does. We should
-	// probably actually use the Apple II code as a model here - though not quite, because
-	// we are going to load the entire module later, *not* just everything after the first
-	// 128 bytes.
-        readfile(@filename, *heapptr)
-	memcpy(@header, *heapptr, 128)
+    loadmod_handle = handle
+    block.0 = handle
+    block:1 = @header
+    block:3 = 0 // TODO: probably should be machine high order address
+    block:5 = header_size
+    block:7 = 0
+    call(4, @block, @block >> 8, 0, $FFD1)
+    rdlen = header_size - block:5
+    call(2, scratch, handle, 0, $FFDA)
+    file_length:0 = scratch:0; file_length:2 = scratch:2
+    loadmod_handle = 0; call(0, 0, handle, 0, $FFCE)
+
+    if rdlen > 16
 	modsize = header:0
 	moddep  = @header.1
 	defofst = modsize
         init    = 0
 	// TODO: Once finished reworking this, should test with a file which doesn't
 	// have $DA7E special stuff, if I can find or create one.
-        if rdlen > 4 and (*heapptr)=>2 == $DA7E // DAVE = magic number :-)
+	// TODO: The rdlen > 4 test is probably redundant, let's wait until this
+	// code has settled down before removing it.
+        if rdlen > 4 and header:2 == $DA7E // DAVE = magic number :-)
             //
             // This is an EXTended RELocatable (data+bytecode) module.
             //
@@ -1418,14 +1450,6 @@ def loadmod(mod)
 	    //
 	    // Load module dependencies.
 	    //
-	    // TODO: If we only read 128 bytes, we could possibly not actually read
-	    // the full header. Not very likely, but maybe we should read more. Given
-	    // we are going to re-read the entire file later, maybe there's no good
-	    // reason not to read (say) 256 bytes onto the heap, instead of 128 bytes
-	    // onto the frame stack. In any case, we should possibly detect stepping
-	    // past the number of bytes read and error if that happens. (No, we can't
-	    // just read onto the heap - because if we're loading any dependencies,
-	    // we'd end up with our header stuck on the heap, taking up space.)
             while ^moddep
                 if !lookupmod(moddep)
                     if loadmod(moddep) < 0
@@ -1433,11 +1457,12 @@ def loadmod(mod)
 		    fin
                 fin
                 moddep = moddep + dcitos(moddep, @str)
-		// This isn't very likely, but let's detect it rather than fail in
-		// nasty subtle ways. TODO: Actually we should check against rdlen
-		// (with a suitable offset), not 128 - but maybe that's a bit too
-		// anal.
-		if (moddep - @header) >= 128
+		// Just to be paranoid, let's check for the case where a module has
+		// loads of dependencies and they overflow the header. This won't
+		// catch everything, as it doesn't check the call to dcitocr()
+		// inside the above loadmod() hasn't overflowed, but it should be
+		// fairly reliable in practice.
+		if (moddep - @header) >= rdlen
 		    oserror(0, "Header too long")
 		fin
             loop
@@ -1447,11 +1472,32 @@ def loadmod(mod)
 	    deftbl   = allocheap(defcnt * 5 + 1)
 	    deflast  = deftbl
 	    ^deflast = 0
-	    //
-	    // Re-read file
-	    //
-	    readfile(@filename, *heapptr)
         fin
+	//
+	// Check there's room for the entire file onto the heap now any
+	// dependencies have been loaded.
+	//
+	addr = 0
+	if file_length:2 == 0 // if file is <64K
+	    rdlen = file_length:0
+	    addr = allocheap(rdlen)
+	fin
+	if addr == 0
+	    oserror(0, "Too big")
+	fin
+	//
+	// Load the file
+	//
+	if readfile(@filename, addr)
+	    return -perr
+	fin
+	//
+	// Release the claim we just made; we really did it only to see if it
+	// would fail. The code immediately following will shift the loaded
+	// module down to avoid wasting space on the header and claim the
+	// required amount of space for the module's data and code.
+	//
+	releaseheap(addr)
 	//
 	// Alloc heap space for relocated module (data + bytecode).
 	//
@@ -1650,6 +1696,7 @@ def execmod(modfile)
     word savexheap
 #endif
     word savesym, saveflags, error, action, olderrjb, jb
+    byte handle
 
     perr = 1
     if stodci(modfile, @moddci)
@@ -1676,6 +1723,9 @@ def execmod(modfile)
 	fin
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
+	    handle = loadmod_handle; loadmod_handle = 0
+	    call(0, 0, handle, 0, $FFCE)
+
 	    lastsym = savesym
 #ifdef PLAS128
 	    xheap   = savexheap
