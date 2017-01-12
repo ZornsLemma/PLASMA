@@ -616,7 +616,7 @@ end
 //	x = call_alloca(5, 25, foo, 512)
 // it behaves 'as if' you wrote:
 //	byte tmp[512]
-//	x = foo(5, 25, tmp)
+//	x = foo(5, 25, @tmp)
 // TODO: TEST IT!
 // TODO: THIS NEEDS TO BE CONDITIONALLY COMPILED FOR PLASMA VS PLAS128 - FOR NOW JUST DOING IT FOR PLASMA
 asm call_alloca(fn, size)
