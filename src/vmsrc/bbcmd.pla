@@ -617,6 +617,9 @@ end
 // it behaves 'as if' you wrote:
 //	byte tmp[512]
 //	x = foo(5, 25, @tmp)
+// and then 'tmp' is immediately freed on exit from foo().
+// This is useful because "normal" local variables are restricted to a total
+// of 256 bytes per function.
 // TODO: TEST IT!
 // TODO: THIS NEEDS TO BE CONDITIONALLY COMPILED FOR PLASMA VS PLAS128 - FOR NOW JUST DOING IT FOR PLASMA
 asm call_alloca(fn, size)
