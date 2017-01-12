@@ -608,6 +608,51 @@ asm lookuptbl
 end
 
 //
+// Large frame allocation API
+// 
+// This is effectively a varargs function; given a function foo:
+// 	def foo(a, b, c)
+// if you execute:
+//	x = call_alloca(5, 25, foo, 512)
+// it behaves 'as if' you wrote:
+//	byte tmp[512]
+//	x = foo(5, 25, tmp)
+// TODO: TEST IT!
+// TODO: THIS NEEDS TO BE CONDITIONALLY COMPILED FOR PLASMA VS PLAS128 - FOR NOW JUST DOING IT FOR PLASMA
+asm call_alloca(fn, size)
+	SEC
+	LDA	IFPL
+	PHA
+	SBC	ESTKL,X
+	STA	IFPL
+	LDA	IFPH
+	PHA
+	SBC	ESTKH,X
+	STA	IFPH
+	INX
+	; TODO: NEED TO CHECK IFPH HASN'T BREACHED HEAP VIA MACRO
+
+	LDA	ESTKL,X
+	STA	TMPL
+	LDA	ESTKH,X
+	STA	TMPH
+
+	LDA	IFPL
+	STA	ESTKL,X
+	LDA	IFPH
+	STA	ESTKH,X
+	JSR	+
+
+	PLA
+	STA	IFPH
+	PLA
+	STA	IFPL
+
+	RTS
+
++	JMP	(TMP)
+end
+//
 // Acorn MOS API
 // (only the bits needed by this file; the rest lives in acornos.pla and is
 // included by programs which need it) TODO: Still true?
@@ -1697,6 +1742,12 @@ def modechange(cmdptr)
 	oserror(0, "Bad mode")
     fin
 end
+def foo(a, b, c) // SFTODO TEMP
+  cout('a'); prword(a); crout();
+  cout('b'); prword(b); crout();
+  cout('c'); prword(c); crout();
+  return 42
+end
 //
 // Get heap start.
 //
@@ -1765,6 +1816,10 @@ fin
 //
 // Handle commands.
 //
+// TODO START TEMP
+prword(call_alloca(5, 25, @foo, 768))
+prword(call_alloca(42, 69, @foo, 512))
+// TODO END TEMP
 while 1
     if ^cmdptr
         when toupper(parsecmd(cmdptr))
