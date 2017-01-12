@@ -1,7 +1,6 @@
-// TODO: A lot of this is probably irrelevant and can be removed
+include "inc/acornc.plh"
 
-// TODO: Lots of magic constants, especially A and call address in
-// call()
+// TODO: A lot of this is probably irrelevant and can be removed
 
 const MODADDR      = $1000
 const inbuff       = $0700
@@ -63,7 +62,7 @@ predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
-predef oserror, osfile, oscli
+predef oserror
 predef stocr
 predef mode
 //
@@ -153,8 +152,6 @@ byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
 byte oserrorstr[] = "OSERROR"
-byte osfilestr[]  = "OSFILE"
-byte osclistr[]   = "OSCLI"
 byte stocrstr[]   = "STOCR"
 byte modestr[]    = "MODE"
 word exports[]	  = @callstr,   @call
@@ -182,8 +179,6 @@ word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
 word		  = @prbytestr, @prbyte
 word		  = @oserrorstr,@oserror
-word		  = @osfilestr, @osfile
-word              = @osclistr,  @oscli
 word		  = @stocrstr,  @stocr
 word		  = @modestr,   @mode
 word              = 0
@@ -615,36 +610,8 @@ end
 //
 // Acorn MOS API
 // (only the bits needed by this file; the rest lives in acornos.pla and is
-// included by programs which need it)
+// included by programs which need it) TODO: Still true?
 //
-asm osfile
-	STX	ESP
-	LDA	ESTKL+1,X
-	PHA
-	LDY	ESTKH,X
-	LDA	ESTKL,X
-	TAX
-	PLA
-	JSR	$FFDD
-	LDX 	ESP
-	INX
-	STA	ESTKL,X
-	LDA	#0
-	STA	ESTKH,X
-	RTS
-end
-
-// oscli_cr(command_as_cr_string)
-asm oscli_cr
-	STX	ESP
-	LDY	ESTKH,X
-	LDA	ESTKL,X
-	TAX
-	JSR	$FFF7
-	LDX	ESP
-	RTS
-end
-
 asm oserror(n, msg)
 	LDA	ESTKL+1,X
 	STA	$101
@@ -974,38 +941,6 @@ not_escape
 	LDX	ESP
 	RTS
 end
-asm cpu_stack_ptr
-	DEX
-	STX 	ESP
-	TSX
-	TXA
-	; Don't include our stack frame in the value we return - CALL has pushed
-	; six bytes, but we don't have an INTERP or ENTER as we're assembly
-	; language.
-	CLC
-	ADC 	#6
-	LDX	 ESP
-	STA	 ESTKL,X
-	LDA 	#0
-	STA 	ESTKH,X
-	RTS
-end
-asm get_call_jsr_return
-	DEX
-	LDA	#<(CALLADR+2)
-	STA	ESTKL,X
-	LDA	#>(CALLADR+2)
-	STA	ESTKH,X
-	RTS
-end
-asm get_ical_jsr_return
-	DEX
-	LDA	#<(ICALADR+2)
-	STA	ESTKL,X
-	LDA	#>(ICALADR+2)
-	STA	ESTKH,X
-	RTS
-end
 // def prstr(str)
 asm prstr
 	STX	ESP
@@ -1086,7 +1021,7 @@ def mode(n)
     // If the mode change doesn't alter HIMEM, it's trivial. We need to check
     // specifically for the second processor case here; see the code just
     // above INITFP.
-    new_himemh = call($85, n, 0, 0, $FFF4).2
+    new_himemh = call(osbyte_read_himem_for_mode, n, 0, 0, osbyte).2
     if new_himemh == ^himemh or ^himemh > $80
 	cout(22)
 	cout(n)
@@ -1143,7 +1078,7 @@ def mode(n)
     *ifp = gm_new_frame_start
 #endif
 // TODO TEMP!
-    if call($84, 0, 0, 0, $FFF4).2 <> ^himemh
+    if call(osbyte_read_himem, 0, 0, 0, osbyte).2 <> ^himemh
     	prstr("foo")
     	oserror(255,"foo")
     fin	
@@ -1169,12 +1104,12 @@ end
 // FILE I/O
 //
 def readfile(filename, buffer)
-    byte block[18]
+    byte block[osfile_block_size]
     block:0 = filename
     block:2 = buffer
     block:4 = 0 // TODO: probably want machine high order address
     block:6 = 0
-    perr = (osfile($FF, @block) == 0)
+    perr = (call(osfile_load_file, @block, @block >> 8, 0, osfile).0 == 0)
     return perr
 end
 //
@@ -1283,13 +1218,13 @@ def stocr(str, cr)
     loop
 end
 
-// oscli(str)
-// TODO: Does 'export' work in this file? Probably not...
-export def oscli(str)
+// call_oscli(str)
+// TODO: Export this?
+def call_oscli(str)
     // TODO: This will go wrong if the command is too long
     byte cr[253]
     stocr(str, @cr)
-    oscli_cr(@cr)
+    call(0, @cr, @cr >> 8, 0, oscli)
 end
 
 //
@@ -1416,7 +1351,7 @@ def loadmod(mod)
     // get the file length while we have the file open.
     //
     dcitocr(mod, @filename)
-    handle = call($40, @filename, @filename >> 8, 0, $FFCE).0
+    handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
     if handle == 0
 	oserror(0, "Not found")
     fin
@@ -1426,11 +1361,11 @@ def loadmod(mod)
     block:3 = 0 // TODO: probably should be machine high order address
     block:5 = header_size
     block:7 = 0
-    call(4, @block, @block >> 8, 0, $FFD1)
+    call(osgbpb_read_ignoring_ptr, @block, @block >> 8, 0, osgbpb)
     rdlen = header_size - block:5
-    call(2, scratch, handle, 0, $FFDA)
+    call(osargs_read_ext, scratch, handle, 0, osargs)
     file_length:0 = scratch:0; file_length:2 = scratch:2
-    loadmod_handle = 0; call(0, 0, handle, 0, $FFCE)
+    loadmod_handle = 0; call(osfind_close, 0, handle, 0, osfind)
 
     if rdlen > 16
 	modsize = header:0
@@ -1726,7 +1661,7 @@ def execmod(modfile)
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
 	    handle = loadmod_handle; loadmod_handle = 0
-	    call(0, 0, handle, 0, $FFCE)
+	    call(osfind_close, 0, handle, 0, osfind)
 
 	    lastsym = savesym
 #ifdef PLAS128
@@ -1842,7 +1777,7 @@ while 1
 	        execmod(cmdptr)
 		break
 	    is '*'
-	    	oscli(cmdptr)
+	    	call_oscli(cmdptr)
 		break
 	    otherwise
 	        prstr(@huhstr)

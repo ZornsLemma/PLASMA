@@ -1,0 +1,23 @@
+// This file contains only constants. TODO: MORE ON WHY
+
+const osfind = $FFCE
+const osgbpb = $FFD1
+const osargs = $FFDA
+const osfile = $FFDD
+const osbyte = $FFF4
+const oscli  = $FFF7
+
+const osfind_close  = $00
+const osfind_input  = $40
+const osfind_output = $80
+const osfind_update = $C0
+
+const osgbpb_read_ignoring_ptr = $04
+
+const osargs_read_ext = $02
+
+const osfile_block_size = $12
+const osfile_load_file  = $FF
+
+const osbyte_read_himem          = $84
+const osbyte_read_himem_for_mode = $85
