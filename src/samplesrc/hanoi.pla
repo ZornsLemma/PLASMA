@@ -1,6 +1,7 @@
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
+include "inc/acornc.plh"
 
 const animate = 1
 
@@ -23,11 +24,11 @@ asm sync
 end
 
 def fx(a, x)
-    call(a, x, 0, 0, $FFF4)
+    call(a, x, 0, 0, osbyte)
 end
 
 def time(t)
-    call(1, t, t >> 8, 0, $FFF1)
+    call(osword_read_time, t, t >> 8, 0, osword)
 end
 
 def sleep(cs)
@@ -271,8 +272,8 @@ def solve()
     next
     tab(0, 24)
     puts("Press SPACE...")
-    fx(21, 0)
-    repeat until osrdch() == ' '
+    fx(osbyte_flush_buffer, buffer_keyboard)
+    repeat until call_osrdch() == ' '
     cursor(1)
 end
 
@@ -283,7 +284,7 @@ def main()
 	tab(0, 3) 
 	puts("How many discs (3-7) or Q to quit? ")
 	repeat
-	    discs = osrdch()
+	    discs = call_osrdch()
 	    if discs == 'Q' or discs == 'q'
 		return
 	    fin
@@ -293,10 +294,10 @@ def main()
     loop
 end
 
-fx(229, 1)
+fx(osbyte_rw_escape_status, 1)
 main()
 tab(0,5)
-fx(229, 0)
+fx(osbyte_rw_escape_status, 0)
 done
 
 // vi: sts=4 sw=4

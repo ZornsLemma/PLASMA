@@ -5,6 +5,7 @@
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
+include "inc/acornc.plh"
 
 byte do_mode_change
 byte jb[jbsz]
@@ -48,8 +49,8 @@ def main
 
     mode(7)
     puts("This program changes mode rapidly and\nrepeatedly. This may damage your monitorif run on real hardware.\n\nPress SPACE to start...")
-    call(21, 0, 0, 0, $FFF4) // TODO: nicer wrapper, at least named constant?
-    repeat until osrdch() == ' '
+    call(osbyte_flush_buffer, buffer_keyboard, 0, 0, osbyte)
+    repeat until call_osrdch() == ' '
 
     mode(7)
     do_mode_change = 0

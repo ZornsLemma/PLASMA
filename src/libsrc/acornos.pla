@@ -1,4 +1,5 @@
 include "inc/cmdsys.plh"
+include "inc/acornc.plh"
 
 // TODO: Now I've got used to the call() interface, it may be that this
 // isn't worth it - though perhaps for "performance sensitive" calls like
@@ -7,41 +8,34 @@ include "inc/cmdsys.plh"
 // library mostly consists of constants for OS entry points and special
 // values (like A values for OSFIND) in the header.
 
-const eof = -1
-const osfind_addr = $FFCE
+const eof = -1 // TODO: keep this? not sure
 
 asm equates
     BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
-    osbput_addr = $FFD4
+    osbput = $FFD4 ; TODO: need to centralise these for assembler
 end
 
-// void osbput(byte c, int handle)
-export asm osbput
+// void call_osbput(byte c, int handle)
+export asm call_osbput
     LDA ESTKL+1,X
     LDY ESTKL,X
     INX
-    JMP osbput_addr ; TODO: magic constant
+    JMP osbput
 end
 
-export def osfind_open(a, filename)
+export def call_osfind_open(a, filename)
     // TODO: This will go wrong if the filename is too long
     byte cr[251]
     stocr(filename, @cr)
-    return call(a, @cr, @cr >> 8, 0, osfind_addr).0
+    return call(a, @cr, @cr >> 8, 0, osfind).0
 end
 
-// TODO: It's *probably* slightly smaller and definitely a bit faster to
-// hand-roll assembly wrappers instead of using call(); perhaps do this
-// once the API has settled down.
-export def osfind_close(handle)
-    call(0, 0, handle, 0, osfind_addr)
-end
-
-// TODO: Might be worth coding this in assembly for performance
-export def osbget(handle)
+// TODO: Might be worth coding this in assembly for performance - if
+// we don't, there's almost no point having it, just use acornc.plh
+export def call_osbget(handle)
     word result
-    result = call(0, 0, handle, 0, $FFD7)
+    result = call(0, 0, handle, 0, osbget)
     if result->3 & 1
 	return eof
     else
@@ -49,8 +43,8 @@ export def osbget(handle)
     fin
 end
 
-export def osrdch()
-    return call(0, 0, 0, 0, $FFE0).0
+export def call_osrdch()
+    return call(0, 0, 0, 0, osrdch).0
 end
 
 // vi: sts=4 sw=4

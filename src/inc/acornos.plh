@@ -1,7 +1,12 @@
+// Functions to access the Acorn OS
+//
+// Most of the time it's easiest just to use the call() function with
+// the constants in acornc.plh, but there are some cases where
+// convenience or performance make a special wrapper worthwhile.
+
 import acornos
-  predef osfind_open, osfind_close, osbget, osbput, osrdch
-  const eof = -1
-  const osfind_input = $40
-  const osfind_output = $80
-  const osfind_update = $C0
+  predef call_osfind_open
+  predef call_osbput, call_osbget
+  predef call_osrdch
+  const eof = -1 // TODO: delete if not needed eventually
 end

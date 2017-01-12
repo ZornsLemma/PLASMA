@@ -69,6 +69,7 @@ include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/testlib.plh"
+include "inc/acornc.plh"
 
 const TRUE = -1
 const FALSE = 0
@@ -167,7 +168,7 @@ def get_length(length, handle)
     // I suspect the AUG means that if you use OSARGS with A=1 to read the
     // address of the command line, the command line address returned in the
     // zero page control block is in the I/O processor.
-    call(2, scratch, handle, 0, $FFDA)
+    call(osargs_read_ext, scratch, handle, 0, osargs)
     // It's tempting to do "memcpy(length, scratch, 4)" here but BeebEm has
     // a bug (it doesn't wrap (zp),Y addressing at the top of memory) which
     // stops memcpy to zero page working, so we just do this.
@@ -219,23 +220,23 @@ export def fopen_prealloc(file, filename, mode)
 	    osfind_mode = osfind_update
 	    break
     wend
-    handle = osfind_open(osfind_mode, filename)
+    handle = call_osfind_open(osfind_mode, filename)
     if base_mode == 'w' and update and handle <> 0
 	// "w+" must truncate the file if it exists; we opened it in write
 	// mode to get this behaviour, we now need to re-open it in update
 	// mode.
-	osfind_close(handle)
-	handle = osfind_open(osfind_update, filename)
+	call(osfind_close, 0, handle, 0, osfind)
+	handle = call_osfind_open(osfind_update, filename)
     elsif file->r_append and handle == 0
 	// "a" must create the file if it doesn't exist but OSFIND's update
 	// mode doesn't ever create the file, so we do it explicitly if the
 	// open failed.
-	handle = osfind_open(osfind_output, filename)
+	handle = call_osfind_open(osfind_output, filename)
 	if handle == 0
 	    return 0
 	fin
-	osfind_close(handle)
-	handle = osfind_open(osfind_update, filename)
+	call(osfind_close, 0, handle, 0, osfind)
+	handle = call_osfind_open(osfind_update, filename)
     fin
     if handle == 0
 	return 0
@@ -303,7 +304,7 @@ export def fflush(file)
 #ifdef DEBUG
 		debug_dump_osgbpb(1, @block)
 #endif
-		call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+		call(osgbpb_write_using_new_ptr, @block, @block >> 8, 0, osgbpb) // TODO: BRK on error or can it return something?
 	    loop
 	fin
 
@@ -318,7 +319,7 @@ export def fflush(file)
 #ifdef DEBUG
 	debug_dump_osgbpb(1, @block)
 #endif
-	call(1, @block, @block >> 8, 0, $FFD1) // TODO: BRK on error or can it return something?
+	call(osgbpb_write_using_new_ptr, @block, @block >> 8, 0, osgbpb) // TODO: BRK on error or can it return something?
 
 	file->r_dirty = FALSE
 #ifdef DEBUG
@@ -362,7 +363,7 @@ def fill_buffer(file)
 #ifdef DEBUG
 	debug_dump_osgbpb(3, @block)
 #endif
-	call(3, @block, @block >> 8, 0, $FFD1)
+	call(osgbpb_read_using_new_ptr, @block, @block >> 8, 0, osgbpb)
     fin
     file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
     file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
@@ -633,7 +634,7 @@ export def fclose(file)
     if fflush(file) == EOF
 	return EOF
     fin
-    osfind_close(file->r_handle)
+    call(osfind_close, 0, file->r_handle, 0, osfind)
     return 0
 end
 

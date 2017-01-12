@@ -14,6 +14,7 @@ include "inc/cmdsys.plh"
 include "inc/dword.plh"
 include "inc/testlib.plh"
 include "inc/stdio.plh"
+include "inc/acornc.plh"
 
 byte intmath16str[] = "intmath16"
 byte intmath32str[] = "intmath32"
@@ -91,7 +92,7 @@ def show_times()
 end
 
 def time(t)
-    call(1, t, t >> 8, 0, $FFF1)
+    call(osword_read_time, t, t >> 8, 0, osword)
 end
 
 // Actual benchmarks
@@ -178,7 +179,7 @@ def storebput()
     word file, i, j, p
     time(@start)
     puts("Start\n")
-    file = osfind_open(osfind_output, "X.TEST")
+    file = call_osfind_open(osfind_output, "X.TEST")
     if file == 0
 	oserror(0, "Can't open test file")
     fin
@@ -188,11 +189,11 @@ def storebput()
 	j = ^p
 	while j > 0
 	    p++
-	    osbput(^p, file)
+	    call_osbput(^p, file)
 	    j--
 	loop
     next
-    osfind_close(file)
+    call(osfind_close, 0, file, 0, osfind)
     oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
@@ -209,7 +210,7 @@ def storegbpb()
     byte block[13]
     time(@start)
     puts("Start\n")
-    file = osfind_open(osfind_output, "X.TEST")
+    file = call_osfind_open(osfind_output, "X.TEST")
     if file == 0
 	oserror(0, "Can't open test file")
     fin
@@ -220,9 +221,9 @@ def storegbpb()
 	block:3 = 0
 	block:5 = ^@storelinestr
 	block:7 = 0
-	call(2, @block, @block >> 8, 0, $FFD1)
+	call(osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
     next
-    osfind_close(file)
+    call(osfind_close, 0, file, 0, osfind)
     oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)

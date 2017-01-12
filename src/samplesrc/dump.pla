@@ -2,6 +2,7 @@
 
 include "inc/cmdsys.plh"
 include "inc/acornos.plh"
+include "inc/acornc.plh"
 
 const bytes_per_line = 8
 
@@ -51,7 +52,7 @@ def dump(handle)
     count = 0
     addr = 0
     while 1
-	c = osbget(handle)
+	c = call_osbget(handle)
 	if c == eof
 	    break
 	fin
@@ -91,10 +92,10 @@ while 1
     elsif ^filename and (filename).1 == '*'
 	oscli(filename + 1)
     else
-	handle = osfind_open(osfind_input, filename)
+	handle = call_osfind_open(osfind_input, filename)
 	if handle <> 0
 	    dump(handle)
-	    osfind_close(handle)
+	    call(osfind_close, 0, handle, 0, osfind)
 	else
 	    puts("Can't open file\n")
 	fin

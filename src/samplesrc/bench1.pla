@@ -6,6 +6,7 @@
 
 include "inc/cmdsys.plh"
 include "inc/dword.plh"
+include "inc/acornc.plh"
 
 byte textscrnstr[] = "textscrn"
 byte textscrnlinestr[] = "1234567890qwertyuiop "
@@ -100,7 +101,7 @@ def show_times()
 end
 
 def time(t)
-    call(1, t, t >> 8, 0, $FFF1)
+    call(osword_read_time, t, t >> 8, 0, osword)
 end
 
 // Actual benchmarks

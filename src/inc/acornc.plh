@@ -1,9 +1,17 @@
 // This file contains only constants. TODO: MORE ON WHY
+// TODO: NOTE THAT BECAUSE THIS DOESN'T HAVE AN IMPORT BLOCK,
+// IT MUST BE INCLUDED IN A PLACE WHERE IT'S SYNTACTICALLY VALID
+// TO DECLARE CONSTANTS - SO IN PARTICULAR IT MUST COME *AFTER*
+// MOST "ORDINARY" INCLUDES
 
 const osfind = $FFCE
 const osgbpb = $FFD1
+const osbput = $FFD4
+const osbget = $FFD7
 const osargs = $FFDA
 const osfile = $FFDD
+const osrdch = $FFE0
+const osword = $FFF1
 const osbyte = $FFF4
 const oscli  = $FFF7
 
@@ -12,12 +20,21 @@ const osfind_input  = $40
 const osfind_output = $80
 const osfind_update = $C0
 
-const osgbpb_read_ignoring_ptr = $04
+const osgbpb_write_using_new_ptr    = $01
+const osgbpb_write_ignoring_new_ptr = $02
+const osgbpb_read_using_new_ptr     = $03
+const osgbpb_read_ignoring_new_ptr  = $04
 
 const osargs_read_ext = $02
 
 const osfile_block_size = $12
 const osfile_load_file  = $FF
 
+const osword_read_time = $01
+
+const osbyte_flush_buffer        = $15
 const osbyte_read_himem          = $84
 const osbyte_read_himem_for_mode = $85
+const osbyte_rw_escape_status    = $E5
+
+const buffer_keyboard = 0

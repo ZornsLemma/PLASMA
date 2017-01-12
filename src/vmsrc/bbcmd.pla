@@ -1361,7 +1361,7 @@ def loadmod(mod)
     block:3 = 0 // TODO: probably should be machine high order address
     block:5 = header_size
     block:7 = 0
-    call(osgbpb_read_ignoring_ptr, @block, @block >> 8, 0, osgbpb)
+    call(osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
     rdlen = header_size - block:5
     call(osargs_read_ext, scratch, handle, 0, osargs)
     file_length:0 = scratch:0; file_length:2 = scratch:2
