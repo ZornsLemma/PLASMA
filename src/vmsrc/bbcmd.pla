@@ -1859,13 +1859,6 @@ while 1
 	    is '*'
 	    	call_oscli(cmdptr)
 		break
-		// TODO START TEMP
-	    is 'X'
-		prword(callalloca(5, 25, @foo, 768))
-		prword(callalloca(42, 69, @foo, 512))
-		prword(callalloca(42, 69, @foo, $5500))
-		break
-		// TODO END TEMP
 	    otherwise
 	        prstr(@huhstr)
         wend
