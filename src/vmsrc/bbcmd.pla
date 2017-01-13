@@ -513,6 +513,36 @@ TOUPR	AND     #$7F
 +	STA     ESTKL,X
 	RTS
 end
+// Convert a DCI string to an Acorn OS-style string terminated by CR
+// int dcitocr(dci, cr) - returns length (of DCI string/excluding CR)
+asm dcitocr
+	; TODO: This little code fragment to set up SRC/DST is used in
+	; a few places and could possibly be factored out; as long as
+	; we continue to assemble this file directly into the VM
+	; executable, we can safely use JSR (unlike a normal module).
+	LDA	ESTKL,X
+	STA	DSTL
+	LDA	ESTKH,X
+	STA	DSTH
+	LDA	ESTKL+1,X
+	STA	SRCL
+	LDA	ESTKH+1,X
+	STA	SRCH
+	INX
+	LDY	#0
+	STY	ESTKH,X
+-	LDA	(SRC),Y
+	PHP
+	AND	#$7F
+	STA	(DST),Y
+	INY
+	PLP
+	BMI	-
+	LDA	#$0D
+	STA	(DST),Y
+	STY	ESTKL,X
+	RTS
+end
 //
 // Module symbols are entered into the symbol table
 // pre-pended with a '#' to differentiate them
@@ -1159,21 +1189,6 @@ def mode(n)
     return TRUE
 end
 
-// Convert a DCI string to an Acorn OS-style string terminated by CR
-// TODO: This should probably be coded in assembly - though given it's
-// only used in one place and that isn't performance critical, what's
-// really important is saving space - so use assembly iff it's smaller.
-def dcitocr(dci, cr)
-    byte len, c
-    len = 0
-    repeat
-        c = (dci).[len]
-	(cr).[len] = c & $7F
-	len = len + 1
-    until !(c & $80)
-    (cr).[len] = $D
-    return len
-end
 //
 // FILE I/O
 //
