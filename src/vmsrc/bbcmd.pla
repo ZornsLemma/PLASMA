@@ -1,3 +1,18 @@
+// OK, this is a bit ugly... We (mis)use the C preprocessor to allow
+// this file to be conditionally compiled to build PLASMA ("PLAS32") and
+// PLAS128, based on whether PLAS128 is defined or not. plvmbb.s also
+// uses an ACME constant called PLAS128 to provide conditional assembly there.
+// Because this file contains inline ACME assembler which wants to be able to
+// say things like '!IFDEF PLAS128', it's important that PLAS128 is defined to
+// be 'PLAS128', so that the C preprocessor effectively leaves those !IFDEF
+// lines alone. We could simply make sure we define it to the appropriate value
+// in the makefile, but it seems safest and slightly cleaner (since it gives us
+// a place to write this comment) to enforce this here.
+#ifdef PLAS128
+    #undef PLAS128
+    #define PLAS128 PLAS128
+#endif
+
 include "inc/acornc.plh"
 
 // TODO: A lot of this is probably irrelevant and can be removed
