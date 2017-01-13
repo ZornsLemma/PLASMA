@@ -1,6 +1,6 @@
 ;**********************************************************
 ;*
-;*            BBC B PLASMA INTERPETER
+;*            BBC PLASMA INTERPETER
 ;*
 ;*             SYSTEM ROUTINES AND LOCATIONS
 ;*

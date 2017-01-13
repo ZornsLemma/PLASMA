@@ -65,6 +65,7 @@ predef prbyte
 predef oserror
 predef stocr
 predef mode
+predef callalloca
 //
 // System variables.
 //
@@ -154,6 +155,7 @@ byte prbytestr[]  = "PRBYTE"
 byte oserrorstr[] = "OSERROR"
 byte stocrstr[]   = "STOCR"
 byte modestr[]    = "MODE"
+byte callallocastr[] = "CALLALLOCA"
 word exports[]	  = @callstr,   @call
 word 		  = @putcstr,   @cout
 word              = @putlnstr,  @crout
@@ -181,6 +183,7 @@ word		  = @prbytestr, @prbyte
 word		  = @oserrorstr,@oserror
 word		  = @stocrstr,  @stocr
 word		  = @modestr,   @mode
+word		  = @callallocastr, @callalloca
 word              = 0
 word syslibsym    = @exports     
 //
@@ -613,7 +616,7 @@ end
 // This is effectively a varargs function; given a function foo:
 // 	def foo(a, b, c)
 // if you execute:
-//	x = call_alloca(5, 25, foo, 512)
+//	x = callalloca(5, 25, foo, 512)
 // it behaves 'as if' you wrote:
 //	byte tmp[512]
 //	x = foo(5, 25, @tmp)
@@ -621,36 +624,58 @@ end
 // This is useful because "normal" local variables are restricted to a total
 // of 256 bytes per function.
 // TODO: TEST IT!
-// TODO: THIS NEEDS TO BE CONDITIONALLY COMPILED FOR PLASMA VS PLAS128 - FOR NOW JUST DOING IT FOR PLASMA
 // TODO: IF THIS WORKS OUT, IT SHOULD BE EXPORTED
-asm call_alloca(fn, size)
+asm callalloca(fn, size)
+	LDA	ESTKL+1,X
+	STA	TMPL
+	LDA	ESTKH+1,X
+	STA	TMPH
+
 	SEC
+!IFNDEF PLAS128 {
 	LDA	IFPL
 	PHA
 	SBC	ESTKL,X
 	STA	IFPL
+	STA	ESTKL+1,X
 	LDA	IFPH
 	PHA
 	SBC	ESTKH,X
 	STA	IFPH
+	STA	ESTKH+1,X
+	+CHECKVSHEAP IFP
+}
+!IFDEF PLAS128 {
+	LDA	PPL
+	PHA
+	SBC	ESTKL,X
+	STA	PPL
+	STA	ESTKL+1,X
+	LDA	PPH
+	PHA
+	SBC	ESTKH,X
+	STA	PPH
+	STA	ESTKH+1,X
+	+CHECKVSHEAP PP
+	; We don't need to update IFP; if the called function uses the frame
+	; stack, ENTER will set IFP=PP-frame_size.
+}
 	INX
-	; TODO: NEED TO CHECK IFPH HASN'T BREACHED HEAP VIA MACRO
 
-	LDA	ESTKL,X
-	STA	TMPL
-	LDA	ESTKH,X
-	STA	TMPH
-
-	LDA	IFPL
-	STA	ESTKL,X
-	LDA	IFPH
-	STA	ESTKH,X
 	JSR	+
 
+!IFNDEF PLAS128 {
 	PLA
 	STA	IFPH
 	PLA
 	STA	IFPL
+}
+!IFDEF PLAS128 {
+	PLA
+	STA	PPH
+	PLA
+	STA	PPL
+}
 
 	RTS
 
@@ -1820,10 +1845,6 @@ fin
 //
 // Handle commands.
 //
-// TODO START TEMP
-prword(call_alloca(5, 25, @foo, 768))
-prword(call_alloca(42, 69, @foo, 512))
-// TODO END TEMP
 while 1
     if ^cmdptr
         when toupper(parsecmd(cmdptr))
@@ -1838,6 +1859,13 @@ while 1
 	    is '*'
 	    	call_oscli(cmdptr)
 		break
+		// TODO START TEMP
+	    is 'X'
+		prword(callalloca(5, 25, @foo, 768))
+		prword(callalloca(42, 69, @foo, 512))
+		prword(callalloca(42, 69, @foo, $5500))
+		break
+		// TODO END TEMP
 	    otherwise
 	        prstr(@huhstr)
         wend
