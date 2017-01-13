@@ -14,6 +14,7 @@ asm equates
     BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
     osbput = $FFD4 ; TODO: need to centralise these for assembler
+    osbget = $FFD7
 end
 
 // void call_osbput(byte c, int handle)
@@ -24,6 +25,21 @@ export asm call_osbput
     JMP osbput
 end
 
+// int call_osbget(int handle) - returns byte read or eof (-1)
+export asm call_osbget
+    LDY ESTKL,X
+    JSR osbget
+    LDY #0
+    BCC NOTEOF
+    DEY
+    TYA
+NOTEOF
+    STA ESTKL,X
+    STY	ESTKH,X
+    RTS
+end
+
+
 def call_osfind_open_internal(a, filename, filename_cr)
     stocr(filename, filename_cr)
     return call(a, filename_cr, filename_cr >> 8, 0, osfind).0
@@ -31,18 +47,6 @@ end
 
 export def call_osfind_open(a, filename)
     return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
-end
-
-// TODO: Might be worth coding this in assembly for performance - if
-// we don't, there's almost no point having it, just use acornc.plh
-export def call_osbget(handle)
-    word result
-    result = call(0, 0, handle, 0, osbget)
-    if result->3 & 1
-	return eof
-    else
-	return result->0
-    fin
 end
 
 export def call_osrdch()
