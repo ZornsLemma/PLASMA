@@ -20,6 +20,7 @@ const osfind_input  = $40
 const osfind_output = $80
 const osfind_update = $C0
 
+const osgbpb_block_size             = $0D
 const osgbpb_write_using_new_ptr    = $01
 const osgbpb_write_ignoring_new_ptr = $02
 const osgbpb_read_using_new_ptr     = $03

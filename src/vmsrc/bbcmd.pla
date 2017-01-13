@@ -1213,7 +1213,7 @@ def readfile(filename, buffer)
     block:0 = filename
     block:2 = buffer
     block:4 = 0 // TODO: probably want machine high order address
-    block:6 = 0
+    block:6 = 0 // ignore file's load address, use our own
     perr = (call(osfile_load_file, @block, @block >> 8, 0, osfile).0 == 0)
     return perr
 end
@@ -1428,7 +1428,7 @@ def loadmod(mod)
     const header_size = 128
     byte header[header_size]
     byte handle
-    byte block[16]
+    byte block[osgbpb_block_size]
     byte file_length[4]
 
     perr = 0
