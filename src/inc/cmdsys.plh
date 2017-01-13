@@ -57,4 +57,5 @@ import cmdsys
     predef stocr
     predef mode
     predef callalloca
+    predef xheapalloc
 end
