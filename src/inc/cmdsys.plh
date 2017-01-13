@@ -54,4 +54,5 @@ import cmdsys
     predef oserror, osfile, oscli
     predef stocr
     predef mode
+    predef callalloca
 end

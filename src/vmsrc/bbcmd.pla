@@ -616,15 +616,13 @@ end
 // This is effectively a varargs function; given a function foo:
 // 	def foo(a, b, c)
 // if you execute:
-//	x = callalloca(5, 25, foo, 512)
+//	x = callalloca(5, 25, @foo, 512)
 // it behaves 'as if' you wrote:
 //	byte tmp[512]
 //	x = foo(5, 25, @tmp)
 // and then 'tmp' is immediately freed on exit from foo().
 // This is useful because "normal" local variables are restricted to a total
 // of 256 bytes per function.
-// TODO: TEST IT!
-// TODO: IF THIS WORKS OUT, IT SHOULD BE EXPORTED
 asm callalloca(fn, size)
 	LDA	ESTKL+1,X
 	STA	TMPL
@@ -1770,12 +1768,6 @@ def modechange(cmdptr)
     if not mode(n)
 	oserror(0, "Bad mode")
     fin
-end
-def foo(a, b, c) // SFTODO TEMP
-  cout('a'); prword(a); crout();
-  cout('b'); prword(b); crout();
-  cout('c'); prword(c); crout();
-  return 42
 end
 //
 // Get heap start.

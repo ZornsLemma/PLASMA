@@ -24,11 +24,13 @@ export asm call_osbput
     JMP osbput
 end
 
+def call_osfind_open_internal(a, filename, filename_cr)
+    stocr(filename, filename_cr)
+    return call(a, filename_cr, filename_cr >> 8, 0, osfind).0
+end
+
 export def call_osfind_open(a, filename)
-    // TODO: This will go wrong if the filename is too long
-    byte cr[251]
-    stocr(filename, @cr)
-    return call(a, @cr, @cr >> 8, 0, osfind).0
+    return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
 end
 
 // TODO: Might be worth coding this in assembly for performance - if
