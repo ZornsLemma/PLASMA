@@ -532,12 +532,11 @@ asm dcitocr
 	LDY	#0
 	STY	ESTKH,X
 -	LDA	(SRC),Y
-	PHP
+	CMP	#$80		; set C iff >= $80
 	AND	#$7F
 	STA	(DST),Y
 	INY
-	PLP
-	BMI	-
+	BCS	-
 	LDA	#$0D
 	STA	(DST),Y
 	STY	ESTKL,X
