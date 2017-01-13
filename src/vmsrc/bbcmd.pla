@@ -682,10 +682,9 @@ asm callalloca(fn, size)
 
 +	JMP	(TMP)
 end
+
 //
-// Acorn MOS API
-// (only the bits needed by this file; the rest lives in acornos.pla and is
-// included by programs which need it) TODO: Still true?
+// ACORN OS ERROR GENERATION
 //
 asm oserror(n, msg)
 	LDA	ESTKL+1,X
@@ -900,8 +899,8 @@ asm memxcpy
 
 	STY 	IPY
 
-	;* TODO: this may want to share code with SETIPH; the two need to
-	;* be consistent if they don't actually share code.
+	;* TODO: This must be consistent with IINTERP; we don't share code as I'm
+	;* reluctant to add the cost of a subroutine call to IINTERP.
 	LDA	ESTKH+2,X
 	ASL
 	ADC	#$00
