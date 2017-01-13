@@ -163,7 +163,7 @@ def storestdio()
     if fclose(file) == EOF
 	oserror(0, "Can't close test file")
     fin
-    oscli("DELETE X.TEST")
+    call_oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
     heaprelease(oldheap)
@@ -194,7 +194,7 @@ def storebput()
 	loop
     next
     call(osfind_close, 0, file, 0, osfind)
-    oscli("DELETE X.TEST")
+    call_oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
     log_time(@storebputstr)
@@ -224,7 +224,7 @@ def storegbpb()
 	call(osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
     next
     call(osfind_close, 0, file, 0, osfind)
-    oscli("DELETE X.TEST")
+    call_oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
     log_time(@storegbpbstr)

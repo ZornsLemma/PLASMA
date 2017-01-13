@@ -63,6 +63,7 @@ predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
 predef oserror
+predef call_oscli
 predef stocr
 predef mode
 predef callalloca
@@ -153,6 +154,7 @@ byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
 byte oserrorstr[] = "OSERROR"
+byte call_osclistr[] = "CALL_OSCLI"
 byte stocrstr[]   = "STOCR"
 byte modestr[]    = "MODE"
 byte callallocastr[] = "CALLALLOCA"
@@ -181,6 +183,7 @@ word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
 word		  = @prbytestr, @prbyte
 word		  = @oserrorstr,@oserror
+word		  = @call_osclistr, @call_oscli
 word		  = @stocrstr,  @stocr
 word		  = @modestr,   @mode
 word		  = @callallocastr, @callalloca
@@ -1290,13 +1293,14 @@ def stocr(str, cr)
     loop
 end
 
+def call_oscli_internal(str, str_cr)
+    stocr(str, str_cr)
+    call(0, str_cr, str_cr >> 8, 0, oscli)
+end
+
 // call_oscli(str)
-// TODO: Export this?
 def call_oscli(str)
-    // TODO: This will go wrong if the command is too long
-    byte cr[253]
-    stocr(str, @cr)
-    call(0, @cr, @cr >> 8, 0, oscli)
+    return callalloca(str, @call_oscli_internal, ^str + 1)
 end
 
 //
