@@ -559,6 +559,36 @@ asm dcitocr
 	STY	ESTKL,X
 	RTS
 end
+// Converts a PLASMA string to an Acorn OS-style string terminated by CR
+// void stocr(str, cr)
+asm stocr
+	LDA	ESTKL,X
+	STA	DSTL
+	LDA	ESTKH,X
+	STA	DSTH
+	LDA	ESTKL+1,X
+	STA	SRCL
+	LDA	ESTKH+1,X
+	STA	SRCH
+	INX
+	STX	ESP
+	LDY	#0
+	LDA	(SRC),Y
+	BEQ	+
+	TAX
+-	INY
+	LDA	(SRC),Y
+	DEY
+	STA	(DST),Y
+	INY
+	DEX
+	BNE	-
++	LDA	#$0D
+	STA	(DST),Y
+	LDX	ESP
+	RTS
+end
+
 //
 // Module symbols are entered into the symbol table
 // pre-pended with a '#' to differentiate them
@@ -1307,20 +1337,6 @@ end
 //
 // Acorn MOS API
 //
-
-// TODO: This should probably be coded in assembly. Maybe not though,
-// if bytecode is smaller, since it's probably never used anywhere
-// performance critical.
-def stocr(str, cr)
-    byte len, c
-    len = ^str
-    (cr).[len] = 13
-    while len
-	c = (str).[len]
-	len = len - 1
-	(cr).[len] = c
-    loop
-end
 
 def call_oscli_internal(str, str_cr)
     stocr(str, str_cr)
