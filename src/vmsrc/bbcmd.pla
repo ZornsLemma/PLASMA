@@ -32,7 +32,7 @@ const pp           = $0073
 const himemh       = $0078
 const scratch	   = $0079
 const cpu_stack	   = $0100
-const symtblsz     = $0400
+const symtblchunksz = $0015 // TODONOW
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
@@ -105,12 +105,11 @@ const heapptr = $0089
     const xheap_bank_start = $09
     word xheap = xheap_bank_start
 #endif
-word symtbl, lastsym
+word symtbl, lastsym, symtblchunk
 byte perr, refauto
 //
 // String pool.
 //
-byte autorun[]    = "AUTORUN"
 byte verstr[]     = "\nPLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
@@ -622,6 +621,7 @@ end
 //
 // Lookup routines.
 //
+// TODO: THIS PSEUDO CODE IS NOW OUT OF DATE, UPDATE OR POSSIBLY JUST DELETE IT
 //def lookuptbl(dci, tbl)
 //    word match
 //    while ^tbl
@@ -648,38 +648,57 @@ asm lookuptbl
 	STA	SRCL
 	LDA	ESTKH+1,X
 	STA	SRCH
-	LDY	#$00
--	LDA	(DST),Y
-	BEQ	+
+.NEXT	LDY	#$00
+.NEXTY	LDA	(DST),Y
+	BEQ	.CHUNKEND
 	CMP	(SRC),Y
-	BNE	++
+	BNE	.NOTMATCH
 	INY
 	ASL
-	BCS	-
+	BCS	.NEXTY
 	LDA	(DST),Y
 	PHA
 	INY
 	LDA	(DST),Y
 	TAY
 	PLA
-+	INX
+.EXIT	INX
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
-++	LDY	#$00
---	LDA	(DST),Y
+.NOTMATCH
+	LDY	#$00
+.SKIP	LDA	(DST),Y
 	INC	DSTL
-	BEQ	+
----	ASL
-	BCS	--
+	BEQ	.DSTCARRY
+.DSTCARRYDONE
+	ASL
+	BCS	.SKIP
 	LDA	#$02
 	ADC	DSTL
 	STA	DSTL
-	BCC	-
+	BCC	.NEXTY
 	INC	DSTH
-	BCS	-
-+	INC	DSTH
-	BNE	---
+	BCS	.NEXTY
+.DSTCARRY
+	INC	DSTH
+	BNE	.DSTCARRYDONE
+.CHUNKEND 
+	LDA #42
+	JSR $FFEE
+	LDY	#$02
+	LDA	(DST),Y
+	BNE	.NEXTCHUNK
+	TAY
+	BEQ	.EXIT
+.NEXTCHUNK
+	PHA
+	DEY
+	LDA	(DST),Y
+	STA	DSTL
+	PLA
+	STA	DSTH
+	BNE	.NEXT
 end
 
 //
@@ -1348,29 +1367,67 @@ end
 // Symbol table routines.
 //
 def lookupsym(sym)
-    return lookuptbl(sym, symtbl)
+    word TODO, TODO2
+    TODO = sym
+    cout('a')
+    while ^TODO & $80
+    	cout(^TODO & $7F)
+	TODO++
+    loop
+    cout(^TODO)
+    TODO2 =lookuptbl(sym, symtbl)
+    cout(' ')
+    prword(TODO2)
+    crout()
+    return TODO2
 end
 def addsym(sym, addr)
-    // TODO: If we converted the symbol table to a linked list, we could allow
-    // it to grow via a series of discontiguous heap allocations - at the cost
-    // of (slightly?) slowing down the symbol lookups, and an extra two bytes
-    // per entry. Or we could use a "deque"-type structure (but singly linked).
-    // TODO: Is it actually a 16 character name plus 2 following bytes? Because
-    // lastsym->0 after the loop is the top-bit-clear last character of the
-    // 16 character name.
-    const max_entry_size = 16 + 3 // 16 character name plus 3 following bytes
-    if lastsym - symtbl + max_entry_size > symtblsz
-        oserror(0, "Symbol table full")
+    word newsymtblchunk
+    // We must always have room for a 16 character name, two bytes for the
+    // address associated with that name and another three bytes for the
+    // 'next chunk' pointer.
+    const max_entry_size = 16 + 2 + 3
+    if lastsym - symtblchunk + max_entry_size > symtblchunksz
+    	prstr("extending symbol table "); // TODO TEMP
+    	newsymtblchunk = xallocheap(symtblchunksz)
+	if symtblchunk + symtblchunksz == newsymtblchunk
+
+	    // This allocation is contiguous with the previous chunk; we can
+	    // therefore merge this allocation to avoid the wasted space at
+	    // the end. This is important when we're called in loadmod(), as
+	    // otherwise the assumption about the growth of the symbol table
+	    // per addsym() call wouldn't be true.
+	    // Because this is the common case, we can in fact get away with
+	    // making symtblchunksz very small without it really costing
+	    // anything; we essentially pay three bytes for a triple-0 entry
+	    // at the end of a chunk once per module loaded, and in return
+	    // we have at most symtblchunksz bytes wasted on unused symbol
+	    // table space.
+
+	    prstr("special\n")
+	    symtblchunk = lastsym
+	    releaseheap(symtblchunk + symtblchunksz)
+	else
+	    symtblchunk = newsymtblchunk
+	    prword(symtblchunk)
+	fin
+	*(lastsym + 1) = symtblchunk
+	lastsym = symtblchunk
     fin
+    cout('(')
     while ^sym & $80
+    	cout(^sym & $7F)
         ^lastsym = ^sym
         lastsym  = lastsym + 1
         sym      = sym     + 1
     loop
     lastsym->0 = ^sym
+    cout(^sym)
+    cout(' '); prword(addr); crout()
     lastsym=>1 = addr
     lastsym    = lastsym + 3
     ^lastsym   = 0
+    *(lastsym + 1) = 0 // TODO: CAN I USE lastsym=>1 HERE?
 end
 //
 // Module routines.
@@ -1467,6 +1524,7 @@ def loadmod(mod)
     // Read the RELocatable module header (first header_size bytes); we also
     // get the file length while we have the file open.
     //
+    prstr("loadmod\n")
     dcitocr(mod, @filename)
     handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
     if handle == 0
@@ -1507,6 +1565,7 @@ def loadmod(mod)
             while ^moddep
                 if !lookupmod(moddep)
                     if loadmod(moddep) < 0
+		    	prstr("~loadmod1\n")
 	      	        return -perr
 		    fin
                 fin
@@ -1528,6 +1587,12 @@ def loadmod(mod)
 	    ^deflast = 0
         fin
 	//
+	// Add module to symbol table. This may grow the symbol table, so we
+	// do it before we allocate space on the heap for the module.
+	//
+	//xallocheap(2048) // TODO TEMP HACK
+	addmod(mod, modaddr)
+	//
 	// Check there's room for the entire file onto the heap now any
 	// dependencies have been loaded.
 	//
@@ -1541,6 +1606,7 @@ def loadmod(mod)
 	// Load the file
 	//
 	if readfile(@filename, addr)
+	    prstr("~loadmod2\n")
 	    return -perr
 	fin
 	//
@@ -1558,11 +1624,8 @@ def loadmod(mod)
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
 	modaddr = xallocheap(modsize) // can't fail anyway
+	prstr("modaddr "); prword(modaddr); crout()
 	memcpy(modaddr, moddep, rdlen)
-	//
-	// Add module to symbol table.
-	//
-	addmod(mod, modaddr)
 	//
 	// Apply all fixups and symbol import/export.
 	//
@@ -1575,6 +1638,7 @@ def loadmod(mod)
             esd = esd + 4
 	loop
         esd = esd + 1
+	cout('T'); prword(esd); prword(*esd); crout()
 #ifdef PLAS128
 	//
 	// Locate bytecode defs in appropriate bank.
@@ -1585,10 +1649,23 @@ def loadmod(mod)
 	fin
 	modend  = bytecode
 #endif
+	//
+	// Free up the end-of-module in main memory. This is premature
+	// as we are going to access that data, but we may allocate from the
+	// heap to expand the symbol table, so we must do this first. This is
+	// "risky", because any more heap allocations could allocate memory
+	// we will try to read. We get away with it because only addsym() is
+	// going to touch heap-allocated memory. Any one addsym() call can only touch
+	// len(symbol_name) + 2 (symbol address) new bytes, and each ESD entry
+	// is len(symbol_name) + 3 bytes, so we're always OK even if there
+	// are no RLD entries. TODO: Double check this reasoning!
+	//
+	releaseheap(modend)    
         //
         // Run through the Re-Location Dictionary.
         //
         while ^rld
+	    cout('+')
             if ^rld == $02
 	        //
 		// This is a bytcode def entry - add it to the def directory.
@@ -1634,8 +1711,10 @@ def loadmod(mod)
         // Run through the External/Entry Symbol Directory.
 	//
         while ^esd
+	    cout('U'); prword(esd); prword(*esd); crout()
             sym = esd
             esd = esd + dcitos(esd, @str)
+	    prstr(@str) // TODO TEMP
             if ^esd & $08
 		//
                 // EXPORT symbol - add it to the global symbol table.
@@ -1652,6 +1731,14 @@ def loadmod(mod)
 #endif
                 fin
                 addsym(sym, addr)
+		cout('Q'); prword(lastsym); cout(' '); prword(esd); crout()
+		// TODO: The following test could be removed eventually.
+		// Assert that the last byte written in the symbol table
+		// (lastsym + 2) hasn't trampled over the next ESD entry
+		// (at esd + 3).
+		if uword_isge(lastsym + 2, esd + 3)
+		    oserror(0, "Symbol table clash")
+		fin
             fin
             esd = esd + 3
         loop
@@ -1663,6 +1750,7 @@ def loadmod(mod)
 #endif
     fin
     if perr
+	prstr("~loadmod3\n")
         return -perr
     fin
     //
@@ -1687,10 +1775,7 @@ def loadmod(mod)
 #endif
 	fin
     fin
-    //
-    // Free up the end-of-module in main memory.
-    //
-    releaseheap(modend)
+    prstr("~loadmod4\n")
     return fixup | (systemflags & modkeep)
 end
 //
@@ -1749,7 +1834,7 @@ def execmod(modfile)
 #ifdef PLAS128
     word savexheap
 #endif
-    word savesym, saveflags, error, action, olderrjb, jb
+    word savesym, savesymtblchunk, saveflags, error, action, olderrjb, jb
     byte handle
 
     perr = 1
@@ -1758,7 +1843,9 @@ def execmod(modfile)
 #ifdef PLAS128
 	savexheap = xheap
 #endif
+// TODONOW UPDATE THIS FOR CHUNKED SYMBOL TABLE
 	savesym   = lastsym
+	savesymtblchunk = symtblchunk
 	saveflags = systemflags
         olderrjb = *errjb
 	// We allocate a jmp_buf on the heap; it will get trapped and
@@ -1781,12 +1868,14 @@ def execmod(modfile)
 	    call(osfind_close, 0, handle, 0, osfind)
 
 	    lastsym = savesym
+	    symtblchunk = savesymtblchunk
 #ifdef PLAS128
 	    xheap   = savexheap
 #endif
 	    *heapptr= saveheap
 	fin
 	^lastsym    = 0
+	*(lastsym + 1) = 0
 	systemflags = saveflags
 	if error <> 0
 	    error_handler()
@@ -1828,16 +1917,28 @@ end
 // locate it in the $0400-$0800 region set aside for the current
 // language; we currently use bits of this, but we could relocate
 // the other users.
-symtbl   = xallocheap(symtblsz)
+symtbl   = xallocheap(symtblchunksz)
+symtblchunk = symtbl
 lastsym  = symtbl
 ^lastsym = 0
+*(lastsym + 1) = 0
 stodci(@syslibstr, *heapptr)
 addmod(*heapptr, @version)
+// TODO: Can we have the symbol table in the binary be usable directly?
 while *syslibsym
     stodci(syslibsym=>0, *heapptr)
     addsym(*heapptr, syslibsym=>2)
     syslibsym = syslibsym + 4
 loop
+prword(symtbl); prword(lastsym)
+cout('X');
+cmdptr = xallocheap(10)
+^cmdptr = 'P' + $80
+^(cmdptr + 1) = 'U' + $80
+^(cmdptr + 2) = 'T' + $80
+^(cmdptr + 3) = 'S'
+prword(lookupsym(cmdptr))
+cout('Y')
 //
 // Set up error handler
 //

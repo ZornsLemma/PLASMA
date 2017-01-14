@@ -3,7 +3,7 @@
 //
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
-include "inc/acornos.plh"
+// TODO: DELETE, NOT SURE WHY IT WAS HERE IN FIRST PLACE? include "inc/acornos.plh"
 //
 // Structure definition.
 //
