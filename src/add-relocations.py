@@ -36,10 +36,11 @@ for relocation in relocations:
     last_relocation = relocation
     assert delta_relocation > 0
     # We need to encode the delta_relocation as an 8-bit byte. We use 0 to mean
-    # 'move 256 bytes along but don't perform a relocation'.
+    # 'move 255 bytes along but don't perform a relocation'.
     while delta_relocation >= 256:
         delta_relocations.append(0)
-        delta_relocation -= 256
+        delta_relocation -= 255
+    assert delta_relocation > 0
     delta_relocations.append(delta_relocation)
 
 count = len(delta_relocations)
