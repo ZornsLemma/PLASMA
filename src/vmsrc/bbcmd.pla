@@ -15,6 +15,10 @@
 
 include "inc/acornc.plh"
 
+// TODO: PLAS128 "mostly" works with a second processor enabled, but error handling
+// is completely screwed - simply pressing ESCAPE at the prompt causes it to go
+// bananas.
+
 // TODO: A lot of this is probably irrelevant and can be removed
 
 const MODADDR      = $1000
@@ -246,18 +250,6 @@ REGVALS	=	SRC
         PLP
         RTS
 JMPTMP	JMP	(TMP)
-end
-//
-// QUIT TO PREVIOUS LANGUAGE
-// TODO: Obviously not suitable if this gets turned into a language ROM itself...
-//
-asm quit
-	LDA	#$FC
-	LDX	#0
-	LDY	#$FF
-	JSR	$FFF4
-	LDA	#$8E
-	JSR	$FFF4
 end
 //
 // SET MEMORY TO VALUE
@@ -1892,8 +1884,6 @@ fin
 while 1
     if ^cmdptr
         when toupper(parsecmd(cmdptr))
-            is 'Q'
-	        quit
 	    is 'M'
 		modechange(cmdptr)
 		break
