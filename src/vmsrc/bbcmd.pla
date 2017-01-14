@@ -17,7 +17,8 @@ include "inc/acornc.plh"
 
 // TODO: PLAS128 "mostly" works with a second processor enabled, but error handling
 // is completely screwed - simply pressing ESCAPE at the prompt causes it to go
-// bananas.
+// bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
+// command which generates an error seems to be fine.
 
 // TODO: A lot of this is probably irrelevant and can be removed
 
