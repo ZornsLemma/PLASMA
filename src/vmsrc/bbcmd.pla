@@ -32,12 +32,17 @@ const pp           = $0073
 const himemh       = $0078
 const scratch	   = $0079
 const cpu_stack	   = $0100
-const symtblchunksz = $0015 // TODONOW
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
 const errfp	   = $0405	// 2 bytes
 const errjb	   = $0407	// 2 bytes
+// TODO: I am currently very wasteful of memory in $400-$800; for
+// now we just allot this little part of it for the initial symbol
+// table, but this can probably be expanded later as the memory use
+// is tided up
+const initialsymtbl = $0500
+const initialsymtblsz = $0040
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
@@ -105,7 +110,9 @@ const heapptr = $0089
     const xheap_bank_start = $09
     word xheap = xheap_bank_start
 #endif
-word symtbl, lastsym, symtblchunk
+word symtbl = initialsymtbl
+word symtblchunk = initialsymtbl
+word lastsym = initialsymtbl
 byte perr, refauto
 //
 // String pool.
@@ -1382,31 +1389,31 @@ def lookupsym(sym)
     return TODO2
 end
 def addsym(sym, addr)
-    word newsymtblchunk
+    word symtbl_chunk_size, newsymtblchunk
     // We must always have room for a 16 character name, two bytes for the
     // address associated with that name and another three bytes for the
     // 'next chunk' pointer.
     const max_entry_size = 16 + 2 + 3
-    if lastsym - symtblchunk + max_entry_size > symtblchunksz
+    if symtblchunk == initialsymtbl
+	prstr("allocating from initial table\n")
+	symtbl_chunk_size = initialsymtblsz
+    else
+	symtbl_chunk_size = max_entry_size
+    fin
+    if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
     	prstr("extending symbol table "); // TODO TEMP
-    	newsymtblchunk = xallocheap(symtblchunksz)
-	if symtblchunk + symtblchunksz == newsymtblchunk
-
+    	newsymtblchunk = xallocheap(max_entry_size)
+	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can
-	    // therefore merge this allocation to avoid the wasted space at
-	    // the end. This is important when we're called in loadmod(), as
+	    // therefore merge this allocation to avoid the wasted space at the
+	    // end. This is important when we're called in loadmod(), as
 	    // otherwise the assumption about the growth of the symbol table
-	    // per addsym() call wouldn't be true.
-	    // Because this is the common case, we can in fact get away with
-	    // making symtblchunksz very small without it really costing
-	    // anything; we essentially pay three bytes for a triple-0 entry
-	    // at the end of a chunk once per module loaded, and in return
-	    // we have at most symtblchunksz bytes wasted on unused symbol
-	    // table space.
-
+	    // per addsym() call wouldn't be true. Because this is the common
+	    // case, we can get away with allocating only max_entry_size bytes
+	    // every time.
 	    prstr("special\n")
 	    symtblchunk = lastsym
-	    releaseheap(symtblchunk + symtblchunksz)
+	    releaseheap(symtblchunk + max_entry_size)
 	else
 	    symtblchunk = newsymtblchunk
 	    prword(symtblchunk)
@@ -1913,13 +1920,6 @@ end
 //
 // Init symbol table.
 //
-// TODO: If the symbol table remains fixed size, we may be able to
-// locate it in the $0400-$0800 region set aside for the current
-// language; we currently use bits of this, but we could relocate
-// the other users.
-symtbl   = xallocheap(symtblchunksz)
-symtblchunk = symtbl
-lastsym  = symtbl
 ^lastsym = 0
 *(lastsym + 1) = 0
 stodci(@syslibstr, *heapptr)
