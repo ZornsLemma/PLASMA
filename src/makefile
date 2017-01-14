@@ -324,4 +324,4 @@ setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
 
 plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool setjmp $(ACORNOS) samplesrc/pcw.bas
-	beebasm -i skel.beebasm -do plasma.ssd
+	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA
