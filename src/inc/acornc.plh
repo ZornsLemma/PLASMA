@@ -33,9 +33,10 @@ const osfile_load_file  = $FF
 
 const osword_read_time = $01
 
-const osbyte_flush_buffer        = $15
-const osbyte_read_himem          = $84
-const osbyte_read_himem_for_mode = $85
-const osbyte_rw_escape_status    = $E5
+const osbyte_flush_buffer	     = $15
+const osbyte_read_high_order_address = $82
+const osbyte_read_himem              = $84
+const osbyte_read_himem_for_mode     = $85
+const osbyte_rw_escape_status        = $E5
 
 const buffer_keyboard = 0

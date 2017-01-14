@@ -1238,11 +1238,14 @@ end
 //
 // FILE I/O
 //
+def high_order_address
+    return call(osbyte_read_high_order_address, 0, 0, 0, osbyte):1
+end
 def readfile(filename, buffer)
     byte block[osfile_block_size]
     block:0 = filename
     block:2 = buffer
-    block:4 = 0 // TODO: probably want machine high order address
+    block:4 = high_order_address()
     block:6 = 0 // ignore file's load address, use our own
     perr = (call(osfile_load_file, @block, @block >> 8, 0, osfile).0 == 0)
     return perr
@@ -1479,7 +1482,7 @@ def loadmod(mod)
     loadmod_handle = handle
     block.0 = handle
     block:1 = @header
-    block:3 = 0 // TODO: probably should be machine high order address
+    block:3 = high_order_address()
     block:5 = header_size
     block:7 = 0
     call(osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
