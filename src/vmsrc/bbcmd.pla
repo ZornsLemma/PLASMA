@@ -691,8 +691,6 @@ asm lookuptbl
 	INC	DSTH
 	BNE	.DSTCARRYDONE
 .CHUNKEND 
-	LDA #42
-	JSR $FFEE
 	LDY	#$02
 	LDA	(DST),Y
 	BNE	.NEXTCHUNK
@@ -1373,20 +1371,19 @@ end
 //
 // Symbol table routines.
 //
+// The symbol table is a "chunked array"; the first chunk is at symtbl and
+// each chunk consists of a number of entries, each of which consists of:
+// - symbol name (as DCI string)
+// - symbol address (2 bytes)
+// If the symbol name's first byte is 0, that marks the end of the chunk.
+// The two following bytes are 0 if there are no more chunks, otherwise
+// they are the address of the next chunk.
+//
+// The first chunk is a different size than later chunks but this is only
+// relevant to addsym(); it makes no difference to lookuptbl().
+//
 def lookupsym(sym)
-    word TODO, TODO2
-    TODO = sym
-    cout('a')
-    while ^TODO & $80
-    	cout(^TODO & $7F)
-	TODO++
-    loop
-    cout(^TODO)
-    TODO2 =lookuptbl(sym, symtbl)
-    cout(' ')
-    prword(TODO2)
-    crout()
-    return TODO2
+    return lookuptbl(sym, symtbl)
 end
 def addsym(sym, addr)
     word symtbl_chunk_size, newsymtblchunk
@@ -1395,13 +1392,11 @@ def addsym(sym, addr)
     // 'next chunk' pointer.
     const max_entry_size = 16 + 2 + 3
     if symtblchunk == initialsymtbl
-	prstr("allocating from initial table\n")
 	symtbl_chunk_size = initialsymtblsz
     else
 	symtbl_chunk_size = max_entry_size
     fin
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
-    	prstr("extending symbol table "); // TODO TEMP
     	newsymtblchunk = xallocheap(max_entry_size)
 	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can
@@ -1411,26 +1406,20 @@ def addsym(sym, addr)
 	    // per addsym() call wouldn't be true. Because this is the common
 	    // case, we can get away with allocating only max_entry_size bytes
 	    // every time.
-	    prstr("special\n")
 	    symtblchunk = lastsym
 	    releaseheap(symtblchunk + max_entry_size)
 	else
 	    symtblchunk = newsymtblchunk
-	    prword(symtblchunk)
 	fin
 	*(lastsym + 1) = symtblchunk
 	lastsym = symtblchunk
     fin
-    cout('(')
     while ^sym & $80
-    	cout(^sym & $7F)
         ^lastsym = ^sym
         lastsym  = lastsym + 1
         sym      = sym     + 1
     loop
     lastsym->0 = ^sym
-    cout(^sym)
-    cout(' '); prword(addr); crout()
     lastsym=>1 = addr
     lastsym    = lastsym + 3
     ^lastsym   = 0
@@ -1531,7 +1520,6 @@ def loadmod(mod)
     // Read the RELocatable module header (first header_size bytes); we also
     // get the file length while we have the file open.
     //
-    prstr("loadmod\n")
     dcitocr(mod, @filename)
     handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
     if handle == 0
@@ -1572,7 +1560,6 @@ def loadmod(mod)
             while ^moddep
                 if !lookupmod(moddep)
                     if loadmod(moddep) < 0
-		    	prstr("~loadmod1\n")
 	      	        return -perr
 		    fin
                 fin
@@ -1597,7 +1584,6 @@ def loadmod(mod)
 	// Add module to symbol table. This may grow the symbol table, so we
 	// do it before we allocate space on the heap for the module.
 	//
-	//xallocheap(2048) // TODO TEMP HACK
 	addmod(mod, modaddr)
 	//
 	// Check there's room for the entire file onto the heap now any
@@ -1613,7 +1599,6 @@ def loadmod(mod)
 	// Load the file
 	//
 	if readfile(@filename, addr)
-	    prstr("~loadmod2\n")
 	    return -perr
 	fin
 	//
@@ -1631,7 +1616,6 @@ def loadmod(mod)
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
 	modaddr = xallocheap(modsize) // can't fail anyway
-	prstr("modaddr "); prword(modaddr); crout()
 	memcpy(modaddr, moddep, rdlen)
 	//
 	// Apply all fixups and symbol import/export.
@@ -1645,7 +1629,6 @@ def loadmod(mod)
             esd = esd + 4
 	loop
         esd = esd + 1
-	cout('T'); prword(esd); prword(*esd); crout()
 #ifdef PLAS128
 	//
 	// Locate bytecode defs in appropriate bank.
@@ -1672,7 +1655,6 @@ def loadmod(mod)
         // Run through the Re-Location Dictionary.
         //
         while ^rld
-	    cout('+')
             if ^rld == $02
 	        //
 		// This is a bytcode def entry - add it to the def directory.
@@ -1718,10 +1700,8 @@ def loadmod(mod)
         // Run through the External/Entry Symbol Directory.
 	//
         while ^esd
-	    cout('U'); prword(esd); prword(*esd); crout()
             sym = esd
             esd = esd + dcitos(esd, @str)
-	    prstr(@str) // TODO TEMP
             if ^esd & $08
 		//
                 // EXPORT symbol - add it to the global symbol table.
@@ -1738,7 +1718,6 @@ def loadmod(mod)
 #endif
                 fin
                 addsym(sym, addr)
-		cout('Q'); prword(lastsym); cout(' '); prword(esd); crout()
 		// TODO: The following test could be removed eventually.
 		// Assert that the last byte written in the symbol table
 		// (lastsym + 2) hasn't trampled over the next ESD entry
@@ -1757,7 +1736,6 @@ def loadmod(mod)
 #endif
     fin
     if perr
-	prstr("~loadmod3\n")
         return -perr
     fin
     //
@@ -1782,7 +1760,6 @@ def loadmod(mod)
 #endif
 	fin
     fin
-    prstr("~loadmod4\n")
     return fixup | (systemflags & modkeep)
 end
 //
@@ -1930,15 +1907,6 @@ while *syslibsym
     addsym(*heapptr, syslibsym=>2)
     syslibsym = syslibsym + 4
 loop
-prword(symtbl); prword(lastsym)
-cout('X');
-cmdptr = xallocheap(10)
-^cmdptr = 'P' + $80
-^(cmdptr + 1) = 'U' + $80
-^(cmdptr + 2) = 'T' + $80
-^(cmdptr + 3) = 'S'
-prword(lookupsym(cmdptr))
-cout('Y')
 //
 // Set up error handler
 //
