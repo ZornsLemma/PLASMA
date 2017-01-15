@@ -55,7 +55,7 @@ const allocheap_fail_threshold = $FFFF
 const modkeep     = $2000
 const modinitkeep = $4000
 //
-// Pedefined functions.
+// Predefined functions.
 //
 predef crout, cout, prstr, cin, rdstr
 predef call
@@ -91,7 +91,7 @@ const heapptr = $0089
 word symtbl = initialsymtbl
 word symtblchunk = initialsymtbl
 word lastsym = initialsymtbl
-byte perr, refauto
+byte perr
 //
 // String pool.
 //
@@ -107,9 +107,11 @@ byte huhstr[]     = "?\n"
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 byte colonstr[]   = ": "
 //
-// Exported Machine ID.
+// Exported Machine ID. We somewhat arbitrarily assign the apparently free code
+// $C8 for all Acorn machines; once you know you're on an Acorn machine you can
+// use something like OSBYTE 0 to determine the exact model.
 //
-byte machid       = $BB // Arbitrary value
+byte machid       = $C8
 //
 // Command line pointer
 //
@@ -117,7 +119,7 @@ word cmdptr       = @hexchar // make it point to a zero
 //
 // File handle used by loadmod
 //
-byte loadmod_handle
+byte loadmod_handle = 0
 //
 // Global variables for use by mode()
 //
@@ -1833,7 +1835,9 @@ def execmod(modfile)
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
 	    handle = loadmod_handle; loadmod_handle = 0
-	    call(osfind_close, 0, handle, 0, osfind)
+	    if handle <> 0
+		call(osfind_close, 0, handle, 0, osfind)
+	    fin
 
 	    lastsym = savesym
 	    symtblchunk = savesymtblchunk

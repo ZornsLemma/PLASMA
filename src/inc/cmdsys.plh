@@ -1,5 +1,4 @@
 import cmdsys
-    // TODO: Delete this Apple-specific stuff?
     const MACHID_CLOCK = $01
     const MACHID_80COL = $02
     const MACHID_MEM   = $03
@@ -13,6 +12,7 @@ import cmdsys
     const MACHID_III   = $C0
     const MACHID_IIC   = $88
     const MACHID_I     = $08
+    const MACHID_ACORN = $C8
     word MACHID
     //
     // System flags: memory allocator screen holes.
@@ -43,7 +43,9 @@ import cmdsys
     predef memset, memcpy
     predef isugt, isuge, isult, isule
     predef modload, modexec, modaddr
-    // TODO: The following are BBC-only so arguably shouldn't appear here, but
+
+    // The following are additions to the Acorn port of the VM.
+    // TODO: Ideally these would go in a separate header, but they *are*
     // they are part of the core VM so perhaps it's not too unreasonable.
     const errjb = $407
     const errnum = $700
