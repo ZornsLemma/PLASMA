@@ -151,6 +151,10 @@ byte[scrnwidth] linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
+// TODO: This isn't Acorn compatible, and is why rogue currently doesn't
+// work. It might be possible to patch this up for mode 7, but the
+// teletext character set isn't a perfect match and it might be nicer
+// to convert to use putc() for output.
 word[] screen
 word = $400, $480, $500, $580, $600, $680, $700, $780
 word = $428, $4A8, $528, $5A8, $628, $6A8, $728, $7A8

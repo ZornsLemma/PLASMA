@@ -2,8 +2,12 @@ import cmdsys
     predef syscall, call, getc, putc, puts, putln
     predef memset, memcpy, modaddr
     predef heapmark, heapallocalign, heapalloc, heaprelease, heapavail
+    predef stocr
     byte MACHID
 end
+
+predef puti // SFTODO TEMP
+include "inc/acornc.plh"
 
 const modkeep     = $2000
 const modinitkeep = $4000
@@ -47,6 +51,45 @@ word iobuff
 word a3rndnum = 12345
 byte devcons
 
+def acrnd
+  a3rndnum = a3rndnum * 31421 + 6927
+  return a3rndnum & $7FFF
+end
+
+def acgetkb
+  byte c
+  // It's unnecessary to do this every time but it's a convenient place to do
+  // it.
+  call(osbyte_set_cursor_key_action, 1, 0, 0, osbyte)
+  call(osbyte_flush_buffer, buffer_keyboard, 0, 0, osbyte)
+  c = getc()
+  when c
+    is 139
+      c = $0B // Up Arrow
+      break
+    is 138
+      c = $0A // Down Arrow
+      break
+    is 136
+      c = $08 // Left Arrow
+      break
+    is 137
+      c = $15 // Right Arrow
+      break
+  wend
+  call(osbyte_set_cursor_key_action, 0, 0, 0, osbyte)
+  return c
+end
+
+def actone(duration, pitch)
+  byte block[osword_sound_block_size]
+  block:0 = 1
+  block:2 = -10
+  block:4 = pitch
+  block:6 = duration
+  return call(osword_sound, @block, @block >> 8, 0, osword)
+end
+
 def a3rnd
   a3rndnum = (a3rndnum << 1) + a3rndnum + 123
   return *a3rndnum & $7FFF
@@ -79,6 +122,69 @@ def a3tone(duration, pitch)
   ^ENV_REG = env | $C0
   a2tone(duration, pitch)
   ^ENV_REG = env
+end
+
+//
+// Acorn file routines
+//
+// These could be written more easily using the facilities in acornos.plh but
+// this file is currently multi-machine and I'd like to keep it that way;
+// adding a dependency on the acornos module would stop it loading on an Apple.
+
+def acerror(msg)
+  byte error[128]
+  byte i
+  error[0] = 0
+  error[1] = 0
+  for i = 1 to ^msg
+    error[i + 1] = (msg).[i]
+  next
+  error[^msg + 2] = 0
+  call(0, 0, 0, 0, @error)
+end
+
+def acopen(path, access)
+  byte handle
+  byte path_cr[128]
+  stocr(path, path_cr)
+  handle = call(osfind_input, path_cr, path_cr >> 8, 0, osfind).0
+  if handle == 0
+    acerror("Can't open")
+  fin
+  devcons = 0 // we use this Apple /// location as a flag
+  return handle
+end
+
+def acclose(handle)
+  return call(osfind_close, 0, handle, 0, osfind)
+end
+
+def acread(handle, buff, len)
+  word i, c, result
+  const carry_flag = 1
+  // We use devcons to record EOF; this is a bit of a hack, but it works for
+  // the limited I/O this program performs.
+  if devcons
+    return 0
+  fin
+  i = 0
+  c = 0
+  while (len > 0) and ((c & $7F) <> $0D)
+    result = call(0, 0, handle, 0, osbget)
+    if result->3 & carry_flag
+      devcons = 1
+      return i
+    fin
+    ^buff = result->0
+    buff++
+    i++
+    len--
+  loop
+  return i
+end
+
+def acnewline(refnum, emask, nlchar)
+  // No-op; our custom acread() always behaves as required.
 end
 
 //
@@ -171,6 +277,20 @@ def a3newline(refnum, emask, nlchar)
 end
 
 //
+// Acorn console routines
+//
+
+def achome
+  return putc(12)
+end
+
+def acgotoxy(ch, cv)
+    putc(31)
+    putc(ch)
+    return putc(cv)
+end
+
+//
 // Apple /// console routines
 //
 
@@ -242,6 +362,17 @@ end
 //
 
 when MACHID & $C8
+  is $C8 // Acorn
+    rnd     = @acrnd
+    getkb   = @acgetkb
+    home    = @achome
+    gotoxy  = @acgotoxy
+    tone    = @actone
+    open    = @acopen
+    read    = @acread
+    close   = @acclose
+    newline = @acnewline
+    break
   is $08 // Apple 1
     puts(@noapple1)
     return -1

@@ -15,6 +15,10 @@
 
 include "inc/acornc.plh"
 
+// TODO: Pressing BREAK in PLASMA on second processor gives odd error; I suspect
+// this may be because I have an unconventional memory layout, but not sure. Needs
+// investigating.
+
 // TODO: PLAS128 "mostly" works with a second processor enabled, but error handling
 // is completely screwed - simply pressing ESCAPE at the prompt causes it to go
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
@@ -63,7 +67,7 @@ const modinitkeep = $4000
 // Predefined functions.
 //
 predef crout, cout, prstr, cin, rdstr
-predef call
+predef syscall, call
 predef markheap, allocheap, xallocheap, allocalignheap, releaseheap, availheap
 predef memset, memcpy
 predef uword_isgt, uword_isge, uword_islt, uword_isle
@@ -141,6 +145,7 @@ byte gm_new_mode
 //
 byte syslibstr[]  = "CMDSYS"
 byte machidstr[]  = "MACHID"
+byte sysstr       = "SYSCALL"
 byte putcstr[]    = "PUTC"
 byte putlnstr[]   = "PUTLN"
 byte putsstr[]    = "PUTS"
@@ -171,6 +176,7 @@ byte stocrstr[]   = "STOCR"
 byte modestr[]    = "MODE"
 byte callallocastr[] = "CALLALLOCA"
 word exports[]	  = @callstr,   @call
+word		  = @sysstr,    @syscall
 word 		  = @putcstr,   @cout
 word              = @putlnstr,  @crout
 word		  = @putsstr,   @prstr
@@ -1090,6 +1096,10 @@ asm prstr
 +	LDX	ESP
 	RTS
 end
+def syscall(cmd, params)
+    // Just a dummy implementation
+    oserror(0, "syscall")
+end
 def crout
     cout($0A)
     return cout($0D)
@@ -1484,6 +1494,9 @@ def loadmod(mod)
     // get the file length while we have the file open.
     //
     dcitocr(mod, @filename)
+    // TODO: Nasty temporary hack while I try to get ROGUE working
+    filename[7] = 13
+    cout(filename[5]); cout(filename[6])
     handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
     if handle == 0
 	oserror(0, "Not found")

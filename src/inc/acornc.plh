@@ -32,7 +32,10 @@ const osfile_block_size = $12
 const osfile_load_file  = $FF
 
 const osword_read_time = $01
+const osword_sound     = $07
+const osword_sound_block_size = $08
 
+const osbyte_set_cursor_key_action   = $04
 const osbyte_flush_buffer	     = $15
 const osbyte_read_high_order_address = $82
 const osbyte_read_himem              = $84
