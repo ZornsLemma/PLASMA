@@ -31,7 +31,6 @@ const ifp          = $0071
 const pp           = $0073
 const himemh       = $0078
 const scratch	   = $0079
-const cpu_stack	   = $0100
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
@@ -51,31 +50,10 @@ const TRUE = NOT FALSE
 // execution). While we're developing, we just stick with this.
 const allocheap_fail_threshold = $FFFF
 //
-// System flags: memory allocator screen holes.
-//
-const restxt1     = $0001
-const restxt2     = $0002
-const resxtxt1    = $0004
-const resxtxt2    = $0008
-const reshgr1     = $0010
-const reshgr2     = $0020
-const resxhgr1    = $0040
-const resxhgr2    = $0080
-//
 // Module don't free memory
 //
-const modkeep     = $1000
-const modinitkeep = $2000
-//
-// CFFA1 addresses.
-//
-const CFFADest     = $00
-const CFFAFileName = $02
-const CFFAOldName  = $04
-const CFFAFileType = $06
-const CFFAAuxType  = $07
-const CFFAFileSize = $09
-const CFFAEntryPtr = $0B
+const modkeep     = $2000
+const modinitkeep = $4000
 //
 // Pedefined functions.
 //
@@ -96,7 +74,7 @@ predef callalloca
 // System variables.
 //
 word version     = $0092 // 00.92
-word systemflags = 0
+// word systemflags = 0 TODO: delete this? commented out for now
 // TODO: I've experimentally moved heap to a fixed location in zero
 // page to support run-time detection of the parameter stack colliding
 // with the heap. May want to revert this, or make it conditionally
@@ -1550,6 +1528,7 @@ def loadmod(mod)
             //
             // This is an EXTended RELocatable (data+bytecode) module.
             //
+	    // systemflags = header:4 | systemflags
             defofst  = header:6
             defcnt   = header:8
             init     = header:10
@@ -1748,19 +1727,23 @@ def loadmod(mod)
 #else
 	fixup = adddef(init - defofst + bytecode, @deflast)()
 #endif
-    if fixup < 0
-        perr = -fixup
-    fin
-    // TODO: modinitkeep stuff is a bit different compared to Apple II; switch to II-style?
-	if !(systemflags & modinitkeep)
+	if fixup < modinitkeep
+	    //
+	    // Free init routine unless initkeep
+	    //
 #ifdef PLAS128
             xheap = init - defofst + defaddr
 #else
             modend = init - defofst + bytecode
 #endif
+	    if fixup < 0
+		perr = -fixup
+	    fin
+	else
+	    fixup = fixup & ~modinitkeep
 	fin
     fin
-    return fixup | (systemflags & modkeep)
+    return fixup
 end
 //
 // Command mode
@@ -1818,7 +1801,9 @@ def execmod(modfile)
 #ifdef PLAS128
     word savexheap
 #endif
-    word savesym, savesymtblchunk, saveflags, error, action, olderrjb, jb
+    word savesym, savesymtblchunk
+    // word saveflags
+    word error, action, olderrjb, jb
     byte handle
 
     perr = 1
@@ -1829,7 +1814,7 @@ def execmod(modfile)
 #endif
 	savesym   = lastsym
 	savesymtblchunk = symtblchunk
-	saveflags = systemflags
+	// saveflags = systemflags
         olderrjb = *errjb
 	// We allocate a jmp_buf on the heap; it will get trapped and
 	// leaked if the module being executed remains resident, but
@@ -1859,7 +1844,7 @@ def execmod(modfile)
 	fin
 	^lastsym    = 0
 	*(lastsym + 1) = 0
-	systemflags = saveflags
+	// systemflags = saveflags
 	if error <> 0
 	    error_handler()
 	fin
