@@ -1696,6 +1696,12 @@ def loadmod(mod)
             fin
             rld = rld + 4
         loop
+#ifdef PLAS128
+	//
+	// Move bytecode to AUX bank.
+	//
+	memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
+#endif
 	//
         // Run through the External/Entry Symbol Directory.
 	//
@@ -1728,12 +1734,6 @@ def loadmod(mod)
             fin
             esd = esd + 3
         loop
-#ifdef PLAS128
-	//
-	// Move bytecode to AUX bank.
-	//
-	memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
-#endif
     fin
     if perr
         return -perr
