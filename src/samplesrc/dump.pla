@@ -1,6 +1,7 @@
 // Demonstration of making calls to Acorn OS and handling OS errors
 
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/acornos.plh"
 include "inc/acornc.plh"
 

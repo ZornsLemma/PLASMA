@@ -3,7 +3,6 @@
 //
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
-// TODO: DELETE, NOT SURE WHY IT WAS HERE IN FIRST PLACE? include "inc/acornos.plh"
 //
 // Structure definition.
 //
@@ -35,7 +34,6 @@ word array[] = 1, 10, 100, 1000, 10000
 word ptr
 byte spaces = "   "
 word i
-byte jb[jbsz]
 //
 // Define functions.
 //

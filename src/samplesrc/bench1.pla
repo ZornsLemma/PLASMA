@@ -5,6 +5,7 @@
 // the times are very high.
 
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/dword.plh"
 include "inc/acornc.plh"
 

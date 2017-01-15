@@ -1,0 +1,23 @@
+//
+// Constants/exported functions specific to the Acorn port of the VM
+//
+// These have been pulled out into their own header; programs may include
+// this and cmdsys.plh, which will cause them to declare two separate
+// dependencies on the cmdsys module, but this isn't a problem.
+//
+
+import cmdsys
+    const errjb = $407
+    const errnum = $700
+    const errstr = $701
+    // The maximum size of a jmp_buf is actually two bytes less on PLAS32
+    // but we just use this value all the time.
+    const jbsz = 1 + 32 + 4 + 1 + 255
+    predef setjmp, longjmp
+    predef prbyte
+    predef oserror, call_oscli
+    predef stocr
+    predef mode
+    predef callalloca
+    predef xheapalloc
+end

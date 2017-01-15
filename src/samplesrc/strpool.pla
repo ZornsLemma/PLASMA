@@ -1,6 +1,7 @@
 // Demonstration of mode changes
 
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 
 def prword(w)
     prbyte(w >> 8)

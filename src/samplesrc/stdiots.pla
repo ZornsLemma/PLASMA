@@ -1,6 +1,7 @@
 // stdio test/demonstration code
 
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/dword.plh"
 include "inc/stdio.plh"
 include "inc/testlib.plh"
