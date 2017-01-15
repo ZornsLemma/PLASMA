@@ -259,7 +259,7 @@ _NEG 	LDA	#$00
 	LDA	#$00
 	SBC	ESTKH,X
 	STA	ESTKH,X
-	RTS
+ANRTS	RTS			; TODO: GET RID OF ANRTS LABEL IF NOT USED
 _DIV	STY	IPY
  	LDY	#$11		; #BITS+1
 	LDA	#$00
@@ -1321,6 +1321,32 @@ SEGEND	=	*
 ;* it's probably because my OSFILE command has 0 for high order bits - I can
 ;* probably fix that.
 VMINITPOSTRELOC
+!IFDEF PLAS128 {
+;* PLAS128 isn't second processor compatible. The load/exec addresses are set
+;* to force it to load in the host, and we then need to forcibly disable the
+;* second processor. See:
+;* http://stardot.org.uk/forums/viewtopic.php?f=54&t=12416&p=158560#p158560
+;* TODO: The following code is based on TUBEOFF at http://mdfs.net/Software/Tube/BBC/TubeSwitch
+;* - it doesn't seem to be working very well - e.g. afterwards doing *SAVE Z 7C00 8000
+;* from the PLASMA prompt seems to hang. Have another look at it later but
+;* maybe it's going to be best just to refuse to run if on a second processor.
+	LDA	#<ANRTS
+	STA	$0220	; TODO: MAGIC CONSTANT
+	LDA	#>ANRTS
+	STA	$0221
+	LDA	#$00
+	STA	$027A
+	LDA	#$8F
+	LDX	#$37
+	JSR	OSBYTE
+	LDA	#$00
+	TAY
+	JSR	OSARGS
+	TAY
+	LDA	#$8F
+	LDX	#$12
+	JSR	OSBYTE
+}
 	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
