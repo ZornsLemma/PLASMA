@@ -1,4 +1,5 @@
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/acornc.plh"
 
 const eof = -1 // TODO: keep this? not sure
@@ -6,8 +7,7 @@ const eof = -1 // TODO: keep this? not sure
 asm equates
     BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
-    osbput = $FFD4 ; TODO: need to centralise these for assembler
-    osbget = $FFD7
+    !SOURCE "vmsrc/acornc.inc"
 end
 
 // void call_osbput(byte c, int handle)
@@ -15,13 +15,13 @@ export asm call_osbput
     LDA ESTKL+1,X
     LDY ESTKL,X
     INX
-    JMP osbput
+    JMP OSBPUT
 end
 
 // int call_osbget(int handle) - returns byte read or eof (-1)
 export asm call_osbget
     LDY ESTKL,X
-    JSR osbget
+    JSR OSBGET
     LDY #0
     BCC NOTEOF
     DEY

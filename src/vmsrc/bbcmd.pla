@@ -21,12 +21,18 @@ include "inc/acornc.plh"
 // command which generates an error seems to be fine.
 
 const MODADDR      = $1000
+
+// The following constants must be kept in sync with vmsrc/plvmzp.inc and
+// vmsrc/acornc.inc.
+
 const inbuff       = $0700
 const errnum       = $0700
 const errstr	   = $0701
-const freemem      = $0006
+const freemem      = $0006 	// 'SRC' zp, used to indicate heap start
 const ifp          = $0071
-const pp           = $0073
+#ifdef PLAS128
+    const pp           = $0073
+#endif
 const himemh       = $0078
 const scratch	   = $0079
 #ifdef PLAS128
@@ -34,6 +40,7 @@ const scratch	   = $0079
 #endif
 const errfp	   = $0405	// 2 bytes
 const errjb	   = $0407	// 2 bytes
+
 // TODO: I am currently very wasteful of memory in $400-$800; for
 // now we just allot this little part of it for the initial symbol
 // table, but this can probably be expanded later as the memory use
@@ -952,8 +959,7 @@ asm memxcpy
 
 	STY 	IPY
 
-	;* TODO: This must be consistent with IINTERP; we don't share code as I'm
-	;* reluctant to add the cost of a subroutine call to IINTERP.
+	;* This code must be kept consistent with IINTERP
 	LDA	ESTKH+2,X
 	ASL
 	ADC	#$00
@@ -1017,15 +1023,12 @@ asm cin
 	RTS
 end
 asm rdstr
-	;* TODO: Can I avoid duplicating this definitions?
-	inbuff = $700
-
 	STX	ESP
 	LDA	ESTKL,X
 	JSR	$FFEE ;* TODO: Use constants for OS entry points everywhere
-	LDA	#<inbuff
+	LDA	#<INBUFF
 	STA	ESTKL,X
-	LDA	#>inbuff
+	LDA	#>INBUFF
 	STA	ESTKH,X
 
 	SEC
@@ -1035,13 +1038,13 @@ asm rdstr
 	LDA	IFPH
 	SBC	#0
 	STA	TMPH
-	LDA	#<(inbuff+1)
+	LDA	#<(INBUFF+1)
 	LDY	#0
 	STA	(TMP),Y
-	LDA	#>(inbuff+1)
+	LDA	#>(INBUFF+1)
 	INY
 	STA	(TMP),Y
-	LDA	#254
+	LDA	#(INBUFFSZ-1)
 	INY
 	STA	(TMP),Y
 	LDA	#32
@@ -1063,7 +1066,7 @@ asm rdstr
 	!TEXT	"Escape"
 	BRK
 not_escape
-	STY	inbuff
+	STY	INBUFF
 
 	LDX	ESP
 	RTS

@@ -13,19 +13,15 @@
 	CHECKPARAMETERSTACK = 1
 
 	BBC = 1
-!IFDEF PLAS128 {
-	RAMBANK = $400		; 4 byte table of RAM bank numbers
-	RAMBANKCOUNT = $404
-}
-	ERRFP  = $405		; 2 bytes
-      ; ERRJB  = $407		; 2 bytes
-	ERRNUM = $700
-	ERRSTR = $701
 
 ;*
 ;* VM ZERO PAGE LOCATIONS
 ;*
 	!SOURCE	"vmsrc/plvmzp.inc"
+;*
+;* ACORN OS AND VM CONSTANTS
+;*
+	!SOURCE "vmsrc/acornc.inc"
 ;*
 ;* INTERPRETER INSTRUCTION POINTER INCREMENT MACRO
 ;*
@@ -115,8 +111,8 @@ IINTERP	PLA
 
 	STA	IPH
 !IFDEF PLAS128 {
-;* TODO: If we sacrifice 256 bytes for a lookup table we could reduce the
-;* bit shifting overhead here.
+	; This code must be kept consistent with memxcpy()
+
 				; Rotate top two bits of A to low two bits
 	ASL
 	ADC	#$00
@@ -1273,6 +1269,8 @@ A1CMD
 	!SOURCE "vmsrc/128cmd.a"
 }
 
+;* TODO: Do we need to cope with the case where Y wraps before we hit the
+;* terminating 0 byte after the error message?
 BRKHND
 	LDY	#0
 	LDA	($FD),Y
@@ -1311,7 +1309,7 @@ ERRCPD	DEY
 	JSR	BRKJMP
 	;* TODO: Better "abort" behaviour
 	LDA	#'!'
-	JSR	$FFEE
+	JSR	OSWRCH
 BRKLP	JMP	BRKLP
 BRKJMP	JMP	(ERRFP)
 
@@ -1364,17 +1362,17 @@ FINDRAMDONE
 SOMERAM	STX	RAMBANKCOUNT
 }
 
-	;* If we're running on a second processor, we use memory up to $F800, whatever
-	;* OSBYTE $84 says.
-	LDA	#$82
-	JSR	$FFF4
+	;* If we're running on a second processor, we use memory up to $F800; we
+	;* ignore what OSBYTE $84 says.
+	LDA	#osbyte_read_high_order_address
+	JSR	OSBYTE
 	TYA
 	BMI	NOTTUBE
 	LDY	#$F8
 	BNE	INITFP
 NOTTUBE
-	LDA	#$84
-	JSR	$FFF4
+	LDA	#osbyte_read_himem
+	JSR	OSBYTE
 INITFP	LDX	#$00
 	STX	IFPL		; INIT FRAME POINTER
 	STY	IFPH
@@ -1434,8 +1432,8 @@ VMINIT
 	COUNT	= SCRATCH+5
 	COUNTL  = COUNT
 	COUNTH  = COUNT+1
-	LDA	#$83
-	JSR	$FFF4
+	LDA	#osbyte_read_oshwm
+	JSR	OSBYTE
 	CPY	#(>START)+1
 	BCC	RELOCOK		; We don't support relocating upwards
 	BRK
