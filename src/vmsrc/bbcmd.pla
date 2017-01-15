@@ -20,8 +20,6 @@ include "inc/acornc.plh"
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
 // command which generates an error seems to be fine.
 
-// TODO: A lot of this is probably irrelevant and can be removed
-
 const MODADDR      = $1000
 const inbuff       = $0700
 const errnum       = $0700
@@ -608,24 +606,6 @@ end
 //
 // Lookup routines.
 //
-// TODO: THIS PSEUDO CODE IS NOW OUT OF DATE, UPDATE OR POSSIBLY JUST DELETE IT
-//def lookuptbl(dci, tbl)
-//    word match
-//    while ^tbl
-//        match = dci
-//        while ^tbl == ^match
-//            if !(^tbl & $80)
-//                return (tbl):1
-//            fin
-//            tbl   = tbl   + 1
-//            match = match + 1
-//        loop
-//        while (^tbl & $80)
-//            tbl = tbl + 1
-//        loop
-//        tbl = tbl + 3
-//    loop
-//    return 0
 asm lookuptbl
 	LDA	ESTKL,X
 	STA	DSTL
@@ -1391,7 +1371,7 @@ def addsym(sym, addr)
 	else
 	    symtblchunk = newsymtblchunk
 	fin
-	*(lastsym + 1) = symtblchunk
+	lastsym=>1 = symtblchunk
 	lastsym = symtblchunk
     fin
     while ^sym & $80
@@ -1403,7 +1383,7 @@ def addsym(sym, addr)
     lastsym=>1 = addr
     lastsym    = lastsym + 3
     ^lastsym   = 0
-    *(lastsym + 1) = 0 // TODO: CAN I USE lastsym=>1 HERE?
+    lastsym=>1 = 0
 end
 //
 // Module routines.
@@ -1847,7 +1827,7 @@ def execmod(modfile)
 	    *heapptr= saveheap
 	fin
 	^lastsym    = 0
-	*(lastsym + 1) = 0
+	lastsym=>1  = 0
 	// systemflags = saveflags
 	if error <> 0
 	    error_handler()
@@ -1886,7 +1866,7 @@ end
 // Init symbol table.
 //
 ^lastsym = 0
-*(lastsym + 1) = 0
+lastsym=>1 = 0
 stodci(@syslibstr, *heapptr)
 addmod(*heapptr, @version)
 // TODO: Can we have the symbol table in the binary be usable directly?
