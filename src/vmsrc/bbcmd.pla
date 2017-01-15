@@ -1827,7 +1827,6 @@ def execmod(modfile)
 #ifdef PLAS128
 	savexheap = xheap
 #endif
-// TODONOW UPDATE THIS FOR CHUNKED SYMBOL TABLE
 	savesym   = lastsym
 	savesymtblchunk = symtblchunk
 	saveflags = systemflags
