@@ -136,8 +136,8 @@ end
 def acopen(path, access)
   byte handle
   byte path_cr[128]
-  stocr(path, path_cr)
-  handle = call(osfind_input, path_cr, path_cr >> 8, 0, osfind).0
+  stocr(path, @path_cr)
+  handle = call(osfind_input, @path_cr, @path_cr >> 8, 0, osfind).0
   devcons = 0 // we use this Apple /// location as a flag
   return handle // we want to return 0 if the file doesn't exist
 end
