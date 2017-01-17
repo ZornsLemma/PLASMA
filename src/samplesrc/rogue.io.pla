@@ -5,8 +5,8 @@ import cmdsys
     predef stocr
     byte MACHID
 end
+include "inc/acornos.plh"
 
-predef puti // SFTODO TEMP
 include "inc/acornc.plh"
 
 const modkeep     = $2000
@@ -36,24 +36,15 @@ word titlestr = @initstr
 export word rnd, getkb, home, gotoxy, tone
 export word open, read, close, newline
 
-byte noapple1 = "APPLE 1 NOT SUPPORTED."
-
-const ENV_REG = $FFDF
-
-const SPEAKER = $C030
-
-const a2rndnum = $4E // ZP location of RND
-const a2rndl   = $4E
-const a2rndh   = $4F
-
-word iobuff
-
-word a3rndnum = 12345
-byte devcons
+word acrndnum = 12345
+byte eofflag
 
 def acrnd
-  a3rndnum = a3rndnum * 31421 + 6927
-  return a3rndnum & $7FFF
+  byte block[5]
+  call(osword_read_time, @block, @block >> 8, 0, osword)
+  acrndnum = acrndnum ^ block:0
+  acrndnum = acrndnum * 31421 + 6927
+  return acrndnum & $7FFF
 end
 
 def acgetkb
@@ -90,56 +81,12 @@ def actone(duration, pitch)
   return call(osword_sound, @block, @block >> 8, 0, osword)
 end
 
-def a3rnd
-  a3rndnum = (a3rndnum << 1) + a3rndnum + 123
-  return *a3rndnum & $7FFF
-end
-
-def a2rnd
-  *a2rndnum = (*a2rndnum << 1) + *a2rndnum + 123
-  return *a2rndnum & $7FFF
-end
-
-def a2getkb
-  return getc()
-end
-
-def a2tone(duration, delay)
-  byte i
-
-  while duration
-    ^SPEAKER
-    for i = 0 to delay
-    next
-    duration = duration - 1
-  loop
-end
-
-def a3tone(duration, pitch)
-  byte env
-
-  env = ^ENV_REG
-  ^ENV_REG = env | $C0
-  a2tone(duration, pitch)
-  ^ENV_REG = env
-end
-
 //
 // Acorn file routines
 //
-// These could be written more easily using the facilities in acornos.plh but
-// this file is currently multi-machine and I'd like to keep it that way;
-// adding a dependency on the acornos module would stop it loading on an Apple.
-// TODO: This may be futile; I've had to make enough patches elswhere. So maybe
-// delete all the Apple stuff in here and make free use of acornos.plh.
 
 def acopen(path, access)
-  byte handle
-  byte path_cr[128]
-  stocr(path, @path_cr)
-  handle = call(osfind_input, @path_cr, @path_cr >> 8, 0, osfind).0
-  devcons = 0 // we use this Apple /// location as a flag
-  return handle // we want to return 0 if the file doesn't exist
+  return call_osfind_open(osfind_input, path)
 end
 
 def acclose(handle)
@@ -149,20 +96,20 @@ end
 def acread(handle, buff, len)
   word i, c, result
   const carry_flag = 1
-  // We use devcons to record EOF; this is a bit of a hack, but it works for
+  // We use eofflag to record EOF; this is a bit of a hack, but it works for
   // the limited I/O this program performs.
-  if devcons
+  if eofflag
     return 0
   fin
   i = 0
   c = 0
   while (len > 0) and ((c & $7F) <> $0D)
-    result = call(0, 0, handle, 0, osbget)
-    if result->3 & carry_flag
-      devcons = 1
+    c = call_osbget(handle)
+    if c == eof
+      eofflag = 1
       return i
     fin
-    ^buff = result->0
+    ^buff = c
     buff++
     i++
     len--
@@ -175,100 +122,10 @@ def acnewline(refnum, emask, nlchar)
 end
 
 //
-// ProDOS file routines
-//
-
-def a2open(path, access)
-    byte params[6]
-
-    params.0 = 3
-    params:1 = path
-    params:3 = heapallocalign($0400, 8, @iobuff)
-    params.5 = 0
-    syscall($C8, @params)
-    return params.5
-end
-def a2close(refnum)
-    byte params[2]
-
-    if iobuff
-    	heaprelease(iobuff)
-    	iobuff = 0
-    fin
-    params.0 = 1
-    params.1 = refnum
-    return syscall($CC, @params)
-end
-def a2read(refnum, buff, len)
-    byte params[8]
-
-    params.0 = 4
-    params.1 = refnum
-    params:2 = buff
-    params:4 = len
-    params:6 = 0
-    syscall($CA, @params)
-    return params:6
-end
-def a2newline(refnum, emask, nlchar)
-    byte params[4]
-
-    params.0 = 3
-    params.1 = refnum
-    params.2 = emask
-    params.3 = nlchar
-    return syscall($C9, @params)
-end
-
-//
-// SOS file routines
-//
-
-def a3open(path, access)
-    byte params[7]
-
-    params.0 = 4
-    params:1 = path
-    params.3 = 0
-    params:4 = @access
-    params.6 = 1
-    syscall($C8, @params)
-    return params.3
-end
-def a3close(refnum)
-    byte params[2]
-
-    params.0 = 1
-    params.1 = refnum
-    return syscall($CC, @params)
-end
-def a3read(refnum, buff, len)
-    byte params[8]
-
-    params.0 = 4
-    params.1 = refnum
-    params:2 = buff
-    params:4 = len
-    params:6 = 0
-    syscall($CA, @params)
-    return params:6
-end
-def a3newline(refnum, emask, nlchar)
-    byte params[4]
-
-    params.0 = 3
-    params.1 = refnum
-    params.2 = $FF
-    params.3 = nlchar
-    return syscall($C9, @params)
-end
-
-//
 // Acorn console routines
 //
 
 def achome
-  return 0 // TODO TEMP HACK TO AVOID SCREEN CLEARING
   return putc(12)
 end
 
@@ -276,56 +133,6 @@ def acgotoxy(ch, cv)
     putc(31)
     putc(ch)
     return putc(cv)
-end
-
-//
-// Apple /// console routines
-//
-
-def dev_status(devnum, code, list)
-  byte params[5]
-
-  params.0 = 3
-  params.1 = devnum
-  params.2 = code
-  params:3 = list
-  return syscall($82, @params)
-end
-def a3keypressed
-  byte count
-  dev_status(devcons, 5, @count)
-  return count
-end
-
-def a3getkb
-  while not a3keypressed
-    a3rndnum = a3rndnum + 123
-  loop
-  return getc()
-end
-
-def a3home
-    return putc(28)
-end
-
-def a3gotoxy(ch, cv)
-    putc(24)
-    putc(ch)
-    putc(25)
-    return putc(cv)
-end
-
-//
-// Apple ][ console routines
-//
-
-def a2home
-    return call($FC58, 0, 0, 0, 0) // home()
-end
-
-def a2gotoxy(x, y)
-    ^$24 = x + ^$20
-    return call($FB5B, y + ^$22, 0, 0, 0)
 end
 
 export def puti(i)
@@ -361,31 +168,9 @@ when MACHID & $C8
     close   = @acclose
     newline = @acnewline
     break
-  is $08 // Apple 1
-    puts(@noapple1)
+  otherwise
+    puts("Unsupported")
     return -1
-  is $C0 // Apple ///
-    rnd     = @a3rnd
-    getkb   = @a3getkb
-    home    = @a3home
-    gotoxy  = @a3gotoxy
-    tone    = @a3tone
-    devcons = modaddr(@cmdsys).5 // devcons variable from cmdsys
-    open    = @a3open
-    read    = @a3read
-    close   = @a3close
-    newline = @a3newline
-    break
-  otherwise // Apple ][
-    rnd     = @a2rnd
-    getkb   = @a2getkb
-    home    = @a2home
-    gotoxy  = @a2gotoxy
-    tone    = @a2tone
-    open    = @a2open
-    read    = @a2read
-    close   = @a2close
-    newline = @a2newline
 wend
 
 //
