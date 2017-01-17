@@ -130,6 +130,8 @@ end
 // These could be written more easily using the facilities in acornos.plh but
 // this file is currently multi-machine and I'd like to keep it that way;
 // adding a dependency on the acornos module would stop it loading on an Apple.
+// TODO: This may be futile; I've had to make enough patches elswhere. So maybe
+// delete all the Apple stuff in here and make free use of acornos.plh.
 
 def acopen(path, access)
   byte handle
@@ -266,6 +268,7 @@ end
 //
 
 def achome
+  return 0 // TODO TEMP HACK TO AVOID SCREEN CLEARING
   return putc(12)
 end
 

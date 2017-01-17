@@ -1496,8 +1496,13 @@ def loadmod(mod)
     //
     dcitocr(mod, @filename)
     // TODO: Nasty temporary hack while I try to get ROGUE working
+    deftbl = @filename
+    while ^deftbl <> 13
+    	cout(^deftbl)
+	deftbl++
+    loop
+    crout()
     filename[7] = 13
-    cout(filename[5]); cout(filename[6])
     handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
     if handle == 0
 	oserror(0, "Not found")

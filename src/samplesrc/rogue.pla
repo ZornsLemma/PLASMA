@@ -55,6 +55,8 @@ const maxview  = 19
 
 word xdir =  0,  1,  1,  1,  0, -1, -1, -1
 word ydir = -1, -1,  0,  1,  1,  1,  0, -1
+// TODO: *If* we ultimately end up wanting to use mode 6, we could use
+// eight UDGs with proper arrows instead of these ASCII makeshifts.
 byte vplayer = '^', '\\', '>', '/', 'v', '\\', '<', '/'
 byte totaldarkness = 0
 byte level = 0
@@ -629,7 +631,7 @@ end
 //
 
 puts(@namestr)
-instr = gets($BA)
+instr = gets(':')
 if ^instr > 15
   ^instr = 15
 fin
