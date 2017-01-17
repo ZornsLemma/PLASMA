@@ -229,6 +229,7 @@ def status
 end
 
 def clearstatus
+  return 0 // SFTODO: Temp hack, but the following memset is definitely no good for BBC!
   return memset($07D0, $A0A0, 40)
 end
 
