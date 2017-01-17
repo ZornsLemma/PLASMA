@@ -1624,6 +1624,8 @@ def loadmod(mod)
 	// Locate bytecode defs in appropriate bank.
 	//
 	defaddr = allocxheap(rld - bytecode)
+	// TODO: If there's only one caller of allocxheap(), might as well fold
+	// the following test into allocxheap() itself.
 	if defaddr == 0
 	    heapfull()
 	fin
