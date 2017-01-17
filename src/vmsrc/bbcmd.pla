@@ -1044,6 +1044,7 @@ asm rdstr
 	LDA	IFPH
 	SBC	#0
 	STA	TMPH
+	+CHECKVSHEAP TMP
 	LDA	#<(INBUFF+1)
 	LDY	#0
 	STA	(TMP),Y
@@ -1290,6 +1291,7 @@ def allocalignheap(size, pow2, freeaddr)
     addr = (*heapptr | align) + 1
     *heapptr = addr + size
     if uword_isge(*heapptr, @addr)
+        // TODO: Does this need to reset *heapptr?
         return 0
     fin
     return addr
