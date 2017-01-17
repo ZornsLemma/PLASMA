@@ -49,8 +49,8 @@ const errjb	   = $0407	// 2 bytes
 // now we just allot this little part of it for the initial symbol
 // table, but this can probably be expanded later as the memory use
 // is tided up
-const initialsymtbl = $0500
-const initialsymtblsz = $0040
+const initialsymtbl = $0409
+const initialsymtblsz = $02f7
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
@@ -1370,6 +1370,7 @@ def addsym(sym, addr)
 	symtbl_chunk_size = max_entry_size
     fin
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
+        oserror(0, "TODO")
     	newsymtblchunk = xallocheap(max_entry_size)
 	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can

@@ -146,6 +146,7 @@ const scrnheight = 22
 // Buffer to void checks in octant caster
 //
 
+byte[scrnwidth*(scrnheight+1)] emscreen
 byte[scrnwidth] linebuffer
 
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
@@ -155,13 +156,40 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // work. It might be possible to patch this up for mode 7, but the
 // teletext character set isn't a perfect match and it might be nicer
 // to convert to use putc() for output. Temporarily hacked up to experiment
-word[] screen
-word = $7c00, $7c28, $7c50, $7c78, $7ca0, $7cc8, $7cf0, $7d18
-word = $7d40, $7d68, $7d90, $7db8, $7de0, $7e08, $7e30, $7e58
-word = $7e80, $7ea8, $7ed0, $7ef8, $7f20, $7f48, $7f70, @linebuffer
+word[34] screen
 
-word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
-word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
+asm drawscreen
+	BBC=1
+	!SOURCE "vmsrc/plvmzp.inc"
+	LDA #12
+	JSR $FFEE
+	LDA ESTKL,X
+	STA TMPL
+	LDA ESTKH,X
+	STA TMPH
+	STX ESP
+	LDX #23
+-	LDY #0
+--	LDA (TMP),Y
+	AND #$7F
+	CMP #32
+	BCS ++
+	LDA #32
+++	JSR $FFEE
+	INY
+	CPY #40
+	BNE --
+	CLC
+	LDA TMPL
+	ADC #40
+	STA TMPL
+	BCC +
+	INC TMPH
++	DEX
+	BPL -
+	LDX ESP
+	RTS
+end
 
 //
 // Load map - levels 0 to 9
@@ -758,6 +786,7 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
         break
     wend
   next
+  drawscreen(@emscreen)
   return darkness
 end
 
@@ -768,7 +797,20 @@ end
 export def drawvisentity(xofst, yofst, tile)
   if screen.[ycentr+yofst, xcentr+xofst] < $80
     screen.[ycentr+yofst, xcentr+xofst] = tile
+    putc(31)
+    putc(xcentr+xofst)
+    putc(ycentr+yofst)
+    putc(tile)
   fin
 end
 
+// We use map as a temporary working variable here
+for map = 0 to 22
+  screen[map] = @emscreen + map*40
+next
+for map = 23 to 33
+  screen[map] = @linebuffer
+next
+// We must reset map to 0 afterwards
+map = 0
 done

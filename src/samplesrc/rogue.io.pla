@@ -86,7 +86,7 @@ def actone(duration, pitch)
   block:0 = 1
   block:2 = -10
   block:4 = pitch
-  block:6 = duration
+  block:6 = duration / 10
   return call(osword_sound, @block, @block >> 8, 0, osword)
 end
 
