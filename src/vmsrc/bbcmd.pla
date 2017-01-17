@@ -15,6 +15,11 @@
 
 include "inc/acornc.plh"
 
+// TODO: There's obviously some sort of subtle problem with PLAS128 because
+// with the current temporary code to dump out the parameter of loadmod(),
+// you can see that it re-loads ROGUEMAP *after* ROGUECOMBAT, which PLAS32
+// doesn't. The game does seem to work, but this still needs to be looked at.
+
 // TODO: Pressing BREAK in PLASMA on second processor gives odd error; I suspect
 // this may be because I have an unconventional memory layout, but not sure. Needs
 // investigating.
