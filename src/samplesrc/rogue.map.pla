@@ -154,11 +154,11 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // TODO: This isn't Acorn compatible, and is why rogue currently doesn't
 // work. It might be possible to patch this up for mode 7, but the
 // teletext character set isn't a perfect match and it might be nicer
-// to convert to use putc() for output.
+// to convert to use putc() for output. Temporarily hacked up to experiment
 word[] screen
-word = $400, $480, $500, $580, $600, $680, $700, $780
-word = $428, $4A8, $528, $5A8, $628, $6A8, $728, $7A8
-word = $450, $4D0, $550, $5D0, $650, $6D0, $750, @linebuffer // $7D0
+word = $7c00, $7c28, $7c50, $7c78, $7ca0, $7cc8, $7cf0, $7d18
+word = $7d40, $7d68, $7d90, $7db8, $7de0, $7e08, $7e30, $7e58
+word = $7e80, $7ea8, $7ed0, $7ef8, $7f20, $7f48, $7f70, @linebuffer
 
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer

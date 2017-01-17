@@ -131,28 +131,13 @@ end
 // this file is currently multi-machine and I'd like to keep it that way;
 // adding a dependency on the acornos module would stop it loading on an Apple.
 
-def acerror(msg)
-  byte error[128]
-  byte i
-  error[0] = 0
-  error[1] = 0
-  for i = 1 to ^msg
-    error[i + 1] = (msg).[i]
-  next
-  error[^msg + 2] = 0
-  call(0, 0, 0, 0, @error)
-end
-
 def acopen(path, access)
   byte handle
   byte path_cr[128]
   stocr(path, path_cr)
   handle = call(osfind_input, path_cr, path_cr >> 8, 0, osfind).0
-  if handle == 0
-    acerror("Can't open")
-  fin
   devcons = 0 // we use this Apple /// location as a flag
-  return handle
+  return handle // we want to return 0 if the file doesn't exist
 end
 
 def acclose(handle)
