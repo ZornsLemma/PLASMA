@@ -149,13 +149,13 @@ const scrnheight = 22
 byte[scrnwidth*(scrnheight+1)] emscreen
 byte[scrnwidth] linebuffer
 
+// I think these @linebuffer elements before and after the 'real' lines
+// in screen are to allow writes "off screen" without it actually corrupting
+// any significant memory.
+
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
-// TODO: This isn't Acorn compatible, and is why rogue currently doesn't
-// work. It might be possible to patch this up for mode 7, but the
-// teletext character set isn't a perfect match and it might be nicer
-// to convert to use putc() for output. Temporarily hacked up to experiment
 word[34] screen
 
 asm drawscreen
