@@ -168,7 +168,7 @@ asm drawscreen
 	LDA ESTKH,X
 	STA TMPH
 	STX ESP
-	LDX #23
+	LDX #22
 -	LDY #0
 --	LDA (TMP),Y
 	AND #$7F
@@ -795,12 +795,17 @@ end
 //
 
 export def drawvisentity(xofst, yofst, tile)
-  if screen.[ycentr+yofst, xcentr+xofst] < $80
-    screen.[ycentr+yofst, xcentr+xofst] = tile
-    putc(31)
-    putc(xcentr+xofst)
-    putc(ycentr+yofst)
-    putc(tile)
+  word x, y
+  x = xcentr+xofst
+  y = ycentr+yofst
+  if screen.[y, x] < $80
+    screen.[y, x] = tile
+    if x >= 0 and x < scrnwidth and y >= 0 and y <= scrnheight
+      putc(31)
+      putc(x)
+      putc(y)
+      putc(tile)
+    fin
   fin
 end
 
