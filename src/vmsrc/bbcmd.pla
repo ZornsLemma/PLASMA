@@ -15,6 +15,15 @@
 
 include "inc/acornc.plh"
 
+// TODO: Weird - *SPOOL Z then *PLAS128 *immediately* closes the *SPOOL file.
+// *PLASMA doesn't exhibit this. Note that there's no need to load a module,
+// the startup banner and prompt don't make it into the spool file. Oh no,
+// this is a consequence of the current futzing around to try to make it
+// run on I/O processor when 2P is active. If that works out in the end,
+// this is probably acceptable - but let's wait and see when I revisit it,
+// currently it isn't working and I may well give up on that and just error
+// on 2P.
+
 // TODO: There's obviously some sort of subtle problem with PLAS128 because
 // with the current temporary code to dump out the parameter of loadmod(),
 // you can see that it re-loads ROGUEMAP *after* ROGUECOMBAT, which PLAS32
@@ -1268,6 +1277,9 @@ def allocheap(size)
     word addr
     addr = *heapptr
     *heapptr = *heapptr + size
+    // TODO: Perhaps a little bit pedantic, but it would be good here (and
+    // possibly in other heap allocation functions) to detect *heapptr 
+    // wrapping round at the top of memory.
     if uword_isge(*heapptr, @addr)
 	*heapptr = addr
 	if uword_isle(size, allocheap_fail_threshold)
@@ -1367,10 +1379,22 @@ def lookupsym(sym)
 end
 def addsym(sym, addr)
     word symtbl_chunk_size, newsymtblchunk
+    word SFTODO // TODO: DELETE
+    
     // We must always have room for a 16 character name, two bytes for the
     // address associated with that name and another three bytes for the
     // 'next chunk' pointer.
     const max_entry_size = 16 + 2 + 3
+    if 0 // TODO: DELETE
+	    prword(addr)
+	    SFTODO = sym
+	    while ^SFTODO & $80
+		cout(^SFTODO & $7f)
+		SFTODO++
+	    loop
+	    cout(^SFTODO)
+	    crout()
+    fin
     if symtblchunk == initialsymtbl
 	symtbl_chunk_size = initialsymtblsz
     else
@@ -1420,6 +1444,11 @@ def lookupstrmod(str)
 end
 def addmod(mod, addr)
     byte dci[17]
+    // TODO: Following is temporary - I'd like to see the uninitialised modaddr
+    // noted in another TODO occur before I fix it.
+    if addr == 0
+      oserror(0, "addmod zero")
+    fin
     return addsym(modtosym(mod, @dci), addr)
 end
 def lookupextern(esd, index)
@@ -1574,6 +1603,11 @@ def loadmod(mod)
 	// Add module to symbol table. This may grow the symbol table, so we
 	// do it before we allocate space on the heap for the module.
 	//
+	// TODO: Note that modaddr is uninitialised here as a result of my
+	// changes - this is semi-OK, as we never use it, *but* I *think*
+	// it could happen that modaddr happens to be 0 and then lookupmod
+	// would effectively indicate that the module hasn't been loaded when
+	// it has - which would potentially explain the PLAS128 oddity I saw.
 	addmod(mod, modaddr)
 	//
 	// Check there's room for the entire file onto the heap now any

@@ -126,6 +126,7 @@ end
 //
 
 def achome
+  return // SFTODO TEMP
   return putc(12)
 end
 
