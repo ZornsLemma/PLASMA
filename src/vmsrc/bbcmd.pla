@@ -1444,11 +1444,6 @@ def lookupstrmod(str)
 end
 def addmod(mod, addr)
     byte dci[17]
-    // TODO: Following is temporary - I'd like to see the uninitialised modaddr
-    // noted in another TODO occur before I fix it.
-    if addr == 0
-      oserror(0, "addmod zero")
-    fin
     return addsym(modtosym(mod, @dci), addr)
 end
 def lookupextern(esd, index)
@@ -1601,14 +1596,14 @@ def loadmod(mod)
         fin
 	//
 	// Add module to symbol table. This may grow the symbol table, so we
-	// do it before we allocate space on the heap for the module.
+	// do it before we allocate space on the heap for the module. The
+	// address of the module is not used (although it's important it's
+	// not zero, otherwise lookupmod() will indicate the module isn't
+	// loaded when it is) and due to the symbol table changes we don't
+	// have modaddr available here (unlike the Apple code), so we just
+	// use a non-zero constant.
 	//
-	// TODO: Note that modaddr is uninitialised here as a result of my
-	// changes - this is semi-OK, as we never use it, *but* I *think*
-	// it could happen that modaddr happens to be 0 and then lookupmod
-	// would effectively indicate that the module hasn't been loaded when
-	// it has - which would potentially explain the PLAS128 oddity I saw.
-	addmod(mod, modaddr)
+	addmod(mod, $0001)
 	//
 	// Check there's room for the entire file onto the heap now any
 	// dependencies have been loaded.
