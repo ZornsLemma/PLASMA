@@ -1321,6 +1321,9 @@ SEGEND	=	*
 ;* it's probably because my OSFILE command has 0 for high order bits - I can
 ;* probably fix that.
 VMINITPOSTRELOC
+	LDX	#$FF
+	TXS
+
 !IFDEF PLAS128 {
 ;* PLAS128 isn't second processor compatible. The load/exec addresses are set
 ;* to force it to load in the host, and we then need to forcibly disable the
@@ -1394,9 +1397,23 @@ SOMERAM	STX	RAMBANKCOUNT
 	JSR	OSBYTE
 	TYA
 	BMI	NOTTUBE
+	;* We're on a second processor; we set PROG at $EE to VMINITPOSTRELOC
+	;* so that the VM is re-initialised correctly on BREAK.
+	LDA	#<VMINITPOSTRELOC
+	STA	$EE
+	LDA 	#>VMINITPOSTRELOC
+	STA	$EF
 	LDY	#$F8
+	LDA 	#<VMINIT	; SAVE HEAP START - we can't overwrite from SEGEND
+	STA	SRCL		; because on BREAK we will re-enter VMINITPOSTRELOC
+	LDA	#>VMINIT
+	STA	SRCH
 	BNE	INITFP
 NOTTUBE
+	LDA	#<SEGEND	; SAVE HEAP START
+	STA	SRCL
+	LDA	#>SEGEND
+	STA	SRCH
 	LDA	#osbyte_read_himem
 	JSR	OSBYTE
 INITFP	LDX	#$00
@@ -1407,10 +1424,7 @@ INITFP	LDX	#$00
 	STY	PPH
 }
 	STY	HIMEMH
-	LDA	#<SEGEND	; SAVE HEAP START
-	STA	SRCL
-	LDX	#>SEGEND
-	STX	SRCH
+	LDX	SRCH
 	INX
 	INX
 	CPX	IFPH
@@ -1444,9 +1458,6 @@ NEXTOPH	INC	IPH
 }
 
 VMINIT
-	LDX	#$FF
-	TXS
-
 				; RELOCATE CODE TO OSHWM
 	DELTA   = SCRATCH
 	CODEP   = SCRATCH+1

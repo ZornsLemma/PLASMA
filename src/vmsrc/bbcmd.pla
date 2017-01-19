@@ -29,10 +29,6 @@ include "inc/acornc.plh"
 // you can see that it re-loads ROGUEMAP *after* ROGUECOMBAT, which PLAS32
 // doesn't. The game does seem to work, but this still needs to be looked at.
 
-// TODO: Pressing BREAK in PLASMA on second processor gives odd error; I suspect
-// this may be because I have an unconventional memory layout, but not sure. Needs
-// investigating.
-
 // TODO: PLAS128 "mostly" works with a second processor enabled, but error handling
 // is completely screwed - simply pressing ESCAPE at the prompt causes it to go
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
