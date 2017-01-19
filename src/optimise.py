@@ -409,7 +409,8 @@ def emit(instructions):
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]), opcode, instruction[1]))
         elif opcode == 'CW':
             value = int(instruction[1])
-            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, value))
+            signed_value = value if value < 0x800 else value - 0x10000
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s" % (opcode_byte, value & 0xff, (value & 0xff00) >> 8, opcode, signed_value))
         elif opcode in ('LLA', 'LLB', 'LLW', 'SLB', 'SLW', 'DLB', 'DLW'):
             value = remove_square_brackets(instruction[1])
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(value), opcode, instruction[1]))
