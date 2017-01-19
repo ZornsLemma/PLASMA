@@ -51,6 +51,8 @@ def acgetkb
   byte c
   // It's unnecessary to do this every time but it's a convenient place to do
   // it.
+  // TODO: If you press ESCAPE it gets stuck in an infinite loop; we probably
+  // need to acknowledge it. Or should getc() do this?
   call(osbyte_set_cursor_key_action, 1, 0, 0, osbyte)
   call(osbyte_flush_buffer, buffer_keyboard, 0, 0, osbyte)
   c = getc()
