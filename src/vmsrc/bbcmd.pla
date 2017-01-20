@@ -39,6 +39,11 @@ const MODADDR      = $1000
 // The following constants must be kept in sync with vmsrc/plvmzp.inc and
 // vmsrc/acornc.inc.
 
+// Note that we cannot rely on initialisation of non-constant globals; on
+// PLAS32 running on a second processor, the VM is re-entered on BREAK and
+// any globals will have their post-modification values, not the original
+// values.
+
 const inbuff       = $0700
 const errnum       = $0700
 const errstr	   = $0701
@@ -107,9 +112,9 @@ const heapptr = $0089
     const xheap_bank_start = $09
     word xheap = xheap_bank_start
 #endif
-word symtbl = initialsymtbl
-word symtblchunk = initialsymtbl
-word lastsym = initialsymtbl
+word symtbl
+word symtblchunk
+word lastsym
 byte perr
 //
 // String pool.
@@ -134,11 +139,11 @@ byte machid       = $C8
 //
 // Command line pointer
 //
-word cmdptr       = @hexchar // make it point to a zero
+word cmdptr
 //
-// File handle used by loadmod
+// File handle used by loadmod (so we can close it if an error occurs)
 //
-byte loadmod_handle = 0
+byte loadmod_handle
 //
 // Global variables for use by mode()
 //
@@ -217,7 +222,7 @@ word		  = @stocrstr,  @stocr
 word		  = @modestr,   @mode
 word		  = @callallocastr, @callalloca
 word              = 0
-word syslibsym    = @exports     
+word syslibsym
 //
 // CALL 6502 ROUTINE
 // CALL(AREG, XREG, YREG, STATUS, ADDR)
@@ -1837,7 +1842,6 @@ def execmod(modfile)
     word savesym, savesymtblchunk
     // word saveflags
     word error, action, olderrjb, jb
-    byte handle
 
     perr = 1
     if stodci(modfile, @moddci)
@@ -1848,6 +1852,7 @@ def execmod(modfile)
 	savesym   = lastsym
 	savesymtblchunk = symtblchunk
 	// saveflags = systemflags
+        loadmod_handle = 0
         olderrjb = *errjb
 	// We allocate a jmp_buf on the heap; it will get trapped and
 	// leaked if the module being executed remains resident, but
@@ -1865,9 +1870,8 @@ def execmod(modfile)
 	fin
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
-	    handle = loadmod_handle; loadmod_handle = 0
-	    if handle <> 0
-		call(osfind_close, 0, handle, 0, osfind)
+	    if loadmod_handle <> 0
+		call(osfind_close, 0, loadmod_handle, 0, osfind)
 	    fin
 
 	    lastsym = savesym
@@ -1913,6 +1917,13 @@ end
 #ifdef PLAS128
     xheapsize = ^rambankcount * 16 * 1024
 #endif
+//
+// Init globals; see note at top about why we have to do this.
+//
+symtbl = initialsymtbl
+symtblchunk = initialsymtbl
+lastsym = initialsymtbl
+syslibsym = @exports     
 //
 // Init symbol table.
 //
