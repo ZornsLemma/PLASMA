@@ -36,7 +36,9 @@ include "inc/acornc.plh"
 
 // TODO: PLAS128 weirdness - run +DUMP then repeatedly press Escape. After two
 // messages, the ': ' in the error output gets lost. This doesn't happen with
-// PLASMA.
+// PLASMA. This isn't anything to do with second processor hack at start of
+// PLAS128; I'm running PLAS128 with no second processor and I've even tried
+// deleting that code just in case.
 
 const MODADDR      = $1000
 
