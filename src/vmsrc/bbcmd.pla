@@ -1392,7 +1392,6 @@ def addsym(sym, addr)
 	symtbl_chunk_size = max_entry_size
     fin
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
-        oserror(0, "TODO")
     	newsymtblchunk = xallocheap(max_entry_size)
 	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can
