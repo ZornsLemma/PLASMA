@@ -34,6 +34,10 @@ include "inc/acornc.plh"
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
 // command which generates an error seems to be fine.
 
+// TODO: PLAS128 weirdness - run +DUMP then repeatedly press Escape. After two
+// messages, the ': ' in the error output gets lost. This doesn't happen with
+// PLASMA.
+
 const MODADDR      = $1000
 
 // The following constants must be kept in sync with vmsrc/plvmzp.inc and
