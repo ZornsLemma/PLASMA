@@ -1221,6 +1221,14 @@ ENTER	INY
 	STA	(IFP),Y
 	BNE	-
 +	LDY	#$02
+	;* TODO: Following check semi-temp hack
+	CPX 	#1+(ESTKSZ/2)
+	BCC	TODOOK
+	BRK
+	BRK
+	!TEXT "Foo!"
+	BRK
+TODOOK
 	JMP	NEXTOP
 ;*
 ;* LEAVE FUNCTION
