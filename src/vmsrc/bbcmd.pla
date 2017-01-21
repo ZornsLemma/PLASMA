@@ -963,7 +963,11 @@ asm longjmp
 +++	
 
 #ifdef PLAS128
-	;* TODO: START EXPERIMENTAL - DOCUMENT IF KEEP
+	;* The value of PP saved by setjmp may not in fact be low enough if CS
+	;* allocated some string constants after setjmp() was called. We must
+	;* lower PP to accommodate the actual contents of the function's string
+	;* pool to avoid it being overwritten, and any subsequent executions of
+	;* those CS instructions retrieving junk.
 !ZONE {
 	LDA	PPL
 	CMP	IFPL
