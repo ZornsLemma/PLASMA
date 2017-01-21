@@ -5,9 +5,14 @@ include "inc/testlib.plh"
 byte jb[jbsz]
 word i, j
 
-def foo()
-    byte data[255]
-    memset(@data, $2A2A, 255)
+def foo(i)
+    byte data[253]
+    memset(@data, $2A2A, 253)
+    if i == 0
+	return
+    else
+	return foo(i - 1)
+    fin
 end
 
 i = 5 + setjmp(@jb)
@@ -32,7 +37,7 @@ for i = 1 to 5
 	// around the loop would see a corrupted string returned by this CS
 	// opcode.
 	puts("Hello world! ")
-	foo()
+	foo(5)
 	longjmp(@jb, i)
     else
 	puti(j)
