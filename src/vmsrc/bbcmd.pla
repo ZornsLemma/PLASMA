@@ -24,11 +24,6 @@ include "inc/acornc.plh"
 // currently it isn't working and I may well give up on that and just error
 // on 2P.
 
-// TODO: There's obviously some sort of subtle problem with PLAS128 because
-// with the current temporary code to dump out the parameter of loadmod(),
-// you can see that it re-loads ROGUEMAP *after* ROGUECOMBAT, which PLAS32
-// doesn't. The game does seem to work, but this still needs to be looked at.
-
 // TODO: PLAS128 "mostly" works with a second processor enabled, but error handling
 // is completely screwed - simply pressing ESCAPE at the prompt causes it to go
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
