@@ -614,7 +614,7 @@ HAVEPOOL
 	ADC	#0
 	STA	HEADPTR+1
 
-	; Initialise THISPTR with the address (possible 0) of the first
+	; Initialise THISPTR with the address (possibly 0) of the first
 	; linked list entry.
 	LDY	#0
 	LDA	(HEADPTR),Y
@@ -625,7 +625,7 @@ HAVEPOOL
 
 NEXTENTRY
 	; THISPTR contains the address of the linked list element to consider.
-	; follow. If THISPTR is null, we've failed to find a match and
+	; If THISPTR is null, we've failed to find a match and
 	; we need to create a new entry. Otherwise it's a match and we want
 	; to return the address of the string within the THISPTR entry.
 	LDA	THISPTR
@@ -716,7 +716,7 @@ ATENDOFLIST
 	STA	(PP),Y
 	; Link the new entry in at the head of the list.
 	; a) Make the previous head this entry's next.
-	LDY	#0
+	LDY	#0 ; TODO: Can probably do DEY instead
 	LDA	(HEADPTR),Y
 	LDY	#2
 	STA	(PP),Y

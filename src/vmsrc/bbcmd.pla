@@ -860,11 +860,14 @@ asm setjmp
 	TSX
 	TXA
 	STA	(TMP),Y
-	INC	TMPL
 	; We must start this loop with Y=0 so we have the ability to store a
 	; full 256 bytes of stack without wrapping Y; this will never happen
 	; in practice, but still... So we need to bump TMP past the stack
-	; pointer just saved instead of incrementing Y.
+	; pointer just saved instead of incrementing Y. TODO: Hmm, I am not
+	; sure if that's true - ignoring the unreality of the stack being
+	; totally full, in that case SP(=X) would have wrapped round to 255
+	; and this loop would exit on the first pass.
+	INC	TMPL
 	BNE	++++
 	INC	TMPH
 ++++ 	
@@ -941,8 +944,9 @@ asm longjmp
 
 	;* We don't need to save IP, IPY or (for PLAS128) the current bank at 
 	;* $F4; CALL/ICALL save and restore these themselves. (Remember that
-	;* when longjmp() reaches it RTS, control returns to just after the
+	;* when longjmp() reaches its RTS, control returns to just after the
 	;* JSR inside the CALL/ICALL which called setjmp.)
+	;* TODO: Move this comment into setjmp(), as it talks about saving?
 
 	TYA
 	CLC
