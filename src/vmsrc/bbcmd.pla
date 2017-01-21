@@ -967,7 +967,27 @@ asm longjmp
 	INY
 	JMP	--
 
-+++	LDX	ESP
++++	
+
+#ifdef PLAS128
+	;* TODO: START EXPERIMENTAL - DOCUMENT IF KEEP
+!ZONE {
+	LDA	PPL
+	CMP	IFPL
+	BNE	.HAVEPOOL
+	LDA	PPH
+	CMP	IFPH
+	BEQ	.NOPOOL
+.HAVEPOOL
+
+	LDY	#POOLSIZE-2
+	;* TODO!
+
+.NOPOOL
+}
+#endif
+
+	LDX	ESP
 	RTS
 end
 
