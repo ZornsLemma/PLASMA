@@ -544,6 +544,7 @@ CS	DEX
 
 	PREVNEXTPTR = SRC
 	THISPTR = DST
+	FIRSTNEXTPTR = TMP
 
 	; To avoid problems where the CS opcode is used inside a loop and
 	; chews up all the memory, we create a per-function string pool
@@ -610,9 +611,11 @@ HAVEPOOL
 	CLC
 	ADC	SRCL
 	STA	PREVNEXTPTR
+	STA	FIRSTNEXTPTR
 	LDA	SRCH
 	ADC	#0
 	STA	PREVNEXTPTR+1
+	STA	FIRSTNEXTPTR+1
 
 NEXTENTRY
 	; PREVNEXTPTR contains the address of the 'next' pointer we need to
@@ -662,12 +665,11 @@ MATCH
 ATENDOFLIST
 
 	; We hit the end of the list, so this string isn't in the pool. We
-	; need to create a new entry. PREVNEXTPTR contains the address of 
-	; the 'next' pointer which is null and which needs updating to contain
-	; the address of the new entry.
-	; TODO: It might be best to insert new entries into the linked list
-	; at the head instead of the tail ; this way strings used in inner loops 
-	; will probably be found with fewer lookups.
+	; need to create a new entry, which we insert at the head of the linked
+	; list. We choose to insert at the head for two reasons: a) it makes it
+	; easier to fix up PP after a longjmp() b) it might help speed up string
+	; lookups in inner loops, since more recently allocated strings will be
+	; found first.
 
 	; Lower PP to allocate (string length+1)+4 bytes for the new linked
 	; list entry. We first lower by string length+1 and set that
@@ -716,13 +718,23 @@ ATENDOFLIST
 	STA	(PP),Y
 	INY
 	STA	(PP),Y
-	; Link the new entry in at the tail of the list.
+	; Link the new entry in at the head of the list.
+	; Make the previous head this entry's next.
+	LDY	#0
+	LDA	(FIRSTNEXTPTR),Y
+	LDY	#2
+	STA	(PP),Y
+	DEY
+	LDA	(FIRSTNEXTPTR),Y
+	LDY	#3
+	STA	(PP),Y
+	; Now make this entry the new head.
 	LDY	#0
 	LDA	PPL
-	STA	(PREVNEXTPTR),Y
+	STA	(FIRSTNEXTPTR),Y
 	INY
 	LDA	PPH
-	STA	(PREVNEXTPTR),Y
+	STA	(FIRSTNEXTPTR),Y
 
 CSDONE
 	; We're done.
