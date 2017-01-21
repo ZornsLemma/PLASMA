@@ -113,7 +113,7 @@ $(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/32cmd.a add-relocations.py
 $(PLVM128): vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/128cmd.a add-relocations.py
 	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym --report vmsrc/plvm128.lst vmsrc/plvmbb.s
 	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVM128X) vmsrc/plvmbb.s
-	# TODO python add-relocations.py $(PLVM128) $(PLVM128X)
+	python add-relocations.py $(PLVM128) $(PLVM128X)
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
 	./$(PLASM) -A < vmsrc/cmd.pla > vmsrc/cmd.a
