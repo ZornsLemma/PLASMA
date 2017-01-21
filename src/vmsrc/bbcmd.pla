@@ -34,12 +34,6 @@ include "inc/acornc.plh"
 // bananas. Hmm, it might *only* be ESCAPE which is the problem. Issuing a *
 // command which generates an error seems to be fine.
 
-// TODO: PLAS128 weirdness - run +DUMP then repeatedly press Escape. After two
-// messages, the ': ' in the error output gets lost. This doesn't happen with
-// PLASMA. This isn't anything to do with second processor hack at start of
-// PLAS128; I'm running PLAS128 with no second processor and I've even tried
-// deleting that code just in case.
-
 const MODADDR      = $1000
 
 // The following constants must be kept in sync with vmsrc/plvmzp.inc and
@@ -984,9 +978,43 @@ asm longjmp
 	BEQ	.NOPOOL
 .HAVEPOOL
 
-	LDY	#POOLSIZE-2
-	;* TODO!
+	;* Make TMP point at the pool's hash table.
+	SEC
+	LDA	IFPL
+	SBC	#POOLSIZE
+	STA	TMPL
+	LDA	IFPH
+	SBC	#0
+	STA	TMPH
 
+	;* Set PP to min(PP, head_of_each_linked_list_in_pool); because CS always
+	;* inserts new elements at the head of each list and new elements are
+	;* always at lower addresses, this means that afterwards PP has been
+	;* lowered so that the entire string pool is above PP. This stops constant
+	;* strings allocated after setjmp() but accessed via a CS opcode after
+	;* longjmp() from being corrupted. (See setjmp.pla for an example.)
+	LDY	#POOLSIZE-1
+-	LDA	(TMP),Y
+	BEQ	.SKIPNULL
+	DEY
+	CMP	PPH
+	BCC	.LOWERPP
+	BNE	.DONTLOWERPP
+	LDA	(TMP),Y
+	CMP	PPL
+	BCS	.DONTLOWERPP
+.LOWERPP
+	LDA	(TMP),Y
+	STA	PPL
+	INY
+	LDA	(TMP),Y
+	STA	PPH
+.SKIPNULL
+	DEY
+.DONTLOWERPP
+	DEY
+	BPL	-
+	
 .NOPOOL
 }
 #endif
