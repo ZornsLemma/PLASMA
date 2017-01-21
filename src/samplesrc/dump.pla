@@ -11,6 +11,13 @@ word jb[jbsz]
 word error
 word filename
 byte handle
+word SFTODO
+
+// SFTODO TEMP
+def prword(v)
+    prbyte(v >> 8)
+    return prbyte(v)
+end
 
 def dump_line(addr, line, count)
     word i, c
@@ -78,7 +85,9 @@ error = setjmp(@jb)
 if error == 0
     *errjb = @jb
 else
-    puts("Error handler: ")
+    SFTODO = "Error handler: "
+    prword(SFTODO)
+    puts(SFTODO)
     puts(errstr)
     puts(" (code $")
     prbyte(^errnum)
