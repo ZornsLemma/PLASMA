@@ -1349,6 +1349,11 @@ VMINITPOSTRELOC
 ;* - it doesn't seem to be working very well - e.g. afterwards doing *SAVE Z 7C00 8000
 ;* from the PLASMA prompt seems to hang. Have another look at it later but
 ;* maybe it's going to be best just to refuse to run if on a second processor.
+;* Update - this seems to be working fine now, including that *SAVE.
+	LDA	$27A
+	BPL	.NOTTUBE
+	LDA	#42
+	JSR	$FFEE
 	LDA	#<ANRTS
 	STA	$0220	; TODO: MAGIC CONSTANT
 	LDA	#>ANRTS
@@ -1365,6 +1370,7 @@ VMINITPOSTRELOC
 	LDA	#$8F
 	LDX	#$12
 	JSR	OSBYTE
+.NOTTUBE
 }
 	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
 - 	LDA	PAGE0-1,Y
