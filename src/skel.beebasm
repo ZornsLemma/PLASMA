@@ -23,4 +23,4 @@ putfile "ROGUEMAP#FE1000", "ROGUEMA", &0000
 putfile "ROGUECOMBAT#FE1000", "ROGUECO", &0000
 putfile "samplesrc/LEVEL0#040000", "LEVEL0", &0000
 putfile "samplesrc/LEVEL1#040000", "LEVEL1", &0000
-putfile "TubeSwitch", "TS", &0000
+;putfile "TubeSwitch", "TS", &0000
