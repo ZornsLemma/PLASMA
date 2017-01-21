@@ -542,9 +542,8 @@ CS	DEX
 	POOLSIZE = 16*2 ; 2 byte entries
 	HASHMASK = $1E ; %00011110
 
-	PREVNEXTPTR = SRC
+	HEADPTR = SRC
 	THISPTR = DST
-	FIRSTNEXTPTR = TMP
 
 	; To avoid problems where the CS opcode is used inside a loop and
 	; chews up all the memory, we create a per-function string pool
@@ -610,26 +609,28 @@ HAVEPOOL
 	AND	#HASHMASK
 	CLC
 	ADC	SRCL
-	STA	PREVNEXTPTR
-	STA	FIRSTNEXTPTR
+	STA	HEADPTR
 	LDA	SRCH
 	ADC	#0
-	STA	PREVNEXTPTR+1
-	STA	FIRSTNEXTPTR+1
+	STA	HEADPTR+1
+
+	; Initialise THISPTR with the address (possible 0) of the first
+	; linked list entry.
+	LDY	#0
+	LDA	(HEADPTR),Y
+	STA	THISPTR
+	INY
+	LDA	(HEADPTR),Y
+	STA	THISPTR+1
 
 NEXTENTRY
-	; PREVNEXTPTR contains the address of the 'next' pointer we need to
-	; follow. If that pointer is null, we've failed to find a match and
-	; we need to create a new entry and put its address at PREVNEXTPTR.
-	; Otherwise, put the address from the 'next' pointer into THISPTR.
-	LDY	#0
-	LDA	(PREVNEXTPTR),Y
-	INY
-	STA	THISPTR
-	ORA	(PREVNEXTPTR),Y
+	; THISPTR contains the address of the linked list element to consider.
+	; follow. If THISPTR is null, we've failed to find a match and
+	; we need to create a new entry. Otherwise it's a match and we want
+	; to return the address of the string within the THISPTR entry.
+	LDA	THISPTR
+	ORA	THISPTR+1
 	BEQ	ATENDOFLIST
-	LDA	(PREVNEXTPTR),Y
-	STA	THISPTR+1
 	; Does the element pointed to by THISPTR have a matching IP value?
 	LDY	#0
 	LDA	(THISPTR),Y
@@ -640,15 +641,16 @@ NEXTENTRY
 	CMP	IPH
 	BEQ	MATCH
 NOTMATCH
-	; It didn't match, so put the address of the 'next' pointer within
-	; this element into PREVNEXTPTR and loop round.
-	CLC
-	LDA	THISPTR
-	ADC	#2
-	STA	PREVNEXTPTR
-	LDA	THISPTR+1
-	ADC	#0
-	STA	PREVNEXTPTR+1
+	; It didn't match, so put the address of the next element into THISPTR
+	; and loop round. Y=1 at this point.
+	INY
+	LDA	(THISPTR),Y
+	PHA
+	INY
+	LDA	(THISPTR),Y
+	STA	THISPTR+1
+	PLA
+	STA	THISPTR
 	JMP	NEXTENTRY
 
 MATCH
@@ -712,29 +714,23 @@ ATENDOFLIST
 	LDA	IPH
 	INY
 	STA	(PP),Y
-	; Zero the next pointer on this new entry.
-	LDA	#0
-	INY
-	STA	(PP),Y
-	INY
-	STA	(PP),Y
 	; Link the new entry in at the head of the list.
-	; Make the previous head this entry's next.
+	; a) Make the previous head this entry's next.
 	LDY	#0
-	LDA	(FIRSTNEXTPTR),Y
+	LDA	(HEADPTR),Y
 	LDY	#2
 	STA	(PP),Y
 	DEY
-	LDA	(FIRSTNEXTPTR),Y
+	LDA	(HEADPTR),Y
 	LDY	#3
 	STA	(PP),Y
-	; Now make this entry the new head.
+	; b) Now make this entry the new head.
 	LDY	#0
 	LDA	PPL
-	STA	(FIRSTNEXTPTR),Y
+	STA	(HEADPTR),Y
 	INY
 	LDA	PPH
-	STA	(FIRSTNEXTPTR),Y
+	STA	(HEADPTR),Y
 
 CSDONE
 	; We're done.
