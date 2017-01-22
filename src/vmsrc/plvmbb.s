@@ -714,9 +714,9 @@ ATENDOFLIST
 	LDA	IPH
 	INY
 	STA	(PP),Y
-	; Link the new entry in at the head of the list.
+	; Link the new entry in at the head of the list. Y is 1.
 	; a) Make the previous head this entry's next.
-	LDY	#0 ; TODO: Can probably do DEY instead
+	DEY
 	LDA	(HEADPTR),Y
 	LDY	#2
 	STA	(PP),Y
@@ -1332,10 +1332,6 @@ BRKJMP	JMP	(ERRFP)
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 
-;* TODO: Does PLAS128 need to refuse to run if Tube is active? Merely having
-;* load address set to &FFxxxx doesn't seem to make it work properly. Ah,
-;* it's probably because my OSFILE command has 0 for high order bits - I can
-;* probably fix that.
 VMINITPOSTRELOC
 	LDX	#$FF
 	TXS
@@ -1345,31 +1341,38 @@ VMINITPOSTRELOC
 ;* to force it to load in the host, and we then need to forcibly disable the
 ;* second processor. See:
 ;* http://stardot.org.uk/forums/viewtopic.php?f=54&t=12416&p=158560#p158560
-;* TODO: The following code is based on TUBEOFF at http://mdfs.net/Software/Tube/BBC/TubeSwitch
-;* - it doesn't seem to be working very well - e.g. afterwards doing *SAVE Z 7C00 8000
-;* from the PLASMA prompt seems to hang. Have another look at it later but
-;* maybe it's going to be best just to refuse to run if on a second processor.
-;* Update - this seems to be working fine now, including that *SAVE.
-	LDA	$27A
+;* and note that the logic to disable the second processor is based on the
+;* TubeOff command at http://mdfs.net/Software/Tube/BBC/TubeSwitch
+	LDA	tube_presence_flag
 	BPL	.NOTTUBE
-	LDA	#42
-	JSR	$FFEE
+	; The tube host code will have claimed EVNTV and BRKV so we need to
+	; claim them. The standard initialisation code always claims BRKV,
+	; but we need to make EVNTV point to an RTS.
 	LDA	#<ANRTS
-	STA	$0220	; TODO: MAGIC CONSTANT
+	STA	EVNTV
 	LDA	#>ANRTS
-	STA	$0221
+	STA	EVNTV+1
+	; Reset the tube presence flag
 	LDA	#$00
-	STA	$027A
-	LDA	#$8F
+	STA	tube_presence_flag
+	; "Initialise ROMs"; this issues service call $37, but that isn't
+	; documented. This is what TubeOff does...
+	LDA	#osbyte_issue_service_call
 	LDX	#$37
 	JSR	OSBYTE
+	; Read current filing system number
 	LDA	#$00
 	TAY
 	JSR	OSARGS
+	; Re-select the current filing system
 	TAY
-	LDA	#$8F
-	LDX	#$12
+	LDA	#osbyte_issue_service_call
+	LDX	#service_call_select_filing_system
 	JSR	OSBYTE
+	; The tube is now disabled and we can continue as if it had never
+	; been turned on. (However, we'll have less memory available on a
+	; B or B+, as the tube host code will have issued *FX20,6 and
+	; OSHWM will be &600 bytes higher as a result.)
 .NOTTUBE
 }
 	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE

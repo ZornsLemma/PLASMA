@@ -16,9 +16,16 @@ OSWORD = $FFF1
 OSBYTE = $FFF4
 OSCLI  = $FFF7
 
+EVNTV = $0220
+
+tube_presence_flag = $027A
+
 osbyte_read_high_order_address = $82
 osbyte_read_oshwm              = $83
 osbyte_read_himem              = $84
+osbyte_issue_service_call      = $8F
+
+service_call_select_filing_system = $12
 
 ;**********************************************************
 ;*
