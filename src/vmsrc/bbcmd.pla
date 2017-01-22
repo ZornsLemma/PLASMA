@@ -107,7 +107,7 @@ byte perr
 //
 // String pool.
 //
-byte verstr[]     = "\nPLASMA "
+byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
     byte xfreestr[]	  = ", AUX FREE:$"
