@@ -16,6 +16,8 @@ OSWORD = $FFF1
 OSBYTE = $FFF4
 OSCLI  = $FFF7
 
+error_message_ptr = $FD
+
 EVNTV = $0220
 
 tube_presence_flag = $027A

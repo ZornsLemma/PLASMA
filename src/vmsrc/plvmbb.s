@@ -1292,10 +1292,10 @@ A1CMD
 ;* terminating 0 byte after the error message?
 BRKHND
 	LDY	#0
-	LDA	($FD),Y
+	LDA	(error_message_ptr),Y
 	STA	ERRNUM
 ERRCPY	INY
-	LDA	($FD),Y
+	LDA	(error_message_ptr),Y
 	BEQ	ERRCPD
 	STA	ERRSTR,Y
 	BNE	ERRCPY
