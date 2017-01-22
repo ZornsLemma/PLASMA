@@ -6,13 +6,16 @@
 ;*
 ;**********************************************************
 
-	; If this is defined, code is included when lowering IFP/PP
-	; to ensure they don't drop below the top of the heap.
-	; TODO: Benchmark this and see whether it's a significant
-	; penalty - may want to have it on always.
-	CHECKPARAMETERSTACK = 1
+;* If this is defined, code is included when lowering IFP/PP
+;* to ensure they don't drop below the top of the heap. This
+;* is fairly cheap; the fncall benchmark slows down by <2%
+;* and ENTER is the main opcode penalised by this checking, so
+;* most code should see even less cost. (CS is also penalised,
+;* but only when the string isn't already in the pool, and it's
+;* relatively slow anyway.)
+CHECKPARAMETERSTACK = 1
 
-	BBC = 1
+BBC = 1
 
 ;*
 ;* VM ZERO PAGE LOCATIONS
@@ -55,8 +58,8 @@ SEGBEGIN JMP	VMINIT
 !IFDEF CHECKPARAMETERSTACK {
 HITHEAP
 	BRK
-	!BYTE $00
-	!TEXT "No room" ; TODO: Better message
+	!BYTE $00		; same error number as BASIC "No room"
+	!TEXT "No room"
 	BRK
 }
 
