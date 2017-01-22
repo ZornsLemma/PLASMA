@@ -1310,24 +1310,25 @@ ERRCPD	DEY
 	
 	LDX	#$FF
 	TXS
-	; We reset X (ESP) so the error handler has the
-	; full expression stack available - at the point the error occurred,
-	; it might have been (nearly) full and so any expression stack use
-	; in the error handler would trample on memory outside the stack if
-	; we left it alone.
-	; This will trample on any values which were pushed onto the
-	; expression stack before the call to setjmp() and which might be
-	; expected to be there after setjmp() returns via longjmp(). This is
-	; OK because longjmp() will restore X and the expression stack from the
-	; jmp_buf. (We could partially avoid the need for this by just saving
-	; X (ESP) in jmp_buf, but not the expression stack itself, and setting X=2 here so the error handlers runs
-	; with a tiny expression stack, just enough to call longjmp(). We'd
-	; make setjmp() fail if X<=2 on entry. This isn't a perfect solution
-	; as the expression stack can shrink after the setjmp() and before
-	; the longjmp(), so important state could still be lost. setjmp.pla
-	; is an example of this. The expression stack plays the same role as
-	; registers, and really it needs to be restored by longjmp(), so
-	; we do that.)
+	;* We reset X (ESP) so the error handler has the full expression
+	;* stack available - at the point the error occurred, it might
+	;* have been (nearly) full and so any expression stack use in
+	;* the error handler would trample on memory outside the stack if
+	;* we left it alone. This will trample on any values which were
+	;* pushed onto the expression stack before the call to setjmp()
+	;* and which might be expected to be there after setjmp() returns
+	;* via longjmp(). This is OK because longjmp() will restore X and
+	;* the expression stack from the jmp_buf. (We could partially
+	;* avoid the need for this by just saving X (ESP) in jmp_buf,
+	;* but not the expression stack itself, and setting X=2 here so
+	;* the error handlers runs with a tiny expression stack, just
+	;* enough to call longjmp(). We'd make setjmp() fail if X<=2 on
+	;* entry. This isn't a perfect solution as the expression stack
+	;* can shrink after the setjmp() and before the longjmp(),
+	;* so important state could still be lost. setjmp.pla is an
+	;* example of this. The expression stack plays the same role as
+	;* registers, and really it needs to be restored by longjmp(),
+	;* so we do that.)
 	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 	JSR	BRKJMP
 	;* TODO: Better "abort" behaviour
