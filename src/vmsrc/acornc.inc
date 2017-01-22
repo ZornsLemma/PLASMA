@@ -18,6 +18,7 @@ OSCLI  = $FFF7
 
 error_message_ptr = $FD
 
+BRKV  = $0202
 EVNTV = $0220
 
 tube_presence_flag = $027A
