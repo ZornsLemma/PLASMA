@@ -1331,7 +1331,17 @@ ERRCPD	DEY
 	;* so we do that.)
 	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
 	JSR	BRKJMP
-	;* TODO: Better "abort" behaviour
+	;* We do not expect control to ever return from *ERRFP, and if
+	;* does we can't do anything useful - we can't generate an error,
+	;* as it would just end up back here. We could potentially try
+	;* to re-enter the current language, but that's not particularly
+	;* helpful, so we just print '!' and hang. This really should
+	;* never happen - the default error_handler() function used for
+	;* ERRFP does a longjmp(), so if that doesn't work either the
+	;* VM is totally hosed or the user is playing around with ERRFP
+	;* and has to suffer the consequences of getting it wrong. :-)
+	;* It's also desirable not to waste space in the VM on code for
+	;* this 'impossible' case.
 	LDA	#'!'
 	JSR	OSWRCH
 BRKLP	JMP	BRKLP
