@@ -1288,13 +1288,17 @@ A1CMD
 	!SOURCE "vmsrc/128cmd.a"
 }
 
-;* TODO: Do we need to cope with the case where Y wraps before we hit the
-;* terminating 0 byte after the error message?
 BRKHND
 	LDY	#0
 	LDA	(error_message_ptr),Y
 	STA	ERRNUM
+	;* Note that as we only have ERRSTRSZ(=255) bytes for ERRSTR and we
+	;* need one byte for the length, we must truncate error messages to
+	;* no more than 254 characters. Y is the 1-based index into the error
+	;* message in the following loop.
 ERRCPY	INY
+	CPY	#ERRSTRSZ
+	BEQ	ERRCPD
 	LDA	(error_message_ptr),Y
 	BEQ	ERRCPD
 	STA	ERRSTR,Y

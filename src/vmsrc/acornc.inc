@@ -58,8 +58,9 @@ ERRJB  = $407		; 2 bytes
 ; for rdstr() and to hold the error number and error string after an
 ; OS error occurs.
 INBUFF = $700
-INBUFFSZ = 255
+INBUFFSZ = 256
 ERRNUM = $700
 ERRSTR = $701
+ERRSTRSZ = 255
 
 ; TODO: Poor formatting above
