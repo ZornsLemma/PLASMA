@@ -20,7 +20,15 @@ include "inc/acornc.plh"
 // the startup banner and prompt don't make it into the spool file. Oh no,
 // this is a consequence of the current futzing around to try to make it
 // run on I/O processor when 2P is active. If that works out in the end,
-// this is probably acceptable.
+// this is probably acceptable. (However, possibly not. Does this cause
+// problems if a *EXEC-able !BOOT file wants to do something like:
+// *PLAS128
+// +MYPROG
+// If it does this might be unacceptable. Possibly it would be nice to allow
+// a command to be executed to be given as an argument to PLAS128 - then you
+// could do '*PLAS128 +MYPROG' - but even then losing the flexibility of the
+// *EXEC !BOOT option isn't ideal. I haven't tested to see if this does break
+// that case yet.)
 
 const MODADDR      = $1000
 

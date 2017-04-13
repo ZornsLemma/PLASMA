@@ -1341,6 +1341,8 @@ ERRCPD	DEY
 	;* and has to suffer the consequences of getting it wrong. :-)
 	;* It's also desirable not to waste space in the VM on code for
 	;* this 'impossible' case.
+	;* TODO: Could/should we therefore replace the JSR BRKJMP above
+	;* with a simple JMP (ERRFP)?
 	LDA	#'!'
 	JSR	OSWRCH
 BRKLP	JMP	BRKLP
