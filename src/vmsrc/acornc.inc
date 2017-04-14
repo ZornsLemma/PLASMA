@@ -11,6 +11,7 @@ OSBGET = $FFD7
 OSARGS = $FFDA
 OSFILE = $FFDD
 OSRDCH = $FFE0
+OSASCI = $FFE3
 OSWRCH = $FFEE
 OSWORD = $FFF1
 OSBYTE = $FFF4
@@ -23,6 +24,7 @@ EVNTV = $0220
 
 tube_presence_flag = $027A
 
+osbyte_acknowledge_escape      = $7E
 osbyte_read_high_order_address = $82
 osbyte_read_oshwm              = $83
 osbyte_read_himem              = $84

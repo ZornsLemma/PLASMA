@@ -11,6 +11,7 @@ const osbget = $FFD7
 const osargs = $FFDA
 const osfile = $FFDD
 const osrdch = $FFE0
+const osasci = $FFE3
 const osword = $FFF1
 const osbyte = $FFF4
 const oscli  = $FFF7

@@ -1091,11 +1091,11 @@ end
 //
 asm cout
 	LDA	ESTKL,X
-	JMP	$FFEE
+	JMP	OSWRCH
 end
 asm cin
 	DEX
-	JSR	$FFE0
+	JSR	OSRDCH
 	STA	ESTKL,X
 	LDA	#$00
 	STA	ESTKH,X
@@ -1104,7 +1104,7 @@ end
 asm rdstr
 	STX	ESP
 	LDA	ESTKL,X
-	JSR	$FFEE ;* TODO: Use constants for OS entry points everywhere
+	JSR	OSWRCH
 	LDA	#<INBUFF
 	STA	ESTKL,X
 	LDA	#>INBUFF
@@ -1133,10 +1133,10 @@ asm rdstr
 	LDA	#0
 	LDX	TMPL
 	LDY	TMPH
-	JSR	$FFF1
+	JSR	OSWORD
 	BCC	not_escape
-	LDA	#126
-	JSR	$FFF4
+	LDA	#osbyte_acknowledge_escape
+	JSR	OSBYTE
 	BRK
 	!BYTE	17
 	!TEXT	"Escape"
@@ -1160,7 +1160,7 @@ asm prstr
 	TAX
 -	INY
 	LDA	(TMP),Y
-	JSR	$FFE3
+	JSR	OSASCI
 	DEX
 	BNE	- 
 +	LDX	ESP
