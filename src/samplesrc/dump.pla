@@ -78,9 +78,11 @@ def dump(handle)
 end
 
 def close_handle()
+    byte handle_copy
     if handle <> 0
-	call(osfind_close, 0, handle, 0, osfind)
+	handle_copy = handle
 	handle = 0
+	call(osfind_close, 0, handle_copy, 0, osfind)
     fin
 end
 
