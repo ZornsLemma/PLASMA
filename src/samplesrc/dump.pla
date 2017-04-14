@@ -10,7 +10,7 @@ const bytes_per_line = 8
 word jb[jbsz]
 word error
 word filename
-byte handle
+byte handle = 0
 word SFTODO
 
 // SFTODO TEMP
@@ -92,6 +92,10 @@ else
     puts(" (code $")
     prbyte(^errnum)
     puts(")\n")
+    if handle <> 0
+	call(osfind_close, 0, handle, 0, osfind)
+	handle = 0
+    fin
 fin
 
 while 1
