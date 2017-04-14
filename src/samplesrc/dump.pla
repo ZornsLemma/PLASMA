@@ -77,6 +77,13 @@ def dump(handle)
     fin
 end
 
+def close_handle()
+    if handle <> 0
+	call(osfind_close, 0, handle, 0, osfind)
+	handle = 0
+    fin
+end
+
 // Main program starts here
 
 puts("At the prompt, type either:\n- a filename to hex dump\n- a * command\n- nothing (to quit)\n")
@@ -92,10 +99,7 @@ else
     puts(" (code $")
     prbyte(^errnum)
     puts(")\n")
-    if handle <> 0
-	call(osfind_close, 0, handle, 0, osfind)
-	handle = 0
-    fin
+    close_handle()
 fin
 
 while 1
@@ -109,7 +113,7 @@ while 1
 	handle = call_osfind_open(osfind_input, filename)
 	if handle <> 0
 	    dump(handle)
-	    call(osfind_close, 0, handle, 0, osfind)
+	    close_handle()
 	else
 	    puts("Can't open file\n")
 	fin
