@@ -548,7 +548,7 @@ CS	DEX
 	THISPTR = DST
 
 	; To avoid problems where the CS opcode is used inside a loop and
-	; chews up all the memory, we create a per-function string pool
+	; chews up all the memory, we create a per-function-call string pool
 	; on the frame stack. The address of the CS opcode (actually the
 	; byte immediately after it) provides a unique key which identifies
 	; the string within the function so we can avoid comparing the
