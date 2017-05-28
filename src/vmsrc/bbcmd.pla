@@ -1482,19 +1482,14 @@ def addsym(sym, addr)
 	    // otherwise the assumption about the growth of the symbol table
 	    // per addsym() call wouldn't be true. Because this is the common
 	    // case, we can get away with allocating only max_entry_size bytes
-	    // every time.
-	    // TODO: I think this works but is inefficient, as once we exhaust
-	    // the initial chunk, every individual symbol gets its own chunk.
-	    // Can't we just extend the previous chunk? I think we'd need to be
-	    // careful to force a new chunk to be started inside execmod() so
-	    // that when we restore the saved symbol table
+	    // every time without fragmentation wasting space.
 	    symtblchunk = lastsym
 	    releaseheap(symtblchunk + max_entry_size)
 	else
 	    symtblchunk = newsymtblchunk
+	    lastsym=>1 = symtblchunk
+	    lastsym = symtblchunk
 	fin
-	lastsym=>1 = symtblchunk
-	lastsym = symtblchunk
     fin
     while ^sym & $80
         ^lastsym = ^sym
@@ -1957,17 +1952,15 @@ def execmod(modfile)
 		call(osfind_close, 0, loadmod_handle, 0, osfind)
 	    fin
 
-	    lastsym = savesym
+	    lastsym     = savesym
 	    symtblchunk = savesymtblchunk
+	    ^lastsym    = 0
+	    lastsym=>1  = 0
 #ifdef PLAS128
-	    xheap   = savexheap
+	    xheap       = savexheap
 #endif
-	    *heapptr= saveheap
+	    *heapptr    = saveheap
 	fin
-	// TODO: Shouldn't the next two lines be inside the previous if-fin block?
-	// (I suppose this isn't *wrong*, but it's unnecessary and perhaps confusing.)
-	^lastsym    = 0
-	lastsym=>1  = 0
 	// systemflags = saveflags
 	if error <> 0
 	    error_handler()
