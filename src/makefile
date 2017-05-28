@@ -319,9 +319,13 @@ strpool: samplesrc/strpool.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/strpool.pla > samplesrc/strpool.a
 	acme --setpc 4094 -o STRPOOL\#FE1000 samplesrc/strpool.a
 
+symtbl: samplesrc/symtbl.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AM < samplesrc/symtbl.pla > samplesrc/symtbl.a
+	acme --setpc 4094 -o SYMTBL\#FE1000 samplesrc/symtbl.a
+
 setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AM < samplesrc/setjmp.pla > samplesrc/setjmp.a
 	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool setjmp $(ACORNOS) samplesrc/pcw.bas
+plasma.ssd: $(PLVM32) $(PLVM128) hello testint dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool symtbl setjmp $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA

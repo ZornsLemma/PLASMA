@@ -1,0 +1,64 @@
+// This program dumps out the symbol table for debugging purposes; normal
+// programs shouldn't need to do this and would break if the symbol table
+// format changed.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+
+// We don't want to use these, but they make the symbol table more
+// interesting...
+include "inc/testlib.plh"
+include "inc/acornos.plh"
+
+const initialsymtbl = $0409
+const max_symbol_length = 16
+
+word chunk = initialsymtbl
+word symbol
+word pad
+
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+puts("chunk elem symbol           address\n")
+repeat
+    symbol = chunk
+    while ^symbol
+	if symbol == chunk
+	    prword(symbol)
+	    puts("  ")
+	else
+	    puts("      ")
+	fin
+
+	prword(symbol)
+	putc(' ')
+
+	pad = max_symbol_length + 1
+	while ^symbol & $80
+	    putc(^symbol & $7F)
+	    symbol++
+	    pad--
+	loop
+	putc(^symbol)
+	symbol++
+	pad--
+	while pad > 0
+	    putc(' ')
+	    pad--
+	loop
+
+	prword(*symbol)
+	symbol = symbol + 2
+
+	putln()
+    loop
+
+    chunk = symbol=>1
+until chunk == 0
+
+done
+
+// vi: sw=4 sts=4
