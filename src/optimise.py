@@ -20,7 +20,9 @@ import sys
 # TODO: Note that my idea of optimising directly on bytecode modules is great,
 # *except* that the bytecode included in the PLASMA/PLAS128 binaries doesn't
 # (currently; this might be changeable, I think that Apple II VM does work like
-# that) get compiled to a module, so it then couldn't be optimised.
+# that) get compiled to a module, so it then couldn't be optimised. (No, the
+# Apple II VM *does* load the compiled PLASMA part of the core VM from a file,
+# but it's still compiled in -A mode and isn't a regular PLASMA module.)
 
 # TODO: It may not fit neatly into the current framework, but if we have
 # repeated CB/CW instructions, we could optimised all but the first into DUP
@@ -160,6 +162,7 @@ class Node:
             self.children[1].children[1].is_constant()):
             self.instruction = self.children[1].instruction
             new_children = self.children[1].children
+            # TODO: 0xfff - is that right?
             new_children[1].instruction[1] = str((new_children[1].evaluate() + self.children[0].evaluate() & 0xfff))
             self.children = new_children
 
