@@ -740,6 +740,7 @@ asm callalloca(fn, size)
 }
 	INX
 
+	; TODO: Can we re-use the JMPTMP label elsewhere in this file?
 	JSR	+
 
 !IFNDEF PLAS128 {
@@ -1985,7 +1986,10 @@ def modechange(cmdptr)
 	i++
     loop
     if not mode(n)
-	oserror(0, "Bad mode")
+	// Nothing is likely to check the error code, but we might as well follow
+	// BASIC's lead anyway. (This is interactive only; mode() returns a
+	// a success/failure indicator rather than raising an OS error.)
+	oserror(25, "Bad mode")
     fin
 end
 //
