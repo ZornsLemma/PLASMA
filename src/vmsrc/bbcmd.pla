@@ -260,7 +260,6 @@ REGVALS =   SRC
         STY     ESTKH,X
         PLP
         RTS
-JMPTMP  JMP (TMP)
 end
 //
 // SET MEMORY TO VALUE
