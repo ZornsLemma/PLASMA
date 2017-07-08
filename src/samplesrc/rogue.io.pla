@@ -41,7 +41,7 @@ byte eofflag
 
 def acrnd
   byte block[5]
-  call(osword_read_time, @block, @block >> 8, 0, osword)
+  call(osword, osword_read_time, @block, @block >> 8, 0)
   acrndnum = acrndnum ^ block:0
   acrndnum = acrndnum * 31421 + 6927
   return acrndnum & $7FFF
@@ -53,8 +53,8 @@ def acgetkb
   // it.
   // TODO: If you press ESCAPE it gets stuck in an infinite loop; we probably
   // need to acknowledge it. Or should getc() do this?
-  call(osbyte_set_cursor_key_action, 1, 0, 0, osbyte)
-  call(osbyte_flush_buffer, buffer_keyboard, 0, 0, osbyte)
+  call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
+  call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
   c = getc()
   when c
     is 139
@@ -70,7 +70,7 @@ def acgetkb
       c = $15 // Right Arrow
       break
   wend
-  call(osbyte_set_cursor_key_action, 0, 0, 0, osbyte)
+  call(osbyte, osbyte_set_cursor_key_action, 0, 0, 0)
   return c
 end
 
@@ -80,7 +80,7 @@ def actone(duration, pitch)
   block:2 = -10
   block:4 = pitch
   block:6 = duration / 10
-  return call(osword_sound, @block, @block >> 8, 0, osword)
+  return call(osword, osword_sound, @block, @block >> 8, 0)
 end
 
 //
@@ -92,7 +92,7 @@ def acopen(path, access)
 end
 
 def acclose(handle)
-  return call(osfind_close, 0, handle, 0, osfind)
+  return call(osfind, osfind_close, 0, handle, 0)
 end
 
 def acread(handle, buff, len)
