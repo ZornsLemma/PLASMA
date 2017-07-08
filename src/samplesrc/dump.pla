@@ -107,7 +107,7 @@ fin
 while 1
     putln
     filename = gets('?')
-    if not ^filename:
+    if not ^filename
 	break
     elsif ^filename and (filename).1 == '*'
 	call_oscli(filename + 1)
