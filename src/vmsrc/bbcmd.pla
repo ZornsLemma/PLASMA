@@ -93,8 +93,7 @@ predef callalloca
 //
 // System variables.
 //
-// TODO: Port across recent changes from Apple version and bump this to 00.99
-word version     = $0092 // 00.92
+word version     = $0099 // 00.99
 // word systemflags = 0 TODO: delete this? commented out for now
 // TODO: I've experimentally moved heap to a fixed location in zero
 // page to support run-time detection of the parameter stack colliding
@@ -116,7 +115,7 @@ byte perr
 //
 // String pool.
 //
-// TODO: cmd.pla seems to have done away with this, probably given CS opcode now pools - I have a feeling that won't work for me given the mode changing issues, but think about it and perhaps comment if that is the case
+// TODONOW: cmd.pla seems to have done away with this, probably given CS opcode now pools - I have a feeling that won't work for me given the mode changing issues, but think about it and perhaps comment if that is the case
 byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
@@ -153,7 +152,7 @@ word gm_new_frame_start
 word gm_copy_from
 word gm_copy_size
 byte gm_new_mode
-// TODO: cmd.pla now uses cmdln to overlay exported strings table - is that a useful idea for me? I suspect not given need to preserve VM integrity for soft BREAK on second processor
+// TODONOW: cmd.pla now uses cmdln to overlay exported strings table - is that a useful idea for me? I suspect not given need to preserve VM integrity for soft BREAK on second processor
 //
 // Standard Library exported functions.
 //
@@ -1174,7 +1173,7 @@ def syscall(cmd, params)
     // Just a dummy implementation
     oserror(0, "syscall")
 end
-// TODO: cmd.pla has implemented this in asm and falls through to cout, can I use that technique? Or just implement in asm and use osnewl?
+// TODONOW: cmd.pla has implemented this in asm and falls through to cout, can I use that technique? Or just implement in asm and use osnewl?
 def crout
     cout($0A)
     return cout($0D)
@@ -1869,6 +1868,8 @@ end
 //
 // Command mode
 //
+// TODO: Not sure most of these strip*() functions are used, and they aren't exported so
+// check and get rid of them
 def stripchars(strptr)
     while ^strptr and ^(strptr + 1) <> ' '
         memcpy(strptr + 1, strptr + 2, ^strptr)
@@ -2044,7 +2045,6 @@ fin
 cmdptr = *heapptr
 ^cmdptr = 0
 perr = 0
-// TODO: Might be best to base this on cmd.pla's version not the Apple I code
 //
 // Print some startup info.
 //
@@ -2074,7 +2074,7 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
-	        execmod(cmdptr) // TODO: cmd.pla now uses striptrail here, imitate that? Is there some "argument" support we need to port?
+	        execmod(cmdptr) // TODONOW: cmd.pla now uses striptrail here, imitate that? Is there some "argument" support we need to port?
 		break
 	    is '*'
 	    	call_oscli(cmdptr)

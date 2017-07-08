@@ -108,7 +108,7 @@ end
 // Actual benchmarks
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool.
+// this is necessary to avoid problems with the string pool. TODO: Is this still true?
 def textscrn()
     word i
     if not mode(3)
