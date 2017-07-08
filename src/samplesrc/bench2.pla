@@ -93,11 +93,11 @@ def show_times()
 end
 
 def time(t)
-    call(osword_read_time, t, t >> 8, 0, osword)
+    call(osword, osword_read_time, t, t >> 8, 0)
 end
 
 def high_order_address
-    return call(osbyte_read_high_order_address, 0, 0, 0, osbyte):1
+    return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
 
 // Actual benchmarks
@@ -197,7 +197,7 @@ def storebput()
 	    j--
 	loop
     next
-    call(osfind_close, 0, file, 0, osfind)
+    call(osfind, osfind_close, 0, file, 0)
     call_oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)
@@ -222,9 +222,9 @@ def storegbpb()
 	// TODO: Keep this in sync with storestdio() if that changes.
 	block:1 = @storelinestr + 1; block:3 = high_order_address()
 	block:5 = ^@storelinestr; block:7 = 0
-	call(osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
+	call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
     next
-    call(osfind_close, 0, file, 0, osfind)
+    call(osfind, osfind_close, 0, file, 0)
     call_oscli("DELETE X.TEST")
     puts("Finish\n")
     time(@finish)

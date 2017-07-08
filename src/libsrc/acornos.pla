@@ -35,7 +35,7 @@ end
 
 def call_osfind_open_internal(a, filename, filename_cr)
     stocr(filename, filename_cr)
-    return call(a, filename_cr, filename_cr >> 8, 0, osfind).0
+    return call(osfind, a, filename_cr, filename_cr >> 8, 0).0
 end
 
 export def call_osfind_open(a, filename)
@@ -43,7 +43,7 @@ export def call_osfind_open(a, filename)
 end
 
 export def call_osrdch()
-    return call(0, 0, 0, 0, osrdch).0
+    return call(osrdch, 0, 0, 0, 0).0
 end
 
 // vi: sts=4 sw=4

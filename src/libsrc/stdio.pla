@@ -168,7 +168,7 @@ def get_length(length, handle)
     // I suspect the AUG means that if you use OSARGS with A=1 to read the
     // address of the command line, the command line address returned in the
     // zero page control block is in the I/O processor.
-    call(osargs_read_ext, scratch, handle, 0, osargs)
+    call(osargs, osargs_read_ext, scratch, handle, 0)
     // It's tempting to do "memcpy(length, scratch, 4)" here but BeebEm has
     // a bug (it doesn't wrap (zp),Y addressing at the top of memory) which
     // stops memcpy to zero page working, so we just do this.
@@ -225,7 +225,7 @@ export def fopen_prealloc(file, filename, mode)
 	// "w+" must truncate the file if it exists; we opened it in write
 	// mode to get this behaviour, we now need to re-open it in update
 	// mode.
-	call(osfind_close, 0, handle, 0, osfind)
+	call(osfind, osfind_close, 0, handle, 0)
 	handle = call_osfind_open(osfind_update, filename)
     elsif file->r_append and handle == 0
 	// "a" must create the file if it doesn't exist but OSFIND's update
@@ -235,7 +235,7 @@ export def fopen_prealloc(file, filename, mode)
 	if handle == 0
 	    return 0
 	fin
-	call(osfind_close, 0, handle, 0, osfind)
+	call(osfind, osfind_close, 0, handle, 0)
 	handle = call_osfind_open(osfind_update, filename)
     fin
     if handle == 0
@@ -304,7 +304,7 @@ export def fflush(file)
 #ifdef DEBUG
 		debug_dump_osgbpb(1, @block)
 #endif
-		call(osgbpb_write_using_new_ptr, @block, @block >> 8, 0, osgbpb) // TODO: BRK on error or can it return something?
+		call(osgbpb, osgbpb_write_using_new_ptr, @block, @block >> 8, 0) // TODO: BRK on error or can it return something?
 	    loop
 	fin
 
@@ -319,7 +319,7 @@ export def fflush(file)
 #ifdef DEBUG
 	debug_dump_osgbpb(1, @block)
 #endif
-	call(osgbpb_write_using_new_ptr, @block, @block >> 8, 0, osgbpb) // TODO: BRK on error or can it return something?
+	call(osgbpb, osgbpb_write_using_new_ptr, @block, @block >> 8, 0) // TODO: BRK on error or can it return something?
 
 	file->r_dirty = FALSE
 #ifdef DEBUG
@@ -363,7 +363,7 @@ def fill_buffer(file)
 #ifdef DEBUG
 	debug_dump_osgbpb(3, @block)
 #endif
-	call(osgbpb_read_using_new_ptr, @block, @block >> 8, 0, osgbpb)
+	call(osgbpb, osgbpb_read_using_new_ptr, @block, @block >> 8, 0)
     fin
     file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
     file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
@@ -634,7 +634,7 @@ export def fclose(file)
     if fflush(file) == EOF
 	return EOF
     fin
-    call(osfind_close, 0, file->r_handle, 0, osfind)
+    call(osfind, osfind_close, 0, file->r_handle, 0)
     return 0
 end
 

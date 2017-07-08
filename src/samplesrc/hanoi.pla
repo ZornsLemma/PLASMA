@@ -25,11 +25,11 @@ asm sync
 end
 
 def fx(a, x)
-    call(a, x, 0, 0, osbyte)
+    call(osbyte, a, x, 0, 0)
 end
 
 def time(t)
-    call(osword_read_time, t, t >> 8, 0, osword)
+    call(osword, osword_read_time, t, t >> 8, 0)
 end
 
 def sleep(cs)

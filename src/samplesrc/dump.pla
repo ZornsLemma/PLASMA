@@ -82,7 +82,7 @@ def close_handle()
     if handle <> 0
 	handle_copy = handle
 	handle = 0
-	call(osfind_close, 0, handle_copy, 0, osfind)
+	call(osfind, osfind_close, 0, handle_copy, 0)
     fin
 end
 

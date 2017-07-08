@@ -93,6 +93,7 @@ predef callalloca
 //
 // System variables.
 //
+// TODO: Port across recent changes from Apple version and bump this to 00.99
 word version     = $0092 // 00.92
 // word systemflags = 0 TODO: delete this? commented out for now
 // TODO: I've experimentally moved heap to a fixed location in zero
@@ -221,25 +222,26 @@ word              = 0
 word syslibsym
 //
 // CALL 6502 ROUTINE
-// CALL(AREG, XREG, YREG, STATUS, ADDR)
+// CALL(ADDR, AREG, XREG, YREG, STATUS)
 //
 asm call
-REGVALS	=	SRC
+REGVALS =   SRC
         PHP
-        LDA     ESTKL,X
+        LDA     ESTKL+4,X
         STA     TMPL
-        LDA     ESTKH,X
+        LDA     ESTKH+4,X
         STA     TMPH
-        INX
         LDA     ESTKL,X
         PHA
-        INX
-        LDY     ESTKL,X
-        INX
         LDA     ESTKL+1,X
+        TAY
+        LDA     ESTKL+3,X
         PHA
-        LDA     ESTKL,X
+        LDA     ESTKL+2,X
         INX
+        INX
+        INX
+    INX
         STX     ESP
         TAX
         PLA
@@ -258,7 +260,7 @@ REGVALS	=	SRC
         STY     ESTKH,X
         PLP
         RTS
-JMPTMP	JMP	(TMP)
+JMPTMP  JMP (TMP)
 end
 //
 // SET MEMORY TO VALUE
@@ -1250,7 +1252,7 @@ def mode(n)
     // If the mode change doesn't alter HIMEM, it's trivial. We need to check
     // specifically for the second processor case here; see the code just
     // above INITFP.
-    new_himemh = call(osbyte_read_himem_for_mode, n, 0, 0, osbyte).2
+    new_himemh = call(osbyte, osbyte_read_himem_for_mode, n, 0, 0).2
     if new_himemh == ^himemh or ^himemh > $80
 	cout(22)
 	cout(n)
@@ -1307,7 +1309,7 @@ def mode(n)
     *ifp = gm_new_frame_start
 #endif
 // TODO TEMP!
-    if call(osbyte_read_himem, 0, 0, 0, osbyte).2 <> ^himemh
+    if call(osbyte, osbyte_read_himem, 0, 0, 0).2 <> ^himemh
     	prstr("foo")
     	oserror(255,"foo")
     fin	
@@ -1318,7 +1320,7 @@ end
 // FILE I/O
 //
 def high_order_address
-    return call(osbyte_read_high_order_address, 0, 0, 0, osbyte):1
+    return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
 def readfile(filename, buffer)
     byte block[osfile_block_size]
@@ -1326,7 +1328,7 @@ def readfile(filename, buffer)
     block:2 = buffer
     block:4 = high_order_address()
     block:6 = 0 // ignore file's load address, use our own
-    perr = (call(osfile_load_file, @block, @block >> 8, 0, osfile).0 == 0)
+    perr = (call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0)
     return perr
 end
 //
@@ -1426,7 +1428,7 @@ end
 
 def call_oscli_internal(str, str_cr)
     stocr(str, str_cr)
-    call(0, str_cr, str_cr >> 8, 0, oscli)
+    call(oscli, 0, str_cr, str_cr >> 8, 0)
 end
 
 // call_oscli(str)
@@ -1609,7 +1611,7 @@ def loadmod(mod)
     crout()
     fin
     filename[7] = 13
-    handle = call(osfind_input, @filename, @filename >> 8, 0, osfind).0
+    handle = call(osfind, osfind_input, @filename, @filename >> 8, 0).0
     if handle == 0
 	oserror(0, "Not found")
     fin
@@ -1619,11 +1621,11 @@ def loadmod(mod)
     block:3 = high_order_address()
     block:5 = header_size
     block:7 = 0
-    call(osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0, osgbpb)
+    call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
     rdlen = header_size - block:5
-    call(osargs_read_ext, scratch, handle, 0, osargs)
+    call(osargs, osargs_read_ext, scratch, handle, 0)
     file_length:0 = scratch:0; file_length:2 = scratch:2
-    loadmod_handle = 0; call(osfind_close, 0, handle, 0, osfind)
+    loadmod_handle = 0; call(osfind, osfind_close, 0, handle, 0)
 
     if rdlen > 16
 	modsize = header:0
@@ -1950,7 +1952,7 @@ def execmod(modfile)
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
 	    if loadmod_handle <> 0
-		call(osfind_close, 0, loadmod_handle, 0, osfind)
+		call(osfind, osfind_close, 0, loadmod_handle, 0)
 	    fin
 
 	    lastsym     = savesym
