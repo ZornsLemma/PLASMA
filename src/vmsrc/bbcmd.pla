@@ -116,6 +116,7 @@ byte perr
 //
 // String pool.
 //
+// TODO: cmd.pla seems to have done away with this, probably given CS opcode now pools - I have a feeling that won't work for me given the mode changing issues, but think about it and perhaps comment if that is the case
 byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
@@ -152,6 +153,7 @@ word gm_new_frame_start
 word gm_copy_from
 word gm_copy_size
 byte gm_new_mode
+// TODO: cmd.pla now uses cmdln to overlay exported strings table - is that a useful idea for me? I suspect not given need to preserve VM integrity for soft BREAK on second processor
 //
 // Standard Library exported functions.
 //
@@ -1172,6 +1174,7 @@ def syscall(cmd, params)
     // Just a dummy implementation
     oserror(0, "syscall")
 end
+// TODO: cmd.pla has implemented this in asm and falls through to cout, can I use that technique? Or just implement in asm and use osnewl?
 def crout
     cout($0A)
     return cout($0D)
@@ -1632,10 +1635,10 @@ def loadmod(mod)
 	defofst = modsize
         init    = 0
 	// TODO: Once finished reworking this, should test with a file which doesn't
-	// have $DA7E special stuff, if I can find or create one.
+	// have $DA7F special stuff, if I can find or create one.
 	// TODO: The rdlen > 4 test is probably redundant, let's wait until this
 	// code has settled down before removing it.
-        if rdlen > 4 and header:2 == $DA7E // DAVE = magic number :-)
+        if rdlen > 4 and header:2 == $DA7F // DAVE+1 = magic number :-)
             //
             // This is an EXTended RELocatable (data+bytecode) module.
             //
@@ -2071,7 +2074,7 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
-	        execmod(cmdptr)
+	        execmod(cmdptr) // TODO: cmd.pla now uses striptrail here, imitate that? Is there some "argument" support we need to port?
 		break
 	    is '*'
 	    	call_oscli(cmdptr)
