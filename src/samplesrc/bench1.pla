@@ -102,7 +102,7 @@ def show_times()
 end
 
 def time(t)
-    call(osword_read_time, t, t >> 8, 0, osword)
+    call(osword, osword_read_time, t, t >> 8, 0)
 end
 
 // Actual benchmarks
