@@ -97,14 +97,14 @@ $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 
 vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
-	./$(PLASM) -A < vmsrc/32cmd.pla > vmsrc/32cmd.a
+	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
 	# TODO TEMP
 	# TODO: optimise.py temporarily disabled as it's broken by recent upstream changes
 	# mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
-	./$(PLASM) -A < vmsrc/128cmd.pla > vmsrc/128cmd.a
+	./$(PLASM) -AO < vmsrc/128cmd.pla > vmsrc/128cmd.a
 
 $(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/32cmd.a add-relocations.py
 	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb.s
@@ -270,11 +270,11 @@ $(HGR1):	samplesrc/hgr1.pla samplesrc/hgr1test.pla $(PLVM02) $(PLASM)
 	acme --setpc 4094 -o $(HGR1) samplesrc/hgr1.a
 
 $(ACORNOS): libsrc/acornos.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < libsrc/acornos.pla > libsrc/acornos.a
+	./$(PLASM) -AMO < libsrc/acornos.pla > libsrc/acornos.a
 	acme --setpc 4094 -o $(ACORNOS) libsrc/acornos.a
 
 dword: libsrc/dword.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < libsrc/dword.pla > libsrc/dword.a
+	./$(PLASM) -AMO < libsrc/dword.pla > libsrc/dword.a
 	acme --setpc 4094 -o DWORD\#FE1000 libsrc/dword.a
 
 hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
@@ -286,47 +286,47 @@ hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 # TODO: Investigate using new (?) -W option on the following
 
 dump: samplesrc/dump.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/dump.pla > samplesrc/dump.a
+	./$(PLASM) -AMO < samplesrc/dump.pla > samplesrc/dump.a
 	acme --setpc 4094 -o DUMP\#FE1000 samplesrc/dump.a
 
 mode: samplesrc/mode.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/mode.pla > samplesrc/mode.a
+	./$(PLASM) -AMO < samplesrc/mode.pla > samplesrc/mode.a
 	acme --setpc 4094 -o MODE\#FE1000 samplesrc/mode.a
 
 mode2: samplesrc/mode2.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/mode2.pla > samplesrc/mode2.a
+	./$(PLASM) -AMO < samplesrc/mode2.pla > samplesrc/mode2.a
 	acme --setpc 4094 -o MODE2\#FE1000 samplesrc/mode2.a
 
 hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/hanoi.pla > samplesrc/hanoi.a
+	./$(PLASM) -AMO < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
 bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/bench1.pla > samplesrc/bench1.a
+	./$(PLASM) -AMO < samplesrc/bench1.pla > samplesrc/bench1.a
 	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
 
 bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/bench2.pla > samplesrc/bench2.a
+	./$(PLASM) -AMO < samplesrc/bench2.pla > samplesrc/bench2.a
 	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
-	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AM > libsrc/stdio.a
+	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AMO > libsrc/stdio.a
 	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
 
 stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/stdiots.pla > samplesrc/stdiots.a
+	./$(PLASM) -AMO < samplesrc/stdiots.pla > samplesrc/stdiots.a
 	acme --setpc 4094 -o STDIOTS\#FE1000 samplesrc/stdiots.a
 
 strpool: samplesrc/strpool.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/strpool.pla > samplesrc/strpool.a
+	./$(PLASM) -AMO < samplesrc/strpool.pla > samplesrc/strpool.a
 	acme --setpc 4094 -o STRPOOL\#FE1000 samplesrc/strpool.a
 
 symtbl: samplesrc/symtbl.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/symtbl.pla > samplesrc/symtbl.a
+	./$(PLASM) -AMO < samplesrc/symtbl.pla > samplesrc/symtbl.a
 	acme --setpc 4094 -o SYMTBL\#FE1000 samplesrc/symtbl.a
 
 setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AM < samplesrc/setjmp.pla > samplesrc/setjmp.a
+	./$(PLASM) -AMO < samplesrc/setjmp.pla > samplesrc/setjmp.a
 	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
 
 plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool symtbl setjmp $(ACORNOS) samplesrc/pcw.bas
