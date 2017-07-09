@@ -1867,6 +1867,9 @@ def execmod(modfile)
     word error, action, olderrjb, jb
 
     perr = 1
+    // TODO: There's currently nothing to prevent the user entering
+    // +MORETHANSEVENTEENCHARACTERS at the prompt and then we'll overflow
+    // moddci here.
     if stodci(modfile, @moddci)
         saveheap  = *heapptr
 #ifdef PLAS128
