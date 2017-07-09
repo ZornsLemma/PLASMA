@@ -552,146 +552,42 @@ CS	DEX
 	JMP	NEXTOP
 }
 !IFDEF PLAS128 {
-	; TODO: Have a look at the new Apple II pool CS and see if the implementation is better than mine
-	POOLSIZE = 16*2 ; 2 byte entries
-	HASHMASK = $1E ; %00011110
-
-	HEADPTR = SRC
-	THISPTR = DST
-
-	; To avoid problems where the CS opcode is used inside a loop and
-	; chews up all the memory, we create a per-function-call string pool
-	; on the frame stack. The address of the CS opcode (actually the
-	; byte immediately after it) provides a unique key which identifies
-	; the string within the function so we can avoid comparing the
-	; actual strings. (This means of course that two CS opcodes with
-	; the same string will create two entries in the string pool, but
-	; this is still better than the naive approach used earlier, and
-	; I think the extra performance of this is worth it.)
-	;
-	; Just below IFP is a POOLSIZE-byte hash table;
-	; each entry is a pointer to the first element of a linked list
-	; of entries for that hash key. Each linked list element has the
-	; following structure:
-	; offset 0 - IP value (2 bytes)
-	; offset 2 - pointer to next entry (2 bytes)
-	; offset 4 - string
-
-	; Remember that we have normalised IP, so Y=0, (IP),Y addresses
-	; the byte after the CS opcode. We therefore don't need to save Y
-	; or factor it into the hash lookup.
-
-	; If this is the first allocation in this stack frame (i.e. PP=IFP)
-	; we need to create a hash table.
-	LDA	PPL
-	CMP	IFPL
-	BNE	HAVEPOOL
+	LDA 	PPL	 	; SCAN POOL FOR STRING ALREADY THERE
+	STA 	TMPL
 	LDA	PPH
+	STA	TMPH
+_CMPPSX ;LDA	TMPH		; CHECK FOR END OF POOL
 	CMP	IFPH
-	BNE	HAVEPOOL
-	; We need to create a hash table. Lower PP to create space for it.
-	SEC
-	LDA	IFPL
-	SBC	#POOLSIZE
-	STA	PPL
-	LDA	IFPH
-	SBC	#0
-	STA	PPH
-	+CHECKVSHEAPHIGHINA PP
-	; Now zero the hash table.
-	LDY	#POOLSIZE-1
-	LDA	#0
--	STA	(PP),Y
+	BCC	_CMPSX		; CHECK FOR MATCHING STRING
+	BNE	_CPYSX		; BEYOND END OF POOL, COPY STRING OVER
+	LDA	TMPL
+	CMP	IFPL
+	BCS	_CPYSX		; AT OR BEYOND END OF POOL, COPY STRING OVER
+_CMPSX	LDA	(TMP),Y		; COMPARE STRINGS FROM AUX MEM TO STRINGS IN MAIN MEM
+	CMP	(IP),Y		; COMPARE STRING LENGTHS
+	BNE	_CNXTSX1
+	TAY
+_CMPCSX LDA	(TMP),Y	 	; COMPARE STRING CHARS FROM END
+	CMP	(IP),Y
+	BNE	_CNXTSX
 	DEY
-	BPL	-
-
-HAVEPOOL
-	; OK, we have a hash table just below IFP. Set SRC to point to it.
-	SEC
-	LDA	IFPL
-	SBC	#POOLSIZE
-	STA	SRCL
-	LDA	IFPH
-	SBC	#0
-	STA	SRCH
-
-	; Hash the key (the value of IP) to determine which linked list to
-	; work with. The hash is simply IPL & HASHMASK; this takes the low
-	; n bits excluding bit 0, which should be fairly well distributed and
-	; can be directly used as an index into the hash table.
-	LDA	IPL
-	AND	#HASHMASK
-	CLC
-	ADC	SRCL
-	STA	HEADPTR
-	LDA	SRCH
-	ADC	#0
-	STA	HEADPTR+1
-
-	; Initialise THISPTR with the address (possibly 0) of the first
-	; linked list entry.
-	LDY	#0
-	LDA	(HEADPTR),Y
-	STA	THISPTR
-	INY
-	LDA	(HEADPTR),Y
-	STA	THISPTR+1
-
-NEXTENTRY
-	; THISPTR contains the address of the linked list element to consider.
-	; If THISPTR is null, we've failed to find a match and
-	; we need to create a new entry. Otherwise it's a match and we want
-	; to return the address of the string within the THISPTR entry.
-	LDA	THISPTR
-	ORA	THISPTR+1
-	BEQ	ATENDOFLIST
-	; Does the element pointed to by THISPTR have a matching IP value?
-	LDY	#0
-	LDA	(THISPTR),Y
-	INY
-	CMP	IPL
-	BNE 	NOTMATCH
-	LDA	(THISPTR),Y
-	CMP	IPH
-	BEQ	MATCH
-NOTMATCH
-	; It didn't match, so put the address of the next element into THISPTR
-	; and loop round. Y=1 at this point.
-	INY
-	LDA	(THISPTR),Y
-	PHA
-	INY
-	LDA	(THISPTR),Y
-	STA	THISPTR+1
-	PLA
-	STA	THISPTR
-	JMP	NEXTENTRY
-
-MATCH
-	; The string is in the pool, starting at (THISPTR),4.
-	CLC
-	LDA	#4
-	ADC	THISPTR
+	BNE	_CMPCSX
+	LDA	TMPL		; MATCH - SAVE EXISTING ADDR ON ESTK AND MOVE ON
 	STA	ESTKL,X
-	LDA	THISPTR+1
-	ADC	#0
+	LDA	TMPH
 	STA	ESTKH,X
-	JMP	CSDONE
-
-ATENDOFLIST
-
-	; We hit the end of the list, so this string isn't in the pool. We
-	; need to create a new entry, which we insert at the head of the linked
-	; list. We choose to insert at the head for two reasons: a) it makes it
-	; easier to fix up PP after a longjmp() b) it might help speed up string
-	; lookups in inner loops, since more recently allocated strings will be
-	; found first.
-
-	; Lower PP to allocate (string length+1)+4 bytes for the new linked
-	; list entry. We first lower by string length+1 and set that
-	; address as the return value of the CS opcode.
-	LDY	#0
-	LDA	(IP),Y
+	BNE	_CEXSX
+_CNXTSX LDY	#$00
+	LDA	(TMP),Y
+_CNXTSX1 SEC
+	ADC	TMPL
+	STA	TMPL
+	LDA	#$00
+	ADC	TMPH
+	STA	TMPH
+	BNE	_CMPPSX
+_CPYSX	LDA	(IP),Y		; COPY STRING FROM AUX TO MAIN MEM POOL
+	TAY			; MAKE ROOM IN POOL AND SAVE ADDR ON ESTK
 	EOR	#$FF
 	CLC
 	ADC	PPL
@@ -700,57 +596,15 @@ ATENDOFLIST
 	LDA	#$FF
 	ADC	PPH
 	STA	PPH
-	STA	ESTKH,X
 	+CHECKVSHEAPHIGHINA PP
-	; Copy the string into the pool. Y is already 0.
-	LDA	(IP),Y
-	TAY
-	; TODO: Delete the following Apple-related comments which are not true here
--	LDA	(IP),Y		; ALTRD IS ON,  NO NEED TO CHANGE IT HERE
-	STA	(PP),Y		; ALTWR IS OFF, NO NEED TO CHANGE IT HERE
+	STA	ESTKH,X		; COPY STRING FROM AUX MEM BYTECODE TO MAIN MEM POOL
+_CPYSX1 LDA	(IP),Y
+	STA	(PP),Y
 	DEY
 	CPY	#$FF
-	BNE	-
-
-	; Lower PP a further 4 bytes for the first part of the entry.
-	SEC
-	LDA	PPL
-	SBC	#4
-	STA	PPL
-	BCS	+
-	DEC	PPH
-+
-	+CHECKVSHEAP PP
-	
-	; Copy IP to offset 0 of the new entry. Y is $FF.
-	LDA	IPL
+	BNE	_CPYSX1
 	INY
-	STA	(PP),Y
-	LDA	IPH
-	INY
-	STA	(PP),Y
-	; Link the new entry in at the head of the list. Y is 1.
-	; a) Make the previous head this entry's next.
-	DEY
-	LDA	(HEADPTR),Y
-	LDY	#2
-	STA	(PP),Y
-	DEY
-	LDA	(HEADPTR),Y
-	LDY	#3
-	STA	(PP),Y
-	; b) Now make this entry the new head.
-	LDY	#0
-	LDA	PPL
-	STA	(HEADPTR),Y
-	INY
-	LDA	PPH
-	STA	(HEADPTR),Y
-
-CSDONE
-	; We're done.
-	LDY	#0
-	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
+_CEXSX	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 	TAY
 	JMP	NEXTOP
 }

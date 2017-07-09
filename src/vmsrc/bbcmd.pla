@@ -966,61 +966,10 @@ asm longjmp
 
 +++	
 
-#ifdef PLAS128
-	;* The value of PP saved by setjmp may not in fact be low enough if CS
-	;* allocated some string constants after setjmp() was called. We must
-	;* lower PP to accommodate the actual contents of the function's string
-	;* pool to avoid it being overwritten, and any subsequent executions of
-	;* those CS instructions retrieving junk.
-!ZONE {
-	LDA	PPL
-	CMP	IFPL
-	BNE	.HAVEPOOL
-	LDA	PPH
-	CMP	IFPH
-	BEQ	.NOPOOL
-.HAVEPOOL
-
-	;* Make TMP point at the pool's hash table.
-	SEC
-	LDA	IFPL
-	SBC	#POOLSIZE
-	STA	TMPL
-	LDA	IFPH
-	SBC	#0
-	STA	TMPH
-
-	;* Set PP to min(PP, head_of_each_linked_list_in_pool); because CS always
-	;* inserts new elements at the head of each list and new elements are
-	;* always at lower addresses, this means that afterwards PP has been
-	;* lowered so that the entire string pool is above PP. This stops constant
-	;* strings allocated after setjmp() but accessed via a CS opcode after
-	;* longjmp() from being corrupted. (See setjmp.pla for an example.)
-	LDY	#POOLSIZE-1
--	LDA	(TMP),Y
-	BEQ	.SKIPNULL
-	DEY
-	CMP	PPH
-	BCC	.LOWERPP
-	BNE	.DONTLOWERPP
-	LDA	(TMP),Y
-	CMP	PPL
-	BCS	.DONTLOWERPP
-.LOWERPP
-	LDA	(TMP),Y
-	STA	PPL
-	INY
-	LDA	(TMP),Y
-	STA	PPH
-.SKIPNULL
-	DEY
-.DONTLOWERPP
-	DEY
-	BPL	-
-	
-.NOPOOL
-}
-#endif
+	;* PLAS128: CS may have allocated some constant strings after setjmp()
+	;* was called, but when we restore the value of PP saved by setjmp()
+	;* we effectively just reset the pool back to the state at the setjmp()
+	;* point.
 
 	LDX	ESP
 	RTS
