@@ -159,7 +159,6 @@ word gm_new_frame_start
 word gm_copy_from
 word gm_copy_size
 byte gm_new_mode
-// TODONOW: cmd.pla now uses cmdln to overlay exported strings table - is that a useful idea for me? I suspect not given need to preserve VM integrity for soft BREAK on second processor
 //
 // Standard Library exported functions.
 //
