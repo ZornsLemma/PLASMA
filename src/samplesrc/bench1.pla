@@ -10,7 +10,6 @@ include "inc/dword.plh"
 include "inc/acornc.plh"
 
 byte textscrnstr[] = "textscrn"
-byte textscrnlinestr[] = "1234567890qwertyuiop "
 byte grafscrnstr[] = "grafscrn"
 
 // Benchmark start/finish times
@@ -107,8 +106,6 @@ end
 
 // Actual benchmarks
 
-// This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool. TODO: Is this still true?
 def textscrn()
     word i
     if not mode(3)
@@ -117,7 +114,7 @@ def textscrn()
     time(@start)
     puts("Start\n")
     for i = 1 to 1000
-	puts(@textscrnlinestr)
+	puts("1234567890qwertyuiop ")
 	puti(i)
 	putln()
     next
