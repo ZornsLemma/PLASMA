@@ -1136,7 +1136,6 @@ LEAVE 	PLA
 	INC	IFPH
 +	RTS
 ;
-; TODO: Have a look at new Apple 2 implementation and see if mine can be improved
 RET	LDA	IFPL		; DEALLOCATE POOL
 	STA	PPL
 	LDA	IFPH
@@ -1204,9 +1203,9 @@ ERRCPD	DEY
 	;* but not the expression stack itself, and setting X=2 here so
 	;* the error handlers runs with a tiny expression stack, just
 	;* enough to call longjmp(). We'd make setjmp() fail if X<=2 on
-	;* entry. This isn't a perfect solution as the expression stack
-	;* can shrink after the setjmp() and before the longjmp(),
-	;* so important state could still be lost. setjmp.pla is an
+	;* entry. This wouldn't a perfect solution as the expression stack
+	;* could shrink after the setjmp() and before the longjmp(),
+	;* so important state could still be lost; setjmp.pla is an
 	;* example of this. The expression stack plays the same role as
 	;* registers, and really it needs to be restored by longjmp(),
 	;* so we do that.)
