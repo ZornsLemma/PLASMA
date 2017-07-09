@@ -1813,15 +1813,6 @@ end
 //
 // Command mode
 //
-// TODO: Not sure most of these strip*() functions are used, and they aren't exported so
-// check and get rid of them
-def stripchars(strptr)
-    while ^strptr and ^(strptr + 1) <> ' '
-        memcpy(strptr + 1, strptr + 2, ^strptr)
-        ^strptr = ^strptr - 1
-    loop
-    return ^strptr
-end
 def stripspaces(strptr)
     while ^strptr and ^(strptr + ^strptr) <= ' '
         ^strptr = ^strptr - 1
@@ -1835,11 +1826,12 @@ def striptrail(strptr)
     byte i
 
     for i = 1 to ^strptr
-        if (strptr)[i] == ' '
+        if ^(strptr + i) <= ' '
 	    ^strptr = i - 1
-	    return
+	    return strptr
 	fin
     next
+    return strptr
 end
 def parsecmd(strptr)
     byte cmd
@@ -2022,7 +2014,7 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
-	        execmod(cmdptr) // TODONOW: cmd.pla now uses striptrail here, imitate that? Is there some "argument" support we need to port?
+	        execmod(striptrail(cmdptr))
 		break
 	    is '*'
 	    	call_oscli(cmdptr)
