@@ -98,9 +98,8 @@ $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
 	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
-	# TODO TEMP
-	# TODO: optimise.py temporarily disabled as it's broken by recent upstream changes
-	# mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
+	# TODO: optimise.py temporarily disabled
+	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla

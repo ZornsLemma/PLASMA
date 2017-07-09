@@ -402,12 +402,15 @@ def emit(instructions):
                 assert length >= 0
                 i += 1
         elif info.has_key('arguments') and info['arguments']:
-            print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode_byte, opcode, instruction[1]))
-            if instruction[-2]:
-                padded_label = (instruction[-2] + "   ")[:6]
-                print("%s\t!WORD\t%s\t\t" % (padded_label, instruction[-1]))
+            if instruction[-1][0] == '$':
+                print("\t!BYTE\t$%02X,%s; %s\t%s" % (opcode_byte, instruction[-1], opcode, instruction[1]))
             else:
-                print("\t!WORD\t%s" % instruction[-1])
+                print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode_byte, opcode, instruction[1]))
+                if instruction[-2]:
+                    padded_label = (instruction[-2] + "   ")[:6]
+                    print("%s\t!WORD\t%s\t\t" % (padded_label, instruction[-1]))
+                else:
+                    print("\t!WORD\t%s" % instruction[-1])
         elif opcode == 'CB':
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]), opcode, instruction[1]))
         elif opcode == 'CW':
@@ -634,15 +637,28 @@ while True:
                     break
         else:
             assert info['arguments'] == 1
-            try:
-                line2 = line_it.next()
-                line2 = line2[:-1]
-            except StopIteration:
-                die("Missing argument line")
-            line += '\n' + line2
-            label = line2.split('\t')[0]
-            value = line2.split('\t')[2]
-            assert len(instruction) == 2
-            instruction.extend([label, value])
+            # Some opcodes (e.g. SAB) sometimes have a literal argument instead
+            # of a label argument, and in that case there is no next line. We
+            # distinguish this by checking for a _ prefix on the argument in
+            # the commented instruction, suggesting it's a label.
+            if instruction[1][0] == '_':
+                try:
+                    line2 = line_it.next()
+                    line2 = line2[:-1]
+                except StopIteration:
+                    die("Missing argument line")
+                line += '\n' + line2
+                label = line2.split('\t')[0]
+                value = line2.split('\t')[2]
+                assert len(instruction) == 2
+                instruction.extend([label, value])
+            else:
+                i = line.find('$')
+                j = line.find(',', i)
+                argument = line[j+1:]
+                i = argument.find(';')
+                argument = argument[:i]
+                assert argument[0] == '$' # TODO: we use this to recognise this hack in emit()
+                instruction.extend([argument]) # TODO: rather a hack
 
     function_body.append(instruction)
