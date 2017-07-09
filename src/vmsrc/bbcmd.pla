@@ -1173,24 +1173,6 @@ end
 // TL;DR: Call mode() as early as possible and with as few nested function
 // calls in effect as possible and you'll probably be safe.
 //
-// TODO: There is an additional problem (based on thinking about things, not
-// actually tested this to see if it's true yet) with PLAS128 now that it
-// maintains a per-function string pool for CS opcodes. After a mode change
-// which moves HIMEM, all the addresses in the hash table/linked lists in
-// the pool will be wrong. This means that not only will code which has
-// stored the address of a constant string be wrong (as noted above, and
-// largely unavoidable), any code which executes a CS opcode after the mode
-// change will find itself consulting a hash table/linked list which contain
-// invalid addresses. This problem is not confined to the function calling
-// mode(), all functions higher in the call stack are affected. The "nice"
-// solution to this is for the hash table/linked list to store all addresses
-// relative to HIMEM; this would be a small performance penalty, but not too
-// much of one, and then everything would be just fine after mode(). (Code
-// which has stored the address of a constant string would still be broken,
-// as noted above.) I think the only other alternative is to document this
-// and make it yet another reason why it's highly desirable to call mode()
-// ASAP.
-//
 // Returns TRUE if the mode change was successful and FALSE if not (typically
 // caused by insufficient memory).
 def mode(n)
