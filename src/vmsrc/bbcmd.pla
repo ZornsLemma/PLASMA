@@ -494,7 +494,7 @@ end
 //    byte len, c
 //    len = ^str
 //    if len == 0
-//        return
+//        return 0
 //    fin
 //    c = toupper((str).[len]) & $7F
 //    len = len - 1
