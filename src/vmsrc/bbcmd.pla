@@ -114,8 +114,15 @@ word lastsym
 byte perr
 //
 // String pool.
+// We don't strictly speaking need this, now that the CS opcode uses string
+// pooling in PLAS128 in a way which works even if there's a mode change
+// between two executions of the same CS opcode. However, not using this
+// manual string pool only saves 12 bytes in PLAS32 and it costs 5 bytes in
+// PLAS128, because we need a copy of the string in the binary and on the
+// parameter stack (the binary is in main RAM here, not in sideways
+// RAM), so we stick with it. TODO: We could in principle conditionally
+// compile this, but it's awfully fiddly.
 //
-// TODONOW: cmd.pla seems to have done away with this, probably given CS opcode now pools - I have a feeling that won't work for me given the mode changing issues, but think about it and perhaps comment if that is the case
 byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
