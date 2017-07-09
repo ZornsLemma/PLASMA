@@ -186,7 +186,12 @@ byte uislestr[]   = "ISULE"
 byte loadstr[]    = "MODLOAD"
 byte execstr[]    = "MODEXEC"
 byte modadrstr[]  = "MODADDR"
-byte argstr[]     = "ARGS"
+// TODO: ARGS is currently not used by any of the Apple examples (they seem to
+// assume the command line is at $01FF). I think I can see how this is meant to
+// work and I could probably support it, but for the moment let's at least
+// avoid exporting this when it may not work and it's just wasting space in the
+// VM.
+// byte argstr[]     = "ARGS"
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
@@ -217,7 +222,8 @@ word              = @loadstr,   @loadmod
 word              = @execstr,   @execmod
 word              = @modadrstr, @lookupstrmod
 word              = @machidstr, @machid
-word              = @argstr,    @cmdptr
+// TODO: Commented out - see comment on argstr
+//word              = @argstr,    @cmdptr
 word		  = @setjmpstr, @setjmp
 word		  = @longjmpstr,@longjmp
 word		  = @prbytestr, @prbyte
