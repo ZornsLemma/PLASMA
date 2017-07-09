@@ -1116,7 +1116,6 @@ TODOOK
 ;*
 ;* LEAVE FUNCTION
 ;*
-; TODO: Have a look at new Apple 2 implementation and see if mine can be improved
 LEAVE 	PLA
 	CLC
 	ADC	IFPL
