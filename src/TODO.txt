@@ -73,3 +73,7 @@ A vim syntax highlighting mode for PLASMA code might be nice
 
 It would probably be possible to produce a Matchbox co-pro specific version
 which uses bank-switching PLAS128-style on the second processor.
+
+Can we get any use out of the new ability to define the number of return values
+of a PLASMA function? We could potentially save a bit of code by specifying 0
+return values in some places.

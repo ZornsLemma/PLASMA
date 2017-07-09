@@ -1041,6 +1041,12 @@ end
 //
 // CONSOLE I/O
 //
+asm crout
+	;* We must return a value; we just return junk.
+	DEX
+
+	JMP	OSNEWL
+end
 asm cout
 	LDA	ESTKL,X
 	JMP	OSWRCH
@@ -1121,11 +1127,6 @@ end
 def syscall(cmd, params)
     // Just a dummy implementation
     oserror(0, "syscall")
-end
-// TODONOW: cmd.pla has implemented this in asm and falls through to cout, can I use that technique? Or just implement in asm and use osnewl?
-def crout
-    cout($0A)
-    return cout($0D)
 end
 def prbyte(v)
     cout(hexchar[(v >> 4) & $0F])
