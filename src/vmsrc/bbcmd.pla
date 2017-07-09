@@ -742,7 +742,7 @@ asm callalloca(fn, size)
 }
 	INX
 
-	; TODO: Can we re-use the JMPTMP label elsewhere in this file?
+	; TODO: Can we re-use the JMPTMP label in plvmbb.s?
 	JSR	+
 
 !IFNDEF PLAS128 {
