@@ -13,7 +13,7 @@ import cmdsys
     const MACHID_IIC   = $88
     const MACHID_I     = $08
     const MACHID_ACORN = $C8
-    word MACHID
+    byte MACHID
     //
     // System flags: memory allocator screen holes.
     //
