@@ -128,6 +128,13 @@ IINTERP	PLA
 	ASL
 	ADC	#$00
 	AND	#$03
+	; TODO: Could we store A on top of the low byte of the address of an LDA RAMBANK
+	; non-indexed load (if we knew RAMBANK's low byte was 0)? This code is definitely
+	; running in RAM. It's a bit ugly but it may be worth it, as we could then
+	; potentially avoid corrupting Y or use Y to temporarily store IPH rather than
+	; write it above just to read it a few instructions below here. It may be awkward/
+	; wasteful to arrange for lo(RAMBANK)=0 though, but perhaps even if we have to pay
+	; for an ADC #lo(RAMBANK) there would be a worthwhile saving.
 	TAY
 	LDA	RAMBANK,Y
 	STA	$F4
