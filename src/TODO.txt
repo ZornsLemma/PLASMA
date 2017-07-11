@@ -77,3 +77,15 @@ which uses bank-switching PLAS128-style on the second processor.
 Can we get any use out of the new ability to define the number of return values
 of a PLASMA function? We could potentially save a bit of code by specifying 0
 return values in some places.
+
+It might be possible/easy to support cmorley's "OS RAM" module to allow larger
+programs/data. One possibility which occurs to me is for the sideways ROM/RAM
+version to detect a) first writable "high" location b) last writable "high"
+location (allowing for such combinations as "ROM only" (-> no high RAM), "2nd
+processor" (high RAM from &A800 or wherever "ROM" ends to &F800), "sideways
+RAM" (high ram from &A800-ish to &C000), "OS RAM" (high ram from &C000 to
+&FC00-ish), "sideways RAM+OS RAM" (high ram from &A800-ish to &FC00-ish) - the
+detection would be easy to do in a modular fashion I think) and then that extra
+RAM would automatically be available for bytecodes. Obviously this isn't the
+most flexible as it doesn't allow data to be located in the new "OS RAM", but
+it's one easy-ish possibility.
