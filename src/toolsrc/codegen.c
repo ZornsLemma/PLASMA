@@ -1195,7 +1195,6 @@ int crunch_seq(t_opseq **seq)
                         {
                             if (opnextnext->code == SHR_CODE)
                             {
-                                fprintf(stderr, "SFTODOX9\n");
                                 op->code = LLB_CODE;
                                 op->offsz++;
                                 freeops = 2;
