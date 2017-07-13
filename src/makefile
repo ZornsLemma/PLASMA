@@ -101,18 +101,22 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	# TODO: optimise.py temporarily disabled
 	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 
+vmsrc/32cmds.a: vmsrc/bbcmd.pla $(PLASM)
+	cc -DPLAS32S -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
+	./$(PLASM) -AO < vmsrc/32cmds.pla > vmsrc/32cmds.a
+
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
 	./$(PLASM) -AO < vmsrc/128cmd.pla > vmsrc/128cmd.a
 
 $(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/32cmd.a add-relocations.py
-	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb.s
-	acme '-DSTART=$$3000' -o $(PLVM32X) -l vmsrc/plvm32x.sym vmsrc/plvmbb.s
+	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb.s vmsrc/32cmd.a vmsrc/plvmbb2.s
+	acme '-DSTART=$$3000' -o $(PLVM32X) -l vmsrc/plvm32x.sym vmsrc/plvmbb.s vmsrc/32cmd.a vmsrc/plvmbb2.s
 	python add-relocations.py $(PLVM32) $(PLVM32X)
 
 $(PLVM128): vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/128cmd.a add-relocations.py
-	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym --report vmsrc/plvm128.lst vmsrc/plvmbb.s
-	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVM128X) vmsrc/plvmbb.s
+	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym --report vmsrc/plvm128.lst vmsrc/plvmbb.s vmsrc/128cmd.a vmsrc/plvmbb2.s
+	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVM128X) vmsrc/plvmbb.s vmsrc/128cmd.a vmsrc/plvmbb2.s
 	python add-relocations.py $(PLVM128) $(PLVM128X)
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
@@ -300,6 +304,11 @@ hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/hanoi.pla > samplesrc/hanoi.a
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
+hanois: samplesrc/hanoi.pla $(PLVM) $(PLASM) vmsrc/plvmzp.inc vmsrc/plvmbb.s vmsrc/32cmds.a
+	./$(PLASM) -AO < samplesrc/hanoi.pla > samplesrc/hanois.a
+	acme '-DSTART=$$2000' -o HANOIS -l samplesrc/hanois.sym --report samplesrc/hanois.lst vmsrc/plvmbb.s vmsrc/32cmds.a samplesrc/hanois.a vmsrc/plvmbb2.s
+	# TODO: Make standalone version relocatable
+
 bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/bench1.pla > samplesrc/bench1.a
 	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
@@ -328,5 +337,5 @@ setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/setjmp.pla > samplesrc/setjmp.a
 	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool symtbl setjmp $(ACORNOS) samplesrc/pcw.bas
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi hanois bench1 bench2 dword stdio stdiots strpool symtbl setjmp $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA
