@@ -1187,6 +1187,24 @@ int crunch_seq(t_opseq **seq)
                         break;
                 }
                 break; // GADDR_CODE
+            case LLW_CODE:
+                {
+                    if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                    {
+                        if ((opnextnext = opnext->nextop))
+                        {
+                            if (opnextnext->code == SHR_CODE)
+                            {
+                                fprintf(stderr, "SFTODOX9\n");
+                                op->code = LLB_CODE;
+                                op->offsz++;
+                                freeops = 2;
+                                break;
+                            }
+                        }
+                    }
+                }
+                break; // LLW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
                 {
