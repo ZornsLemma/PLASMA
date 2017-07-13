@@ -89,3 +89,10 @@ detection would be easy to do in a modular fashion I think) and then that extra
 RAM would automatically be available for bytecodes. Obviously this isn't the
 most flexible as it doesn't allow data to be located in the new "OS RAM", but
 it's one easy-ish possibility.
+
+Would there be a net space saving from adding a new "CBN n" opcode, which acts
+like "CW -n"? (The implementation would probably want to allow 1<=n<=256 not
+0<=n<=255, as "CBN 0" would otherwise be a duplicate of "CB 0" - but then
+again, that's already a duplicate of "ZERO", so maybe KISS.) Would obviously
+take some VM code space, but small negative numeric/high memory address
+constants would be one byte shorter.
