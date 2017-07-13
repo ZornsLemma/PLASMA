@@ -158,6 +158,13 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
 word[34] screen
 
+// TODO: There might be a performance improvement to be had by not writing
+// spaces via OSWRCH - we clear the screen at the start so no need to do
+// anything to write a space. We'd need to do something like count up how
+// many spaces we've skipped and move the cursor to the right place when
+// we see the next non-space. Or perhaps we could get rid of the clear 
+// screen if we continue to write spaces (but my suspicion is that wouldn't
+// be such an improvement).
 asm drawscreen
 	BBC=1
 	!SOURCE "vmsrc/plvmzp.inc"
