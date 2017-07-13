@@ -86,7 +86,7 @@ class Module:
         defofst = modsize
         init = 0
 
-        if self.wordrel(2) == 0xda7e:
+        if self.wordrel(2) == 0xda7e or self.wordrel(2) == 0xda7e+1:
             self.annotate_point(modsize+2, "segend")
             self.annotate(4, 5, "system flags")
             defofst = self.wordrel(6)
