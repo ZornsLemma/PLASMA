@@ -521,8 +521,7 @@ ZERO 	DEX
 	JMP	NEXTOP
 ;* TODO: CFFB is highly experimental
 CFFB	LDA	#$FF
-	STA	ESTKH-1,X
-	BNE	CBCOMMON
+	!BYTE	$2C	; BIT abs - effectively skips LDA #$00
 CB 	LDA	#$00
 	STA	ESTKH-1,X
 CBCOMMON
