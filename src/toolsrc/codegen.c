@@ -1246,6 +1246,17 @@ int crunch_seq(t_opseq **seq)
                         break;
                 }
                 break; // LOGIC_NOT_CODE
+#if 0 // TODO: This doesn't work, I think because we emit_seq() for a single line of source at a time - if we were to cache emit_seq() arguments internally and only really emit them when we're about to emit a label or end-of-function (or possibly some other corner cases) I think this would work
+            // TODO: SLB_CODE can be done very much like SLW_CODE
+            case SLW_CODE:
+                fprintf(stderr, "SFTODO1\n");
+                if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DLW_CODE;
+                    freeops = 1;
+                }
+                break;
+#endif
         }
         //
         // Free up crunched ops
