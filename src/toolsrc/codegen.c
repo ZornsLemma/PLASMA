@@ -1009,7 +1009,8 @@ int crunch_seq(t_opseq **seq)
                             freeops  = 1;
                         }
                         break;
-                    case CONST_CODE: // Collapse constant operation
+                    case CONST_CODE:
+                        // Collapse constant operation
                         if ((opnextnext = opnext->nextop))
                             switch (opnextnext->code)
                             {
@@ -1086,6 +1087,32 @@ int crunch_seq(t_opseq **seq)
                                     freeops  = 2;
                                     break;
                             }
+
+                        // If we have multiple identical non-0 constants together,
+                        // use DUP for all but first. This doesn't save any
+                        // *opcodes* but it saves one or two bytes per
+                        // repetition. TODO: This *does* work but it's possible
+                        // it will inhibit some other optimisations by "hiding"
+                        // constants. It may not be worth it, or it may be best
+                        // to move it into a "last effort" pass - we crunch
+                        // until there's nothing achieved, then do the "last
+                        // effort" pass, then we do another "crunch til nothing
+                        // achieved" loop. This would however prevent the odd
+                        // space-but-probably-not-time saving like "CB 512:CB
+                        // 512:LB" turning into "CB 512:DUP:LB"; it would get
+                        // turned into "CB 512:LAB 512" by another
+                        // optimisation. The DUP version is one byte shorter but
+                        // one opcode longer.
+                        if (!crunched && (freeops == 0) && (op->val != 0))
+                        {
+                            t_opseq *opn = opnext;
+                            while (opn && (opn->code == CONST_CODE) && (op->val == opn->val))
+                            {
+                                opn->code = DUP_CODE;
+                                opn = opn->nextop;
+                                crunched = 1;
+                            }
+                        }
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
                         for (shiftcnt = 0; shiftcnt < 16; shiftcnt++)
