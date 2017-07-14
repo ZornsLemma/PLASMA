@@ -1400,6 +1400,12 @@ t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2)
  */
 int emit_seq(t_opseq *seq)
 {
+    // SFTODO: We might want to call emit_pending_seq() here unless we're at
+    // (say) "-OO" optimisation level. The main reason I can see for wanting
+    // this is that the longer sequences mean that the correspondence between
+    // source code comments and the code in the assembly output is less clear.
+    // On the other hand, it seems a shame not to have this by default, so maybe
+    // an option to "tone down" the optimisation instead? Think about it.
     t_opseq *op;
     int emitted = 0;
     for (op = seq; op; op = op->nextop)
