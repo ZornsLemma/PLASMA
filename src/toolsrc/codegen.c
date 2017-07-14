@@ -1233,6 +1233,23 @@ int crunch_seq(t_opseq **seq)
                     }
                 }
                 break; // LLW_CODE
+            case LAW_CODE:
+                {
+                    if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                    {
+                        if ((opnextnext = opnext->nextop))
+                        {
+                            if (opnextnext->code == SHR_CODE)
+                            {
+                                op->code = LAB_CODE;
+                                op->offsz++;
+                                freeops = 2;
+                                break;
+                            }
+                        }
+                    }
+                }
+                break; // LLW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
                 {
