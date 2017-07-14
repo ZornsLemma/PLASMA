@@ -1268,7 +1268,7 @@ int crunch_seq(t_opseq **seq)
                         }
                     }
                 }
-                break; // LLW_CODE
+                break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
                 {
