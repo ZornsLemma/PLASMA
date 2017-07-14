@@ -415,6 +415,7 @@ t_opseq *parse_value(t_opseq *codeseq, int rvalue, int *stackdepth)
         /*
          * This is a special case. Just emit the string and return
          */
+        emit_pending_seq();
         codeseq = gen_str(codeseq, constval);
         scan();
         return (codeseq);

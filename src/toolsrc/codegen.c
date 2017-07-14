@@ -1,3 +1,4 @@
+#include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -27,8 +28,9 @@ static int  idlocal_offset[128];
 static char fixup_size[2048];
 static int  fixup_type[2048];
 static int  fixup_tag[2048];
-static t_opseq optbl[256];
+static t_opseq optbl[2048];
 static t_opseq *freeop_lst = &optbl[0];
+static t_opseq *pending_seq = 0;
 #define FIXUP_BYTE    0x00
 #define FIXUP_WORD    0x80
 int id_match(char *name, int len, char *id)
@@ -465,7 +467,7 @@ void emit_idfunc(int tag, int type, char *name, int is_bytecode)
         if (is_bytecode)
             printf("\tJSR\tINTERP\n");
     }
-    // SFTODO: PROBABLY A GOOD POINT TO SET/CHECK OUR PENDING SEQ IS EMPTY
+    assert(pending_seq == 0);
 }
 void emit_idconst(char *name, int value)
 {
@@ -537,16 +539,12 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
 }
 void emit_codetag(int tag)
 {
-    // SFTODO PROBABLY NEEDS TO PROMPT EMISSION OF ANY PENDING SEQ
+    emit_pending_seq();
     printf("_B%03d%c\n", tag, LBL);
 }
 void emit_const(int cval)
 {
-    // SFTODO PROB NEED TO PROMPT EMISSION BUT BE CAREFUL parse.c CALLS THIS FOR
-    // "RETURN" IN WHICH CASE YES PROMPT EMISSION, BUT WE ALSO USE IT OURSELVES
-    // *DURING* EMISSION IN WHICH CASE WE MAY GET OURSELVES IN A KNOT - POSSIBLY
-    // CALLERS IN PARSE.C SHOULD SIMPLY CALL AN EMIT_PENDING() PRIOR TO CALL
-    // THING???
+    emit_pending_seq();
     if (cval == 0)
         printf("\t%s\t$00\t\t\t; ZERO\n", DB);
     else if (cval > 0 && cval < 256)
@@ -702,8 +700,7 @@ void emit_brtru(int tag)
 }
 void emit_brnch(int tag)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
-    // OURSELVES, AS WELL AS PARSE.C CALLING IT
+    emit_pending_seq();
     printf("\t%s\t$50\t\t\t; BRNCH\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -714,19 +711,19 @@ void emit_breq(int tag)
 }
 void emit_brne(int tag)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING
+    emit_pending_seq();
     printf("\t%s\t$3E\t\t\t; BRNE\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brgt(int tag)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING
+    emit_pending_seq();
     printf("\t%s\t$38\t\t\t; BRGT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brlt(int tag)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING
+    emit_pending_seq();
     printf("\t%s\t$3A\t\t\t; BRLT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -751,8 +748,7 @@ void emit_ical(void)
 }
 void emit_leave(void)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
-    // OURSELVES, AS WELL AS PARSE.C CALLING IT
+    emit_pending_seq();
     if (localsize)
         printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
     else
@@ -760,8 +756,7 @@ void emit_leave(void)
 }
 void emit_ret(void)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
-    // OURSELVES, AS WELL AS PARSE.C CALLING IT
+    emit_pending_seq();
     printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
 void emit_enter(int cparams)
@@ -774,7 +769,7 @@ void emit_start(void)
     printf("_INIT%c\n", LBL);
     outflags |= INIT;
     defs++;
-    // SFTODO: PROB NEED TO CLEAR PENDING SEQ OR ASSERT ALREADY CLEAR
+    assert(pending_seq == 0);
 }
 void emit_push_exp(void)
 {
@@ -786,8 +781,7 @@ void emit_pull_exp(void)
 }
 void emit_drop(void)
 {
-    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
-    // OURSELVES, AS WELL AS PARSE.C CALLING IT
+    emit_pending_seq();
     printf("\t%s\t$30\t\t\t; DROP\n", DB);
 }
 void emit_dup(void)
@@ -796,6 +790,7 @@ void emit_dup(void)
 }
 int emit_unaryop(t_token op)
 {
+    emit_pending_seq();
     switch (op)
     {
         case NEG_TOKEN:
@@ -827,6 +822,7 @@ int emit_unaryop(t_token op)
 }
 int emit_op(t_token op)
 {
+    emit_pending_seq();
     switch (op)
     {
         case MUL_TOKEN:
@@ -1000,6 +996,14 @@ int crunch_seq(t_opseq **seq)
                             opnextnext = opnext->nextop; // Remove never taken branch
                             if (op == *seq)
                                 *seq = opnextnext;
+                            else
+                            {
+                                // TODO: Inefficient but simple; ideally we
+                                // might track opprev as we iterate
+                                t_opseq *opprev = *seq;
+                                for (; opprev->nextop != op; opprev = opprev->nextop);
+                                opprev->nextop = opnextnext;
+                            }
                             opnext->nextop = NULL;
                             release_seq(op);
                             opnext = opnextnext;
@@ -1018,6 +1022,14 @@ int crunch_seq(t_opseq **seq)
                             opnextnext = opnext->nextop; // Remove never taken branch
                             if (op == *seq)
                                 *seq = opnextnext;
+                            else
+                            {
+                                // TODO: Inefficient but simple; ideally we
+                                // might track opprev as we iterate
+                                t_opseq *opprev = *seq;
+                                for (; opprev->nextop != op; opprev = opprev->nextop);
+                                opprev->nextop = opnextnext;
+                            }
                             opnext->nextop = NULL;
                             release_seq(op);
                             opnext = opnextnext;
@@ -1321,7 +1333,11 @@ t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int ty
     // PENDING SEQ - OTHERWISE I CAN JUST STUFF THE OPCODE INTO THE PENDING SEQ
     // AND RETURN IMMEDIATELY - WELL ACTUALLY, MORE LIKE "STUFF THE BRANCH IN,
     // ADD IT TO THE SEQ SO IT CAN BE OPTIMISED AS APPROPRIATE, THEN
-    // *AFTERWARDS* EMIT THE SEQ BEFORE WE RETURN"
+    // *AFTERWARDS* EMIT THE SEQ BEFORE WE RETURN" - NO, I THINK WE NEED TO
+    // LEAVE THIS ALONE, BUT DO THAT IN EMIT_SEQ - ACTUALLY, I THINK WE DON'T
+    // NEED TO WORRY ABOUT THIS - THE PEEPHOLE OPTIMISER WON'T OPTIMISE "ACROSS"
+    // SOMETHING LIKE A BRANCH, AND LABELS ARE EXCLUDED FROM
+    // SEQUENCES BECAUSE WE FORCE EMIT OF PENDING WHEN NECESSARY
     t_opseq *op;
 
     if (!seq)
@@ -1361,17 +1377,48 @@ t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2)
  */
 int emit_seq(t_opseq *seq)
 {
-    // SFTODO: THIS PROBABLY NEEDS TO SHOVE THE SEQUENCE ONTO PENDING BUT NEVER
-    // OTHERWISE DO ANYTHING - THE BODY OF THIS FUNCTION WIL TURN INTO THE
-    // "EMIT_PENDING" CODE
+    t_opseq *op;
+    int emitted = 0;
+    for (op = seq; op; op = op->nextop)
+        emitted++;
+    pending_seq = cat_seq(pending_seq, seq);
+    return emitted;
+}
+/*
+ * SFTODO: COMMENT
+ */
+int emit_pending_seq()
+{
+    // SFTODO: This is a hack to work around the fact that some emit_*()
+    // functions are called from parse.c - when they *should* trigger a call to
+    // emit_pending_seq() - and from emit_pending_seq() - when they *should not*
+    // do so.
+    static int calls_active = 0;
+    calls_active++;
+    if (calls_active > 1)
+    {
+        calls_active--;
+        return 0;
+    }
+
+#if 0 // SFTODO TEMP
+    {
+        int len = 0;
+        t_opseq *op = pending_seq;
+        for (; op; op = op->nextop)
+            ++len;
+        printf("\t\t\t\t\t; SFTODO: emit_pending_seq - len %d\n", len);
+    }
+#endif
+
     t_opseq *op;
     int emitted = 0;
 
     if (outflags & OPTIMIZE)
-        while (crunch_seq(&seq));
-    while (seq)
+        while (crunch_seq(&pending_seq));
+    while (pending_seq)
     {
-        op = seq;
+        op = pending_seq;
         switch (op->code)
         {
             case NEG_CODE:
@@ -1498,15 +1545,17 @@ int emit_seq(t_opseq *seq)
                 emit_brtru(op->tag);
                 break;
             default:
+                calls_active--;
                 return (0);
         }
         emitted++;
-        seq = seq->nextop;
+        pending_seq = pending_seq->nextop;
         /*
          * Free this op
          */
         op->nextop = freeop_lst;
         freeop_lst = op;
     }
+    calls_active--;
     return (emitted);
 }

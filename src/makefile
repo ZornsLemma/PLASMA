@@ -81,7 +81,8 @@ clean:
 # PLASMA compiler: plasm
 #
 $(PLASM): $(OBJS) $(INCS)
-	cc $(OBJS) -o $(PLASM)
+	# SFTODO: -g is mine temp
+	cc -g $(OBJS) -o $(PLASM)
 
 #
 # PLASMA VMs
