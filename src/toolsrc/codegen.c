@@ -1296,8 +1296,14 @@ int crunch_seq(t_opseq **seq)
                         break;
                 }
                 break; // LOGIC_NOT_CODE
-#if 0 // TODO: This doesn't work, I think because we emit_seq() for a single line of source at a time - if we were to cache emit_seq() arguments internally and only really emit them when we're about to emit a label or end-of-function (or possibly some other corner cases) I think this would work
-            // TODO: SLB_CODE can be done very much like SLW_CODE
+            case SLB_CODE:
+                fprintf(stderr, "SFTODO2\n");
+                if ((opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DLB_CODE;
+                    freeops = 1;
+                }
+                break; // SLB_CODE
             case SLW_CODE:
                 fprintf(stderr, "SFTODO1\n");
                 if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
@@ -1305,7 +1311,24 @@ int crunch_seq(t_opseq **seq)
                     op->code = DLW_CODE;
                     freeops = 1;
                 }
-                break;
+                break; // SLW_CODE
+#if 0 // SFTODO: These "work" but they cause label problems as there's one less fixup to be done, so need to find a solution for that
+            case SAB_CODE:
+                fprintf(stderr, "SFTODO3\n");
+                if ((opnext->code == LAB_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DAB_CODE;
+                    freeops = 1;
+                }
+                break; // SAB_CODE
+            case SAW_CODE:
+                fprintf(stderr, "SFTODO4\n");
+                if ((opnext->code == LAW_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DAW_CODE;
+                    freeops = 1;
+                }
+                break; // SAW_CODE
 #endif
         }
         //
