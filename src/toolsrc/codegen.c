@@ -465,6 +465,7 @@ void emit_idfunc(int tag, int type, char *name, int is_bytecode)
         if (is_bytecode)
             printf("\tJSR\tINTERP\n");
     }
+    // SFTODO: PROBABLY A GOOD POINT TO SET/CHECK OUR PENDING SEQ IS EMPTY
 }
 void emit_idconst(char *name, int value)
 {
@@ -536,10 +537,16 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
 }
 void emit_codetag(int tag)
 {
+    // SFTODO PROBABLY NEEDS TO PROMPT EMISSION OF ANY PENDING SEQ
     printf("_B%03d%c\n", tag, LBL);
 }
 void emit_const(int cval)
 {
+    // SFTODO PROB NEED TO PROMPT EMISSION BUT BE CAREFUL parse.c CALLS THIS FOR
+    // "RETURN" IN WHICH CASE YES PROMPT EMISSION, BUT WE ALSO USE IT OURSELVES
+    // *DURING* EMISSION IN WHICH CASE WE MAY GET OURSELVES IN A KNOT - POSSIBLY
+    // CALLERS IN PARSE.C SHOULD SIMPLY CALL AN EMIT_PENDING() PRIOR TO CALL
+    // THING???
     if (cval == 0)
         printf("\t%s\t$00\t\t\t; ZERO\n", DB);
     else if (cval > 0 && cval < 256)
@@ -695,6 +702,8 @@ void emit_brtru(int tag)
 }
 void emit_brnch(int tag)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
+    // OURSELVES, AS WELL AS PARSE.C CALLING IT
     printf("\t%s\t$50\t\t\t; BRNCH\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -705,16 +714,19 @@ void emit_breq(int tag)
 }
 void emit_brne(int tag)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING
     printf("\t%s\t$3E\t\t\t; BRNE\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brgt(int tag)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING
     printf("\t%s\t$38\t\t\t; BRGT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brlt(int tag)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING
     printf("\t%s\t$3A\t\t\t; BRLT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -739,6 +751,8 @@ void emit_ical(void)
 }
 void emit_leave(void)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
+    // OURSELVES, AS WELL AS PARSE.C CALLING IT
     if (localsize)
         printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
     else
@@ -746,6 +760,8 @@ void emit_leave(void)
 }
 void emit_ret(void)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
+    // OURSELVES, AS WELL AS PARSE.C CALLING IT
     printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
 void emit_enter(int cparams)
@@ -758,6 +774,7 @@ void emit_start(void)
     printf("_INIT%c\n", LBL);
     outflags |= INIT;
     defs++;
+    // SFTODO: PROB NEED TO CLEAR PENDING SEQ OR ASSERT ALREADY CLEAR
 }
 void emit_push_exp(void)
 {
@@ -769,6 +786,8 @@ void emit_pull_exp(void)
 }
 void emit_drop(void)
 {
+    // SFTODO: PROB NEEDS TO EMIT PENDING- BUT BE CAREFUL BECAUSE WE CALL THIS
+    // OURSELVES, AS WELL AS PARSE.C CALLING IT
     printf("\t%s\t$30\t\t\t; DROP\n", DB);
 }
 void emit_dup(void)
@@ -1298,6 +1317,11 @@ int crunch_seq(t_opseq **seq)
  */
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type)
 {
+    // SFTODO: IF OPCODE IS SOMETHING LIKE A BRANCH, THIS PROBBLY NEED TO EMIT
+    // PENDING SEQ - OTHERWISE I CAN JUST STUFF THE OPCODE INTO THE PENDING SEQ
+    // AND RETURN IMMEDIATELY - WELL ACTUALLY, MORE LIKE "STUFF THE BRANCH IN,
+    // ADD IT TO THE SEQ SO IT CAN BE OPTIMISED AS APPROPRIATE, THEN
+    // *AFTERWARDS* EMIT THE SEQ BEFORE WE RETURN"
     t_opseq *op;
 
     if (!seq)
@@ -1337,6 +1361,9 @@ t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2)
  */
 int emit_seq(t_opseq *seq)
 {
+    // SFTODO: THIS PROBABLY NEEDS TO SHOVE THE SEQUENCE ONTO PENDING BUT NEVER
+    // OTHERWISE DO ANYTHING - THE BODY OF THIS FUNCTION WIL TURN INTO THE
+    // "EMIT_PENDING" CODE
     t_opseq *op;
     int emitted = 0;
 

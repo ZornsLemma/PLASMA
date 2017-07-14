@@ -96,3 +96,5 @@ like "CW -n"? (The implementation would probably want to allow 1<=n<=256 not
 again, that's already a duplicate of "ZERO", so maybe KISS.) Would obviously
 take some VM code space, but small negative numeric/high memory address
 constants would be one byte shorter.
+
+Can we optimise things like "ISGT:BRTRU XXX" to "BRGT XXX"? Check first to see that this doesn't happen already, but poking around the compiler I suspect it doesn't.

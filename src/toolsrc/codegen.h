@@ -99,8 +99,8 @@ void emit_idconst(char *name, int value);
 int emit_data(int vartype, int consttype, long constval, int constsize);
 void emit_codetag(int tag);
 void emit_const(int cval);
-void emit_conststr(long conststr);
 #if 0 // SFTODO
+void emit_conststr(long conststr);
 void emit_lb(void);
 void emit_lw(void);
 void emit_llb(int index);
@@ -154,7 +154,9 @@ void emit_start(void);
 void emit_rld(void);
 void emit_esd(void);
 void release_seq(t_opseq *seq);
+#if 0 // SFTODO
 int crunch_seq(t_opseq **seq);
+#endif
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type);
 t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2);
 int emit_seq(t_opseq *seq);
