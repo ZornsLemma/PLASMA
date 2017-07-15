@@ -90,11 +90,14 @@ RAM would automatically be available for bytecodes. Obviously this isn't the
 most flexible as it doesn't allow data to be located in the new "OS RAM", but
 it's one easy-ish possibility.
 
-Would there be a net space saving from adding a new "CBN n" opcode, which acts
-like "CW -n"? (The implementation would probably want to allow 1<=n<=256 not
-0<=n<=255, as "CBN 0" would otherwise be a duplicate of "CB 0" - but then
-again, that's already a duplicate of "ZERO", so maybe KISS.) Would obviously
-take some VM code space, but small negative numeric/high memory address
-constants would be one byte shorter.
-
 Can we optimise things like "ISGT:BRTRU XXX" to "BRGT XXX"? Check first to see that this doesn't happen already, but poking around the compiler I suspect it doesn't.
+
+Might be worth trying to tweak the compiler to prefer to put constant
+multipliers on the "rhs", so that if we teach the peephole optimiser to do "CB
+2:MUL:ADD"->"IDXW" there's more chance of it being triggers. Not sure if it's
+worth it but perhaps depends how hard it is. We could potentially even special
+case the constant 2 in the compiler tweak to minimise impact. This is the last
+remaining optimisation (in practice) of those implementated in optimise.py that
+I am dubious about being able to implement in the compiler's non-hacky peephole
+optimiser - optimise.py is quite sophisticated here and forms an expression
+tree to allow it to reshuffle parts of the expression if that helps.
