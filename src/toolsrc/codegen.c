@@ -1,6 +1,3 @@
-// TODO: Teach the peephole optimiser things like "LLA [n]:LLA [n]"->"LLA
-// [n]:DUP" (this works for most loads, perhaps don't do it for LAB/LAB in case
-// the load address is read-sensitive)
 #include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
@@ -941,9 +938,66 @@ void release_seq(t_opseq *seq)
     }
 }
 /*
+ * Indicate if an address is (or might be) memory-mapped hardware; used to avoid
+ * optimising away accesses to such addresses.
+ */
+int is_hardware_address(int addr)
+{
+    // TODO: I think this is reasonable for Apple hardware but I'm not sure.
+    // It's a bit too strong for Acorn hardware but code is unlikely to try to
+    // read from high addresses anyway, so no real harm in not optimising such
+    // accesses anyway.
+    return addr >= 0xC000;
+}
+/*
+ * Replace all but the first of a series of identical load opcodes by DUP. This
+ * doesn't reduce the number of opcodes but does reduce their size in bytes.
+ * This is only called on the second optimisation pass because the DUP opcodes
+ * may inhibit other peephole optimisations which are more valuable.
+ */
+int try_dupify(t_opseq *op)
+{
+    int crunched = 0;
+    t_opseq *opn = op->nextop;
+    for (; opn; opn = opn->nextop)
+    {
+        if (op->code != opn->code)
+            return crunched;
+
+        switch (op->code)
+        {
+            case CONST_CODE:
+                if (op->val != opn->val)
+                    return crunched;
+                break;
+            case LADDR_CODE:
+            case LLB_CODE:
+            case LLW_CODE:
+                if (op->offsz != opn->offsz)
+                    return crunched;
+                break;
+            case GADDR_CODE:
+            case LAB_CODE:
+            case LAW_CODE:
+                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) || (op->type != opn->type))
+                    return crunched;
+                break;
+
+            default:
+                assert(0);
+                return crunched;
+        }
+
+        opn->code = DUP_CODE;
+        crunched = 1;
+    }
+
+    return crunched;
+}
+/*
  * Crunch sequence (peephole optimize)
  */
-int crunch_seq(t_opseq **seq)
+int crunch_seq(t_opseq **seq, int pass)
 {
     t_opseq *opnext, *opnextnext;
     t_opseq *op = *seq;
@@ -1138,31 +1192,8 @@ int crunch_seq(t_opseq **seq)
                                     break;
                             }
 
-                        // If we have multiple identical non-0 constants together,
-                        // use DUP for all but first. This doesn't save any
-                        // *opcodes* but it saves one or two bytes per
-                        // repetition. TODO: This *does* work but it's possible
-                        // it will inhibit some other optimisations by "hiding"
-                        // constants. It may not be worth it, or it may be best
-                        // to move it into a "last effort" pass - we crunch
-                        // until there's nothing achieved, then do the "last
-                        // effort" pass, then we do another "crunch til nothing
-                        // achieved" loop. This would however prevent the odd
-                        // space-but-probably-not-time saving like "CB 512:CB
-                        // 512:LB" turning into "CB 512:DUP:LB"; it would get
-                        // turned into "CB 512:LAB 512" by another
-                        // optimisation. The DUP version is one byte shorter but
-                        // one opcode longer.
-                        if (!crunched && (freeops == 0) && (op->val != 0))
-                        {
-                            t_opseq *opn = opnext;
-                            while (opn && (opn->code == CONST_CODE) && (op->val == opn->val))
-                            {
-                                opn->code = DUP_CODE;
-                                opn = opn->nextop;
-                                crunched = 1;
-                            }
-                        }
+                        if ((pass > 0) && !crunched && (freeops == 0) && (op->val != 0))
+                            crunched = try_dupify(op);
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
                         for (shiftcnt = 0; shiftcnt < 16; shiftcnt++)
@@ -1223,6 +1254,10 @@ int crunch_seq(t_opseq **seq)
                         freeops   = 1;
                         break;
                 }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
                 break; // LADDR_CODE
             case GADDR_CODE:
                 switch (opnext->code)
@@ -1263,40 +1298,56 @@ int crunch_seq(t_opseq **seq)
                         freeops   = 1;
                         break;
                 }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
                 break; // GADDR_CODE
+            case LLB_CODE:
+                if (pass > 0)
+                    crunched = try_dupify(op);
+                break; // LLB_CODE
             case LLW_CODE:
+                if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
-                    if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                    if ((opnextnext = opnext->nextop))
                     {
-                        if ((opnextnext = opnext->nextop))
+                        if (opnextnext->code == SHR_CODE)
                         {
-                            if (opnextnext->code == SHR_CODE)
-                            {
-                                op->code = LLB_CODE;
-                                op->offsz++;
-                                freeops = 2;
-                                break;
-                            }
+                            op->code = LLB_CODE;
+                            op->offsz++;
+                            freeops = 2;
+                            break;
                         }
                     }
                 }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
                 break; // LLW_CODE
+            case LAB_CODE:
+                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                    crunched = try_dupify(op);
+                break; // LAB_CODE
             case LAW_CODE:
+                if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
-                    if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                    if ((opnextnext = opnext->nextop))
                     {
-                        if ((opnextnext = opnext->nextop))
+                        if (opnextnext->code == SHR_CODE)
                         {
-                            if (opnextnext->code == SHR_CODE)
-                            {
-                                op->code = LAB_CODE;
-                                op->offsz++;
-                                freeops = 2;
-                                break;
-                            }
+                            op->code = LAB_CODE;
+                            op->offsz++;
+                            freeops = 2;
+                            break;
                         }
                     }
                 }
+
+                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                    crunched = try_dupify(op);
+
                 break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
@@ -1363,15 +1414,6 @@ int crunch_seq(t_opseq **seq)
  */
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type)
 {
-    // SFTODO: IF OPCODE IS SOMETHING LIKE A BRANCH, THIS PROBBLY NEED TO EMIT
-    // PENDING SEQ - OTHERWISE I CAN JUST STUFF THE OPCODE INTO THE PENDING SEQ
-    // AND RETURN IMMEDIATELY - WELL ACTUALLY, MORE LIKE "STUFF THE BRANCH IN,
-    // ADD IT TO THE SEQ SO IT CAN BE OPTIMISED AS APPROPRIATE, THEN
-    // *AFTERWARDS* EMIT THE SEQ BEFORE WE RETURN" - NO, I THINK WE NEED TO
-    // LEAVE THIS ALONE, BUT DO THAT IN EMIT_SEQ - ACTUALLY, I THINK WE DON'T
-    // NEED TO WORRY ABOUT THIS - THE PEEPHOLE OPTIMISER WON'T OPTIMISE "ACROSS"
-    // SOMETHING LIKE A BRANCH, AND LABELS ARE EXCLUDED FROM
-    // SEQUENCES BECAUSE WE FORCE EMIT OF PENDING WHEN NECESSARY
     t_opseq *op;
 
     if (!seq)
@@ -1455,7 +1497,8 @@ int emit_pending_seq()
     int emitted = 0;
 
     if (outflags & OPTIMIZE)
-        while (crunch_seq(&pending_seq));
+        for (int pass = 0; pass < 2; pass++)
+            while (crunch_seq(&pending_seq, pass));
     while (pending_seq)
     {
         op = pending_seq;
