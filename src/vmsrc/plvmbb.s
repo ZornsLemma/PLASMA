@@ -524,7 +524,6 @@ CFFB	LDA	#$FF
 	!BYTE	$2C	; BIT $00A9 - effectively skips LDA #$00, no harm in reading this address
 CB 	LDA	#$00
 	STA	ESTKH-1,X
-CBCOMMON
 	DEX
 	+INC_IP
 	LDA	(IP),Y
