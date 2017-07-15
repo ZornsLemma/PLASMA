@@ -657,17 +657,31 @@ void emit_saw(int tag, int offset, int type)
 }
 void emit_dab(int tag, int offset, int type)
 {
-    int fixup = fixup_new(tag, type, FIXUP_WORD);
-    char *taglbl = tag_string(tag, type);
-    printf("\t%s\t$7C\t\t\t; DAB\t%s+%d\n", DB, taglbl, offset);
-    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    if (type)
+    {
+        int fixup = fixup_new(tag, type, FIXUP_WORD);
+        char *taglbl = tag_string(tag, type);
+        printf("\t%s\t$7C\t\t\t; DAB\t%s+%d\n", DB, taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    }
+    else
+    {
+        printf("\t%s\t$7C,$%02X,$%02X\t\t; DAB\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
+    }
 }
 void emit_daw(int tag, int offset, int type)
 {
-    int fixup = fixup_new(tag, type, FIXUP_WORD);
-    char *taglbl = tag_string(tag, type);
-    printf("\t%s\t$7E\t\t\t; DAW\t%s+%d\n", DB, taglbl, offset);
-    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    if (type)
+    {
+        int fixup = fixup_new(tag, type, FIXUP_WORD);
+        char *taglbl = tag_string(tag, type);
+        printf("\t%s\t$7E\t\t\t; DAW\t%s+%d\n", DB, taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    }
+    else
+    {
+        printf("\t%s\t$7E,$%02X,$%02X\t\t; DAW\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
+    }
 }
 void emit_localaddr(int index)
 {
@@ -1297,7 +1311,6 @@ int crunch_seq(t_opseq **seq)
                 }
                 break; // LOGIC_NOT_CODE
             case SLB_CODE:
-                fprintf(stderr, "SFTODO2\n");
                 if ((opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLB_CODE;
@@ -1305,31 +1318,26 @@ int crunch_seq(t_opseq **seq)
                 }
                 break; // SLB_CODE
             case SLW_CODE:
-                fprintf(stderr, "SFTODO1\n");
                 if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLW_CODE;
                     freeops = 1;
                 }
                 break; // SLW_CODE
-#if 0 // SFTODO: These "work" but they cause label problems as there's one less fixup to be done, so need to find a solution for that
             case SAB_CODE:
-                fprintf(stderr, "SFTODO3\n");
-                if ((opnext->code == LAB_CODE) && (op->offsz == opnext->offsz))
+                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAB_CODE;
                     freeops = 1;
                 }
                 break; // SAB_CODE
             case SAW_CODE:
-                fprintf(stderr, "SFTODO4\n");
-                if ((opnext->code == LAW_CODE) && (op->offsz == opnext->offsz))
+                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAW_CODE;
                     freeops = 1;
                 }
                 break; // SAW_CODE
-#endif
         }
         //
         // Free up crunched ops
