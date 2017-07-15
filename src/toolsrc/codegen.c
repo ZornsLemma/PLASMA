@@ -1,3 +1,6 @@
+// TODO: Teach the peephole optimiser things like "LLA [n]:LLA [n]"->"LLA
+// [n]:DUP" (this works for most loads, perhaps don't do it for LAB/LAB in case
+// the load address is read-sensitive)
 #include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
