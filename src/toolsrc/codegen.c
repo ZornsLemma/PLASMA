@@ -1449,7 +1449,7 @@ t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2)
     return (seq1);
 }
 /*
- * Emit a sequence of ops
+ * Emit a sequence of ops (into the pending sequence)
  */
 int emit_seq(t_opseq *seq)
 {
@@ -1468,7 +1468,7 @@ int emit_seq(t_opseq *seq)
     return emitted;
 }
 /*
- * SFTODO: COMMENT
+ * Emit the pending sequence
  */
 int emit_pending_seq()
 {
