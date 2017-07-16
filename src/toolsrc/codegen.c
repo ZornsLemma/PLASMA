@@ -1392,6 +1392,68 @@ int crunch_seq(t_opseq **seq, int pass)
                     freeops = 1;
                 }
                 break; // SAW_CODE
+            case GE_CODE:
+                if (opnext->code == BRFALSE_CODE)
+                {
+                    op->code = BRLT_CODE;
+                    op->tag = opnext->tag;
+                    freeops = 1;
+                }
+                break; // GE_CODE
+            case GT_CODE:
+                if (opnext->code == BRTRUE_CODE)
+                {
+                    op->code = BRGT_CODE;
+                    op->tag = opnext->tag;
+                    freeops = 1;
+                }
+                break; // GT_CODE
+            case LE_CODE:
+                if (opnext->code == BRFALSE_CODE)
+                {
+                    op->code = BRGT_CODE;
+                    op->tag = opnext->tag;
+                    freeops = 1;
+                }
+                break; // LE_CODE
+            case LT_CODE:
+                if (opnext->code == BRTRUE_CODE)
+                {
+                    op->code = BRLT_CODE;
+                    op->tag = opnext->tag;
+                    freeops = 1;
+                }
+                break; // LT_CODE
+            case EQ_CODE:
+                switch (opnext->code)
+                {
+                    case BRTRUE_CODE:
+                        op->code = BREQ_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                    case BRFALSE_CODE:
+                        op->code = BRNE_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                }
+                break; // EQ_CODE
+            case NE_CODE:
+                switch (opnext->code)
+                {
+                    case BRFALSE_CODE:
+                        op->code = BREQ_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                    case BRTRUE_CODE:
+                        op->code = BRNE_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                }
+                break; // NE_CODE
         }
         //
         // Free up crunched ops
@@ -1627,6 +1689,18 @@ int emit_pending_seq()
                 break;
             case BRTRUE_CODE:
                 emit_brtru(op->tag);
+                break;
+            case BRGT_CODE:
+                emit_brgt(op->tag);
+                break;
+            case BRLT_CODE:
+                emit_brlt(op->tag);
+                break;
+            case BREQ_CODE:
+                emit_breq(op->tag);
+                break;
+            case BRNE_CODE:
+                emit_brne(op->tag);
                 break;
             default:
                 calls_active--;

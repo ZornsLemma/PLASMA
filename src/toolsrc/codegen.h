@@ -64,6 +64,10 @@ typedef struct _opseq {
 #define BRNCH_CODE  0x031C
 #define BRFALSE_CODE 0x031D
 #define BRTRUE_CODE 0x031E
+#define BRGT_CODE   0x031F
+#define BRLT_CODE   0x0320
+#define BREQ_CODE   0x0321
+#define BRNE_CODE   0x0322
 
 #define gen_uop(seq,op)     gen_seq(seq,UNARY_CODE(op),0,0,0,0)
 #define gen_op(seq,op)      gen_seq(seq,BINARY_CODE(op),0,0,0,0)
