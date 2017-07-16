@@ -1,3 +1,4 @@
+// TODO: ZERO:BRNE -> BRTRU etc
 #include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
