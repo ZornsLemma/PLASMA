@@ -1,6 +1,3 @@
-// TODO: ZERO:ISNE -> nothing, ZERO:ISEQ -> NOT - former *might* break code, but
-// ISNE doesn't guarantee to generate '1' so it's probably OK, but probably put
-// a comment on the optimiser just in case
 #include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
@@ -1130,6 +1127,34 @@ int crunch_seq(t_opseq **seq, int pass)
                             op->code = BRFALSE_CODE;
                             op->tag  = opnext->tag;
                             freeops  = 1;
+                        }
+                        break;
+                    case NE_CODE:
+                        if (!op->val)
+                        {
+                            // Remove ZERO:ISNE
+                            opnextnext = opnext->nextop;
+                            if (op == *seq)
+                                *seq = opnextnext;
+                            else
+                            {
+                                // TODO: Inefficient but simple; ideally we
+                                // might track opprev as we iterate
+                                t_opseq *opprev = *seq;
+                                for (; opprev->nextop != op; opprev = opprev->nextop);
+                                opprev->nextop = opnextnext;
+                            }
+                            opnext->nextop = NULL;
+                            release_seq(op);
+                            opnext = opnextnext;
+                            crunched = 1;
+                        }
+                        break;
+                    case EQ_CODE:
+                        if (!op->val)
+                        {
+                            op->code = LOGIC_NOT_CODE;
+                            freeops = 1;
                         }
                         break;
                     case CONST_CODE:
