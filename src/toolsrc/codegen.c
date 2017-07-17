@@ -1,4 +1,3 @@
-// TODO: ZERO:BRNE -> BRTRU, ZERO:BREQ -> BRFLS etc
 // TODO: ZERO:ISNE -> nothing, ZERO:ISEQ -> NOT - former *might* break code, but
 // ISNE doesn't guarantee to generate '1' so it's probably OK, but probably put
 // a comment on the optimiser just in case
@@ -1113,6 +1112,22 @@ int crunch_seq(t_opseq **seq, int pass)
                         else
                         {
                             op->code = BRNCH_CODE; // Always taken branch
+                            op->tag  = opnext->tag;
+                            freeops  = 1;
+                        }
+                        break;
+                    case BRNE_CODE:
+                        if (!op->val)
+                        {
+                            op->code = BRTRUE_CODE;
+                            op->tag  = opnext->tag;
+                            freeops  = 1;
+                        }
+                        break;
+                    case BREQ_CODE:
+                        if (!op->val)
+                        {
+                            op->code = BRFALSE_CODE;
                             op->tag  = opnext->tag;
                             freeops  = 1;
                         }
