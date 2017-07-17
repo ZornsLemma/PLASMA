@@ -1,4 +1,7 @@
 // TODO: ZERO:BRNE -> BRTRU, ZERO:BREQ -> BRFLS etc
+// TODO: ZERO:ISNE -> nothing, ZERO:ISEQ -> NOT - former *might* break code, but
+// ISNE doesn't guarantee to generate '1' so it's probably OK, but probably put
+// a comment on the optimiser just in case
 #include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
