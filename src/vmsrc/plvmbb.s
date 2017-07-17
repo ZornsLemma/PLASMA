@@ -973,6 +973,8 @@ BRNE 	INX
 	CMP	ESTKH,X
 	BEQ	NOBRNCH
 	BNE	BRNCH
+	; top-second_from_top; if negative branch (though if we wrap we won't work)
+	; TODO BRGT AND BRLT ARE NOT COMPATIBLE WITH ISLE ETC AS THEY DON'T CHECK OVERFLOW
 BRGT 	INX
 	LDA	ESTKL-1,X
 	CMP	ESTKL,X

@@ -1436,6 +1436,7 @@ int crunch_seq(t_opseq **seq, int pass)
                     freeops = 1;
                 }
                 break; // SAW_CODE
+#if 0 // TODO: IS{GE,GT,LE,LT} use different comparison logic than BR{LT,GT} so this isn't valid
             case GE_CODE:
                 if (opnext->code == BRFALSE_CODE)
                 {
@@ -1468,6 +1469,7 @@ int crunch_seq(t_opseq **seq, int pass)
                     freeops = 1;
                 }
                 break; // LT_CODE
+#endif
         }
         //
         // Free up crunched ops
