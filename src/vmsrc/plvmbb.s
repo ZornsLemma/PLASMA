@@ -522,9 +522,9 @@ ZERO 	DEX
 ;* TODO: CFFB is highly experimental
 CFFB	LDA	#$FF
 	!BYTE	$2C	; BIT $00A9 - effectively skips LDA #$00, no harm in reading this address
-CB 	LDA	#$00
-	STA	ESTKH-1,X
+CB	LDA	#$00
 	DEX
+	STA	ESTKH,X
 	+INC_IP
 	LDA	(IP),Y
 	STA	ESTKL,X
