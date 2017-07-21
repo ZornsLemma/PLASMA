@@ -20,6 +20,7 @@ static char idconst_name[1024][ID_LEN+1];
 static int  idconst_value[1024];
 static char idglobal_name[1024][ID_LEN+1];
 static int  idglobal_type[1024];
+static char *idextern_name[1024];
 static int  idglobal_tag[1024];
 static int  localsize = 0;
 static char idlocal_name[128][ID_LEN+1];
@@ -155,6 +156,7 @@ int idglobal_add(char *name, int len, int type, int size)
     else
     {
         printf("\t\t\t\t\t; %s -> X%03d\n", &idglobal_name[globals][1], externs);
+        idextern_name[externs] = &idglobal_name[globals][1];
         idglobal_tag[globals++] = externs++;
     }
     return (1);
@@ -182,7 +184,10 @@ int idfunc_add(char *name, int len, int type, int tag)
     idglobal_type[globals]  = type;
     idglobal_tag[globals++] = tag;
     if (type & EXTERN_TYPE)
+    {
         printf("\t\t\t\t\t; %s -> X%03d\n", &idglobal_name[globals - 1][1], tag);
+        idextern_name[tag] = &idglobal_name[globals - 1][1];
+    }
     return (1);
 }
 int idfunc_set(char *name, int len, int type, int tag)
@@ -276,8 +281,14 @@ char *supper(char *s)
 }
 char *tag_string(int tag, int type)
 {
-    static char str[16];
+    static char str[32];
     char t;
+
+    if (!(outflags & MODULE) && (type & EXTERN_TYPE))
+    {
+        sprintf(str, "_X_%s", idextern_name[tag]);
+        return str;
+    }
 
     if (type & EXTERN_TYPE)
         t = 'X';
@@ -383,23 +394,39 @@ void emit_esd(void)
 {
     int i;
 
-    printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
-    for (i = 0; i < globals; i++)
+    if (outflags & MODULE)
     {
-        if (idglobal_type[i] & EXTERN_TYPE)
+        printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
+        for (i = 0; i < globals; i++)
         {
-            emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
-            printf("\t%s\t$10\t\t\t; EXTERNAL SYMBOL FLAG\n", DB);
-            printf("\t%s\t%d\t\t\t; ESD INDEX\n", DW, idglobal_tag[i]);
+            if (idglobal_type[i] & EXTERN_TYPE)
+            {
+                emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
+                printf("\t%s\t$10\t\t\t; EXTERNAL SYMBOL FLAG\n", DB);
+                printf("\t%s\t%d\t\t\t; ESD INDEX\n", DW, idglobal_tag[i]);
+            }
+            else if  (idglobal_type[i] & EXPORT_TYPE)
+            {
+                emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
+                printf("\t%s\t$08\t\t\t; ENTRY SYMBOL FLAG\n", DB);
+                printf("\t%s\t%s\t\t\n", DW, tag_string(idglobal_tag[i], idglobal_type[i]));
+            }
         }
-        else if  (idglobal_type[i] & EXPORT_TYPE)
-        {
-            emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
-            printf("\t%s\t$08\t\t\t; ENTRY SYMBOL FLAG\n", DB);
-            printf("\t%s\t%s\t\t\n", DW, tag_string(idglobal_tag[i], idglobal_type[i]));
-        }
+        printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
     }
-    printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
+    else
+    {
+        printf(";\n; ENTRY SYMBOL DICTIONARY\n;\n");
+
+        for (i = 0; i < globals; i++)
+        {
+            if (idglobal_type[i] & EXPORT_TYPE)
+            {
+                printf("_X_%s = %s\n", &idglobal_name[i][1], tag_string(idglobal_tag[i], idglobal_type[i]));
+            }
+        }
+        printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
+    }
 }
 void emit_trailer(void)
 {
@@ -414,8 +441,8 @@ void emit_trailer(void)
         printf("_DEFCNT\t=\t%d\n", defs);
         printf("_SEGEND%c\n", LBL);
         emit_rld();
-        emit_esd();
     }
+    emit_esd();
 }
 void emit_moddep(char *name, int len)
 {
@@ -507,7 +534,7 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
         {
             int fixup = fixup_new(constval, consttype, FIXUP_WORD);
             datasize = 2;
-            if (consttype & EXTERN_TYPE)
+            if ((outflags & MODULE) && (consttype & EXTERN_TYPE))
                 printf("_F%03d%c\t%s\t0\t\t\t; %s\n", fixup, LBL, DW, tag_string(constval, consttype));
             else
                 printf("_F%03d%c\t%s\t%s\n", fixup, LBL, DW, tag_string(constval, consttype));
@@ -516,7 +543,7 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
         {
             int fixup = fixup_new(constval, consttype, FIXUP_BYTE);
             datasize = 1;
-            if (consttype & EXTERN_TYPE)
+            if ((outflags & MODULE) && (consttype & EXTERN_TYPE))
                 printf("_F%03d%c\t%s\t0\t\t\t; %s\n", fixup, LBL, DB, tag_string(constval, consttype));
             else
                 printf("_F%03d%c\t%s\t%s\n", fixup, LBL, DB, tag_string(constval, consttype));
@@ -582,7 +609,7 @@ void emit_lab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$68\t\t\t; LAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -596,7 +623,7 @@ void emit_law(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$6A\t\t\t; LAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -634,7 +661,7 @@ void emit_sab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$78\t\t\t; SAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -648,7 +675,7 @@ void emit_saw(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7A\t\t\t; SAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -662,7 +689,7 @@ void emit_dab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7C\t\t\t; DAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -676,7 +703,7 @@ void emit_daw(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7E\t\t\t; DAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -692,7 +719,7 @@ void emit_globaladdr(int tag, int offset, int type)
     int fixup = fixup_new(tag, type, FIXUP_WORD);
     char *taglbl = tag_string(tag, type);
     printf("\t%s\t$26\t\t\t; LA\t%s+%d\n", DB, taglbl, offset);
-    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
 }
 void emit_indexbyte(void)
 {
@@ -753,7 +780,7 @@ void emit_call(int tag, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$54\t\t\t; CALL\t%s\n", DB, taglbl);
-        printf("_F%03d%c\t%s\t%s\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl);
+        printf("_F%03d%c\t%s\t%s\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl);
     }
 }
 void emit_ical(void)
