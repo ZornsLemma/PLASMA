@@ -164,6 +164,7 @@ byte gm_new_mode
 //
 byte syslibstr[]  = "CMDSYS"
 byte machidstr[]  = "MACHID"
+// TODO: I should probably get rid of syscall - but maybe that would break "pseudo-portable" programs like my Rogue port - think about it
 byte sysstr       = "SYSCALL"
 byte putcstr[]    = "PUTC"
 byte putlnstr[]   = "PUTLN"
