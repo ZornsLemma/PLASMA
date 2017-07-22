@@ -20,7 +20,6 @@ static char idconst_name[1024][ID_LEN+1];
 static int  idconst_value[1024];
 static char idglobal_name[1024][ID_LEN+1];
 static int  idglobal_type[1024];
-static char *idextern_name[1024];
 static int  idglobal_tag[1024];
 static int  localsize = 0;
 static char idlocal_name[128][ID_LEN+1];
@@ -156,7 +155,6 @@ int idglobal_add(char *name, int len, int type, int size)
     else
     {
         printf("\t\t\t\t\t; %s -> X%03d\n", &idglobal_name[globals][1], externs);
-        idextern_name[externs] = &idglobal_name[globals][1];
         idglobal_tag[globals++] = externs++;
     }
     return (1);
@@ -184,10 +182,7 @@ int idfunc_add(char *name, int len, int type, int tag)
     idglobal_type[globals]  = type;
     idglobal_tag[globals++] = tag;
     if (type & EXTERN_TYPE)
-    {
         printf("\t\t\t\t\t; %s -> X%03d\n", &idglobal_name[globals - 1][1], tag);
-        idextern_name[tag] = &idglobal_name[globals - 1][1];
-    }
     return (1);
 }
 int idfunc_set(char *name, int len, int type, int tag)
@@ -281,14 +276,8 @@ char *supper(char *s)
 }
 char *tag_string(int tag, int type)
 {
-    static char str[32];
+    static char str[16];
     char t;
-
-    if (!(outflags & MODULE) && (type & EXTERN_TYPE))
-    {
-        sprintf(str, "_X_%s", idextern_name[tag]);
-        return str;
-    }
 
     if (type & EXTERN_TYPE)
         t = 'X';
@@ -416,13 +405,17 @@ void emit_esd(void)
     }
     else
     {
-        printf(";\n; ENTRY SYMBOL DICTIONARY\n;\n");
+        printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
 
         for (i = 0; i < globals; i++)
         {
-            if (idglobal_type[i] & EXPORT_TYPE)
+            if (idglobal_type[i] & EXTERN_TYPE)
             {
-                printf("_X_%s = %s\n", &idglobal_name[i][1], tag_string(idglobal_tag[i], idglobal_type[i]));
+                printf("%s = _Y_%s\n", tag_string(idglobal_tag[i], idglobal_type[i]), &idglobal_name[i][1]);
+            }
+            else if  (idglobal_type[i] & EXPORT_TYPE)
+            {
+                printf("_Y_%s = %s\n", &idglobal_name[i][1], tag_string(idglobal_tag[i], idglobal_type[i]));
             }
         }
         printf("\t\t\t\t\t; END OF ESD\n");
