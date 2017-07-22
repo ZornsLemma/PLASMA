@@ -425,7 +425,7 @@ void emit_esd(void)
                 printf("_X_%s = %s\n", &idglobal_name[i][1], tag_string(idglobal_tag[i], idglobal_type[i]));
             }
         }
-        printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
+        printf("\t\t\t\t\t; END OF ESD\n");
     }
 }
 void emit_trailer(void)
