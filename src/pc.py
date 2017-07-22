@@ -32,6 +32,8 @@ for infile in args.inputs:
     infile_extension = infile_extension.lower()
 
     if infile_extension == '.pla':
+        # TODO: We should support the same options as plasm and pass them
+        # through...
         plasm = subprocess.Popen(['./plasm', '-A'], stdin=open(infile, 'r'), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
         # TODO: We could strip the leading JMP _INIT off the plasm output - it's redundant
         with open(infile_name + '.sa', 'w') as outfile:
