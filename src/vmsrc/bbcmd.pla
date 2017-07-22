@@ -108,6 +108,7 @@ const heapptr = $0089
     const xheap_bank_start = $09
     word xheap = xheap_bank_start
 #endif
+#ifndef STANDALONE
 word symtbl
 word symtblchunk
 word lastsym
@@ -132,14 +133,16 @@ byte errorstr[]   = "ERR:$"
 byte prompt[]     = "PLASMA"
 byte okstr[]      = "OK"
 byte huhstr[]     = "?\n"
-byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 byte colonstr[]   = ": "
+#endif
+byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 //
 // Exported Machine ID. We somewhat arbitrarily assign the apparently free code
 // $C8 for all Acorn machines; once you know you're on an Acorn machine you can
 // use something like OSBYTE 0 to determine the exact model.
 //
 export byte machid       = $C8
+#ifndef STANDALONE
 //
 // Command line pointer
 //
@@ -148,6 +151,7 @@ word cmdptr
 // File handle used by loadmod (so we can close it if an error occurs)
 //
 byte loadmod_handle
+#endif
 //
 // Global variables for use by mode()
 //
@@ -159,6 +163,7 @@ word gm_new_frame_start
 word gm_copy_from
 word gm_copy_size
 byte gm_new_mode
+#ifndef STANDALONE
 //
 // Standard Library exported functions.
 //
@@ -234,6 +239,7 @@ word		  = @modestr,   @mode
 word		  = @callallocastr, @callalloca
 word              = 0
 word syslibsym
+#endif
 //
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
@@ -457,6 +463,7 @@ asm uword_islt
 	INX
 	RTS
 end
+#ifndef STANDALONE
 //
 // Addresses of internal routines.
 //
@@ -591,6 +598,7 @@ asm dcitocr
 	STY	ESTKL,X
 	RTS
 end
+#endif
 // Converts a PLASMA string to an Acorn OS-style string terminated by CR
 // void stocr(str, cr)
 export asm stocr
@@ -621,6 +629,7 @@ export asm stocr
 	RTS
 end
 
+#ifndef STANDALONE
 //
 // Module symbols are entered into the symbol table
 // pre-pended with a '#' to differentiate them
@@ -720,6 +729,7 @@ asm lookuptbl
 	STA	DSTH
 	BNE	.NEXT
 end
+#endif
 
 //
 // Large frame allocation API
@@ -1182,10 +1192,12 @@ export def prbyte(v)
     cout(hexchar[(v >> 4) & $0F])
     return cout(hexchar[v & $0F])
 end
+#ifndef STANDALONE
 def prword(v)
     prbyte(v >> 8)
     return prbyte(v)
 end
+#endif
 
 // TODO: export this?
 // dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
@@ -1302,6 +1314,7 @@ end
 //
 // FILE I/O
 //
+#ifndef STANDALONE
 def high_order_address
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
@@ -1321,6 +1334,7 @@ def availheap
     byte fp
     return @fp - *heapptr
 end
+#endif
 def heapfull()
     prstr("allocheap failed\n") // TODO TEMP
     oserror(0, "Heap full")
@@ -1449,6 +1463,7 @@ export def call_oscli(str)
     return callalloca(str, @call_oscli_internal, ^str + 1)
 end
 
+#ifndef STANDALONE
 //
 // Symbol table routines.
 //
@@ -1530,12 +1545,14 @@ def lookupstrmod(str)
     stodci(str, @mod)
     return lookupmod(@mod)
 end
+#endif
 #ifdef STANDALONE
-// TODO: Highly unsatisfactory
+// TODO: Highly unsatisfactory - this makes no sense, but it's part of cmdsys so we need a symbol - can we make this fail at assembly time if called?
 export def modaddr(str)
-    return lookupstrmod(str)
+    return 0
 end
 #endif
+#ifndef STANDALONE
 def addmod(mod, addr)
     byte dci[17]
     return addsym(modtosym(mod, @dci), addr)
@@ -1883,12 +1900,14 @@ def loadmod(mod)
     fin
     return fixup
 end
+#endif
 #ifdef STANDALONE
-// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build
+// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build - we want to make it fail at assembly time if called
 export def modload(mod)
-    return loadmod(mod)
+    return 0
 end
 #endif
+#ifndef STANDALONE
 //
 // Command mode
 //
@@ -1925,6 +1944,7 @@ def parsecmd(strptr)
     stripspaces(strptr)
     return cmd
 end
+#endif
 // User code could choose to install an alternate error handler, but
 // it's probably not a good idea; most of the time user code should
 // restrict itself to manipulating *errjb.
@@ -1933,6 +1953,7 @@ def error_handler
   // longjmp() naturally passes along a value we pass the error number.
   longjmp(*errjb, ^errnum)
 end
+#ifndef STANDALONE
 def execmod(modfile)
     byte moddci[17]
     word saveheap
@@ -1993,12 +2014,14 @@ def execmod(modfile)
     fin
     return -perr
 end
+#endif
 #ifdef STANDALONE
 // TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build
 export def modexec(modfile)
-    return execmod(modfile)
+    return 0
 end
 #endif
+#ifndef STANDALONE
 // The parsing in here is deliberately naive to avoid bloating the virtual
 // machine too much. It also works in our favour because parsecmd() only pays
 // attention to the first character, so this means that "M7" and "MODE 7" both
@@ -2022,6 +2045,7 @@ def modechange(cmdptr)
 	oserror(25, "Bad mode")
     fin
 end
+#endif
 //
 // Get heap start.
 //
