@@ -1972,13 +1972,16 @@ if setjmp(*errjb) == 0
   xallocheap(jmpbufsz(*errjb))
   *errfp = @error_handler
 else
+#ifndef STANDALONE
   crout
   prstr(@errorstr)
   prbyte(^errnum)
   prstr(@colonstr)
   prstr(errstr)
   crout
+#endif
 fin
+#ifndef STANDALONE
 //
 // Initialise cmdptr
 //
@@ -2041,4 +2044,5 @@ while 1
     prstr(@prompt)
     cmdptr = rdstr(':')
 loop
+#endif
 done

@@ -67,7 +67,7 @@ if not init_list:
 output_asm = 'foo' # SFTODO: need to decide what path/name to use for this
 with open(output_asm, 'w') as outfile:
     cat(outfile, 'vmsrc/plvmbb-pre.s')
-    cat(outfile, 'standalone-exp/32cmd.a2')
+    cat(outfile, 'vmsrc/32cmd.sa')
 
     # TODO: We don't want this, I think - 32cmd.a2 has already started interpreting and we're appending to the end of its bytecode init  outfile.write('\tJSR\tINTERP\n')
     for init in init_list:

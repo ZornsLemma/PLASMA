@@ -101,6 +101,9 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
 	# TODO: optimise.py temporarily disabled
 	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
+	# TODO: Building this here is a bit hacky
+	cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
+	./$(PLASM) -AO < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
