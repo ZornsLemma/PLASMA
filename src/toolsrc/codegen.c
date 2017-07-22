@@ -1436,7 +1436,42 @@ int crunch_seq(t_opseq **seq, int pass)
                     freeops = 1;
                 }
                 break; // SAW_CODE
+#if 0 // TODO: Not valid because BRNE/BREQ only consume *one* operand, delete it later
+            case EQ_CODE:
+                switch (opnext->code)
+                {
+                    case BRTRUE_CODE:
+                        op->code = BREQ_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                    case BRFALSE_CODE:
+                        op->code = BRNE_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                }
+                break; // EQ_CODE
+            case NE_CODE:
+                switch (opnext->code)
+                {
+                    case BRTRUE_CODE:
+                        op->code = BRNE_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                    case BRFALSE_CODE:
+                        op->code = BREQ_CODE;
+                        op->tag = opnext->tag;
+                        freeops = 1;
+                        break;
+                }
+                break; // NE_CODE
+#endif
 #if 0 // TODO: IS{GE,GT,LE,LT} use different comparison logic than BR{LT,GT} so this isn't valid
+// TODO: In fact it's more fundamental, because BRLT/BRGT only
+// consume one operand - so delete this code later, after I've had a bit of a
+// think/check.
             case GE_CODE:
                 if (opnext->code == BRFALSE_CODE)
                 {
