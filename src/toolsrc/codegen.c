@@ -1560,14 +1560,22 @@ int emit_seq(t_opseq *seq)
 {
     t_opseq *op;
     int emitted = 0;
+    int string = 0;
     for (op = seq; op; op = op->nextop)
+    {
+        if (op->code == STR_CODE)
+            string = 1;
         emitted++;
+    }
     pending_seq = cat_seq(pending_seq, seq);
     // The source code comments in the output are much more logical if we don't
     // merge multiple sequences together. There's no value in doing this merging
     // if we're not optimizing, and we optionally allow it to be prevented even
     // when we are optimizing by specifing the -N (NO_COMBINE) flag.
-    if (!(outflags & OPTIMIZE) || (outflags & NO_COMBINE))
+    //
+    // We must also force output if the sequence includes a CS opcode, as the
+    // associated 'constant' is only temporarily valid.
+    if (!(outflags & OPTIMIZE) || (outflags & NO_COMBINE) || string)
         return emit_pending_seq();
     return emitted;
 }
