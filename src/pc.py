@@ -48,7 +48,7 @@ for infile in args.inputs:
                     else:
                         line = None
                 else:
-                    line = re.sub(r'_([ABCDFPX])', prefix + r'\1', line)
+                    line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
                 if line is not None:
                     outfile.write(line)
         infile_extension = '.sa'
@@ -67,9 +67,19 @@ if not init_list:
 output_asm = 'foo' # SFTODO: need to decide what path/name to use for this
 with open(output_asm, 'w') as outfile:
     cat(outfile, 'vmsrc/plvmbb-pre.s')
-    cat(outfile, 'vmsrc/32cmd.sa')
 
-    # TODO: We don't want this, I think - 32cmd.a2 has already started interpreting and we're appending to the end of its bytecode init  outfile.write('\tJSR\tINTERP\n')
+    # We need to take the contents of 32cmd.sa but strip off the ZERO:RET at the end of its
+    # _INIT, so we can fall through into calling other initialisation code. TODO: A bit hacky
+    # the way we recognise this...
+    with open('vmsrc/32cmd.sa', 'r') as infile:
+        for line in infile:
+            distinctive = ': done\n'
+            if line[-len(distinctive):] == distinctive:
+                discard = infile.next()
+                discard = infile.next()
+            outfile.write(line)
+
+    # TODO: We don't want this, I think - 32cmd.sa has already started interpreting and we're appending to the end of its bytecode init  outfile.write('\tJSR\tINTERP\n')
     for init in init_list:
         outfile.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
         outfile.write('\t!WORD\t' + init + '\n')

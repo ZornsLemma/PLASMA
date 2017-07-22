@@ -411,11 +411,11 @@ void emit_esd(void)
         {
             if (idglobal_type[i] & EXTERN_TYPE)
             {
-                printf("%s = _Y_%s\n", tag_string(idglobal_tag[i], idglobal_type[i]), &idglobal_name[i][1]);
+                printf("%s = _Y_%s\n", tag_string(idglobal_tag[i], idglobal_type[i]), supper(&idglobal_name[i][1]));
             }
             else if  (idglobal_type[i] & EXPORT_TYPE)
             {
-                printf("_Y_%s = %s\n", &idglobal_name[i][1], tag_string(idglobal_tag[i], idglobal_type[i]));
+                printf("_Y_%s = %s\n", supper(&idglobal_name[i][1]), tag_string(idglobal_tag[i], idglobal_type[i]));
             }
         }
         printf("\t\t\t\t\t; END OF ESD\n");

@@ -139,7 +139,7 @@ byte colonstr[]   = ": "
 // $C8 for all Acorn machines; once you know you're on an Acorn machine you can
 // use something like OSBYTE 0 to determine the exact model.
 //
-byte machid       = $C8
+export byte machid       = $C8
 //
 // Command line pointer
 //
@@ -238,7 +238,7 @@ word syslibsym
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
 //
-asm call
+export asm call
 REGVALS =   SRC
         PHP
         LDA     ESTKL+4,X
@@ -280,7 +280,7 @@ end
 // MEMSET(ADDR, VALUE, SIZE)
 //   With optimizations from Peter Ferrie
 //
-asm memset
+export asm memset
 	LDA     ESTKL+2,X
 	STA     DSTL
 	LDA     ESTKH+2,X
@@ -314,7 +314,7 @@ end
 // COPY MEMORY
 // MEMCPY(DSTADDR, SRCADDR, SIZE)
 //
-asm memcpy
+export asm memcpy
 	INX
 	INX
 MEMCPYINT
@@ -391,6 +391,10 @@ end
 //
 // Unsigned word comparisons.
 //
+#ifdef STANDALONE
+export asm isuge
+end
+#endif
 asm uword_isge
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
@@ -404,6 +408,10 @@ asm uword_isge
 	INX
 	RTS
 end
+#ifdef STANDALONE
+export asm isule
+end
+#endif
 asm uword_isle
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
@@ -417,6 +425,10 @@ asm uword_isle
 	INX
 	RTS
 end
+#ifdef STANDALONE
+export asm isugt
+end
+#endif
 asm uword_isgt
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
@@ -429,6 +441,10 @@ asm uword_isgt
 	INX
 	RTS
 end
+#ifdef STANDALONE
+export asm isult
+end
+#endif
 asm uword_islt
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
@@ -577,7 +593,7 @@ asm dcitocr
 end
 // Converts a PLASMA string to an Acorn OS-style string terminated by CR
 // void stocr(str, cr)
-asm stocr
+export asm stocr
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -718,7 +734,7 @@ end
 // and then 'tmp' is immediately freed on exit from foo().
 // This is useful because "normal" local variables are restricted to a total
 // of 256 bytes per function.
-asm callalloca(fn, size)
+export asm callalloca(fn, size)
 	LDA	ESTKL+1,X
 	STA	TMPL
 	LDA	ESTKH+1,X
@@ -779,7 +795,7 @@ end
 //
 // ACORN OS ERROR GENERATION
 //
-asm oserror(n, msg)
+export asm oserror(n, msg)
 	LDA	ESTKL+1,X
 	STA	$101
 	LDA	ESTKL,X
@@ -804,7 +820,7 @@ end
 //
 
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
-asm setjmp
+export asm setjmp
 	STX	ESP
 
 	LDY	#0
@@ -889,7 +905,7 @@ asm setjmp
 end
 
 // longjmp(jmp_buf *b, word val)
-asm longjmp
+export asm longjmp
 	LDA	ESTKL+1,X
 	STA	TMPL
 	LDA	ESTKH+1,X
@@ -1054,16 +1070,29 @@ end
 //
 // CONSOLE I/O
 //
+// TODO: WRAP THIS 'export' FUNCTIONALITY IN A MACRO?
+#ifdef STANDALONE
+export asm putln
+end
+#endif
 asm crout
 	;* We must return a value; we just return junk.
 	DEX
 
 	JMP	OSNEWL
 end
+#ifdef STANDALONE
+export asm putc
+end
+#endif
 asm cout
 	LDA	ESTKL,X
 	JMP	OSWRCH
 end
+#ifdef STANDALONE
+export asm getc
+end
+#endif
 asm cin
 	DEX
 	JSR	OSRDCH
@@ -1072,6 +1101,10 @@ asm cin
 	STA	ESTKH,X
 	RTS
 end
+#ifdef STANDALONE
+export asm gets
+end
+#endif
 asm rdstr
 	STX	ESP
 	LDA	ESTKL,X
@@ -1119,6 +1152,10 @@ not_escape
 	RTS
 end
 // def prstr(str)
+#ifdef STANDALONE
+export asm puts
+end
+#endif
 asm prstr
 	STX	ESP
 	LDA	ESTKL,X
@@ -1137,11 +1174,11 @@ asm prstr
 +	LDX	ESP
 	RTS
 end
-def syscall(cmd, params)
+export def syscall(cmd, params)
     // Just a dummy implementation
     oserror(0, "syscall")
 end
-def prbyte(v)
+export def prbyte(v)
     cout(hexchar[(v >> 4) & $0F])
     return cout(hexchar[v & $0F])
 end
@@ -1189,7 +1226,7 @@ end
 //
 // Returns TRUE if the mode change was successful and FALSE if not (typically
 // caused by insufficient memory).
-def mode(n)
+export def mode(n)
     word new_himemh, himem, new_himem
     byte s, frame_size
     word call_jsr_return, ical_jsr_return, possible_jsr_return
@@ -1311,6 +1348,12 @@ def allocheap(size)
     fin
     return addr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def heapalloc(size)
+    return allocheap(size)
+end
+#endif
 // Like allocheap(), but *always* generates an error if the allocation
 // fails, regardless of the size requested and the fail threshold.
 def xallocheap(size)
@@ -1321,6 +1364,12 @@ def xallocheap(size)
     fin
     return addr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def xheapalloc(size)
+    return xallocheap(size)
+end
+#endif
 def allocalignheap(size, pow2, freeaddr)
     word align, addr
     if freeaddr
@@ -1335,13 +1384,31 @@ def allocalignheap(size, pow2, freeaddr)
     fin
     return addr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def heapallocalign(size, pow2, freeadr)
+    return allocalignheap(size, pow2, freeadr)
+end
+#endif
 def markheap
     return *heapptr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def heapmark
+    return markheap
+end
+#endif
 def releaseheap(newheap)
     *heapptr = newheap
     return @newheap - *heapptr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def heaprelease(newheap)
+    return releaseheap(newheap)
+end
+#endif
 #ifdef PLAS128
 def allocxheap(size)
     word xaddr, start_bank, end_bank
@@ -1378,7 +1445,7 @@ def call_oscli_internal(str, str_cr)
 end
 
 // call_oscli(str)
-def call_oscli(str)
+export def call_oscli(str)
     return callalloca(str, @call_oscli_internal, ^str + 1)
 end
 
@@ -1463,6 +1530,12 @@ def lookupstrmod(str)
     stodci(str, @mod)
     return lookupmod(@mod)
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory
+export def modaddr(str)
+    return lookupstrmod(str)
+end
+#endif
 def addmod(mod, addr)
     byte dci[17]
     return addsym(modtosym(mod, @dci), addr)
@@ -1810,6 +1883,12 @@ def loadmod(mod)
     fin
     return fixup
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build
+export def modload(mod)
+    return loadmod(mod)
+end
+#endif
 //
 // Command mode
 //
@@ -1914,6 +1993,12 @@ def execmod(modfile)
     fin
     return -perr
 end
+#ifdef STANDALONE
+// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build
+export def modexec(modfile)
+    return execmod(modfile)
+end
+#endif
 // The parsing in here is deliberately naive to avoid bloating the virtual
 // machine too much. It also works in our favour because parsecmd() only pays
 // attention to the first character, so this means that "M7" and "MODE 7" both
@@ -1944,6 +2029,7 @@ end
 #ifdef PLAS128
     xheapsize = ^rambankcount * 16 * 1024
 #endif
+#ifndef STANDALONE
 //
 // Init globals; see note at top about why we have to do this.
 //
@@ -1964,6 +2050,7 @@ while *syslibsym
     addsym(*heapptr, syslibsym=>2)
     syslibsym = syslibsym + 4
 loop
+#endif
 //
 // Set up error handler
 //
