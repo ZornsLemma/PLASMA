@@ -123,7 +123,7 @@ if not init_list:
 
 atexit.register(remove_files)
 
-# TODO: Rename outfile? We have multiple output files...
+# TODO: Rename outfile variable? We have multiple output files...
 if args.S:
     outfile = open(args.output[0], 'w')
 else:
@@ -176,7 +176,6 @@ if args.S:
     sys.exit(0)
 
 # TODO: We need to allow our caller to specify options to pass through to ACME
-# TODO: --report needs to be optional
 call_acme('$2000', args.output[0], args.report)
 if args.non_relocatable:
     sys.exit(0)
