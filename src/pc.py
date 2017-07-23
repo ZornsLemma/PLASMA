@@ -30,9 +30,36 @@ def cat(o, i):
         for line in f:
             o.write(line)
 
+def remove_file(f):
+    if args.verbose:
+        sys.stderr.write('Removing file ' + f + '\n')
+    os.remove(f)
+
 parser = argparse.ArgumentParser(description='TODO.')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help='a PLASMA source file')
+parser.add_argument('-v', '--verbose', action='store_true', help='increase output verbosity')
+parser.add_argument('-o', '--output', action='append', help='output file')
+parser.add_argument('-O', action='store_true', help='enable compiler optimisations')
+parser.add_argument('-N', '--no-combine', action='store_true', help='disable sequence combining in compiler optimiser')
+parser.add_argument('-W', '--warn', action='store_true', help='enable warnings')
+parser.add_argument('-S', action='store_true', help='stop after generating assembler input')
+# TODO: Should we support a -M flag like plasm? Depends how we extend this to support non-standalone
 args = parser.parse_args()
+
+if args.output and len(args.output) > 1:
+    die("Only one output file can be specified")
+
+if not args.inputs:
+    die("No input files specified")
+
+if not args.output:
+    # TODO: For now we assume the most "significant" file is the last one
+    infile_name, infile_extension = os.path.splitext(args.inputs[-1])
+    if args.S:
+        args.output = [infile_name + '.a']
+    else:
+        # TODO: We should support generating an SSD (and default to .ssd extension) as well as raw file
+        args.output = [infile_name]
 
 init_list = []
 plasm_output = {}
@@ -44,7 +71,16 @@ for infile in args.inputs:
     if infile_extension == '.pla':
         # TODO: We should support the same options as plasm and pass them
         # through...
-        plasm = subprocess.Popen(['./plasm', '-A'], stdin=open(infile, 'r'), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        plasm_args = ['./plasm', '-A']
+        if args.O:
+            plasm_args.append('-O')
+        if args.no_combine:
+            plasm_args.append('-N')
+        if args.warn:
+            plasm_args.append('-W')
+        if args.verbose:
+            sys.stderr.write(' '.join(plasm_args) + ' < ' + infile + '\n')
+        plasm = subprocess.Popen(plasm_args, stdin=open(infile, 'r'), stdout=subprocess.PIPE)
         # TODO: We could strip the leading JMP _INIT off the plasm output - it's redundant
         o = plasm_output[infile_name + '.sa'] = []
         prefix = '_' + os.path.basename(infile_name).upper() + '_'
@@ -88,11 +124,16 @@ if not init_list:
 # that performance isn't really an issue - the extra time and disc space
 # required for the concatenated file creation is negligible.
 
-# TODO: If a -S option is given, we should use a non-temp file for the output
-# and return without assembling it.
-# TODO: Rename outfile?
-outfile = tempfile.NamedTemporaryFile(mode='w', delete=False)
-atexit.register(lambda f: os.remove(f), outfile.name)
+# TODO: Rename outfile? We have multiple output files...
+if args.S:
+    assert args.output # SFTODO: we probably need to generate a default output name if not specified
+    outfile = open(args.output[0], 'w')
+else:
+    outfile = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    atexit.register(remove_file, outfile.name)
+
+if args.verbose:
+    sys.stderr.write('Combining plasm output into ' + outfile.name + '\n')
 
 cat(outfile, 'vmsrc/plvmbb-pre.s')
 
@@ -126,10 +167,17 @@ cat(outfile, 'vmsrc/plvmbb-post.s')
 
 outfile.close()
 
+if args.S:
+    sys.exit(0)
+
 # TODO: We should support generating relocatable standalone output by invoking
 # ACME twice and appending relocations
 
 # TODO: We need to allow our caller to specify options to pass through to ACME
 # TODO: --report needs to be optional
-acme_result = subprocess.call(['acme', '--setpc', '$2000', '-DSTART=$2000', '--report', 'hanois.lst', '-o', 'hanois', outfile.name])
+acme_args = ['acme', '--setpc', '$2000', '-DSTART=$2000', '--report', 'hanois.lst', '-o', args.output[0], outfile.name]
+if args.verbose:
+    # TODO: The displayed output won't be a valid shell command because there will be no quoting to stop $ being interpreted. This isn't a huge deal, but here (and in other verbose output) it might be nice to try to write valid shell output
+    sys.stderr.write(' '.join(acme_args) + '\n')
+acme_result = subprocess.call(['acme', '--setpc', '$2000', '-DSTART=$2000', '--report', 'hanois.lst', '-o', args.output[0], outfile.name])
 sys.exit(acme_result)
