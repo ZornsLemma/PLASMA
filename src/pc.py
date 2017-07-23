@@ -30,6 +30,8 @@ def cat(o, i):
         for line in f:
             o.write(line)
 
+# TODO: Perhaps all my verbose output should go to stdout not stderr?
+
 def remove_file(f):
     if args.verbose:
         sys.stderr.write('Removing file ' + f + '\n')
