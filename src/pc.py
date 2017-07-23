@@ -26,11 +26,13 @@ def remove_files():
             sys.stderr.write('Removing file ' + f + '\n')
         os.remove(f)
 
-def call_acme(address, infile):
+def call_acme(address, infile, report):
     acme_args = ['acme', '--setpc', address, '-DSTART=' + address]
     if args.non_relocatable:
         acme_args += ['-DNONRELOCATABLE=1']
-    acme_args += ['--report', 'hanois.lst', '-o', infile, outfile.name]
+    if report:
+        acme_args += ['--report', args.report[0]]
+    acme_args += ['-o', infile, outfile.name]
     if args.verbose:
         # TODO: The displayed output won't be a valid shell command because there will be no quoting to stop $ being interpreted. This isn't a huge deal, but here (and in other verbose output) it might be nice to try to write valid shell output
         sys.stderr.write(' '.join(acme_args) + '\n')
@@ -48,11 +50,15 @@ parser.add_argument('-W', '--warn', action='store_true', help='enable warnings')
 parser.add_argument('-S', action='store_true', help='stop after generating assembler input')
 parser.add_argument('-f', '--force', action='store_true', help='proceed even if dependency verification fails')
 parser.add_argument('--non-relocatable', action='store_true', help="don't generate a self-relocating executable")
+parser.add_argument('-r', '--report', action='append', help='assembler report file')
 # TODO: Should we support a -M flag like plasm? Depends how we extend this to support non-standalone
 args = parser.parse_args()
 
 if args.output and len(args.output) > 1:
     die("Only one output file can be specified")
+
+if args.report and len(args.report) > 1:
+    die("Only one report file can be specified")
 
 if not args.inputs:
     die("No input files specified")
@@ -171,13 +177,13 @@ if args.S:
 
 # TODO: We need to allow our caller to specify options to pass through to ACME
 # TODO: --report needs to be optional
-call_acme('$2000', args.output[0])
+call_acme('$2000', args.output[0], args.report)
 if args.non_relocatable:
     sys.exit(0)
 output_3000 = tempfile.NamedTemporaryFile(mode='w', delete=False)
 output_3000.close()
 tempfiles.append(output_3000.name)
-call_acme('$3000', output_3000.name)
+call_acme('$3000', output_3000.name, None)
 # TODO: Inline the add-relocations.py code? Or maybe make it a module so we can import it?
 relocation_args = ['python', 'add-relocations.py', args.output[0], output_3000.name]
 if args.verbose:
