@@ -228,6 +228,8 @@ COMP 	LDA	#$FF
 ;*
 ;* OPCODE TABLE
 ;*
+; TODO: This ALIGN wasted a big chunk of space; I need to shuffle some
+; opcodes before it to avoid that.
 	!ALIGN	255,0
 OPTBL 	!WORD	ZERO,ADD,SUB,MUL,DIV,MOD,INCR,DECR		; 00 02 04 06 08 0A 0C 0E
 	!WORD	NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW		; 10 12 14 16 18 1A 1C 1E
