@@ -140,8 +140,7 @@ cat(outfile, 'vmsrc/plvmbb-pre.s')
 # the way we recognise this...
 with open('vmsrc/32cmd.sa', 'r') as infile:
     for line in infile:
-        distinctive = ': done\n'
-        if line[-len(distinctive):] == distinctive:
+        if line.endswith(': done\n'):
             discard = infile.next()
             assert discard == '\t!BYTE\t$00\t\t\t; ZERO\n'
             discard = infile.next()
