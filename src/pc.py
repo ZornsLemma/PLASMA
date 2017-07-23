@@ -19,8 +19,6 @@ def cat(o, i):
         for line in f:
             o.write(line)
 
-# TODO: Perhaps all my verbose output should go to stdout not stderr?
-
 def remove_file(f):
     if args.verbose:
         sys.stderr.write('Removing file ' + f + '\n')
@@ -62,8 +60,6 @@ for infile in args.inputs:
     infile_extension = infile_extension.lower()
 
     if infile_extension == '.pla':
-        # TODO: We should support the same options as plasm and pass them
-        # through...
         plasm_args = ['./plasm', '-A']
         if args.O:
             plasm_args.append('-O')
@@ -90,7 +86,6 @@ for infile in args.inputs:
                     line = None
             elif line.startswith('\t; IMPORT: '):
                 imports[infile_name].add(line.split(':')[1].strip())
-                print("SFTODO: " + repr(imports[infile_name]))
             else:
                 line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
             if line is not None:
@@ -125,7 +120,9 @@ with open('vmsrc/32cmd.sa', 'r') as infile:
         distinctive = ': done\n'
         if line[-len(distinctive):] == distinctive:
             discard = infile.next()
+            assert discard == '\t!BYTE\t$00\t\t\t; ZERO\n'
             discard = infile.next()
+            assert discard == '\t!BYTE\t$5C\t\t\t; RET\n'
         outfile.write(line)
 
 for init in init_list:
@@ -139,8 +136,6 @@ for infile in args.inputs:
     infile_extension = infile_extension.lower()
     if infile_extension == '.pla':
         our_imports = imports[infile_name]
-        print('SFTODO1', our_imports)
-        print('SFTODO2', modules)
         if not our_imports.issubset(modules) and not args.force:
             die('Missing or out-of-order dependencies for ' + infile + ': ' + ', '.join(our_imports - modules))
         outfile.writelines(plasm_output[infile_name + '.sa'])
