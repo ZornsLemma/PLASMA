@@ -1,18 +1,6 @@
 # TODO: This may well evolve into a general "driver" but right now it's
 # focussed exclusively on building standalone binaries.
 
-# It seems to be the convention that "normal" assembly output from 'plasm -AM'
-# intended to be assembled into a module has a '.a' extension. We therefore use
-# a '.sa' extension to distinguish (incompatible) standalone assembly output.
-
-# TODO: We could (eventually) "expect" a correlation between input filenames
-# and module names, and topologically sort the inputs to ensure "correct"
-# ordering - with an option to override this and use the order provided with no
-# assumptions about that correlation. As a halfway step, we could not check the
-# order but check (unless overridden) that every dependency has a corresponding
-# input file (i.e. check we have the expected set of files, but not check the
-# order).
-
 import argparse
 import atexit
 import collections
@@ -144,10 +132,6 @@ for init in init_list:
     outfile.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
     outfile.write('\t!WORD\t' + init + '\n')
 # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
-
-# TODO: Eventually it would be nice if we (with an option for the user to say
-# "just trust me") topologically sorted the inputs, but let's just do this for
-# now.
 
 modules = set(['CMDSYS'])
 for infile in args.inputs:
