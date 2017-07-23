@@ -19,10 +19,24 @@ def cat(o, i):
         for line in f:
             o.write(line)
 
-def remove_file(f):
+tempfiles = []
+def remove_files():
+    for f in tempfiles:
+        if args.verbose:
+            sys.stderr.write('Removing file ' + f + '\n')
+        os.remove(f)
+
+def call_acme(address, infile):
+    acme_args = ['acme', '--setpc', address, '-DSTART=' + address]
+    if args.non_relocatable:
+        acme_args += ['-DNONRELOCATABLE=1']
+    acme_args += ['--report', 'hanois.lst', '-o', infile, outfile.name]
     if args.verbose:
-        sys.stderr.write('Removing file ' + f + '\n')
-    os.remove(f)
+        # TODO: The displayed output won't be a valid shell command because there will be no quoting to stop $ being interpreted. This isn't a huge deal, but here (and in other verbose output) it might be nice to try to write valid shell output
+        sys.stderr.write(' '.join(acme_args) + '\n')
+    acme_result = subprocess.call(acme_args)
+    if acme_result != 0:
+        sys.exit(acme_result)
 
 parser = argparse.ArgumentParser(description='TODO.')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help='a PLASMA source file')
@@ -33,6 +47,7 @@ parser.add_argument('-N', '--no-combine', action='store_true', help='disable seq
 parser.add_argument('-W', '--warn', action='store_true', help='enable warnings')
 parser.add_argument('-S', action='store_true', help='stop after generating assembler input')
 parser.add_argument('-f', '--force', action='store_true', help='proceed even if dependency verification fails')
+parser.add_argument('--non-relocatable', action='store_true', help="don't generate a self-relocating executable")
 # TODO: Should we support a -M flag like plasm? Depends how we extend this to support non-standalone
 args = parser.parse_args()
 
@@ -100,12 +115,14 @@ if not init_list:
     # that - has no INIT, even if other modules do.
     die("No initialisation code to call!")
 
+atexit.register(remove_files)
+
 # TODO: Rename outfile? We have multiple output files...
 if args.S:
     outfile = open(args.output[0], 'w')
 else:
     outfile = tempfile.NamedTemporaryFile(mode='w', delete=False)
-    atexit.register(remove_file, outfile.name)
+    tempfiles.append(outfile.name)
 
 if args.verbose:
     sys.stderr.write('Combining plasm output into ' + outfile.name + '\n')
@@ -152,14 +169,18 @@ outfile.close()
 if args.S:
     sys.exit(0)
 
-# TODO: We should support generating relocatable standalone output by invoking
-# ACME twice and appending relocations
-
 # TODO: We need to allow our caller to specify options to pass through to ACME
 # TODO: --report needs to be optional
-acme_args = ['acme', '--setpc', '$2000', '-DSTART=$2000', '--report', 'hanois.lst', '-o', args.output[0], outfile.name]
+call_acme('$2000', args.output[0])
+if args.non_relocatable:
+    sys.exit(0)
+output_3000 = tempfile.NamedTemporaryFile(mode='w', delete=False)
+output_3000.close()
+tempfiles.append(output_3000.name)
+call_acme('$3000', output_3000.name)
+# TODO: Inline the add-relocations.py code? Or maybe make it a module so we can import it?
+relocation_args = ['python', 'add-relocations.py', args.output[0], output_3000.name]
 if args.verbose:
-    # TODO: The displayed output won't be a valid shell command because there will be no quoting to stop $ being interpreted. This isn't a huge deal, but here (and in other verbose output) it might be nice to try to write valid shell output
-    sys.stderr.write(' '.join(acme_args) + '\n')
-acme_result = subprocess.call(['acme', '--setpc', '$2000', '-DSTART=$2000', '--report', 'hanois.lst', '-o', args.output[0], outfile.name])
-sys.exit(acme_result)
+    sys.stderr.write(' '.join(relocation_args) + '\n')
+relocation_result = subprocess.call(relocation_args)
+sys.exit(relocation_result)
