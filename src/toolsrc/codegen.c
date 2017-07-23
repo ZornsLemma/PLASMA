@@ -446,6 +446,11 @@ void emit_moddep(char *name, int len)
         else
             printf("\t%s\t$00\t\t\t; END OF MODULE DEPENDENCIES\n", DB);
     }
+    else
+    {
+        if (name)
+            printf("\t; IMPORT: %s\n", supper(name));
+    }
 }
 void emit_sysflags(int val)
 {

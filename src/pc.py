@@ -15,6 +15,7 @@
 
 import argparse
 import atexit
+import collections
 import os
 import re
 import subprocess
@@ -45,6 +46,7 @@ parser.add_argument('-O', action='store_true', help='enable compiler optimisatio
 parser.add_argument('-N', '--no-combine', action='store_true', help='disable sequence combining in compiler optimiser')
 parser.add_argument('-W', '--warn', action='store_true', help='enable warnings')
 parser.add_argument('-S', action='store_true', help='stop after generating assembler input')
+parser.add_argument('-f', '--force', action='store_true', help='proceed even if dependency verification fails')
 # TODO: Should we support a -M flag like plasm? Depends how we extend this to support non-standalone
 args = parser.parse_args()
 
@@ -65,6 +67,7 @@ if not args.output:
 
 init_list = []
 plasm_output = {}
+imports = collections.defaultdict(set)
 
 for infile in args.inputs:
     infile_name, infile_extension = os.path.splitext(infile)
@@ -87,7 +90,7 @@ for infile in args.inputs:
         o = plasm_output[infile_name + '.sa'] = []
         prefix = '_' + os.path.basename(infile_name).upper() + '_'
         for line in plasm.stdout:
-            if line[0:5] == '_INIT':
+            if line.startswith('_INIT'):
                 # TODO: This is a bit hacky
                 next_line = plasm.stdout.next()
                 if 'JSR' in next_line and 'INTERP' in next_line:
@@ -97,6 +100,9 @@ for infile in args.inputs:
                     line = next_line
                 else:
                     line = None
+            elif line.startswith('\t; IMPORT: '):
+                imports[infile_name].add(line.split(':')[1].strip())
+                print("SFTODO: " + repr(imports[infile_name]))
             else:
                 line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
             if line is not None:
@@ -139,11 +145,22 @@ for init in init_list:
     outfile.write('\t!WORD\t' + init + '\n')
 # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
 
+# TODO: Eventually it would be nice if we (with an option for the user to say
+# "just trust me") topologically sorted the inputs, but let's just do this for
+# now.
+
+modules = set(['CMDSYS'])
 for infile in args.inputs:
     infile_name, infile_extension = os.path.splitext(infile)
     infile_extension = infile_extension.lower()
     if infile_extension == '.pla':
+        our_imports = imports[infile_name]
+        print('SFTODO1', our_imports)
+        print('SFTODO2', modules)
+        if not our_imports.issubset(modules) and not args.force:
+            die('Missing or out-of-order dependencies for ' + infile + ': ' + ', '.join(our_imports - modules))
         outfile.writelines(plasm_output[infile_name + '.sa'])
+        modules.add(os.path.basename(infile_name).upper())
     else:
         # TODO: We need to allow user-written assembler source to be specified
         # on the command line.
