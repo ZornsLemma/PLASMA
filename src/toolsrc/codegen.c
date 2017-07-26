@@ -1063,26 +1063,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         break;
                     case BRFALSE_CODE:
                         if (op->val)
-                        {
                             freeops = -2; // Remove constant and never taken branch
-#if 0 // SFTODO TEMP
-                            opnextnext = opnext->nextop; // Remove never taken branch
-                            if (op == *seq)
-                                *seq = opnextnext;
-                            else
-                            {
-                                // TODO: Inefficient but simple; ideally we
-                                // might track opprev as we iterate
-                                t_opseq *opprev = *seq;
-                                for (; opprev->nextop != op; opprev = opprev->nextop);
-                                opprev->nextop = opnextnext;
-                            }
-                            opnext->nextop = NULL;
-                            release_seq(op);
-                            opnext = opnextnext;
-                            crunched = 1;
-#endif
-                        }
                         else
                         {
                             op->code = BRNCH_CODE; // Always taken branch
@@ -1092,26 +1073,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         break;
                     case BRTRUE_CODE:
                         if (!op->val)
-                        {
                             freeops = -2; // Remove constant never taken branch
-#if 0 // SFTODO TEMP
-                            opnextnext = opnext->nextop; // Remove never taken branch
-                            if (op == *seq)
-                                *seq = opnextnext;
-                            else
-                            {
-                                // TODO: Inefficient but simple; ideally we
-                                // might track opprev as we iterate
-                                t_opseq *opprev = *seq;
-                                for (; opprev->nextop != op; opprev = opprev->nextop);
-                                opprev->nextop = opnextnext;
-                            }
-                            opnext->nextop = NULL;
-                            release_seq(op);
-                            opnext = opnextnext;
-                            crunched = 1;
-#endif
-                        }
                         else
                         {
                             op->code = BRNCH_CODE; // Always taken branch
@@ -1137,27 +1099,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         break;
                     case NE_CODE:
                         if (!op->val)
-                        {
                             freeops = -2; // Remove ZERO:ISNE
-#if 0 // SFTODO TEMP
-                            // Remove ZERO:ISNE
-                            opnextnext = opnext->nextop;
-                            if (op == *seq)
-                                *seq = opnextnext;
-                            else
-                            {
-                                // TODO: Inefficient but simple; ideally we
-                                // might track opprev as we iterate
-                                t_opseq *opprev = *seq;
-                                for (; opprev->nextop != op; opprev = opprev->nextop);
-                                opprev->nextop = opnextnext;
-                            }
-                            opnext->nextop = NULL;
-                            release_seq(op);
-                            opnext = opnextnext;
-                            crunched = 1;
-#endif
-                        }
                         break;
                     case EQ_CODE:
                         if (!op->val)
@@ -1445,75 +1387,6 @@ int crunch_seq(t_opseq **seq, int pass)
                     freeops = 1;
                 }
                 break; // SAW_CODE
-#if 0 // TODO: Not valid because BRNE/BREQ only consume *one* operand, delete it later
-            case EQ_CODE:
-                switch (opnext->code)
-                {
-                    case BRTRUE_CODE:
-                        op->code = BREQ_CODE;
-                        op->tag = opnext->tag;
-                        freeops = 1;
-                        break;
-                    case BRFALSE_CODE:
-                        op->code = BRNE_CODE;
-                        op->tag = opnext->tag;
-                        freeops = 1;
-                        break;
-                }
-                break; // EQ_CODE
-            case NE_CODE:
-                switch (opnext->code)
-                {
-                    case BRTRUE_CODE:
-                        op->code = BRNE_CODE;
-                        op->tag = opnext->tag;
-                        freeops = 1;
-                        break;
-                    case BRFALSE_CODE:
-                        op->code = BREQ_CODE;
-                        op->tag = opnext->tag;
-                        freeops = 1;
-                        break;
-                }
-                break; // NE_CODE
-#endif
-#if 0 // TODO: IS{GE,GT,LE,LT} use different comparison logic than BR{LT,GT} so this isn't valid
-// TODO: In fact it's more fundamental, because BRLT/BRGT only
-// consume one operand - so delete this code later, after I've had a bit of a
-// think/check.
-            case GE_CODE:
-                if (opnext->code == BRFALSE_CODE)
-                {
-                    op->code = BRLT_CODE;
-                    op->tag = opnext->tag;
-                    freeops = 1;
-                }
-                break; // GE_CODE
-            case GT_CODE:
-                if (opnext->code == BRTRUE_CODE)
-                {
-                    op->code = BRGT_CODE;
-                    op->tag = opnext->tag;
-                    freeops = 1;
-                }
-                break; // GT_CODE
-            case LE_CODE:
-                if (opnext->code == BRFALSE_CODE)
-                {
-                    op->code = BRGT_CODE;
-                    op->tag = opnext->tag;
-                    freeops = 1;
-                }
-                break; // LE_CODE
-            case LT_CODE:
-                if (opnext->code == BRTRUE_CODE)
-                {
-                    op->code = BRLT_CODE;
-                    op->tag = opnext->tag;
-                    freeops = 1;
-                }
-                break; // LT_CODE
-#endif
         }
         //
         // Free up crunched ops. If freeops is positive we free up that many ops
@@ -1638,16 +1511,6 @@ int emit_pending_seq()
         calls_active--;
         return 0;
     }
-
-#if 0 // SFTODO TEMP
-    {
-        int len = 0;
-        t_opseq *op = pending_seq;
-        for (; op; op = op->nextop)
-            ++len;
-        printf("\t\t\t\t\t; SFTODO: emit_pending_seq - len %d\n", len);
-    }
-#endif
 
     t_opseq *op;
     int emitted = 0;
