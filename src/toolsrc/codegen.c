@@ -27,8 +27,9 @@ static int  idlocal_offset[128];
 static char fixup_size[2048];
 static int  fixup_type[2048];
 static int  fixup_tag[2048];
-static t_opseq optbl[256];
+static t_opseq optbl[2048];
 static t_opseq *freeop_lst = &optbl[0];
+static t_opseq *pending_seq = 0;
 #define FIXUP_BYTE    0x00
 #define FIXUP_WORD    0x80
 int id_match(char *name, int len, char *id)
@@ -536,10 +537,12 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
 }
 void emit_codetag(int tag)
 {
+    emit_pending_seq();
     printf("_B%03d%c\n", tag, LBL);
 }
 void emit_const(int cval)
 {
+    emit_pending_seq();
     if (cval == 0)
         printf("\t%s\t$00\t\t\t; ZERO\n", DB);
     else if (cval > 0 && cval < 256)
@@ -693,6 +696,7 @@ void emit_brtru(int tag)
 }
 void emit_brnch(int tag)
 {
+    emit_pending_seq();
     printf("\t%s\t$50\t\t\t; BRNCH\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -703,16 +707,19 @@ void emit_breq(int tag)
 }
 void emit_brne(int tag)
 {
+    emit_pending_seq();
     printf("\t%s\t$3E\t\t\t; BRNE\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brgt(int tag)
 {
+    emit_pending_seq();
     printf("\t%s\t$38\t\t\t; BRGT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
 void emit_brlt(int tag)
 {
+    emit_pending_seq();
     printf("\t%s\t$3A\t\t\t; BRLT\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -737,6 +744,7 @@ void emit_ical(void)
 }
 void emit_leave(void)
 {
+    emit_pending_seq();
     if (localsize)
         printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
     else
@@ -744,6 +752,7 @@ void emit_leave(void)
 }
 void emit_ret(void)
 {
+    emit_pending_seq();
     printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
 void emit_enter(int cparams)
@@ -767,6 +776,7 @@ void emit_pull_exp(void)
 }
 void emit_drop(void)
 {
+    emit_pending_seq();
     printf("\t%s\t$30\t\t\t; DROP\n", DB);
 }
 void emit_dup(void)
@@ -775,6 +785,7 @@ void emit_dup(void)
 }
 int emit_unaryop(t_token op)
 {
+    emit_pending_seq();
     switch (op)
     {
         case NEG_TOKEN:
@@ -806,6 +817,7 @@ int emit_unaryop(t_token op)
 }
 int emit_op(t_token op)
 {
+    emit_pending_seq();
     switch (op)
     {
         case MUL_TOKEN:
@@ -907,11 +919,67 @@ void release_seq(t_opseq *seq)
     }
 }
 /*
+ * Indicate if an address is (or might be) memory-mapped hardware; used to avoid
+ * optimising away accesses to such addresses.
+ */
+int is_hardware_address(int addr)
+{
+    // TODO: I think this is reasonable for Apple hardware but I'm not sure.
+    // It's a bit too strong for Acorn hardware but code is unlikely to try to
+    // read from high addresses anyway, so there's no real harm in not
+    // optimising such accesses anyway.
+    return addr >= 0xC000;
+}
+/*
+ * Replace all but the first of a series of identical load opcodes by DUP. This
+ * doesn't reduce the number of opcodes but does reduce their size in bytes.
+ * This is only called on the second optimisation pass because the DUP opcodes
+ * may inhibit other peephole optimisations which are more valuable.
+ */
+int try_dupify(t_opseq *op)
+{
+    int crunched = 0;
+    t_opseq *opn = op->nextop;
+    for (; opn; opn = opn->nextop)
+    {
+        if (op->code != opn->code)
+            return crunched;
+
+        switch (op->code)
+        {
+            case CONST_CODE:
+                if (op->val != opn->val)
+                    return crunched;
+                break;
+            case LADDR_CODE:
+            case LLB_CODE:
+            case LLW_CODE:
+                if (op->offsz != opn->offsz)
+                    return crunched;
+                break;
+            case GADDR_CODE:
+            case LAB_CODE:
+            case LAW_CODE:
+                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) || (op->type != opn->type))
+                    return crunched;
+                break;
+
+            default:
+                return crunched;
+        }
+
+        opn->code = DUP_CODE;
+        crunched = 1;
+    }
+
+    return crunched;
+}
+/*
  * Crunch sequence (peephole optimize)
  */
-int crunch_seq(t_opseq **seq)
+int crunch_seq(t_opseq **seq, int pass)
 {
-    t_opseq *opnext, *opnextnext;
+    t_opseq *opnext, *opnextnext, *opprev = 0;
     t_opseq *op = *seq;
     int crunched = 0;
     int freeops  = 0;
@@ -975,15 +1043,7 @@ int crunch_seq(t_opseq **seq)
                         break;
                     case BRFALSE_CODE:
                         if (op->val)
-                        {
-                            opnextnext = opnext->nextop; // Remove never taken branch
-                            if (op == *seq)
-                                *seq = opnextnext;
-                            opnext->nextop = NULL;
-                            release_seq(op);
-                            opnext = opnextnext;
-                            crunched = 1;
-                        }
+                            freeops = -2; // Remove constant and never taken branch
                         else
                         {
                             op->code = BRNCH_CODE; // Always taken branch
@@ -993,15 +1053,7 @@ int crunch_seq(t_opseq **seq)
                         break;
                     case BRTRUE_CODE:
                         if (!op->val)
-                        {
-                            opnextnext = opnext->nextop; // Remove never taken branch
-                            if (op == *seq)
-                                *seq = opnextnext;
-                            opnext->nextop = NULL;
-                            release_seq(op);
-                            opnext = opnextnext;
-                            crunched = 1;
-                        }
+                            freeops = -2; // Remove constant never taken branch
                         else
                         {
                             op->code = BRNCH_CODE; // Always taken branch
@@ -1009,7 +1061,35 @@ int crunch_seq(t_opseq **seq)
                             freeops  = 1;
                         }
                         break;
-                    case CONST_CODE: // Collapse constant operation
+                    case BRNE_CODE:
+                        if (!op->val)
+                        {
+                            op->code = BRTRUE_CODE;
+                            op->tag  = opnext->tag;
+                            freeops  = 1;
+                        }
+                        break;
+                    case BREQ_CODE:
+                        if (!op->val)
+                        {
+                            op->code = BRFALSE_CODE;
+                            op->tag  = opnext->tag;
+                            freeops  = 1;
+                        }
+                        break;
+                    case NE_CODE:
+                        if (!op->val)
+                            freeops = -2; // Remove ZERO:ISNE
+                        break;
+                    case EQ_CODE:
+                        if (!op->val)
+                        {
+                            op->code = LOGIC_NOT_CODE;
+                            freeops = 1;
+                        }
+                        break;
+                    case CONST_CODE:
+                        // Collapse constant operation
                         if ((opnextnext = opnext->nextop))
                             switch (opnextnext->code)
                             {
@@ -1086,6 +1166,9 @@ int crunch_seq(t_opseq **seq)
                                     freeops  = 2;
                                     break;
                             }
+
+                        if ((pass > 0) && (freeops == 0) && (op->val != 0))
+                            crunched = try_dupify(op);
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
                         for (shiftcnt = 0; shiftcnt < 16; shiftcnt++)
@@ -1146,6 +1229,10 @@ int crunch_seq(t_opseq **seq)
                         freeops   = 1;
                         break;
                 }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
                 break; // LADDR_CODE
             case GADDR_CODE:
                 switch (opnext->code)
@@ -1186,7 +1273,57 @@ int crunch_seq(t_opseq **seq)
                         freeops   = 1;
                         break;
                 }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
                 break; // GADDR_CODE
+            case LLB_CODE:
+                if (pass > 0)
+                    crunched = try_dupify(op);
+                break; // LLB_CODE
+            case LLW_CODE:
+                if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                {
+                    if ((opnextnext = opnext->nextop))
+                    {
+                        if (opnextnext->code == SHR_CODE)
+                        {
+                            op->code = LLB_CODE;
+                            op->offsz++;
+                            freeops = 2;
+                            break;
+                        }
+                    }
+                }
+
+                if ((pass > 0) && (freeops == 0))
+                    crunched = try_dupify(op);
+
+                break; // LLW_CODE
+            case LAB_CODE:
+                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                    crunched = try_dupify(op);
+                break; // LAB_CODE
+            case LAW_CODE:
+                if ((opnext->code == CONST_CODE) && (opnext->val == 8))
+                {
+                    if ((opnextnext = opnext->nextop))
+                    {
+                        if (opnextnext->code == SHR_CODE)
+                        {
+                            op->code = LAB_CODE;
+                            op->offsz++;
+                            freeops = 2;
+                            break;
+                        }
+                    }
+                }
+
+                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                    crunched = try_dupify(op);
+
+                break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
                 {
@@ -1202,10 +1339,62 @@ int crunch_seq(t_opseq **seq)
                         break;
                 }
                 break; // LOGIC_NOT_CODE
+            case SLB_CODE:
+                if ((opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DLB_CODE;
+                    freeops = 1;
+                }
+                break; // SLB_CODE
+            case SLW_CODE:
+                if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
+                {
+                    op->code = DLW_CODE;
+                    freeops = 1;
+                }
+                break; // SLW_CODE
+            case SAB_CODE:
+                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
+                {
+                    op->code = DAB_CODE;
+                    freeops = 1;
+                }
+                break; // SAB_CODE
+            case SAW_CODE:
+                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
+                {
+                    op->code = DAW_CODE;
+                    freeops = 1;
+                }
+                break; // SAW_CODE
         }
         //
-        // Free up crunched ops
-        //
+        // Free up crunched ops. If freeops is positive we free up that many ops
+        // *after* op; if it's negative, we free up abs(freeops) ops *starting
+        // with* op.
+        if (freeops < 0)
+        {
+            freeops = -freeops;
+            // If op is at the start of the sequence, we treat this as a special
+            // case.
+            if (op == *seq)
+            {
+                for (; freeops > 0; --freeops)
+                {
+                    release_op(op);
+                    *seq   = opnext;
+                    op     = opnext;
+                    opnext = op->nextop;
+                }
+            }
+            // Otherwise we just move op back to point to the previous op and
+            // let the following loop remove the required number of ops.
+            else
+            {
+                op      = opprev;
+                opnext  = op->nextop;
+            }
+        }
         while (freeops)
         {
             op->nextop     = opnext->nextop;
@@ -1215,6 +1404,7 @@ int crunch_seq(t_opseq **seq)
             crunched       = 1;
             freeops--;
         }
+        opprev = op;
         op = opnext;
     }
     return (crunched);
@@ -1259,18 +1449,57 @@ t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2)
     return (seq1);
 }
 /*
- * Emit a sequence of ops
+ * Emit a sequence of ops (into the pending sequence)
  */
 int emit_seq(t_opseq *seq)
 {
     t_opseq *op;
     int emitted = 0;
+    int string = 0;
+    for (op = seq; op; op = op->nextop)
+    {
+        if (op->code == STR_CODE)
+            string = 1;
+        emitted++;
+    }
+    pending_seq = cat_seq(pending_seq, seq);
+    // The source code comments in the output are much more logical if we don't
+    // merge multiple sequences together. There's no value in doing this merging
+    // if we're not optimizing, and we optionally allow it to be prevented even
+    // when we are optimizing by specifing the -N (NO_COMBINE) flag.
+    //
+    // We must also force output if the sequence includes a CS opcode, as the
+    // associated 'constant' is only temporarily valid.
+    if (!(outflags & OPTIMIZE) || (outflags & NO_COMBINE) || string)
+        return emit_pending_seq();
+    return (emitted);
+}
+/*
+ * Emit the pending sequence
+ */
+int emit_pending_seq()
+{
+    // This is called by some of the emit_*() functions to ensure that any
+    // pending ops are emitted before they emit their own instruction. However,
+    // this function itself calls some of those emit_*() functions to emit
+    // instructions from the pending sequence, which would cause an infinite
+    // loop if we weren't careful. We therefore set pending_seq to null on entry
+    // and work with a local copy, so if this function calls back into itself it
+    // is a no-op.
+    if (!pending_seq)
+        return 0;
+    t_opseq *local_pending_seq = pending_seq;
+    pending_seq = 0;
+
+    t_opseq *op;
+    int emitted = 0;
 
     if (outflags & OPTIMIZE)
-        while (crunch_seq(&seq));
-    while (seq)
+        for (int pass = 0; pass < 2; pass++)
+            while (crunch_seq(&local_pending_seq, pass));
+    while (local_pending_seq)
     {
-        op = seq;
+        op = local_pending_seq;
         switch (op->code)
         {
             case NEG_CODE:
@@ -1396,11 +1625,23 @@ int emit_seq(t_opseq *seq)
             case BRTRUE_CODE:
                 emit_brtru(op->tag);
                 break;
+            case BRGT_CODE:
+                emit_brgt(op->tag);
+                break;
+            case BRLT_CODE:
+                emit_brlt(op->tag);
+                break;
+            case BREQ_CODE:
+                emit_breq(op->tag);
+                break;
+            case BRNE_CODE:
+                emit_brne(op->tag);
+                break;
             default:
                 return (0);
         }
         emitted++;
-        seq = seq->nextop;
+        local_pending_seq = local_pending_seq->nextop;
         /*
          * Free this op
          */

@@ -8,31 +8,31 @@ typedef struct _opseq {
 } t_opseq;
 #define UNARY_CODE(tkn)  ((tkn)|0x0100)
 #define BINARY_CODE(tkn) ((tkn)|0x0200)
-#define NEG_CODE    0x0100|NEG_TOKEN
-#define COMP_CODE   0x0100|COMP_TOKEN
-#define LOGIC_NOT_CODE 0x0100|LOGIC_NOT_TOKEN
-#define INC_CODE    0x0100|INC_TOKEN
-#define DEC_CODE    0x0100|DEC_TOKEN
-#define BPTR_CODE   0x0100|BPTR_TOKEN
-#define WPTR_CODE   0x0100|WPTR_TOKEN
-#define MUL_CODE    0x0200|MUL_TOKEN
-#define DIV_CODE    0x0200|DIV_TOKEN
-#define MOD_CODE    0x0200|MOD_TOKEN
-#define ADD_CODE    0x0200|ADD_TOKEN
-#define SUB_CODE    0x0200|SUB_TOKEN
-#define SHL_CODE    0x0200|SHL_TOKEN
-#define SHR_CODE    0x0200|SHR_TOKEN
-#define AND_CODE    0x0200|AND_TOKEN
-#define OR_CODE     0x0200|OR_TOKEN
-#define EOR_CODE    0x0200|EOR_TOKEN
-#define EQ_CODE     0x0200|EQ_TOKEN
-#define NE_CODE     0x0200|NE_TOKEN
-#define GE_CODE     0x0200|GE_TOKEN
-#define LT_CODE     0x0200|LT_TOKEN
-#define GT_CODE     0x0200|GT_TOKEN
-#define LE_CODE     0x0200|LE_TOKEN
-#define LOGIC_OR_CODE 0x0200|LOGIC_OR_TOKEN
-#define LOGIC_AND_CODE 0x0200|LOGIC_AND_TOKEN
+#define NEG_CODE    (0x0100|NEG_TOKEN)
+#define COMP_CODE   (0x0100|COMP_TOKEN)
+#define LOGIC_NOT_CODE (0x0100|LOGIC_NOT_TOKEN)
+#define INC_CODE    (0x0100|INC_TOKEN)
+#define DEC_CODE    (0x0100|DEC_TOKEN)
+#define BPTR_CODE   (0x0100|BPTR_TOKEN)
+#define WPTR_CODE   (0x0100|WPTR_TOKEN)
+#define MUL_CODE    (0x0200|MUL_TOKEN)
+#define DIV_CODE    (0x0200|DIV_TOKEN)
+#define MOD_CODE    (0x0200|MOD_TOKEN)
+#define ADD_CODE    (0x0200|ADD_TOKEN)
+#define SUB_CODE    (0x0200|SUB_TOKEN)
+#define SHL_CODE    (0x0200|SHL_TOKEN)
+#define SHR_CODE    (0x0200|SHR_TOKEN)
+#define AND_CODE    (0x0200|AND_TOKEN)
+#define OR_CODE     (0x0200|OR_TOKEN)
+#define EOR_CODE    (0x0200|EOR_TOKEN)
+#define EQ_CODE     (0x0200|EQ_TOKEN)
+#define NE_CODE     (0x0200|NE_TOKEN)
+#define GE_CODE     (0x0200|GE_TOKEN)
+#define LT_CODE     (0x0200|LT_TOKEN)
+#define GT_CODE     (0x0200|GT_TOKEN)
+#define LE_CODE     (0x0200|LE_TOKEN)
+#define LOGIC_OR_CODE (0x0200|LOGIC_OR_TOKEN)
+#define LOGIC_AND_CODE (0x0200|LOGIC_AND_TOKEN)
 #define CONST_CODE  0x0300
 #define STR_CODE    0x0301
 #define LB_CODE     0x0302
@@ -64,6 +64,10 @@ typedef struct _opseq {
 #define BRNCH_CODE  0x031C
 #define BRFALSE_CODE 0x031D
 #define BRTRUE_CODE 0x031E
+#define BRGT_CODE   0x031F
+#define BRLT_CODE   0x0320
+#define BREQ_CODE   0x0321
+#define BRNE_CODE   0x0322
 
 #define gen_uop(seq,op)     gen_seq(seq,UNARY_CODE(op),0,0,0,0)
 #define gen_op(seq,op)      gen_seq(seq,BINARY_CODE(op),0,0,0,0)
@@ -99,6 +103,7 @@ void emit_idconst(char *name, int value);
 int emit_data(int vartype, int consttype, long constval, int constsize);
 void emit_codetag(int tag);
 void emit_const(int cval);
+#if 0 // SFTODO
 void emit_conststr(long conststr);
 void emit_lb(void);
 void emit_lw(void);
@@ -110,31 +115,42 @@ void emit_sb(void);
 void emit_sw(void);
 void emit_slb(int index);
 void emit_slw(int index);
+#endif
 void emit_dlb(int index);
 void emit_dlw(int index);
+#if 0 // SFTODO
 void emit_sab(int tag, int offset, int type);
 void emit_saw(int tag, int offset, int type);
+#endif
 void emit_dab(int tag, int offset, int type);
 void emit_daw(int tag, int offset, int type);
+#if 0 // SFTODO
 void emit_call(int tag, int type);
 void emit_ical(void);
 void emit_localaddr(int index);
 void emit_globaladdr(int tag, int offset, int type);
 void emit_indexbyte(void);
 void emit_indexword(void);
+#endif
 int emit_unaryop(t_token op);
 int emit_op(t_token op);
+#if 0 // SFTODO
 void emit_brtru(int tag);
 void emit_brfls(int tag);
+#endif
 void emit_brgt(int tag);
 void emit_brlt(int tag);
 void emit_brne(int tag);
 void emit_brnch(int tag);
+#if 0 // SFTODO
 void emit_empty(void);
 void emit_push_exp(void);
 void emit_pull_exp(void);
+#endif
 void emit_drop(void);
+#if 0 // SFTODO
 void emit_dup(void);
+#endif
 void emit_leave(void);
 void emit_ret(void);
 void emit_enter(int cparams);
@@ -142,7 +158,10 @@ void emit_start(void);
 void emit_rld(void);
 void emit_esd(void);
 void release_seq(t_opseq *seq);
-int crunch_seq(t_opseq **seq);
+#if 0 // SFTODO
+int crunch_seq(t_opseq **seq, int pass);
+#endif
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type);
 t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2);
 int emit_seq(t_opseq *seq);
+int emit_pending_seq();
