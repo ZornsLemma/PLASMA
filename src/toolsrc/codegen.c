@@ -1001,7 +1001,7 @@ int crunch_seq(t_opseq **seq, int pass)
 {
     t_opseq *opnext, *opnextnext, *opprev = 0;
     t_opseq *op = *seq;
-    int crunched = 0; // SFTODO SHOULD BE INSIDE 'WHILE'!
+    int crunched = 0;
     int freeops  = 0;
     int shiftcnt;
 
@@ -1245,7 +1245,7 @@ int crunch_seq(t_opseq **seq, int pass)
                                     break;
                             }
 
-                        if ((pass > 0) && !crunched && (freeops == 0) && (op->val != 0))
+                        if ((pass > 0) && (freeops == 0) && (op->val != 0))
                             crunched = try_dupify(op);
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
