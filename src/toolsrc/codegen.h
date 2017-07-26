@@ -103,7 +103,6 @@ void emit_idconst(char *name, int value);
 int emit_data(int vartype, int consttype, long constval, int constsize);
 void emit_codetag(int tag);
 void emit_const(int cval);
-#if 0 // SFTODO
 void emit_conststr(long conststr);
 void emit_lb(void);
 void emit_lw(void);
@@ -115,42 +114,31 @@ void emit_sb(void);
 void emit_sw(void);
 void emit_slb(int index);
 void emit_slw(int index);
-#endif
 void emit_dlb(int index);
 void emit_dlw(int index);
-#if 0 // SFTODO
 void emit_sab(int tag, int offset, int type);
 void emit_saw(int tag, int offset, int type);
-#endif
 void emit_dab(int tag, int offset, int type);
 void emit_daw(int tag, int offset, int type);
-#if 0 // SFTODO
 void emit_call(int tag, int type);
 void emit_ical(void);
 void emit_localaddr(int index);
 void emit_globaladdr(int tag, int offset, int type);
 void emit_indexbyte(void);
 void emit_indexword(void);
-#endif
 int emit_unaryop(t_token op);
 int emit_op(t_token op);
-#if 0 // SFTODO
 void emit_brtru(int tag);
 void emit_brfls(int tag);
-#endif
 void emit_brgt(int tag);
 void emit_brlt(int tag);
 void emit_brne(int tag);
 void emit_brnch(int tag);
-#if 0 // SFTODO
 void emit_empty(void);
 void emit_push_exp(void);
 void emit_pull_exp(void);
-#endif
 void emit_drop(void);
-#if 0 // SFTODO
 void emit_dup(void);
-#endif
 void emit_leave(void);
 void emit_ret(void);
 void emit_enter(int cparams);
@@ -158,9 +146,7 @@ void emit_start(void);
 void emit_rld(void);
 void emit_esd(void);
 void release_seq(t_opseq *seq);
-#if 0 // SFTODO
 int crunch_seq(t_opseq **seq, int pass);
-#endif
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type);
 t_opseq *cat_seq(t_opseq *seq1, t_opseq *seq2);
 int emit_seq(t_opseq *seq);
