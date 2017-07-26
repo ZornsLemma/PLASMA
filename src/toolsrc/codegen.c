@@ -1077,6 +1077,7 @@ int crunch_seq(t_opseq **seq, int pass)
                             freeops  = 1;
                         }
                         break;
+#if 0 // SFTODO: I think this is invalid, remember BRNE/BREQ only consume one of their arguments
                     case BRNE_CODE:
                         if (!op->val)
                         {
@@ -1093,6 +1094,7 @@ int crunch_seq(t_opseq **seq, int pass)
                             freeops  = 1;
                         }
                         break;
+#endif
                     case NE_CODE:
                         if (!op->val)
                             freeops = -2; // Remove ZERO:ISNE
