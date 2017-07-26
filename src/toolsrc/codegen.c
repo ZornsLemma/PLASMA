@@ -1,4 +1,3 @@
-#include <assert.h> // SFTODO TEMP
 #include <stdint.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -467,7 +466,6 @@ void emit_idfunc(int tag, int type, char *name, int is_bytecode)
         if (is_bytecode)
             printf("\tJSR\tINTERP\n");
     }
-    assert(pending_seq == 0);
 }
 void emit_idconst(char *name, int value)
 {
@@ -783,7 +781,6 @@ void emit_start(void)
     printf("_INIT%c\n", LBL);
     outflags |= INIT;
     defs++;
-    assert(pending_seq == 0);
 }
 void emit_push_exp(void)
 {
@@ -984,7 +981,6 @@ int try_dupify(t_opseq *op)
                 break;
 
             default:
-                assert(0);
                 return crunched;
         }
 
@@ -1426,7 +1422,6 @@ int crunch_seq(t_opseq **seq, int pass)
         }
         opprev = op;
         op = opnext;
-        assert(opprev->nextop == op);
     }
     return (crunched);
 }
