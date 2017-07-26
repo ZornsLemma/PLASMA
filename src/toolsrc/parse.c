@@ -1025,9 +1025,6 @@ int parse_stmnt(void)
             if (infunc)
             {
                 int i;
-                // TODO: If we were to put these DROPs into the pending sequence
-                // of opcodes, we may be able to peephole optimise them away in
-                // some cases.
                 for (i = 0; i < stack_loop; i++)
                     emit_drop();
                 cfnvals = 0;
