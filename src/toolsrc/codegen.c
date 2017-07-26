@@ -1493,34 +1493,34 @@ int emit_seq(t_opseq *seq)
     // associated 'constant' is only temporarily valid.
     if (!(outflags & OPTIMIZE) || (outflags & NO_COMBINE) || string)
         return emit_pending_seq();
-    return emitted;
+    return (emitted);
 }
 /*
  * Emit the pending sequence
  */
 int emit_pending_seq()
 {
-    // SFTODO: This is a hack to work around the fact that some emit_*()
-    // functions are called from parse.c - when they *should* trigger a call to
-    // emit_pending_seq() - and from emit_pending_seq() - when they *should not*
-    // do so.
-    static int calls_active = 0;
-    calls_active++;
-    if (calls_active > 1)
-    {
-        calls_active--;
+    // This is called by some of the emit_*() functions to ensure that any
+    // pending ops are emitted before they emit their own instruction. However,
+    // this function itself calls some of those emit_*() functions to emit
+    // instructions from the pending sequence, which would cause an infinite
+    // loop if we weren't careful. We therefore set pending_seq to null on entry
+    // and work with a local copy, so if this function calls back into itself it
+    // is a no-op.
+    if (!pending_seq)
         return 0;
-    }
+    t_opseq *local_pending_seq = pending_seq;
+    pending_seq = 0;
 
     t_opseq *op;
     int emitted = 0;
 
     if (outflags & OPTIMIZE)
         for (int pass = 0; pass < 2; pass++)
-            while (crunch_seq(&pending_seq, pass));
-    while (pending_seq)
+            while (crunch_seq(&local_pending_seq, pass));
+    while (local_pending_seq)
     {
-        op = pending_seq;
+        op = local_pending_seq;
         switch (op->code)
         {
             case NEG_CODE:
@@ -1659,17 +1659,15 @@ int emit_pending_seq()
                 emit_brne(op->tag);
                 break;
             default:
-                calls_active--;
                 return (0);
         }
         emitted++;
-        pending_seq = pending_seq->nextop;
+        local_pending_seq = local_pending_seq->nextop;
         /*
          * Free this op
          */
         op->nextop = freeop_lst;
         freeop_lst = op;
     }
-    calls_active--;
     return (emitted);
 }
