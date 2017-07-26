@@ -945,8 +945,8 @@ int is_hardware_address(int addr)
 {
     // TODO: I think this is reasonable for Apple hardware but I'm not sure.
     // It's a bit too strong for Acorn hardware but code is unlikely to try to
-    // read from high addresses anyway, so no real harm in not optimising such
-    // accesses anyway.
+    // read from high addresses anyway, so there's no real harm in not
+    // optimising such accesses anyway.
     return addr >= 0xC000;
 }
 /*
@@ -999,9 +999,9 @@ int try_dupify(t_opseq *op)
  */
 int crunch_seq(t_opseq **seq, int pass)
 {
-    t_opseq *opnext, *opnextnext;
+    t_opseq *opnext, *opnextnext, *opprev = 0;
     t_opseq *op = *seq;
-    int crunched = 0;
+    int crunched = 0; // SFTODO SHOULD BE INSIDE 'WHILE'!
     int freeops  = 0;
     int shiftcnt;
 
@@ -1064,6 +1064,8 @@ int crunch_seq(t_opseq **seq, int pass)
                     case BRFALSE_CODE:
                         if (op->val)
                         {
+                            freeops = -2; // Remove constant and never taken branch
+#if 0 // SFTODO TEMP
                             opnextnext = opnext->nextop; // Remove never taken branch
                             if (op == *seq)
                                 *seq = opnextnext;
@@ -1079,6 +1081,7 @@ int crunch_seq(t_opseq **seq, int pass)
                             release_seq(op);
                             opnext = opnextnext;
                             crunched = 1;
+#endif
                         }
                         else
                         {
@@ -1090,6 +1093,8 @@ int crunch_seq(t_opseq **seq, int pass)
                     case BRTRUE_CODE:
                         if (!op->val)
                         {
+                            freeops = -2; // Remove constant never taken branch
+#if 0 // SFTODO TEMP
                             opnextnext = opnext->nextop; // Remove never taken branch
                             if (op == *seq)
                                 *seq = opnextnext;
@@ -1105,6 +1110,7 @@ int crunch_seq(t_opseq **seq, int pass)
                             release_seq(op);
                             opnext = opnextnext;
                             crunched = 1;
+#endif
                         }
                         else
                         {
@@ -1132,6 +1138,8 @@ int crunch_seq(t_opseq **seq, int pass)
                     case NE_CODE:
                         if (!op->val)
                         {
+                            freeops = -2; // Remove ZERO:ISNE
+#if 0 // SFTODO TEMP
                             // Remove ZERO:ISNE
                             opnextnext = opnext->nextop;
                             if (op == *seq)
@@ -1148,6 +1156,7 @@ int crunch_seq(t_opseq **seq, int pass)
                             release_seq(op);
                             opnext = opnextnext;
                             crunched = 1;
+#endif
                         }
                         break;
                     case EQ_CODE:
@@ -1507,8 +1516,32 @@ int crunch_seq(t_opseq **seq, int pass)
 #endif
         }
         //
-        // Free up crunched ops
-        //
+        // Free up crunched ops. If freeops is positive we free up that many ops
+        // *after* op; if it's negative, we free up abs(freeops) ops *starting
+        // with* op.
+        if (freeops < 0)
+        {
+            freeops = -freeops;
+            // If op is at the start of the sequence, we treat this as a special
+            // case.
+            if (op == *seq)
+            {
+                for (; freeops > 0; --freeops)
+                {
+                    release_op(op);
+                    *seq   = opnext;
+                    op     = opnext;
+                    opnext = op->nextop;
+                }
+            }
+            // Otherwise we just move op back to point to the previous op and
+            // let the following loop remove the required number of ops.
+            else
+            {
+                op      = opprev;
+                opnext  = op->nextop;
+            }
+        }
         while (freeops)
         {
             op->nextop     = opnext->nextop;
@@ -1518,7 +1551,9 @@ int crunch_seq(t_opseq **seq, int pass)
             crunched       = 1;
             freeops--;
         }
+        opprev = op;
         op = opnext;
+        assert(opprev->nextop == op);
     }
     return (crunched);
 }
