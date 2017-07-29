@@ -663,9 +663,7 @@ void emit_dab(int tag, int offset, int type)
         printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
     }
     else
-    {
         printf("\t%s\t$7C,$%02X,$%02X\t\t; DAB\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
-    }
 }
 void emit_daw(int tag, int offset, int type)
 {
@@ -677,9 +675,7 @@ void emit_daw(int tag, int offset, int type)
         printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
     }
     else
-    {
         printf("\t%s\t$7E,$%02X,$%02X\t\t; DAW\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
-    }
 }
 void emit_localaddr(int index)
 {
@@ -976,7 +972,8 @@ int try_dupify(t_opseq *op)
             case GADDR_CODE:
             case LAB_CODE:
             case LAW_CODE:
-                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) || (op->type != opn->type))
+                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) ||
+                    (op->type != opn->type))
                     return crunched;
                 break;
 
@@ -1077,24 +1074,6 @@ int crunch_seq(t_opseq **seq, int pass)
                             freeops  = 1;
                         }
                         break;
-#if 0 // SFTODO: I think this is invalid, remember BRNE/BREQ only consume one of their arguments
-                    case BRNE_CODE:
-                        if (!op->val)
-                        {
-                            op->code = BRTRUE_CODE;
-                            op->tag  = opnext->tag;
-                            freeops  = 1;
-                        }
-                        break;
-                    case BREQ_CODE:
-                        if (!op->val)
-                        {
-                            op->code = BRFALSE_CODE;
-                            op->tag  = opnext->tag;
-                            freeops  = 1;
-                        }
-                        break;
-#endif
                     case NE_CODE:
                         if (!op->val)
                             freeops = -2; // Remove ZERO:ISNE
@@ -1184,7 +1163,7 @@ int crunch_seq(t_opseq **seq, int pass)
                                     freeops  = 2;
                                     break;
                             }
-
+                        // End of collapse constant operation
                         if ((pass > 0) && (freeops == 0) && (op->val != 0))
                             crunched = try_dupify(op);
                         break; // CONST_CODE
@@ -1247,10 +1226,8 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-
                 if ((pass > 0) && (freeops == 0))
                     crunched = try_dupify(op);
-
                 break; // LADDR_CODE
             case GADDR_CODE:
                 switch (opnext->code)
@@ -1291,16 +1268,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-
                 if ((pass > 0) && (freeops == 0))
                     crunched = try_dupify(op);
-
                 break; // GADDR_CODE
             case LLB_CODE:
                 if (pass > 0)
                     crunched = try_dupify(op);
                 break; // LLB_CODE
             case LLW_CODE:
+                // LLW [n]:CB 8:SHR -> LLB [n+1]
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
                     if ((opnextnext = opnext->nextop))
@@ -1314,16 +1290,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-
                 if ((pass > 0) && (freeops == 0))
                     crunched = try_dupify(op);
-
                 break; // LLW_CODE
             case LAB_CODE:
                 if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
                     crunched = try_dupify(op);
                 break; // LAB_CODE
             case LAW_CODE:
+                // LAW x:CB 8:SHR -> LAB x+1
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
                     if ((opnextnext = opnext->nextop))
@@ -1337,10 +1312,9 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-
-                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                if ((pass > 0) && (freeops == 0) &&
+                    (op->type || !is_hardware_address(op->offsz)))
                     crunched = try_dupify(op);
-
                 break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
@@ -1372,14 +1346,16 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // SLW_CODE
             case SAB_CODE:
-                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
+                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) &&
+                    (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAB_CODE;
                     freeops = 1;
                 }
                 break; // SAB_CODE
             case SAW_CODE:
-                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) && (op->offsz == opnext->offsz) && (op->type == opnext->type))
+                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) &&
+                    (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAW_CODE;
                     freeops = 1;
@@ -1399,11 +1375,11 @@ int crunch_seq(t_opseq **seq, int pass)
             {
                 for (; freeops > 0; --freeops)
                 {
-                    release_op(op);
-                    *seq   = opnext;
-                    op     = opnext;
                     opnext = op->nextop;
+                    release_op(op);
+                    op = *seq = opnext;
                 }
+                crunched = 1;
             }
             // Otherwise we just move op back to point to the previous op and
             // let the following loop remove the required number of ops.
@@ -1498,12 +1474,12 @@ int emit_seq(t_opseq *seq)
 int emit_pending_seq()
 {
     // This is called by some of the emit_*() functions to ensure that any
-    // pending ops are emitted before they emit their own instruction. However,
-    // this function itself calls some of those emit_*() functions to emit
-    // instructions from the pending sequence, which would cause an infinite
-    // loop if we weren't careful. We therefore set pending_seq to null on entry
-    // and work with a local copy, so if this function calls back into itself it
-    // is a no-op.
+    // pending ops are emitted before they emit their own op when they are
+    // called from the parser. However, this function itself calls some of those
+    // emit_*() functions to emit instructions from the pending sequence, which
+    // would cause an infinite loop if we weren't careful. We therefore set
+    // pending_seq to null on entry and work with a local copy, so if this
+    // function calls back into itself it is a no-op.
     if (!pending_seq)
         return 0;
     t_opseq *local_pending_seq = pending_seq;
@@ -1642,18 +1618,6 @@ int emit_pending_seq()
                 break;
             case BRTRUE_CODE:
                 emit_brtru(op->tag);
-                break;
-            case BRGT_CODE:
-                emit_brgt(op->tag);
-                break;
-            case BRLT_CODE:
-                emit_brlt(op->tag);
-                break;
-            case BREQ_CODE:
-                emit_breq(op->tag);
-                break;
-            case BRNE_CODE:
-                emit_brne(op->tag);
                 break;
             default:
                 return (0);
