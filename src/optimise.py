@@ -88,6 +88,8 @@ class Node:
                 self.instruction = ['ZERO']
             elif value > 0 and value <= 255:
                 self.instruction = ['CB', str(value)]
+            elif ((value & 0xff00) == 0xff00):
+                self.instruction = ['CFFB', str(value)]
             else:
                 self.instruction = ['CW', str(value)]
             self.children = []
@@ -264,6 +266,8 @@ def tree(instructions):
 opcodes = {
     'CB':  { 'byte' : 0x2a, 'consume' : 0, 'produce' : 1, 'constant' : True,
         'evaluate_fn' : lambda node : int(node.instruction[1]) },
+    'CFFB': { 'byte' : 0x5e, 'consume' : 0, 'produce' : 1, 'constant' : True,
+        'evaluate_fn' : lambda node : int(node.instruction[1]) },
     'CW':  { 'byte' : 0x2c, 'consume' : 0, 'produce' : 1, 'constant' : True,
         'evaluate_fn' : lambda node : int(node.instruction[1]) },
     'ADD': { 'byte' : 0x02, 'consume' : 2, 'produce' : 1, 'commutative' : True,
@@ -413,6 +417,8 @@ def emit(instructions):
                     print("\t!WORD\t%s" % instruction[-1])
         elif opcode == 'CB':
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]), opcode, instruction[1]))
+        elif opcode == 'CFFB':
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (opcode_byte, int(instruction[1]) & 0xff, opcode, instruction[1]))
         elif opcode == 'CW':
             value = int(instruction[1])
             signed_value = value if value < 0x800 else value - 0x10000
