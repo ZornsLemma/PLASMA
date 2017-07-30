@@ -1412,7 +1412,7 @@ int crunch_seq(t_opseq **seq, int pass)
     return (crunched);
 }
 /*
- * SFTODO!
+ * Remove provably-redundant writes to local variables in a sequence
  */
 void remove_writes(t_opseq **seq)
 {
@@ -1421,12 +1421,11 @@ void remove_writes(t_opseq **seq)
 
     // We want to walk through the sequence backwards, so we copy it into an
     // array.
-    t_opseq *seq_array[2560]; // SFTODO: BIT HACKY...
+    t_opseq *seq_array[2560];
     int ops = 0;
     for (; op; op = op->nextop)
     {
         seq_array[ops] = op;
-        fprintf(stderr, "SFTODO %d\n", op->type);
         ops++;
         if (ops >= (sizeof(seq_array) / sizeof(seq_array[0]))) {
             fprintf(stderr, "Compiler out of space in remove_writes()!\n");
@@ -1447,7 +1446,6 @@ void remove_writes(t_opseq **seq)
     for (int i = ops - 1; i >= 0; i--)
     {
         int freeop = 0;
-        fprintf(stderr, "SFTODO%d\n", i);
         op = seq_array[i];
         switch (op->code)
         {
