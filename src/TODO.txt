@@ -105,14 +105,3 @@ tree to allow it to reshuffle parts of the expression if that helps.
 Use new "specify number of parameters and return type" support on standard
 functions? At least on the Acorn-specific ones. Have done this for oserror() as
 an initial foray.
-
-Peephole optimiser could turn things like "DLW [n]:LEAVE" into "LEAVE" (the
-write to [n] is irrelevant when we're about to leave) and maybe "SLW [n]:LEAVE"
-into "DROP:LEAVE" (ditto for DLB/SLB)
-
-Possibly the optimiser could avoid *some* redundant writes to locals by
-observing sequences of instructions *terminated by LEAVE* (which proves they
-cannot be part of a larger loop where invisible reads might occur) which write
-to a location - careful about aliasing with byte and word accesses - which is
-never read later in the instruction sequence. Such DLW writes could be dropped
-and SLW writes turned into DROP.

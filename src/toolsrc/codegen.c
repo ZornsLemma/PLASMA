@@ -1412,6 +1412,104 @@ int crunch_seq(t_opseq **seq, int pass)
     return (crunched);
 }
 /*
+ * SFTODO!
+ */
+void remove_writes(t_opseq **seq)
+{
+    t_opseq *opprev;
+    t_opseq *op = *seq;
+
+    // We want to walk through the sequence backwards, so we copy it into an
+    // array.
+    t_opseq *seq_array[2560]; // SFTODO: BIT HACKY...
+    int ops = 0;
+    for (; op; op = op->nextop)
+    {
+        seq_array[ops] = op;
+        fprintf(stderr, "SFTODO %d\n", op->type);
+        ops++;
+        if (ops >= (sizeof(seq_array) / sizeof(seq_array[0]))) {
+            fprintf(stderr, "Compiler out of space in remove_writes()!\n");
+            return;
+        }
+    }
+
+    // We can only prove writes to be redundant if there is a LEAVE instruction
+    // at the end of the sequence.
+    if ((ops == 0) || (seq_array[ops - 1]->code != LEAVE_CODE))
+        return;
+
+    // Keep track of whether a frame address has been read from
+    int frame[255] = {0};
+
+    // Consider all the instructions in the sequence, working backwards from the
+    // LEAVE.
+    for (int i = ops - 1; i >= 0; i--)
+    {
+        int freeop = 0;
+        fprintf(stderr, "SFTODO%d\n", i);
+        op = seq_array[i];
+        switch (op->code)
+        {
+            // Record which frame addresses have been read from.
+            case LLB_CODE:
+                frame[op->offsz] = 1;
+                break;
+            case LLW_CODE:
+                frame[op->offsz] = 1;
+                frame[op->offsz + 1] = 1;
+                break;
+
+            // Stores to addresses which aren't read from afterwards are
+            // redundant; we just need to reproduce the effect of dropping the
+            // value from the stack.
+            case SLB_CODE:
+                if (!frame[op->offsz])
+                    op->code = DROP_CODE;
+                break;
+            case SLW_CODE:
+                if (!frame[op->offsz] && !frame[op->offsz + 1])
+                    op->code = DROP_CODE;
+                break;
+
+            // Copies to addresses which aren't read from afterwards are
+            // redundant and can simply be deleted.
+            case DLB_CODE:
+                if (!frame[op->offsz])
+                    freeop = 1;
+                break;
+            case DLW_CODE:
+                if (!frame[op->offsz] && !frame[op->offsz + 1])
+                    freeop = 1;
+                break;
+
+            // Any kind of branch terminates these optimisation opportunities.
+            // LADDR_CODE does as well, because it effectively makes frame bytes
+            // accessible via a pointer. (TODO: If we could know the size of the
+            // object, we could instead simply mark those bytes as read.)
+            case LADDR_CODE:
+            case BRNCH_CODE:
+            case BRFALSE_CODE:
+            case BRTRUE_CODE:
+                return;
+        }
+
+        if (freeop)
+        {
+            if (i > 0)
+            {
+                opprev = seq_array[i - 1];
+                opprev->nextop = op->nextop;
+            }
+            else
+            {
+                *seq = op->nextop;
+            }
+            release_op(op);
+        }
+    }
+}
+/*
  * Generate a sequence of code
  */
 t_opseq *gen_seq(t_opseq *seq, int opcode, long cval, int tag, int offsz, int type)
@@ -1498,7 +1596,10 @@ int emit_pending_seq()
 
     if (outflags & OPTIMIZE)
         for (int pass = 0; pass < 2; pass++)
+        {
             while (crunch_seq(&local_pending_seq, pass));
+            remove_writes(&local_pending_seq);
+        }
     while (local_pending_seq)
     {
         op = local_pending_seq;
