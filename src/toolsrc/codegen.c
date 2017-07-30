@@ -756,11 +756,19 @@ void emit_ical(void)
 }
 void emit_leave(void)
 {
-    emit_pending_seq();
     if (localsize)
-        printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+        pending_seq = gen_leave(pending_seq);
     else
-        printf("\t%s\t$5C\t\t\t; RET\n", DB);
+        pending_seq = gen_ret(pending_seq);
+    emit_pending_seq();
+}
+void emit_leave_internal(void)
+{
+    printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+}
+void emit_ret_internal(void)
+{
+    printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
 void emit_ret(void)
 {
@@ -1618,6 +1626,12 @@ int emit_pending_seq()
                 break;
             case BRTRUE_CODE:
                 emit_brtru(op->tag);
+                break;
+            case LEAVE_CODE:
+                emit_leave_internal();
+                break;
+            case RET_CODE:
+                emit_ret_internal();
                 break;
             default:
                 return (0);
