@@ -15,7 +15,8 @@ import cmdsys
     const jbsz = 1 + 32 + 4 + 1 + 255
     predef setjmp, longjmp
     predef prbyte
-    predef oserror, call_oscli
+    predef oserror(n, msg)#0
+    predef call_oscli
     predef stocr
     predef mode
     predef callalloca

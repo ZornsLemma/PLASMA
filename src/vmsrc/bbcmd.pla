@@ -85,7 +85,7 @@ predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
-predef oserror
+predef oserror(n, msg)#0
 predef call_oscli
 predef stocr
 predef mode
@@ -778,7 +778,7 @@ end
 //
 // ACORN OS ERROR GENERATION
 //
-asm oserror(n, msg)
+asm oserror(n, msg)#0
 	LDA	ESTKL+1,X
 	STA	$101
 	LDA	ESTKL,X
