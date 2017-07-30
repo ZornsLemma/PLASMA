@@ -228,7 +228,7 @@ COMP 	LDA	#$FF
 ;*
 ;* OPCODE TABLE
 ;*
-; TODO: This ALIGN wasted a big chunk of space; I need to shuffle some
+; TODO: This ALIGN wastes a big chunk of space; I need to shuffle some
 ; opcodes before it to avoid that.
 	!ALIGN	255,0
 OPTBL 	!WORD	ZERO,ADD,SUB,MUL,DIV,MOD,INCR,DECR		; 00 02 04 06 08 0A 0C 0E
@@ -510,7 +510,7 @@ PUSHEP  TXA
 ;* PULL EVAL STACK POINTER FROM CALL STACK
 ;*
 PULLEP  PLA
-    TAX
+	TAX
 	JMP	NEXTOP
 ;*
 ;* CONSTANT
@@ -774,7 +774,7 @@ SLW 	+INC_IP
 	LDA	ESTKH,X
 	STA	(IFP),Y
 	LDY	IPY
-;		INX
+;	INX
 ;	JMP	NEXTOP
 	JMP	DROP
 ;*
