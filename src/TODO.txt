@@ -101,3 +101,7 @@ remaining optimisation (in practice) of those implementated in optimise.py that
 I am dubious about being able to implement in the compiler's non-hacky peephole
 optimiser - optimise.py is quite sophisticated here and forms an expression
 tree to allow it to reshuffle parts of the expression if that helps.
+
+Use new "specify number of parameters and return type" support on standard
+functions? At least on the Acorn-specific ones. Have done this for oserror() as
+an initial foray.
