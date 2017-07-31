@@ -40,6 +40,12 @@ def call_acme(address, infile, report):
     if acme_result != 0:
         sys.exit(acme_result)
 
+# TODO: Use similar technique to 'Edit:' bit at
+# https://stackoverflow.com/questions/9234258/in-python-argparse-is-it-possible-to-have-paired-no-something-something-arg
+# for: --bootable={yes,no}, default yes, only relevant if generating SSD
+# potentially switch --non-relocatable to same scheme
+# --vm={32,128,both} for non-standalone to decide which VM binary(s) to include
+# on the disc (probably boot 32 if both present and bootable=yes)
 parser = argparse.ArgumentParser(description='TODO.')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help='a PLASMA source file')
 parser.add_argument('-v', '--verbose', action='store_true', help='increase output verbosity')
