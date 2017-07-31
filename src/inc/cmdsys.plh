@@ -31,15 +31,11 @@ import cmdsys
     const modkeep     = $2000
     const modinitkeep = $4000
     //
-    // System vars
-    //
-    word sysvars
-    //
     // CMD exported functions
     //
     predef putc, putln, puts, getc, gets
     predef call, syscall
-    predef heapmark, heapallocalign, heapalloc, heaprelease, heapavail
+    predef heapmark, heapallocalign, heapalloc, heaprelease
     predef memset, memcpy
     predef isugt, isuge, isult, isule
     predef modload, modexec, modaddr

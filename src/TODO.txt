@@ -105,3 +105,18 @@ tree to allow it to reshuffle parts of the expression if that helps.
 Use new "specify number of parameters and return type" support on standard
 functions? At least on the Acorn-specific ones. Have done this for oserror() as
 an initial foray.
+
+Standalone version - *Possibly* we should cope if the main program returns, but arguably we shouldn't - the application is effectively a new language, so ther only sensible way to exit is to issue a * command and that's down to the app/its user. We should perhaps restart the program if this happens rather than hanging or crashing badly, but if it's difficult or it means keeping a lot of extra code around (e.g. a RET at the end of every _INIT, not that that's very expensive) then don't get too hung up about it.
+
+Standalone version - 32cmd.a contains some crap which just isn't needed and could probably be relatively trivially made conditionally compiled in a "productionised" version of this. Possibly not exhaustive list:
+- the symbol table with all its associated constants and symbol lookup/insertion code
+- the string constants to support the (manually deleted) "init" code which handles the prompt loop
+- loadmod()/execmod()
+- dcitos() is probably redundant
+- syscall()?
+- prbyte()/prword()
+- readfile()/high_order_address()
+- strip*()
+- modechange()
+
+Standalone version - A "productionised" version would ideally do a topological sort on the dependencies of the modules being "linked" to make sure it links them in an acceptable order (this matters as the _INIT code must be executed in a suitable order). I think this is doable if we output a machine-readable comment in the compiler output in lieu of the equivalent "I am module X" and "I depend on module Y" binary data in a module.
