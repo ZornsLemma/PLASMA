@@ -220,7 +220,7 @@ if args.ssd:
     if '.' not in executable_name:
         executable_name = '$.' + executable_name
     disc_files.append(makedfs.File(executable_name, data, 0x2000, 0x2000, len(data)))
-    catalogue.write("PLASMA", disc_files) # TODO: Allow setting title
+    catalogue.write(executable_name[2:], disc_files) # TODO: Allow setting title
     disc.file.seek(0, 0)
     with open(args.output[0], 'wb') as ssd_file:
         ssd_file.write(disc.file.read())
