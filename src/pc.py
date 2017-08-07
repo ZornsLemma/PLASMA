@@ -32,7 +32,7 @@ def call_acme(address, infile, report):
         acme_args += ['-DNONRELOCATABLE=1']
     if report:
         acme_args += ['--report', args.report[0]]
-    acme_args += ['-o', infile, outfile.name]
+    acme_args += ['-o', infile, combined_asm_file.name]
     if args.verbose:
         # TODO: The displayed output won't be a valid shell command because there will be no quoting to stop $ being interpreted. This isn't a huge deal, but here (and in other verbose output) it might be nice to try to write valid shell output
         sys.stderr.write(' '.join(acme_args) + '\n')
@@ -58,6 +58,7 @@ parser.add_argument('-f', '--force', action='store_true', help='proceed even if 
 parser.add_argument('--non-relocatable', action='store_true', help="don't generate a self-relocating executable")
 parser.add_argument('-r', '--report', action='append', help='assembler report file')
 # TODO: Should we support a -M flag like plasm? Depends how we extend this to support non-standalone
+parser.add_argument('-d', '--ssd', action='store_true', help='output a DFS disc image (.ssd)')
 args = parser.parse_args()
 
 if args.output and len(args.output) > 1:
@@ -69,13 +70,17 @@ if args.report and len(args.report) > 1:
 if not args.inputs:
     die("No input files specified")
 
+if args.ssd and args.S:
+    die("--ssd and -S are not compatible")
+
+# TODO: For now we assume the most "significant" file is the last one
+infile_name, infile_extension = os.path.splitext(args.inputs[-1])
 if not args.output:
-    # TODO: For now we assume the most "significant" file is the last one
-    infile_name, infile_extension = os.path.splitext(args.inputs[-1])
     if args.S:
         args.output = [infile_name + '.a']
+    elif args.ssd:
+        args.output = [infile_name + '.ssd']
     else:
-        # TODO: We should support generating an SSD (and default to .ssd extension) as well as raw file
         args.output = [infile_name]
 
 init_list = []
@@ -131,15 +136,15 @@ atexit.register(remove_files)
 
 # TODO: Rename outfile variable? We have multiple output files...
 if args.S:
-    outfile = open(args.output[0], 'w')
+    combined_asm_file = open(args.output[0], 'w')
 else:
-    outfile = tempfile.NamedTemporaryFile(mode='w', delete=False)
-    tempfiles.append(outfile.name)
+    combined_asm_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    tempfiles.append(combined_asm_file.name)
 
 if args.verbose:
-    sys.stderr.write('Combining plasm output into ' + outfile.name + '\n')
+    sys.stderr.write('Combining plasm output into ' + combined_asm_file.name + '\n')
 
-cat(outfile, 'vmsrc/plvmbb-pre.s')
+cat(combined_asm_file, 'vmsrc/plvmbb-pre.s')
 
 # We need to take the contents of 32cmd.sa but strip off the ZERO:RET at the end of its
 # _INIT, so we can fall through into calling other initialisation code. TODO: A bit hacky
@@ -151,11 +156,11 @@ with open('vmsrc/32cmd.sa', 'r') as infile:
             assert discard == '\t!BYTE\t$00\t\t\t; ZERO\n'
             discard = infile.next()
             assert discard == '\t!BYTE\t$5C\t\t\t; RET\n'
-        outfile.write(line)
+        combined_asm_file.write(line)
 
 for init in init_list:
-    outfile.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
-    outfile.write('\t!WORD\t' + init + '\n')
+    combined_asm_file.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
+    combined_asm_file.write('\t!WORD\t' + init + '\n')
 # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
 
 modules = set(['CMDSYS'])
@@ -166,31 +171,56 @@ for infile in args.inputs:
         our_imports = imports[infile_name]
         if not our_imports.issubset(modules) and not args.force:
             die('Missing or out-of-order dependencies for ' + infile + ': ' + ', '.join(our_imports - modules))
-        outfile.writelines(plasm_output[infile_name + '.sa'])
+        combined_asm_file.writelines(plasm_output[infile_name + '.sa'])
         modules.add(os.path.basename(infile_name).upper())
     else:
         # TODO: We need to allow user-written assembler source to be specified
         # on the command line.
         die('Unknown file extension: ' + infile)
 
-cat(outfile, 'vmsrc/plvmbb-post.s')
+cat(combined_asm_file, 'vmsrc/plvmbb-post.s')
 
-outfile.close()
+combined_asm_file.close()
 
 if args.S:
     sys.exit(0)
 
+if not args.ssd:
+    executable_file = open(args.output[0], 'w')
+else:
+    executable_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    tempfiles.append(executable_file.name)
+    executable_file.close()
+
 # TODO: We need to allow our caller to specify options to pass through to ACME
-call_acme('$2000', args.output[0], args.report)
-if args.non_relocatable:
-    sys.exit(0)
-output_3000 = tempfile.NamedTemporaryFile(mode='w', delete=False)
-output_3000.close()
-tempfiles.append(output_3000.name)
-call_acme('$3000', output_3000.name, None)
-# TODO: Inline the add-relocations.py code? Or maybe make it a module so we can import it?
-relocation_args = ['python', 'add-relocations.py', args.output[0], output_3000.name]
-if args.verbose:
-    sys.stderr.write(' '.join(relocation_args) + '\n')
-relocation_result = subprocess.call(relocation_args)
-sys.exit(relocation_result)
+call_acme('$2000', executable_file.name, args.report)
+if not args.non_relocatable:
+    output_3000 = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    tempfiles.append(output_3000.name)
+    output_3000.close()
+    call_acme('$3000', output_3000.name, None)
+    # TODO: Inline the add-relocations.py code? Or maybe make it a module so we can import it?
+    relocation_args = ['python', 'add-relocations.py', executable_file.name, output_3000.name]
+    if args.verbose:
+        sys.stderr.write(' '.join(relocation_args) + '\n')
+    relocation_result = subprocess.call(relocation_args)
+    if relocation_result != 0:
+        die("Adding relocations failed")
+
+if args.ssd:
+    import makedfs
+    disc = makedfs.Disk()
+    disc.new()
+    catalogue = disc.catalogue()
+    catalogue.boot_option = 0 # TODO!
+    disc_files = []
+    with open(executable_file.name, 'rb') as executable:
+        data = executable.read()
+    executable_name = os.path.basename(infile_name).upper()
+    if '.' not in executable_name:
+        executable_name = '$.' + executable_name
+    disc_files.append(makedfs.File(executable_name, data, 0x2000, 0x2000, len(data)))
+    catalogue.write("PLASMA", disc_files) # TODO: Allow setting title
+    disc.file.seek(0, 0)
+    with open(args.output[0], 'wb') as ssd_file:
+        ssd_file.write(disc.file.read())
