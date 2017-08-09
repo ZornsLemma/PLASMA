@@ -623,6 +623,7 @@ _CEXSX	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 ;*
 ;* LOAD VALUE FROM ADDRESS TAG
 ;*
+; TODO: I think LB can benefit from the possible optimisations I have identified for SB
 LB 	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
@@ -689,6 +690,7 @@ LLW 	+INC_IP
 ;*
 ;* LOAD VALUE FROM ABSOLUTE ADDRESS
 ;*
+; TODO: LAB might benefit from same optimisations as SB/LB
 LAB 	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
@@ -736,6 +738,32 @@ SB	LDA	ESTKL,X
 ;	INX
 ;	JMP	NEXTOP
 	JMP	DROP
+!IF 1=2 { ; TODO: Alternate implementations - the first one assumes we have ZEROL is permanently set to 0
+	; TODO: The SB above is 18 bytes and 32 cycles up to and including LDY IPY
+	; TODO: SBTODO is 14 bytes and 27 cycles
+	; TODO: SBTODO2 is 15 bytes and 24 cycles
+SBTODO	STY	IPY
+	LDY	ESTKL,X
+	LDA	ESTKH,X
+	STA	ZEROH
+	LDA	ESTKL+1,X
+	STA	(ZEROL),Y
+	LDY	IPY
+	INX
+;	INX
+;	JMP	NEXTOP
+	JMP	DROP
+SBTODO2 LDA	ESTKL,X
+	STA	SBTODO2+n
+	LDA	ESTKH,X
+	STA	SBTODO2+m
+	LDA	ESTKL+1,X
+	STA	$0000
+	INX
+;	INX
+;	JMP	NEXTOP
+	JMP	DROP
+}
 SW	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
@@ -803,6 +831,7 @@ DLW 	+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS
 ;*
+; TODO: SB optimisation might benefit here too
 SAB 	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
@@ -837,6 +866,7 @@ SAW 	+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS WITHOUT POPPING STACK
 ;*
+; TODO: Possibility of SB-style optimisation
 DAB 	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
