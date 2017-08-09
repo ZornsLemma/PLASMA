@@ -722,6 +722,7 @@ LAW 	+INC_IP
 ;*
 ;* STORE VALUE TO ADDRESS
 ;*
+; TODO: Any potential to optimise this and maybe other ops if we set aside a pair of zp locations the low byte of which was always 0? We could then replace STA TMPH with STA thathighbyte and LDY ESTKL,X, couldn't we? We then wouldn't need to bother writing to TMPL. OTOH maybe self modifying code would be worth it here.
 SB	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
