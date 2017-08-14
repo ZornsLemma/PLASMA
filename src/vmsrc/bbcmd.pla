@@ -197,6 +197,7 @@ byte modadrstr[]  = "MODADDR"
 // avoid exporting this when it may not work and it's just wasting space in the
 // VM.
 // byte argstr[]     = "ARGS"
+// TODO: Apple II code now has AUTORUN, do we want that?
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
@@ -1706,6 +1707,8 @@ def loadmod(mod)
 	    deftbl   = xallocheap(defcnt * 5 + 1)
 	    deflast  = deftbl
 	    ^deflast = 0
+	else
+            return -69
         fin
 	//
 	// Add module to symbol table. This may grow the symbol table, so we
@@ -1951,6 +1954,9 @@ end
 def error_handler
   // The error number is available to the target at ^errnum but since
   // longjmp() naturally passes along a value we pass the error number.
+  // TODO: Should we not do this? 0 is a valid error number but it wont'
+  // be transmitted unmodified, so this perhaps invites error handler to
+  // write code which has a latent bug.
   longjmp(*errjb, ^errnum)
 end
 #ifndef STANDALONE

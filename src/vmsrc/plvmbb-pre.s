@@ -5,6 +5,11 @@
 ;*             SYSTEM ROUTINES AND LOCATIONS
 ;*
 ;**********************************************************
+;* TODO: We can probably default SELFMODIFY to 1
+;* TODO: I haven't got *all* self-modifying code covered by SELFMODIFY; I
+;* haven't ported one or two SELFMODIFY references across from the Apple II
+;* code. Probably just review code myself if/when a ROM build is supported.
+SELFMODIFY  =   0
 
 ;* If this is defined, code is included when lowering IFP/PP
 ;* to ensure they don't drop below the top of the heap. This
@@ -623,8 +628,18 @@ _CEXSX	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 ;*
 ;* LOAD VALUE FROM ADDRESS TAG
 ;*
-; TODO: I think LB can benefit from the possible optimisations I have identified for SB
-LB 	LDA	ESTKL,X
+!IF SELFMODIFY {
+LB	LDA	ESTKL,X
+	STA	LBLDA+1
+	LDA	ESTKH,X
+	STA	LBLDA+2
+LBLDA	LDA   $FFFF
+	STA	ESTKL,X
+    LDA	#$00
+	STA	ESTKH,X
+	JMP 	NEXTOP
+} ELSE {
+LB	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
 	STA	TMPH
@@ -634,12 +649,13 @@ LB 	LDA	ESTKL,X
 	STA	ESTKL,X
 	STY	ESTKH,X
 	LDY	IPY
-	JMP	NEXTOP
-LW 	LDA	ESTKL,X
+	JMP 	NEXTOP
+}
+LW	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
 	STA	TMPH
-       	STY	IPY
+	STY	IPY
 	LDY	#$00
 	LDA	(TMP),Y
 	STA	ESTKL,X
@@ -648,6 +664,7 @@ LW 	LDA	ESTKL,X
 	STA	ESTKH,X
 	LDY	IPY
 	JMP	NEXTOP
+; TODO: I think LB can benefit from the possible optimisations I have identified for SB
 ;*
 ;* LOAD ADDRESS OF LOCAL FRAME OFFSET
 ;*
@@ -691,7 +708,21 @@ LLW 	+INC_IP
 ;* LOAD VALUE FROM ABSOLUTE ADDRESS
 ;*
 ; TODO: LAB might benefit from same optimisations as SB/LB
-LAB 	+INC_IP
+!IF SELFMODIFY {
+LAB	+INC_IP
+	LDA	(IP),Y
+	STA	LABLDA+1
+	+INC_IP
+	LDA	(IP),Y
+	STA	LABLDA+2
+LABLDA	LDA	$FFFF
+	DEX
+	STA	ESTKL,X
+    LDA #$00
+	STA	ESTKH,X
+	JMP	NEXTOP
+} ELSE {
+LAB	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
@@ -705,7 +736,8 @@ LAB 	+INC_IP
 	STY	ESTKH,X
 	LDY	IPY
 	JMP	NEXTOP
-LAW 	+INC_IP
+}
+LAW	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
@@ -725,6 +757,18 @@ LAW 	+INC_IP
 ;* STORE VALUE TO ADDRESS
 ;*
 ; TODO: Any potential to optimise this and maybe other ops if we set aside a pair of zp locations the low byte of which was always 0? We could then replace STA TMPH with STA thathighbyte and LDY ESTKL,X, couldn't we? We then wouldn't need to bother writing to TMPL. OTOH maybe self modifying code would be worth it here.
+!IF SELFMODIFY {
+SB	LDA	ESTKL,X
+	STA	SBSTA+1
+	LDA	ESTKH,X
+	STA	SBSTA+2
+	LDA	ESTKL+1,X
+SBSTA	STA	$FFFF
+	INX
+;	INX
+;	JMP	NEXTOP
+	JMP	DROP
+} ELSE {
 SB	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
@@ -738,10 +782,12 @@ SB	LDA	ESTKL,X
 ;	INX
 ;	JMP	NEXTOP
 	JMP	DROP
-!IF 1=2 { ; TODO: Alternate implementations - the first one assumes we have ZEROL is permanently set to 0
-	; TODO: The SB above is 18 bytes and 32 cycles up to and including LDY IPY
-	; TODO: SBTODO is 14 bytes and 27 cycles
-	; TODO: SBTODO2 is 15 bytes and 24 cycles
+}
+!IF 1=2 { ; TODO: Alternate implementation - this assumes we have ZEROL permanently set to 0
+; TODO: This is slower than self-modifying code but faster than non-self-modifying code above
+; provided we can spare a byte for ZEROL (we can put it just below TMP and overload TMPL), also
+; it may be that this ZEROL-based idea can optimise word load/stores whereas self-modifying code
+; doesn't help then (i.e. it may have value even where self-modification is OK)
 SBTODO	STY	IPY
 	LDY	ESTKL,X
 	LDA	ESTKH,X
@@ -749,16 +795,6 @@ SBTODO	STY	IPY
 	LDA	ESTKL+1,X
 	STA	(ZEROL),Y
 	LDY	IPY
-	INX
-;	INX
-;	JMP	NEXTOP
-	JMP	DROP
-SBTODO2 LDA	ESTKL,X
-	STA	SBTODO2+n
-	LDA	ESTKH,X
-	STA	SBTODO2+m
-	LDA	ESTKL+1,X
-	STA	$0000
 	INX
 ;	INX
 ;	JMP	NEXTOP
@@ -831,8 +867,21 @@ DLW 	+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS
 ;*
+!IF SELFMODIFY {
+SAB	+INC_IP
+	LDA	(IP),Y
+	STA	SABSTA+1
+	+INC_IP
+	LDA	(IP),Y
+	STA	SABSTA+2
+	LDA	ESTKL,X
+SABSTA	STA	$FFFF
 ; TODO: SB optimisation might benefit here too
-SAB 	+INC_IP
+;	INX
+;	JMP	NEXTOP
+	JMP	DROP
+} ELSE {
+SAB	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
@@ -846,7 +895,8 @@ SAB 	+INC_IP
 ;	INX
 ;	JMP	NEXTOP
 	JMP	DROP
-SAW 	+INC_IP
+}
+SAW	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
@@ -867,7 +917,18 @@ SAW 	+INC_IP
 ;* STORE VALUE TO ABSOLUTE ADDRESS WITHOUT POPPING STACK
 ;*
 ; TODO: Possibility of SB-style optimisation
-DAB 	+INC_IP
+!IF SELFMODIFY {
+DAB	+INC_IP
+	LDA	(IP),Y
+	STA	DABSTA+1
+	+INC_IP
+	LDA	(IP),Y
+	STA	DABSTA+2
+	LDA	ESTKL,X
+DABSTA	STA	$FFFF
+	JMP	NEXTOP
+} ELSE {
+DAB	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
@@ -879,7 +940,8 @@ DAB 	+INC_IP
 	STA	(TMP),Y
 	LDY	IPY
 	JMP	NEXTOP
-DAW 	+INC_IP
+}
+DAW	+INC_IP
 	LDA	(IP),Y
 	STA	TMPL
 	+INC_IP
