@@ -77,9 +77,9 @@ const modinitkeep = $4000
 //
 // Predefined functions.
 //
-predef crout, cout, prstr, cin, rdstr
+predef crout, putc, prstr, cin, rdstr
 predef syscall, call
-predef markheap, allocheap, xallocheap, allocalignheap, releaseheap, availheap
+predef markheap, heapalloc, xallocheap, allocalignheap, releaseheap, availheap
 predef memset, memcpy
 predef uword_isgt, uword_isge, uword_islt, uword_isle
 predef loadmod, execmod, lookupstrmod
@@ -208,13 +208,13 @@ byte modestr[]    = "MODE"
 byte callallocastr[] = "CALLALLOCA"
 word exports[]	  = @callstr,   @call
 word		  = @sysstr,    @syscall
-word 		  = @putcstr,   @cout
+word 		  = @putcstr,   @putc
 word              = @putlnstr,  @crout
 word		  = @putsstr,   @prstr
 word		  = @getcstr,   @cin
 word		  = @getsstr,   @rdstr
 word		  = @hpmarkstr, @markheap
-word		  = @hpallocstr,@allocheap
+word		  = @hpallocstr,@heapalloc
 word		  = @xhpallocstr,@xallocheap
 word		  = @hpalignstr,@allocalignheap
 word		  = @hprelstr,  @releaseheap
@@ -1092,11 +1092,7 @@ asm crout
 
 	JMP	OSNEWL
 end
-#ifdef STANDALONE
 export asm putc
-end
-#endif
-asm cout
 	LDA	ESTKL,X
 	JMP	OSWRCH
 end
@@ -1190,8 +1186,8 @@ export def syscall(cmd, params)
     oserror(0, "syscall")
 end
 export def prbyte(v)
-    cout(hexchar[(v >> 4) & $0F])
-    return cout(hexchar[v & $0F])
+    putc(hexchar[(v >> 4) & $0F])
+    return putc(hexchar[v & $0F])
 end
 #ifndef STANDALONE
 def prword(v)
@@ -1219,7 +1215,7 @@ def jmpbufsz(jb)
 	size = esp_size + 2 * (estksz_elems - jb->esp_offset) + ifp_size + pp_size
 	stack_ptr = ^(jb + size)
 	size = size + stack_ptr_size + (255 - stack_ptr)
-	// cout('E'); prword(size) // TODO TEMP
+	// putc('E'); prword(size) // TODO TEMP
 	return size
 end
 
@@ -1250,8 +1246,8 @@ export def mode(n)
     // above INITFP.
     new_himemh = call(osbyte, osbyte_read_himem_for_mode, n, 0, 0).2
     if new_himemh == ^himemh or ^himemh > $80
-	cout(22)
-	cout(n)
+	putc(22)
+	putc(n)
 	return TRUE
     fin
 
@@ -1290,13 +1286,13 @@ export def mode(n)
     *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
     if gm_new_himem_higher
-	cout(22)
-	cout(gm_new_mode)
+	putc(22)
+	putc(gm_new_mode)
     fin
     memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
     if not gm_new_himem_higher
-	cout(22)
-	cout(gm_new_mode)
+	putc(22)
+	putc(gm_new_mode)
     fin
 #ifdef PLAS128
     *pp = gm_new_frame_start
@@ -1337,17 +1333,17 @@ def availheap
 end
 #endif
 def heapfull()
-    prstr("allocheap failed\n") // TODO TEMP
+    prstr("heapalloc failed\n") // TODO TEMP
     oserror(0, "Heap full")
 end
-// allocheap() generates an OS error if the allocation fails and is
+// heapalloc() generates an OS error if the allocation fails and is
 // no larger than allocheap_fail_threshold; failures otherwise return
 // 0. The idea here is that as well as allowing "always" and "never"
 // generating an OS error, a program may take more care to check big
 // allocations (e.g. loading a file containing user data) than it will
 // do with small allocations (where it might not be able to do much
 // except die even if it checks and notices that they failed).
-def allocheap(size)
+export def heapalloc(size)
     word addr
     addr = *heapptr
     *heapptr = *heapptr + size
@@ -1363,17 +1359,11 @@ def allocheap(size)
     fin
     return addr
 end
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory
-export def heapalloc(size)
-    return allocheap(size)
-end
-#endif
-// Like allocheap(), but *always* generates an error if the allocation
+// Like heapalloc(), but *always* generates an error if the allocation
 // fails, regardless of the size requested and the fail threshold.
 def xallocheap(size)
     word addr
-    addr = allocheap(size)
+    addr = heapalloc(size)
     if addr == 0
 	heapfull()
     fin
@@ -1494,10 +1484,10 @@ def addsym(sym, addr)
 	    prword(addr)
 	    SFTODO = sym
 	    while ^SFTODO & $80
-		cout(^SFTODO & $7f)
+		putc(^SFTODO & $7f)
 		SFTODO++
 	    loop
-	    cout(^SFTODO)
+	    putc(^SFTODO)
 	    crout()
     fin
     if symtblchunk == initialsymtbl
@@ -1568,7 +1558,7 @@ def lookupextern(esd, index)
             addr = lookupsym(sym)
 	    if !addr
                 perr = $81
-	        cout('?')
+	        putc('?')
 		prstr(@str)
 		crout
 	    fin
@@ -1642,7 +1632,7 @@ def loadmod(mod)
     deftbl = @filename
     if 0 // TODO
     while ^deftbl <> 13
-    	cout(^deftbl)
+    	putc(^deftbl)
 	deftbl++
     loop
     crout()
@@ -2111,7 +2101,7 @@ perr = 0
 if not ^cmdptr
     prstr(@verstr)
     prbyte(version.1)
-    cout('.')
+    putc('.')
     prbyte(version.0)
     crout
     // TODO: Temporarily moved this to prompt instead of only displaying it
