@@ -1148,6 +1148,21 @@ export asm puts
 +	LDX	ESP
 	RTS
 end
+#ifdef STANDALONE
+// These three functions all take one argument and return one value. They are meaningless
+// in a standalone build, but since they're mentioned in cmdsys.plh standalone builds fail
+// if they aren't present. We therefore have this dummy implementation which just returns
+// the argument to the caller.
+// TODO: This is a bit unsatisfactory.
+export asm modaddr
+end
+export asm modload
+end
+export asm modexec
+	RTS
+end
+#endif
+
 export def syscall(cmd, params)
     // Just a dummy implementation
     oserror(0, "syscall")
@@ -1478,12 +1493,6 @@ def modaddr(str)
     byte mod[17]
     stodci(str, @mod)
     return lookupmod(@mod)
-end
-#endif
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory - this makes no sense, but it's part of cmdsys so we need a symbol - can we make this fail at assembly time if called?
-export def modaddr(str)
-    return 0
 end
 #endif
 #ifndef STANDALONE
@@ -1837,12 +1846,6 @@ def modload(mod)
     return fixup
 end
 #endif
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build - we want to make it fail at assembly time if called
-export def modload(mod)
-    return 0
-end
-#endif
 #ifndef STANDALONE
 //
 // Command mode
@@ -1952,12 +1955,6 @@ def modexec(modfile)
 	fin
     fin
     return -perr
-end
-#endif
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory - and as a special case here, this function makes no sense in a standalone build
-export def modexec(modfile)
-    return 0
 end
 #endif
 #ifndef STANDALONE
