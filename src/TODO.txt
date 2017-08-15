@@ -120,3 +120,5 @@ Standalone version - 32cmd.a contains some crap which just isn't needed and coul
 - modechange()
 
 Standalone version - A "productionised" version would ideally do a topological sort on the dependencies of the modules being "linked" to make sure it links them in an acceptable order (this matters as the _INIT code must be executed in a suitable order). I think this is doable if we output a machine-readable comment in the compiler output in lieu of the equivalent "I am module X" and "I depend on module Y" binary data in a module.
+
+Include the git revision/label as a string at the end of the executable (after the relocation data, if any) - that way it wouldn't take any memory up at runtime but would be visible on disc

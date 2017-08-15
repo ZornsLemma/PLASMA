@@ -65,7 +65,7 @@ const initialsymtblsz = $50 // $150 // TODO $02f7
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
-// and be modifiable under program control (if so, execmod() should
+// and be modifiable under program control (if so, modexec() should
 // probably reset it to a default on successful or unsuccessful
 // execution). While we're developing, we just stick with this.
 const allocheap_fail_threshold = $FFFF
@@ -82,7 +82,7 @@ predef syscall, call
 predef heapmark, heapalloc, xheapalloc, heapallocalign, heaprelease, availheap
 predef memset, memcpy
 predef isugt, isuge, isult, isule
-predef loadmod, execmod, lookupstrmod
+predef modload, modexec, modaddr
 predef setjmp, longjmp
 predef prbyte
 predef oserror(n, msg)#0
@@ -148,9 +148,9 @@ export byte machid       = $C8
 //
 word cmdptr
 //
-// File handle used by loadmod (so we can close it if an error occurs)
+// File handle used by modload (so we can close it if an error occurs)
 //
-byte loadmod_handle
+byte modload_handle
 #endif
 //
 // Global variables for use by mode()
@@ -224,9 +224,9 @@ word              = @uisgtstr,  @isugt
 word              = @uisgestr,  @isuge
 word              = @uisltstr,  @isult
 word              = @uislestr,  @isule
-word              = @loadstr,   @loadmod
-word              = @execstr,   @execmod
-word              = @modadrstr, @lookupstrmod
+word              = @loadstr,   @modload
+word              = @execstr,   @modexec
+word              = @modadrstr, @modaddr
 word              = @machidstr, @machid
 // TODO: Commented out - see comment on argstr
 //word              = @argstr,    @cmdptr
@@ -1443,7 +1443,7 @@ def addsym(sym, addr)
 	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
-	    // end. This is important when we're called in loadmod(), as
+	    // end. This is important when we're called in modload(), as
 	    // otherwise the assumption about the growth of the symbol table
 	    // per addsym() call wouldn't be true. Because this is the common
 	    // case, we can get away with allocating only max_entry_size bytes
@@ -1474,7 +1474,7 @@ def lookupmod(mod)
     byte dci[17]
     return lookuptbl(modtosym(mod, @dci), symtbl)
 end
-def lookupstrmod(str)
+def modaddr(str)
     byte mod[17]
     stodci(str, @mod)
     return lookupmod(@mod)
@@ -1530,7 +1530,7 @@ def lookupdef(addr, deftbl)
     loop
     return 0
 end
-def loadmod(mod)
+def modload(mod)
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
 #ifdef PLAS128
@@ -1585,7 +1585,7 @@ def loadmod(mod)
     if handle == 0
 	oserror(0, "Not found")
     fin
-    loadmod_handle = handle
+    modload_handle = handle
     block.0 = handle
     block:1 = @header
     block:3 = high_order_address()
@@ -1595,7 +1595,7 @@ def loadmod(mod)
     rdlen = header_size - block:5
     call(osargs, osargs_read_ext, scratch, handle, 0)
     file_length:0 = scratch:0; file_length:2 = scratch:2
-    loadmod_handle = 0; call(osfind, osfind_close, 0, handle, 0)
+    modload_handle = 0; call(osfind, osfind_close, 0, handle, 0)
 
     if rdlen > 16
 	modsize = header:0
@@ -1620,7 +1620,7 @@ def loadmod(mod)
 	    //
             while ^moddep
                 if !lookupmod(moddep)
-                    if loadmod(moddep) < 0
+                    if modload(moddep) < 0
 	      	        return -perr
 		    fin
                 fin
@@ -1628,7 +1628,7 @@ def loadmod(mod)
 		// Just to be paranoid, let's check for the case where a module has
 		// loads of dependencies and they overflow the header. This won't
 		// catch everything, as it doesn't check the call to dcitocr()
-		// inside the above loadmod() hasn't overflowed, but it should be
+		// inside the above modload() hasn't overflowed, but it should be
 		// fairly reliable in practice.
 		if (moddep - @header) >= rdlen
 		    oserror(0, "Header too long")
@@ -1893,7 +1893,7 @@ def error_handler
   longjmp(*errjb, ^errnum)
 end
 #ifndef STANDALONE
-def execmod(modfile)
+def modexec(modfile)
     byte moddci[17]
     word saveheap
 #ifdef PLAS128
@@ -1915,7 +1915,7 @@ def execmod(modfile)
 	savesym   = lastsym
 	savesymtblchunk = symtblchunk
 	// saveflags = systemflags
-        loadmod_handle = 0
+        modload_handle = 0
         olderrjb = *errjb
 	// We allocate a jmp_buf on the heap; it will get trapped and
 	// leaked if the module being executed remains resident, but
@@ -1929,12 +1929,12 @@ def execmod(modfile)
 	if error == 0
 	    xheapalloc(jmpbufsz(jb))
 	    *errjb = jb
-	    action = loadmod(@moddci)
+	    action = modload(@moddci)
 	fin
 	*errjb = olderrjb
 	if error <> 0 or action < modkeep
-	    if loadmod_handle <> 0
-		call(osfind, osfind_close, 0, loadmod_handle, 0)
+	    if modload_handle <> 0
+		call(osfind, osfind_close, 0, modload_handle, 0)
 	    fin
 
 	    lastsym     = savesym
@@ -2067,7 +2067,7 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
-	        execmod(striptrail(cmdptr))
+	        modexec(striptrail(cmdptr))
 		break
 	    is '*'
 	    	call_oscli(cmdptr)
