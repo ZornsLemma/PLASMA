@@ -77,9 +77,9 @@ const modinitkeep = $4000
 //
 // Predefined functions.
 //
-predef crout, putc, prstr, cin, rdstr
+predef putln, putc, puts, getc, gets
 predef syscall, call
-predef markheap, heapalloc, xallocheap, allocalignheap, releaseheap, availheap
+predef heapmark, heapalloc, xheapalloc, heapallocalign, heaprelease, availheap
 predef memset, memcpy
 predef isugt, isuge, isult, isule
 predef loadmod, execmod, lookupstrmod
@@ -209,15 +209,15 @@ byte callallocastr[] = "CALLALLOCA"
 word exports[]	  = @callstr,   @call
 word		  = @sysstr,    @syscall
 word 		  = @putcstr,   @putc
-word              = @putlnstr,  @crout
-word		  = @putsstr,   @prstr
-word		  = @getcstr,   @cin
-word		  = @getsstr,   @rdstr
-word		  = @hpmarkstr, @markheap
+word              = @putlnstr,  @putln
+word		  = @putsstr,   @puts
+word		  = @getcstr,   @getc
+word		  = @getsstr,   @gets
+word		  = @hpmarkstr, @heapmark
 word		  = @hpallocstr,@heapalloc
-word		  = @xhpallocstr,@xallocheap
-word		  = @hpalignstr,@allocalignheap
-word		  = @hprelstr,  @releaseheap
+word		  = @xhpallocstr,@xheapalloc
+word		  = @hpalignstr,@heapallocalign
+word		  = @hprelstr,  @heaprelease
 word		  = @memsetstr, @memset
 word		  = @memcpystr, @memcpy
 word              = @uisgtstr,  @isugt
@@ -1065,12 +1065,7 @@ end
 //
 // CONSOLE I/O
 //
-// TODO: WRAP THIS 'export' FUNCTIONALITY IN A MACRO?
-#ifdef STANDALONE
 export asm putln
-end
-#endif
-asm crout
 	;* We must return a value; we just return junk.
 	DEX
 
@@ -1080,11 +1075,7 @@ export asm putc
 	LDA	ESTKL,X
 	JMP	OSWRCH
 end
-#ifdef STANDALONE
 export asm getc
-end
-#endif
-asm cin
 	DEX
 	JSR	OSRDCH
 	STA	ESTKL,X
@@ -1092,11 +1083,7 @@ asm cin
 	STA	ESTKH,X
 	RTS
 end
-#ifdef STANDALONE
 export asm gets
-end
-#endif
-asm rdstr
 	STX	ESP
 	LDA	ESTKL,X
 	JSR	OSWRCH
@@ -1142,12 +1129,8 @@ not_escape
 	LDX	ESP
 	RTS
 end
-// def prstr(str)
-#ifdef STANDALONE
+// def puts(str)
 export asm puts
-end
-#endif
-asm prstr
 	STX	ESP
 	LDA	ESTKL,X
 	STA	TMPL
@@ -1286,7 +1269,7 @@ export def mode(n)
 #endif
 // TODO TEMP!
     if call(osbyte, osbyte_read_himem, 0, 0, 0).2 <> ^himemh
-    	prstr("foo")
+    	puts("foo")
     	oserror(255,"foo")
     fin	
     return TRUE
@@ -1317,7 +1300,7 @@ def availheap
 end
 #endif
 def heapfull()
-    prstr("heapalloc failed\n") // TODO TEMP
+    puts("heapalloc failed\n") // TODO TEMP
     oserror(0, "Heap full")
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -1345,7 +1328,7 @@ export def heapalloc(size)
 end
 // Like heapalloc(), but *always* generates an error if the allocation
 // fails, regardless of the size requested and the fail threshold.
-def xallocheap(size)
+export def xheapalloc(size)
     word addr
     addr = heapalloc(size)
     if addr == 0
@@ -1353,13 +1336,7 @@ def xallocheap(size)
     fin
     return addr
 end
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory
-export def xheapalloc(size)
-    return xallocheap(size)
-end
-#endif
-def allocalignheap(size, pow2, freeaddr)
+export def heapallocalign(size, pow2, freeaddr)
     word align, addr
     if freeaddr
         *freeaddr = *heapptr
@@ -1373,31 +1350,13 @@ def allocalignheap(size, pow2, freeaddr)
     fin
     return addr
 end
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory
-export def heapallocalign(size, pow2, freeadr)
-    return allocalignheap(size, pow2, freeadr)
-end
-#endif
-def markheap
+export def heapmark
     return *heapptr
 end
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory
-export def heapmark
-    return markheap
-end
-#endif
-def releaseheap(newheap)
+export def heaprelease(newheap)
     *heapptr = newheap
     return @newheap - *heapptr
 end
-#ifdef STANDALONE
-// TODO: Highly unsatisfactory
-export def heaprelease(newheap)
-    return releaseheap(newheap)
-end
-#endif
 #ifdef PLAS128
 def allocxheap(size)
     word xaddr, start_bank, end_bank
@@ -1472,7 +1431,7 @@ def addsym(sym, addr)
 		SFTODO++
 	    loop
 	    putc(^SFTODO)
-	    crout()
+	    putln()
     fin
     if symtblchunk == initialsymtbl
 	symtbl_chunk_size = initialsymtblsz
@@ -1480,7 +1439,7 @@ def addsym(sym, addr)
 	symtbl_chunk_size = max_entry_size
     fin
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
-    	newsymtblchunk = xallocheap(max_entry_size)
+    	newsymtblchunk = xheapalloc(max_entry_size)
 	if symtblchunk + max_entry_size == newsymtblchunk
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
@@ -1490,7 +1449,7 @@ def addsym(sym, addr)
 	    // case, we can get away with allocating only max_entry_size bytes
 	    // every time without fragmentation wasting space.
 	    symtblchunk = lastsym
-	    releaseheap(symtblchunk + max_entry_size)
+	    heaprelease(symtblchunk + max_entry_size)
 	else
 	    symtblchunk = newsymtblchunk
 	    lastsym=>1 = symtblchunk
@@ -1543,8 +1502,8 @@ def lookupextern(esd, index)
 	    if !addr
                 perr = $81
 	        putc('?')
-		prstr(@str)
-		crout
+		puts(@str)
+		putln
 	    fin
             return addr
         fin
@@ -1619,7 +1578,7 @@ def loadmod(mod)
     	putc(^deftbl)
 	deftbl++
     loop
-    crout()
+    putln()
     fin
     filename[7] = 13
     handle = call(osfind, osfind_input, @filename, @filename >> 8, 0).0
@@ -1678,7 +1637,7 @@ def loadmod(mod)
 	    //
 	    // Init def table.
 	    //
-	    deftbl   = xallocheap(defcnt * 5 + 1)
+	    deftbl   = xheapalloc(defcnt * 5 + 1)
 	    deflast  = deftbl
 	    ^deflast = 0
 	else
@@ -1703,7 +1662,7 @@ def loadmod(mod)
 	    heapfull()
 	fin
 	rdlen = file_length:0
-	addr = xallocheap(rdlen)
+	addr = xheapalloc(rdlen)
 	//
 	// Load the file
 	//
@@ -1716,7 +1675,7 @@ def loadmod(mod)
 	// module down to avoid wasting space on the header and claim the
 	// required amount of space for the module's data and code.
 	//
-	releaseheap(addr)
+	heaprelease(addr)
 	//
 	// Alloc heap space for relocated module (data + bytecode).
 	//
@@ -1724,7 +1683,7 @@ def loadmod(mod)
 	modfix  = moddep  - (*heapptr + 2) // Adjust to skip header
 	modsize = modsize - modfix
 	rdlen   = rdlen   - modfix - 2
-	modaddr = xallocheap(modsize) // can't fail anyway
+	modaddr = xheapalloc(modsize) // can't fail anyway
 	memcpy(modaddr, moddep, rdlen)
 	//
 	// Apply all fixups and symbol import/export.
@@ -1761,7 +1720,7 @@ def loadmod(mod)
 	// is len(symbol_name) + 3 bytes, so we're always OK even if there
 	// are no RLD entries. TODO: Double check this reasoning!
 	//
-	releaseheap(modend)    
+	heaprelease(modend)    
         //
         // Run through the Re-Location Dictionary.
         //
@@ -1968,7 +1927,7 @@ def execmod(modfile)
 	jb = saveheap
 	error = setjmp(jb)
 	if error == 0
-	    xallocheap(jmpbufsz(jb))
+	    xheapalloc(jmpbufsz(jb))
 	    *errjb = jb
 	    action = loadmod(@moddci)
 	fin
@@ -2058,18 +2017,18 @@ loop
 //
 // Set up error handler
 //
-*errjb = markheap()
+*errjb = heapmark()
 if setjmp(*errjb) == 0
-  xallocheap(jmpbufsz(*errjb))
+  xheapalloc(jmpbufsz(*errjb))
   *errfp = @error_handler
 else
 #ifndef STANDALONE
-  crout
-  prstr(@errorstr)
+  putln
+  puts(@errorstr)
   prbyte(^errnum)
-  prstr(@colonstr)
-  prstr(errstr)
-  crout
+  puts(@colonstr)
+  puts(errstr)
+  putln
 #endif
 fin
 #ifndef STANDALONE
@@ -2083,20 +2042,20 @@ perr = 0
 // Print some startup info.
 //
 if not ^cmdptr
-    prstr(@verstr)
+    puts(@verstr)
     prbyte(version.1)
     putc('.')
     prbyte(version.0)
-    crout
+    putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
-    //prstr(@freestr)
+    //puts(@freestr)
     //prword(availheap)
 #ifdef PLAS128
-    //prstr(@xfreestr)
+    //puts(@xfreestr)
     //prword(xheapsize - 1 - xheap) // a bit approximate
 #endif
-    //crout
+    //putln
 fin
 //
 // Handle commands.
@@ -2114,26 +2073,26 @@ while 1
 	    	call_oscli(cmdptr)
 		break
 	    otherwise
-	        prstr(@huhstr)
+	        puts(@huhstr)
         wend
         if perr
-            prstr(@errorstr)
+            puts(@errorstr)
 	    prbyte(perr)
 	    perr = 0
         else
-            prstr(@okstr)
+            puts(@okstr)
         fin
-	crout()
+	putln()
     fin
-    prstr(@freestr)
+    puts(@freestr)
     prword(availheap)
 #ifdef PLAS128
-    prstr(@xfreestr)
+    puts(@xfreestr)
     prword(xheapsize - 1 - xheap) // a bit approximate
 #endif
-    crout
-    prstr(@prompt)
-    cmdptr = rdstr(':')
+    putln
+    puts(@prompt)
+    cmdptr = gets(':')
 loop
 #endif
 done
