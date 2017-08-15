@@ -120,6 +120,14 @@ for infile in args.inputs:
                 imports[infile_name].add(line.split(':')[1].strip())
             else:
                 line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
+                # These three functions are in cmdsys.plh so they are imported by just
+                # about every program, but they make no sense in a standalone build. We
+                # comment out the imports so any use of them will fail at assembly time.
+                # This seems better than wasting memory on a dummy implementation (albeit
+                # they can probably all just be a single assembly function which does
+                # nothing but RTS).
+                if '= _Y_MODADDR' in line or '= _Y_MODLOAD' in line or '= _Y_MODEXEC' in line:
+                    line = '; ' + line
             if line is not None:
                 o.append(line)
     else:
