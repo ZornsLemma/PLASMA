@@ -81,7 +81,7 @@ predef crout, putc, prstr, cin, rdstr
 predef syscall, call
 predef markheap, heapalloc, xallocheap, allocalignheap, releaseheap, availheap
 predef memset, memcpy
-predef uword_isgt, uword_isge, uword_islt, uword_isle
+predef isugt, isuge, isult, isule
 predef loadmod, execmod, lookupstrmod
 predef setjmp, longjmp
 predef prbyte
@@ -220,10 +220,10 @@ word		  = @hpalignstr,@allocalignheap
 word		  = @hprelstr,  @releaseheap
 word		  = @memsetstr, @memset
 word		  = @memcpystr, @memcpy
-word              = @uisgtstr,  @uword_isgt
-word              = @uisgestr,  @uword_isge
-word              = @uisltstr,  @uword_islt
-word              = @uislestr,  @uword_isle
+word              = @uisgtstr,  @isugt
+word              = @uisgestr,  @isuge
+word              = @uisltstr,  @isult
+word              = @uislestr,  @isule
 word              = @loadstr,   @loadmod
 word              = @execstr,   @execmod
 word              = @modadrstr, @lookupstrmod
@@ -398,11 +398,7 @@ end
 //
 // Unsigned word comparisons.
 //
-#ifdef STANDALONE
 export asm isuge
-end
-#endif
-asm uword_isge
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
 	LDA	ESTKH+1,X
@@ -415,11 +411,7 @@ asm uword_isge
 	INX
 	RTS
 end
-#ifdef STANDALONE
 export asm isule
-end
-#endif
-asm uword_isle
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
 	LDA	ESTKH,X
@@ -432,11 +424,7 @@ asm uword_isle
 	INX
 	RTS
 end
-#ifdef STANDALONE
 export asm isugt
-end
-#endif
-asm uword_isgt
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
 	LDA	ESTKH,X
@@ -448,11 +436,7 @@ asm uword_isgt
 	INX
 	RTS
 end
-#ifdef STANDALONE
 export asm isult
-end
-#endif
-asm uword_islt
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
 	LDA	ESTKH+1,X
@@ -1264,7 +1248,7 @@ export def mode(n)
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
-    if uword_islt(gm_new_frame_start - 512, *heapptr)
+    if isult(gm_new_frame_start - 512, *heapptr)
 	return FALSE
     fin
 
@@ -1274,7 +1258,7 @@ export def mode(n)
     // PP for PLAS128) accordingly. We need a temporary parameter frame
     // stack so we can call memcpy(); once we've switched to that we can't
     // access any local variables, so we copy everything into globals first.
-    gm_new_himem_higher = uword_isge(new_himem, himem)
+    gm_new_himem_higher = isuge(new_himem, himem)
 #ifdef PLAS128
     gm_new_ifp = *ifp + (new_himem - himem)
     gm_copy_from = *pp
@@ -1350,9 +1334,9 @@ export def heapalloc(size)
     // TODO: Perhaps a little bit pedantic, but it would be good here (and
     // possibly in other heap allocation functions) to detect *heapptr 
     // wrapping round at the top of memory.
-    if uword_isge(*heapptr, @addr)
+    if isuge(*heapptr, @addr)
 	*heapptr = addr
-	if uword_isle(size, allocheap_fail_threshold)
+	if isule(size, allocheap_fail_threshold)
 	    heapfull()
 	fin
 	return 0
@@ -1383,7 +1367,7 @@ def allocalignheap(size, pow2, freeaddr)
     align = (1 << pow2) - 1
     addr = (*heapptr | align) + 1
     *heapptr = addr + size
-    if uword_isge(*heapptr, @addr)
+    if isuge(*heapptr, @addr)
         // TODO: Does this need to reset *heapptr?
         return 0
     fin
@@ -1417,7 +1401,7 @@ end
 #ifdef PLAS128
 def allocxheap(size)
     word xaddr, start_bank, end_bank
-    if uword_isgt(size, 16*1024-xheap_bank_start)
+    if isugt(size, 16*1024-xheap_bank_start)
 	return 0
     fin
     repeat
@@ -1427,13 +1411,13 @@ def allocxheap(size)
 	end_bank = (xheap - 1) & $C000
 	if start_bank <> end_bank
 	    xheap = (xheap & $C000) | xheap_bank_start
-	    if uword_islt(xheap, xaddr) // if xheap has wrapped around
+	    if isult(xheap, xaddr) // if xheap has wrapped around
 		xheap = $FFFF
 		return 0
 	    fin
 	fin
     until start_bank == end_bank
-    if ^rambankcount < 4 and uword_isge(xheap, xheapsize)
+    if ^rambankcount < 4 and isuge(xheap, xheapsize)
 	return 0
     fin
     return xaddr
@@ -1793,7 +1777,7 @@ def loadmod(mod)
 #endif
             else
                 addr = rld=>1 + modfix
-                if uword_isge(addr, modaddr) // Skip fixups to header
+                if isuge(addr, modaddr) // Skip fixups to header
                     if ^rld & $80 // WORD sized fixup.
                         fixup = *addr
                     else	  // BYTE sized fixup.
@@ -1803,7 +1787,7 @@ def loadmod(mod)
                         fixup = fixup + lookupextern(esd, rld->3)
                     else	  // INTERN fixup.
                         fixup = fixup + modfix - MODADDR
-                        if uword_isge(fixup, bytecode)
+                        if isuge(fixup, bytecode)
                             //
                             // Bytecode address - replace with call def directory.
                             //
@@ -1840,7 +1824,7 @@ def loadmod(mod)
                 // EXPORT symbol - add it to the global symbol table.
 		//
                 addr = esd=>1 + modfix - MODADDR
-                if uword_isge(addr, bytecode)
+                if isuge(addr, bytecode)
 		    //
 		    // Use the def directory address for bytecode.
 		    //
@@ -1855,7 +1839,7 @@ def loadmod(mod)
 		// Assert that the last byte written in the symbol table
 		// (lastsym + 2) hasn't trampled over the next ESD entry
 		// (at esd + 3).
-		if uword_isge(lastsym + 2, esd + 3)
+		if isuge(lastsym + 2, esd + 3)
 		    oserror(0, "Symbol table clash")
 		fin
             fin
