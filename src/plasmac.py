@@ -1,3 +1,9 @@
+import argparse
+import collections
+import os
+import sys
+
+# TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
 # single .pla -> .mo/#FExxxx file
 # single .pla -> SSD with .mo plus any additional .mo required plus VM executable
 # multiple .pla -> executable
@@ -18,55 +24,103 @@ def compile_pla(source):
     # TODO: Invokes plasm with appropriate options, returning filename of plasm
     # output - the returned filename will have a .a or .sa extension depending
     # on whether we're doing standalone build or not
+    if 'LIB' not in source:
+        return source + '.a', ['LIB1', 'LIB2'], ''
+    else:
+        return source + '.a', [], ''
     assert False
 
-files = ['samplesrc/hanoi.pla']
+# TODO: Use the argument groups feature for nicer --help output
+# TODO: Way more arguments than this of course
+parser = argparse.ArgumentParser(description='TODO.')
+parser.add_argument('inputs', metavar='FILE', nargs='+', help='an input file')
+args = parser.parse_args()
+
+files = args.inputs
 standalone = False
 ssd = False
+bootable = False
 
 imports = [None] * len(files)
-exports = [None] * len(files)
-init_list = []
+init = [None] * len(files)
+module_names = [None] * len(files)
+dependencies = [None] * len(files)
 
 files_added = True
 while files_added:
     files_added = False
 
     for i in range(len(files)):
-        ok = False
         filename, extension = os.path.splitext(files[i])
+
+        module_name = os.path.basename(filename).upper()
+        if module_name in module_names:
+            die("Duplicate module name: " + module_name)
+        module_names[i] = module_name
+
         extension = extension.lower()
-        if extension == '.pla':
-            files[i] = compile_pla(files[i])
-            ok = True
+        if extension == '.pla': # PLASMA source file
+            print compile_pla(files[i])
+            files[i], imports[i], init[i] = compile_pla(files[i])
         # TODO: we should allow #FEnnnn as well as .mo
-        elif extension in ('.a', '.mo'):
+        elif extension == '.mo': # pre-compiled module
             if standalone:
                 die("Invalid input for standalone build: " + files[i])
-            ok = True
-        elif extension == '.sa':
-            if not standalone:
-                die("Invalid input for module build: " + files[i])
-            ok = True
-        if not ok:
+            imports[i] = get_module_imports(files[i])
+        else:
             die("Invalid input: " + files[i])
 
-        if standalone and imports[i] is None:
-            imports[i] = TODO
-            exports[i] = TODO
-            init_list.append(TODO) # TODO may not be anything to append
-
+        # If we're using modules (the standard case), we need to assemble the
+        # .a file produced by compile_pla() into a .mo.
         if extension == '.a':
             files[i] = assemble(files[i])
-            if ssd:
-                imports[i] = TODO
-                exports[i] = TODO
 
+    root_modules = []
+    dependency_tree = collections.defaultdict(list)
     for i in range(len(files)):
+        print i
         print files[i]
-        print imports[i]
-        print exports[i]
+        print 'X', imports[i], 'X'
+        print 'Y', init[i], 'Y'
         print
+        for imported_module in imports[i]:
+            dependency_tree[imported_module].append(module_names[i])
+    top_level_modules = [module for module in module_names if module not in dependency_tree.keys()]
+    print top_level_modules
+
+    if standalone and len(top_level_modules) == 0:
+        die("Standalone build requires a top-level module")
+    if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
+        if standalone:
+            s = "Standalone build"
+        else:
+            s = "Bootable SSD"
+        die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
+    if standalone and top_level_modules[0] does_not_have_an_init:
+        die("Top-level module " + top_level_modules[0] + " has no initialisation code")
+
+    if standalone or ssd:
+        modules_seen = ['CMDSYS'] # TODO WE ARE NEVER USING THIS
+        modules_todo = top_level_modules
+        while len(modules_todo) > 0:
+            modules_seen.append[modules_todo[0]]
+            imports = TODOIMPORTSFORmodules_todo[0]
+            modules_todo = modules_todo[1:]
+            for imported_module in imports:
+                if imported_module not in module_names: # TODO: CMDSYS NOT IN module_names BUT IT IS OK
+                    # TODO: Locate it from a library and trigger reprocessing
+                    die("Imported module " + imported_module + " missing")
+                modules_todo.append(imported_module)
+        if standalone and (anything is in module_names but not modules_todo):
+            warn("Ignoring unreferenced modules: TODOLIST")
+
+    # TODO: ROUGHLY SPEAKING WE WANT TO MAKE SURE WE USE THE MODULES IN REVERSE ORDER OF DEPENDENCY WHEN DOING A STANDALONE BUILD (THE TOP LEVEL MODULE LAST) - WE NEED TO BUILD THIS LIST UP IN THE LOOP ABOVE, WE ARE NOT DOING IT RIGHT YET
+
+
+
+    print 1/0
+        
+
 
     if standalone and not init_list:
         # TODO: Eventually this should fail if the "main" program - however we decide to indicate
