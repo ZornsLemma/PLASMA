@@ -54,6 +54,7 @@ while files_added:
 
         module_name = os.path.basename(filename).upper()
         if module_name in imports.keys():
+            # TODO: This check will fail if we're looping round a second time due to having added some files - frankly I suspect I need to factor out some of this logic into a function to make this clearer
             die("Duplicate module name: " + module_name)
 
         # Don't re-process modules we already handled on a previous pass round
