@@ -38,109 +38,130 @@ args = parser.parse_args()
 
 files = args.inputs
 standalone = False
-ssd = False
+ssd = True
 bootable = False
 
-imports = [None] * len(files)
-init = [None] * len(files)
-module_names = [None] * len(files)
-dependencies = [None] * len(files)
+imports = {}
+imported_by = {}
 
 files_added = True
 while files_added:
     files_added = False
+    init_lines = []
 
     for i in range(len(files)):
         filename, extension = os.path.splitext(files[i])
 
         module_name = os.path.basename(filename).upper()
-        if module_name in module_names:
+        if module_name in imports.keys():
             die("Duplicate module name: " + module_name)
-        module_names[i] = module_name
 
-        extension = extension.lower()
-        if extension == '.pla': # PLASMA source file
-            print compile_pla(files[i])
-            files[i], imports[i], init[i] = compile_pla(files[i])
-        # TODO: we should allow #FEnnnn as well as .mo
-        elif extension == '.mo': # pre-compiled module
-            if standalone:
-                die("Invalid input for standalone build: " + files[i])
-            imports[i] = get_module_imports(files[i])
-        else:
-            die("Invalid input: " + files[i])
+        # Don't re-process modules we already handled on a previous pass round
+        # this loop; this would be inefficient and also cause problems.
+        if module_name not in imports:
+            extension = extension.lower()
+            if extension == '.pla': # PLASMA source file
+                print compile_pla(files[i])
+                files[i], import_list, init_line = compile_pla(files[i])
+                init_lines.append(init_line)
+            # TODO: we should allow #FEnnnn as well as .mo
+            elif extension == '.mo': # pre-compiled module
+                if standalone:
+                    die("Invalid input for standalone build: " + files[i])
+                import_list = get_module_imports(files[i])
+            else:
+                die("Invalid input: " + files[i])
 
-        # If we're using modules (the standard case), we need to assemble the
-        # .a file produced by compile_pla() into a .mo.
-        if extension == '.a':
-            files[i] = assemble(files[i])
+            imports[module_name] = import_list
+            for module in import_list:
+                imported_by[module] = module_name
 
-    root_modules = []
-    dependency_tree = collections.defaultdict(list)
-    for i in range(len(files)):
-        print i
-        print files[i]
-        print 'X', imports[i], 'X'
-        print 'Y', init[i], 'Y'
-        print
-        for imported_module in imports[i]:
-            dependency_tree[imported_module].append(module_names[i])
-    top_level_modules = [module for module in module_names if module not in dependency_tree.keys()]
-    print top_level_modules
+            # If we're using modules (the standard case), we need to assemble the
+            # .a file produced by compile_pla() into a .mo.
+            if extension == '.a':
+                assert not standalone
+                files[i] = assemble(files[i])
 
-    if standalone and len(top_level_modules) == 0:
-        die("Standalone build requires a top-level module")
-    if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
-        if standalone:
-            s = "Standalone build"
-        else:
-            s = "Bootable SSD"
-        die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
-    if standalone and top_level_modules[0] does_not_have_an_init:
-        die("Top-level module " + top_level_modules[0] + " has no initialisation code")
+    # If we're building a standalone executable, we must have exactly one top-level module,
+    # i.e. a module which isn't imported by any other module, and we also need all the
+    # modules imported by that module, etc. This applies whether or not we're building an SSD.
+    #
+    # If we're building an SSD of modules, we can have multiple top-level modules
+    # (the user will decide what to run at the PLASMA prompt) but we need to have
+    # all the modules imported by those modules, etc. If the SSD is also bootable, we
+    # must have a single top-level module so we know what to boot. TODO: That restriction
+    # is perhaps excessive, we could default to the first top-level module or allow the
+    # user to specify it explicitly. One module could explicitly load other modules - 
+    # a relationship not present in the import information - and thus plays the role of
+    # the true top-level module, but we'd refuse to build such an SSD at present.
+    #
+    # If we're building modules without putting them on an SSD, we don't have to worry
+    # about dependencies as we have no idea what context the module will be used in.
 
     if standalone or ssd:
-        modules_seen = ['CMDSYS'] # TODO WE ARE NEVER USING THIS
-        modules_todo = top_level_modules
-        while len(modules_todo) > 0:
-            modules_seen.append[modules_todo[0]]
-            imports = TODOIMPORTSFORmodules_todo[0]
-            modules_todo = modules_todo[1:]
-            for imported_module in imports:
-                if imported_module not in module_names: # TODO: CMDSYS NOT IN module_names BUT IT IS OK
-                    # TODO: Locate it from a library and trigger reprocessing
-                    die("Imported module " + imported_module + " missing")
-                modules_todo.append(imported_module)
-        if standalone and (anything is in module_names but not modules_todo):
-            warn("Ignoring unreferenced modules: TODOLIST")
+        top_level_modules = [m for m in imports.keys() if m not in imported_by.keys()]
+        print 'TLM', top_level_modules
 
-    # TODO: ROUGHLY SPEAKING WE WANT TO MAKE SURE WE USE THE MODULES IN REVERSE ORDER OF DEPENDENCY WHEN DOING A STANDALONE BUILD (THE TOP LEVEL MODULE LAST) - WE NEED TO BUILD THIS LIST UP IN THE LOOP ABOVE, WE ARE NOT DOING IT RIGHT YET
+        if standalone and len(top_level_modules) == 0:
+            die("Standalone build requires a top-level module")
+        if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
+            if standalone:
+                s = "Standalone build"
+            else:
+                s = "Bootable module SSD"
+            die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
+        # TODO
+        #if standalone and top_level_modules[0] does_not_have_an_init:
+        #    die("Top-level module " + top_level_modules[0] + " has no initialisation code")
+
+
+        def recursive_imports(module, imports, seen):
+            print 'X923', module, seen
+            assert module not in seen
+            seen.add(module)
+            result = []
+            if module in imports: # if it's not, we'll notice later TODO CHECK
+                for imported_module in imports[module]:
+                    if imported_module not in seen:
+                        result.extend(recursive_imports(imported_module, imports, seen))
+            result.append(module)
+            return result
+        ordered_modules = []
+        seen = set()
+        for module in top_level_modules:
+            ordered_modules.extend(recursive_imports(module, imports, seen))
+        # ordered_modules contains the top-level modules and all of their imports,
+        # direct and indirect, ordered so that the lowest level modules come first -
+        # this is the order we want to invoke their initialisation code in a standalone
+        # executable. TODO MAKE SURE WE USE IT
+        print 'QQNEW', ordered_modules
+
+        ordered_modules_set = set(ordered_modules)
+        all_modules_set = set(imports.keys())
+        if 'CMDSYS' in ordered_modules_set:
+            all_modules_set.add('CMDSYS')
+        missing_modules = ordered_modules_set - all_modules_set
+        irrelevant_modules = all_modules_set - ordered_modules_set
+        if missing_modules:
+            # TODO: Optionally allow automatic location of these from library directories
+            if False:
+                missing_modules_copy = missing_modules.copy()
+                for module in missing_modules_copy:
+                    if we_found_it:
+                        missing_modules.remove(module)
+                        files.append('the/filename/of/version/found/in/library')
+                        files_added = True
+            if files_added:
+                continue
+            else:
+                die("Missing dependencies: " + ', '.join(missing_modules))
+        if irrelevant_modules:
+            # TODO: I think this can be tweaked. In a SSD module build we can just include them and give a warning here instead of dying. In a standalone executable build, we should probably warn but include the code anyway (perhaps there's some asm code which defines a label which is called from another module or something) - we probably need to shove them into ordered_modules, but those modules might include other modules so we need to reconsider the dependencies, it's late and I need to go to bed and I can't think about the precise handling of this now
+            die("Some modules are not reachable from any top-level module: " + ', '.join(irrelevant_modules))
 
 
 
     print 1/0
         
-
-
-    if standalone and not init_list:
-        # TODO: Eventually this should fail if the "main" program - however we decide to indicate
-        # that - has no INIT, even if other modules do.
-        die("No initialisation code to call!")
-
-    if standalone or ssd:
-        # TODO: Ability to locate missing dependencies via some kind of library path;
-        # for module compilation we can probably expect these to be modules (but might
-        # be nice if we didn't require it), for standalone compilation we would need
-        # .pla file and so we would need to invoke compile_pla() on files once located.
-        # TODO: We need to check for suitable ordering (or reorder ourselves?) in standalone case
-        all_exports = set(val for sublist in exports for val in sublist)
-        all_imports = set(val for sublist in imports for val in sublist)
-        if not all_imports.issubset(all_exports):
-            if False: # TODO: if we can and have augmented files[] from "library"
-                files_added = True
-            else:
-                die("Unsatisfied import(s)") # TODO: show more detail!
-
-# We have a consistent and complete set of files for the task at hand.
 
 # TODO: MORE - WE'RE DONE IF WE'RE NOT GENERATING STANDALONE OR SSD, STANDALONE NEEDS ALL THE STUFF IN PC.PY, SSD MAY BE STANDALONE OR NOT REMEMBER BUT IT'S A QUESTION OF PUTTING THE STANDALONE EXECUTABLE OR ALL THE .MO FILES FOR NON-STANDALONE ONTO SSD
