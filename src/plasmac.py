@@ -7,6 +7,7 @@
 import argparse
 import collections
 import os
+import subprocess
 import sys
 
 # TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
@@ -28,15 +29,51 @@ def die(s):
     sys.exit(1)
 
 
-def compile_pla(source):
-    # TODO: Invokes plasm with appropriate options, returning filename of plasm
-    # output - the returned filename will have a .a or .sa extension depending
-    # on whether we're doing standalone build or not
-    if 'LIB' not in source:
-        return source + '.a', ['LIB1', 'LIB2'], ''
+# TODO: Not good that this uses 'imports' as a local variable when we have a global called that, it's confusing
+def compile_pla(full_filename):
+    filename, extension = os.path.splitext(full_filename)
+    prefix = '_' + os.path.basename(filename).upper() + '_'
+    plasm_args = ['./plasm', '-A'] # TODO: Allow user to add to this
+    if not standalone:
+        plasm_args.append('-M')
+    imports = []
+    init_line = None
+    plasm = subprocess.Popen(plasm_args, stdin=open(full_filename, 'r'), stdout=subprocess.PIPE)
+    if standalone:
+        output_name = filename + '.sa'
     else:
-        return source + '.a', [], ''
-    assert False
+        output_name = filename + '.a'
+    with open(output_name, 'w') as output:
+        for line in plasm.stdout:
+            if standalone:
+                # TODO: We could strip the leading JMP _INIT off the plasm output - it's redundant
+                if line.startswith('_INIT'):
+                    # TODO: This is a bit hacky
+                    next_line = plasm.stdout.next()
+                    if 'JSR' in next_line and 'INTERP' in next_line:
+                        line = '_INIT' + prefix
+                        init_line = line
+                        output.write(line + '\n')
+                        line = next_line
+                    else:
+                        line = None
+                elif line.startswith('\t; IMPORT: '):
+                    imports.add(line.split(':')[1].strip())
+                else:
+                    line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
+                    # These three functions are in cmdsys.plh so they are imported by just
+                    # about every program, but they make no sense in a standalone build. We
+                    # comment out the imports so any use of them will fail at assembly time.
+                    # This seems better than wasting memory on a dummy implementation (albeit
+                    # they can probably all just be a single assembly function which does
+                    # nothing but RTS).
+                    if '= _Y_MODADDR' in line or '= _Y_MODLOAD' in line or '= _Y_MODEXEC' in line:
+                        line = '; ' + line
+            if line is not None:
+                output.write(line)
+
+    # imports will be empty for module builds; we determine them later on.
+    return output_name, imports, init_line
 
 
 def assemble(full_filename):
@@ -75,6 +112,7 @@ def add_file(full_filename):
     if extension == '.a':
         assert not standalone
         full_filename = assemble(full_filename)
+        import_list = get_module_imports(full_filename)
 
     module_filename[module_name] = full_filename
 
