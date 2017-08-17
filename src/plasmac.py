@@ -79,7 +79,46 @@ def compile_pla(full_filename):
 def assemble(full_filename):
     filename, extension = os.path.splitext(full_filename)
     # TODO!
-    return filename + '.a'
+    return filename + '.mo'
+
+
+def get_module_imports(full_filename):
+    with open(full_filename, 'rb') as f:
+        # We only read 128 bytes as that's all the PLASMA VM does; it probably
+        # wouldn't hurt to read the whole file but this might improve
+        # performance slightly.
+        # TODO: We could also perhaps validate the entire module header fits
+        # within 128 bytes and die if not; this is not directly related to this
+        # script's function, but it would make the problem visible before
+        # mysterious load-time errors occur on the 8-bit machine.
+        data_tmp = f.read(128)
+        data = []
+        for d in data_tmp:
+            data.append(ord(d))
+
+    def byterel(i):
+        return data[i]
+    def wordrel(i):
+        return data[i] + (data[i+1]<<8)
+    def dcistrrel(i):
+        s = ""
+        length = 0
+        while byterel(i) & 0x80:
+            s += chr(byterel(i) & ~0x80)
+            i += 1
+        s += chr(byterel(i))
+        return s
+
+    if wordrel(2) != 0xda7e+1:
+        die("Unrecognised module format: " + full_filename)
+
+    import_list = []
+    moddep = 12
+    while byterel(moddep):
+        s = dcistrrel(moddep)
+        moddep += len(s)
+        import_list.append(s)
+    return import_list
 
 
 def add_file(full_filename):
@@ -103,10 +142,6 @@ def add_file(full_filename):
     else:
         die("Invalid input: " + full_filename)
 
-    imports[module_name] = import_list
-    for module in import_list:
-        imported_by[module] = module_name
-
     # If we're using modules (the standard case), we need to assemble the
     # .a file produced by compile_pla() into a .mo.
     if extension == '.a':
@@ -115,6 +150,11 @@ def add_file(full_filename):
         import_list = get_module_imports(full_filename)
 
     module_filename[module_name] = full_filename
+    imports[module_name] = import_list
+    print "IMPORTS", module_name, import_list
+    for module in import_list:
+        imported_by[module] = module_name
+
 
 
 def check_dependencies():

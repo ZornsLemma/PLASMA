@@ -1597,7 +1597,8 @@ def modload(mod)
 	defofst = modsize
         init    = 0
 	// TODO: Once finished reworking this, should test with a file which doesn't
-	// have $DA7F special stuff, if I can find or create one.
+	// have $DA7F special stuff, if I can find or create one. (Just hack the
+	// $DA7F in a hex editor to change it to $0000 or something.)
 	// TODO: The rdlen > 4 test is probably redundant, let's wait until this
 	// code has settled down before removing it.
         if rdlen > 4 and header:2 == $DA7F // DAVE+1 = magic number :-)
