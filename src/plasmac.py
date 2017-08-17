@@ -4,6 +4,9 @@
 # whatever on Unix) and execute them directly rather than via 'python foo.py'
 # for portability.
 
+# TODO: This should have a verbose output mode which shows commands it's
+# executing, deductions it is making about module dependencies etc
+
 import argparse
 import collections
 import os
