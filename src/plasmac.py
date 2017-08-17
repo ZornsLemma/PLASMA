@@ -1,3 +1,9 @@
+# TODO: I *think* Python on Windows is installed by default so .py files are
+# executed by python but python itself is not on the path. So (not just in this
+# file) we should probably make our .py files executable (using /usr/bin/env or
+# whatever on Unix) and execute them directly rather than via 'python foo.py'
+# for portability.
+
 import argparse
 import collections
 import os
@@ -16,9 +22,11 @@ import sys
 # when generating a file with an extension which is "the ultimate target" for the build (e.g.
 # .ssd for SSD builds, .mo for non-SSD module builds, .a/.sa for -S builds, etc)
 
+
 def die(s):
     sys.stderr.write(s + '\n')
     sys.exit(1)
+
 
 def compile_pla(source):
     # TODO: Invokes plasm with appropriate options, returning filename of plasm
@@ -30,58 +38,50 @@ def compile_pla(source):
         return source + '.a', [], ''
     assert False
 
-# TODO: Use the argument groups feature for nicer --help output
-# TODO: Way more arguments than this of course
-parser = argparse.ArgumentParser(description='TODO.')
-parser.add_argument('inputs', metavar='FILE', nargs='+', help='an input file')
-args = parser.parse_args()
 
-files = args.inputs
-standalone = False
-ssd = True
-bootable = False
+def assemble(full_filename):
+    filename, extension = os.path.splitext(full_filename)
+    # TODO!
+    return filename + '.a'
 
-imports = {}
-imported_by = {}
 
-files_added = True
-while files_added:
-    files_added = False
-    init_lines = []
+def add_file(full_filename):
+    filename, extension = os.path.splitext(full_filename)
+    module_name = os.path.basename(filename).upper()
+    if module_name in imports.keys():
+        die("Duplicate module name: " + module_name)
 
-    for i in range(len(files)):
-        filename, extension = os.path.splitext(files[i])
+    extension = extension.lower()
+    if extension == '.pla': # PLASMA source file
+        print compile_pla(full_filename)
+        full_filename, import_list, init_line = compile_pla(full_filename)
+        filename, extension = os.path.splitext(full_filename)
+        extension = extension.lower()
+        module_init_line[module_name] = init_line
+    # TODO: we should allow #FEnnnn as well as .mo
+    elif extension == '.mo': # pre-compiled module
+        if standalone:
+            die("Standalone build cannot use pre-compiled modules: " + full_filename)
+        import_list = get_module_imports(full_filename)
+    else:
+        die("Invalid input: " + full_filename)
 
-        module_name = os.path.basename(filename).upper()
-        if module_name in imports.keys():
-            # TODO: This check will fail if we're looping round a second time due to having added some files - frankly I suspect I need to factor out some of this logic into a function to make this clearer
-            die("Duplicate module name: " + module_name)
+    imports[module_name] = import_list
+    for module in import_list:
+        imported_by[module] = module_name
 
-        # Don't re-process modules we already handled on a previous pass round
-        # this loop; this would be inefficient and also cause problems.
-        if module_name not in imports:
-            extension = extension.lower()
-            if extension == '.pla': # PLASMA source file
-                print compile_pla(files[i])
-                files[i], import_list, init_line = compile_pla(files[i])
-                init_lines.append(init_line)
-            # TODO: we should allow #FEnnnn as well as .mo
-            elif extension == '.mo': # pre-compiled module
-                if standalone:
-                    die("Invalid input for standalone build: " + files[i])
-                import_list = get_module_imports(files[i])
-            else:
-                die("Invalid input: " + files[i])
+    # If we're using modules (the standard case), we need to assemble the
+    # .a file produced by compile_pla() into a .mo.
+    if extension == '.a':
+        assert not standalone
+        full_filename = assemble(full_filename)
 
-            imports[module_name] = import_list
-            for module in import_list:
-                imported_by[module] = module_name
+    module_filename[module_name] = full_filename
 
-            # If we're using modules (the standard case), we need to assemble the
-            # .a file produced by compile_pla() into a .mo.
-            if extension == '.a':
-                assert not standalone
-                files[i] = assemble(files[i])
+
+def check_dependencies():
+    top_level_modules = [m for m in imports.keys() if m not in imported_by.keys()]
+    print 'TLM', top_level_modules
 
     # If we're building a standalone executable, we must have exactly one top-level module,
     # i.e. a module which isn't imported by any other module, and we also need all the
@@ -93,40 +93,39 @@ while files_added:
     # must have a single top-level module so we know what to boot. TODO: That restriction
     # is perhaps excessive, we could default to the first top-level module or allow the
     # user to specify it explicitly. One module could explicitly load other modules - 
-    # a relationship not present in the import information - and thus plays the role of
+    # a relationship not present in the import information - and thus play the role of
     # the true top-level module, but we'd refuse to build such an SSD at present.
     #
     # If we're building modules without putting them on an SSD, we don't have to worry
     # about dependencies as we have no idea what context the module will be used in.
 
-    if standalone or ssd:
-        top_level_modules = [m for m in imports.keys() if m not in imported_by.keys()]
-        print 'TLM', top_level_modules
+    if standalone and len(top_level_modules) == 0:
+        die("Standalone build requires a top-level module")
+    if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
+        if standalone:
+            s = "Standalone build"
+        else:
+            s = "Bootable module SSD"
+        die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
+    if standalone and not init_lines[top_level_modules[0]]:
+        die("Top-level module " + top_level_modules[0] + " has no initialisation code")
 
-        if standalone and len(top_level_modules) == 0:
-            die("Standalone build requires a top-level module")
-        if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
-            if standalone:
-                s = "Standalone build"
-            else:
-                s = "Bootable module SSD"
-            die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
-        # TODO
-        #if standalone and top_level_modules[0] does_not_have_an_init:
-        #    die("Top-level module " + top_level_modules[0] + " has no initialisation code")
+    def recursive_imports(module, imports, seen):
+        print 'X923', module, seen
+        assert module not in seen
+        seen.add(module)
+        result = []
+        if module in imports: # if it's not, we'll notice later TODO CHECK
+            for imported_module in imports[module]:
+                if imported_module not in seen:
+                    result.extend(recursive_imports(imported_module, imports, seen))
+        result.append(module)
+        return result
 
+    files_added = True
+    while files_added:
+        files_added = False
 
-        def recursive_imports(module, imports, seen):
-            print 'X923', module, seen
-            assert module not in seen
-            seen.add(module)
-            result = []
-            if module in imports: # if it's not, we'll notice later TODO CHECK
-                for imported_module in imports[module]:
-                    if imported_module not in seen:
-                        result.extend(recursive_imports(imported_module, imports, seen))
-            result.append(module)
-            return result
         ordered_modules = []
         seen = set()
         for module in top_level_modules:
@@ -143,6 +142,10 @@ while files_added:
             all_modules_set.add('CMDSYS')
         missing_modules = ordered_modules_set - all_modules_set
         irrelevant_modules = all_modules_set - ordered_modules_set
+        # We can't have any "irrelevant" modules; any such module would be a
+        # top-level module and therefore will be in ordered_modules_set.
+        assert not irrelevant_modules
+
         if missing_modules:
             # TODO: Optionally allow automatic location of these from library directories
             if False:
@@ -150,19 +153,42 @@ while files_added:
                 for module in missing_modules_copy:
                     if we_found_it:
                         missing_modules.remove(module)
-                        files.append('the/filename/of/version/found/in/library')
+                        add_file('the/filename/of/version/found/in/library')
                         files_added = True
-            if files_added:
-                continue
-            else:
-                die("Missing dependencies: " + ', '.join(missing_modules))
-        if irrelevant_modules:
-            # TODO: I think this can be tweaked. In a SSD module build we can just include them and give a warning here instead of dying. In a standalone executable build, we should probably warn but include the code anyway (perhaps there's some asm code which defines a label which is called from another module or something) - we probably need to shove them into ordered_modules, but those modules might include other modules so we need to reconsider the dependencies, it's late and I need to go to bed and I can't think about the precise handling of this now
-            die("Some modules are not reachable from any top-level module: " + ', '.join(irrelevant_modules))
+                if files_added:
+                    continue
+            die("Missing dependencies: " + ', '.join(missing_modules))
 
 
 
-    print 1/0
+# TODO: Use the argument groups feature for nicer --help output
+# TODO: Way more arguments than this of course
+parser = argparse.ArgumentParser(description='TODO.')
+parser.add_argument('inputs', metavar='FILE', nargs='+', help='an input file')
+args = parser.parse_args()
+
+standalone = False
+ssd = True
+bootable = False
+
+imports = {}
+imported_by = {}
+module_init_line = {}
+module_filename = {}
+
+for filename in args.inputs:
+    add_file(filename)
+
+# SSDs of modules and standalone executables (whether put on an SSD or not)
+# trigger dependency checking, as we need (especially for the standalone
+# executable case) a complete set of modules to be available.
+if ssd or standalone:
+    check_dependencies()
+
+print 'module_init_line:', module_init_line
+print 'module_filename:', module_filename
+
+print 1/0
         
 
 # TODO: MORE - WE'RE DONE IF WE'RE NOT GENERATING STANDALONE OR SSD, STANDALONE NEEDS ALL THE STUFF IN PC.PY, SSD MAY BE STANDALONE OR NOT REMEMBER BUT IT'S A QUESTION OF PUTTING THE STANDALONE EXECUTABLE OR ALL THE .MO FILES FOR NON-STANDALONE ONTO SSD
