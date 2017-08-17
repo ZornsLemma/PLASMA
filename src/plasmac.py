@@ -7,6 +7,19 @@
 # TODO: This should have a verbose output mode which shows commands it's
 # executing, deductions it is making about module dependencies etc
 
+# TODO: In order to allow use of this in separate directories, we will probably
+# need to do something about include (both PLASMA and ACME in embedded
+# assembler, for e.g. the plvmzp.inc or whatever file) files - I suspect we
+# would need to recognise these in the source, attempt to locate them using our
+# own -I-specified include paths a la gcc and rewrite them in the source to use
+# absolute paths so PLASMA/ACME can find them. We might also need some care to
+# interpret relative paths carefully, if we are compiling a .pla file from a
+# library it may not be obvious where relative paths should be interpreted from
+# (the "standard" PLASMA source is in samplesrc or lib directories, but it is
+# designed to be compiled from the parent directory of those, not those
+# directories itself - but maybe this is a non-issue if we fix up includes,
+# probably have to suck it and see)
+
 import argparse
 import collections
 import os
