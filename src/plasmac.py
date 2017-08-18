@@ -21,10 +21,12 @@
 # probably have to suck it and see)
 
 import argparse
+import atexit
 import collections
 import os
 import subprocess
 import sys
+import tempfile
 
 # TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
 # single .pla -> .mo/#FExxxx file
@@ -47,6 +49,36 @@ def die(s):
     sys.stderr.write(s + '\n')
     sys.exit(1)
 
+def verbose(level, s):
+    if args.verbose >= level:
+        sys.stderr.write(s + '\n')
+
+def verbose_subprocess(args):
+    # TODO: This won't emit properly escaped shell commands; it's probably good
+    # enough though - especially since this script is intended to be portable
+    # and the escaping conventions are OS-dependent.
+    verbose(1, ' '.join(args))
+
+
+tempfiles = []
+def remove_tempfiles():
+    for f in tempfiles:
+        verbose(1, 'Removing file ' + f)
+        os.remove(f)
+
+
+# TODO: Use this everywhere appropriate
+def get_output_name(filename, extension):
+    if args.save_temps or extension == target_extension:
+        return filename + extension
+    else:
+        f = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
+        f.close()
+        print 'XXXQ', f.name
+        tempfiles.append(f.name)
+        return f.name
+
+
 
 # TODO: Not good that this uses 'imports' as a local variable when we have a global called that, it's confusing
 def compile_pla(full_filename):
@@ -63,11 +95,10 @@ def compile_pla(full_filename):
         plasma_args.append('-W')
     imports = []
     init_line = None
+    output_extension = '.sa' if standalone else '.a'
+    output_name = get_output_name(filename, output_extension)
+    verbose_subprocess(plasm_args + ['< ' + full_filename, ('| standalone-filter' if standalone else '') + '> ' + output_name])
     plasm = subprocess.Popen(plasm_args, stdin=open(full_filename, 'r'), stdout=subprocess.PIPE)
-    if standalone:
-        output_name = filename + '.sa'
-    else:
-        output_name = filename + '.a'
     with open(output_name, 'w') as output:
         for line in plasm.stdout:
             if standalone:
@@ -101,9 +132,7 @@ def compile_pla(full_filename):
     return output_name, imports, init_line
 
 
-def assemble(full_filename):
-    filename, extension = os.path.splitext(full_filename)
-    output_name = filename + '.mo'
+def assemble(asm_filename, output_filename):
     # TODO: We need to allow various args to be passed to acme
     # TODO!
     acme_args = ['acme']
@@ -112,11 +141,12 @@ def assemble(full_filename):
         acme_args.extend(['--setpc', address, '-DSTART=' + address])
     else:
         acme_args.extend(['--setpc', '4094'])
-    acme_args += ['-o', output_name, full_filename]
+    acme_args += ['-o', output_filename, asm_filename]
+    verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args)
     if acme_result != 0:
         sys.exit(acme_result)
-    return output_name
+    return output_filename
 
 
 def get_module_imports(full_filename):
@@ -167,11 +197,17 @@ def add_file(full_filename):
 
     extension = extension.lower()
     if extension == '.pla': # PLASMA source file
-        print compile_pla(full_filename)
-        full_filename, import_list, init_line = compile_pla(full_filename)
+        asm_filename, import_list, init_line = compile_pla(full_filename)
         filename, extension = os.path.splitext(full_filename)
         extension = extension.lower()
         module_init_line[module_name] = init_line
+        if standalone:
+            full_filename = asm_filename
+        else:
+            mo_filename = get_output_name(filename, '.mo')
+            full_filename = assemble(asm_filename, mo_filename)
+            import_list = get_module_imports(full_filename)
+        
     # TODO: we should allow #FEnnnn as well as .mo
     elif extension == '.mo': # pre-compiled module
         if standalone:
@@ -179,13 +215,6 @@ def add_file(full_filename):
         import_list = get_module_imports(full_filename)
     else:
         die("Invalid input: " + full_filename)
-
-    # If we're using modules (the standard case), we need to assemble the
-    # .a file produced by compile_pla() into a .mo.
-    if extension == '.a':
-        assert not standalone
-        full_filename = assemble(full_filename)
-        import_list = get_module_imports(full_filename)
 
     module_filename[module_name] = full_filename
     imports[module_name] = import_list
@@ -359,6 +388,17 @@ if args.ssd_name or args.bootable:
 del args.acme
 del args.module
 
+atexit.register(remove_tempfiles)
+
+if args.ssd:
+    target_extension = '.ssd'
+elif args.standalone:
+    target_extension = '' # TODO: Not sure if this will work
+else:
+    target_extension = '.mo'
+verbose(2, 'Target extension: ' + target_extension)
+
+# TODO: Get rid of these variables now we have args.foo
 standalone = False
 ssd = True
 
