@@ -40,6 +40,9 @@ import sys
 # .ssd for SSD builds, .mo for non-SSD module builds, .a/.sa for -S builds, etc)
 
 
+def warn(s):
+    sys.stderr.write(s + '\n')
+
 def die(s):
     sys.stderr.write(s + '\n')
     sys.exit(1)
@@ -52,6 +55,12 @@ def compile_pla(full_filename):
     plasm_args = ['./plasm', '-A'] # TODO: Allow user to add to this
     if not standalone:
         plasm_args.append('-M')
+    if args.optimise:
+        plasma_args.append('-O')
+    if args.no_combine:
+        plasma_args.append('-N')
+    if args.warn:
+        plasma_args.append('-W')
     imports = []
     init_line = None
     plasm = subprocess.Popen(plasm_args, stdin=open(full_filename, 'r'), stdout=subprocess.PIPE)
@@ -293,13 +302,44 @@ def check_dependencies():
 
 # TODO: Use the argument groups feature for nicer --help output
 # TODO: Way more arguments than this of course
-parser = argparse.ArgumentParser(description='TODO.')
-parser.add_argument('inputs', metavar='FILE', nargs='+', help='an input file')
-compiler_group = parser.add_argument_group('Compiler', 'Options passed through to the PLASMA compiler (plasm)')
-compiler_group.add_argument('-O', '--optimise', action='store_true', help='Enable optimiser')
-compiler_group.add_argument('-N', '--no-combine', action='store_true', help='Prevent optimiser combining adjacent opcode sequences')
-compiler_group.add_argument('-W', '--warn', action='store_true', help='Enable warnings')
+parser = argparse.ArgumentParser(description='PLASMA build tool; transforms PLASMA source code (foo.pla) into PLASMA modules (foo.mo) or standalone executables. The output can optionally be written to an Acorn DFS disc image (foo.ssd).')
+parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla or .mo)")
+# TODO: Have a "this tool arguments" group???
+parser.add_argument('-v', '--verbose', action='count', help='show what this tool is doing')
+parser.add_argument('-S', '--compile-only', action='store_true', help="stop after compiling; don't assemble compiler output")
+
+compiler_group = parser.add_argument_group('compiler arguments', 'Options passed through to the PLASMA compiler (plasm)')
+compiler_group.add_argument('-O', '--optimise', action='store_true', help='enable optimiser')
+compiler_group.add_argument('-N', '--no-combine', action='store_true', help='prevent optimiser combining adjacent opcode sequences')
+compiler_group.add_argument('-W', '--warn', action='store_true', help='enable warnings')
+
+standalone_group = parser.add_argument_group('standalone generator arguments', 'Options controlling generation of a standalone executable (instead of PLASMA modules)')
+# The -M argument is really redundant but we allow it for "compatibility" with invoking plasm directly
+standalone_group.add_argument('-M', '--module', action='store_true', help='generate a PLASMA module (default)')
+standalone_group.add_argument('--standalone', action='store_true', help='generate a standalone executable')
+standalone_group.add_argument('--non-relocatable', action='store_true', help="don't include self-relocation code (implies --standalone)")
+standalone_group.add_argument('--load-address', nargs=1, metavar='ADDR', help="set executable load address (implies --standalone)")
+
+ssd_group = parser.add_argument_group('ssd generator arguments', 'Options controlling generation of a disc image (instead of host files)')
+# TODO: It would be nice if argparse support GNU-style --ssd or --ssd=foo.ssd, but it doesn't;
+# using an optional argument with nargs='?' is greedy and it will consume an input file argument.
+ssd_group.add_argument('--ssd', action='store_true', help="generate Acorn DFS disc image (.ssd)")
+ssd_group.add_argument('--ssd-name', help="output file for --ssd (implies --ssd)")
+
 args = parser.parse_args()
+print 'QPE', args.ssd, args.verbose
+
+if args.no_combine and not args.optimise:
+    warn("--no-combine has no effect without --optimise")
+
+if args.non_relocatable or args.load_address:
+    args.standalone = True
+
+if args.standalone and args.module:
+    die("--standalone and --module are mutually exclusive")
+
+if args.ssd_name:
+    args.ssd = True
 
 standalone = False
 ssd = True
