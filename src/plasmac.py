@@ -145,7 +145,8 @@ def get_module_imports(full_filename):
     while byterel(moddep):
         s = dcistrrel(moddep)
         moddep += len(s)
-        import_list.append(s)
+        if s != "CMDSYS":
+            import_list.append(s)
     return import_list
 
 
@@ -266,8 +267,6 @@ def check_dependencies():
 
         ordered_modules_set = set(ordered_modules)
         all_modules_set = set(imports.keys())
-        if 'CMDSYS' in ordered_modules_set:
-            all_modules_set.add('CMDSYS')
         missing_modules = ordered_modules_set - all_modules_set
         irrelevant_modules = all_modules_set - ordered_modules_set
         # We can't have any "irrelevant" modules; any such module would be a
@@ -287,6 +286,8 @@ def check_dependencies():
             if files_added:
                 continue
             die("Missing dependencies: " + ', '.join(missing_modules))
+
+        return ordered_modules
 
 
 
@@ -308,24 +309,72 @@ module_filename = {}
 for filename in args.inputs:
     add_file(filename)
 
+# If we're just building modules from PLASMA source, there's nothing else to
+# do.
+if not (ssd or standalone):
+    sys.exit(0)
+
 # SSDs of modules and standalone executables (whether put on an SSD or not)
 # trigger dependency checking, as we need (especially for the standalone
 # executable case) a complete set of modules to be available.
-if ssd or standalone:
-    check_dependencies()
+ordered_modules = check_dependencies()
 
 print 'module_init_line:', module_init_line
 print 'module_filename:', module_filename
 
-print 1/0
-        
+if standalone:
+    executable_filename = build_standalone(ordered_modules)
+    output_files = [executable_filename]
+else:
+    # We reverse the order of ordered_modules so that the files appear on the
+    # disc in the physical order the PLASMA VM will open them; this isn't
+    # a huge win as it will still end up seeking backward through dependency
+    # chains (the VM will open the file to read the header, then seek forward
+    # to read each dependency, then once the dependencies are loaded will
+    # seek back to read the body of the file) but we might as well try.
+    output_files = [module_filename[module] for module in ordered_modules[::-1]]
 
-# TODO: MORE - WE'RE DONE IF WE'RE NOT GENERATING STANDALONE OR SSD, STANDALONE NEEDS ALL THE STUFF IN PC.PY, SSD MAY BE STANDALONE OR NOT REMEMBER BUT IT'S A QUESTION OF PUTTING THE STANDALONE EXECUTABLE OR ALL THE .MO FILES FOR NON-STANDALONE ONTO SSD
+if not ssd:
+    sys.exit(0)
 
-# TODO: WHEN WRITING AN SSD FULL OF MODULES, WE SHOULD ADD THE FILES IN
-# 'REVERSE' ORDER OF ordered_modules (AND ACTUALLY WE SHOULD TAKE STEPS TO
-# PRESERVE THE RELATIVE ORDER OF INCLUDES WITHIN A GIVEN MODULE), IN THE HOPE
-# THAT ON A PHYSICAL FLOPPY THIS WILL MEAN THE DRIVE HEAD WILL NATURALLY SEEK
-# 'FORWARDS' THROUGH THE MODULES AS THE VM LOADS THEM. (IF IT IS BOOTABLE, IT
-# SHOULD START WITH !BOOT THEN PLASMA &/OR PLAS128 EXECUTABLE, THEN THE
-# MODULES.)
+# TODO: Don't hardcode path
+import makedfs
+disc = makedfs.Disk()
+disc.new()
+catalogue = disc.catalogue()
+catalogue.boot_option = 0 # TODO!
+disc_files = []
+
+def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
+    assert not (source_filename and content)
+    assert source_filename or content
+    if source_filename:
+        with open(source_filename, 'rb') as f:
+            content = f.read()
+    if '.' not in dfs_filename:
+        dfs_filename = '$.' + dfs_filename
+    disc_files.append(makedfs.File(dfs_filename, content, load_addr, exec_addr, len(content)))
+
+if bootable:
+    # TODO: Add a !BOOT file
+    pass
+
+if not standalone: # TODO: Make this optional?
+    # TODO: Don't hardcode path
+    add_dfs_file("BBPLASMA#FF2000", None, "PLASMA", 0x2000, 0x2000)
+
+for full_filename in output_files:
+    if standalone:
+        load_addr = exec_addr = 0x2000
+    else:
+        load_addr = exec_addr = 0x0000
+    filename, extension = os.path.splitext(full_filename)
+    dfs_filename = os.path.basename(filename)[:7].upper()
+    add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
+
+
+catalogue.write("TITLE", disc_files) # TODO: Allow setting title and provide sensible default
+disc.file.seek(0, 0)
+# TODO: Allow command line to specify SSD filename and have a sensible default
+with open('foo.ssd', 'wb') as ssd_file:
+    ssd_file.write(disc.file.read())
