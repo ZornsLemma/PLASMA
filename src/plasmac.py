@@ -302,18 +302,29 @@ def check_dependencies():
 
 # TODO: Use the argument groups feature for nicer --help output
 # TODO: Way more arguments than this of course
+# TODO: Check we actually implement all these arguments!
 parser = argparse.ArgumentParser(description='PLASMA build tool; transforms PLASMA source code (foo.pla) into PLASMA modules (foo.mo) or standalone executables. The output can optionally be written to an Acorn DFS disc image (foo.ssd).')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla or .mo)")
 # TODO: Have a "this tool arguments" group???
 parser.add_argument('-v', '--verbose', action='count', help='show what this tool is doing')
 parser.add_argument('-S', '--compile-only', action='store_true', help="stop after compiling; don't assemble compiler output")
+parser.add_argument('-L', '--library', nargs=1, metavar='DIR', action='append', help="search DIR for missing imports")
+parser.add_argument('--save-temps', action='store_true', help="don't remove temporary files")
 
 compiler_group = parser.add_argument_group('compiler arguments', 'Options passed through to the PLASMA compiler (plasm)')
+# -A is pointless but we accept it for compatibility with plasm
+compiler_group.add_argument('-A', '--acme', action='store_true', help='generate ACME-compatible output (default)')
 compiler_group.add_argument('-O', '--optimise', action='store_true', help='enable optimiser')
 compiler_group.add_argument('-N', '--no-combine', action='store_true', help='prevent optimiser combining adjacent opcode sequences')
 compiler_group.add_argument('-W', '--warn', action='store_true', help='enable warnings')
 
-standalone_group = parser.add_argument_group('standalone generator arguments', 'Options controlling generation of a standalone executable (instead of PLASMA modules)')
+assembler_group = parser.add_argument_group('assembler arguments', 'Options controlling the assembler (ACME)')
+# We don't allow the report name to be specified, partly because it's awkward with argparse
+# but mainly because it avoids problems when we're compiling multiple files to modules.
+assembler_group.add_argument('-r', '--report', action='store_true', help='generate a report file')
+assembler_group.add_argument('-D', metavar='SYMBOL=VALUE', nargs=1, action='append', dest='defines', help='define global symbol')
+
+standalone_group = parser.add_argument_group('standalone executable generator arguments', 'Options controlling generation of a standalone executable (instead of PLASMA modules)')
 # The -M argument is really redundant but we allow it for "compatibility" with invoking plasm directly
 standalone_group.add_argument('-M', '--module', action='store_true', help='generate a PLASMA module (default)')
 standalone_group.add_argument('--standalone', action='store_true', help='generate a standalone executable')
@@ -325,6 +336,8 @@ ssd_group = parser.add_argument_group('ssd generator arguments', 'Options contro
 # using an optional argument with nargs='?' is greedy and it will consume an input file argument.
 ssd_group.add_argument('--ssd', action='store_true', help="generate Acorn DFS disc image (.ssd)")
 ssd_group.add_argument('--ssd-name', help="output file for --ssd (implies --ssd)")
+ssd_group.add_argument('--bootable', action='store_true', help='make disc image bootable (implies --ssd)')
+ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title')
 
 args = parser.parse_args()
 print 'QPE', args.ssd, args.verbose
@@ -338,7 +351,7 @@ if args.non_relocatable or args.load_address:
 if args.standalone and args.module:
     die("--standalone and --module are mutually exclusive")
 
-if args.ssd_name:
+if args.ssd_name or args.bootable:
     args.ssd = True
 
 standalone = False
