@@ -295,6 +295,10 @@ def check_dependencies():
 # TODO: Way more arguments than this of course
 parser = argparse.ArgumentParser(description='TODO.')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help='an input file')
+compiler_group = parser.add_argument_group('Compiler', 'Options passed through to the PLASMA compiler (plasm)')
+compiler_group.add_argument('-O', '--optimise', action='store_true', help='Enable optimiser')
+compiler_group.add_argument('-N', '--no-combine', action='store_true', help='Prevent optimiser combining adjacent opcode sequences')
+compiler_group.add_argument('-W', '--warn', action='store_true', help='Enable warnings')
 args = parser.parse_args()
 
 standalone = False
@@ -369,6 +373,7 @@ for full_filename in output_files:
     else:
         load_addr = exec_addr = 0x0000
     filename, extension = os.path.splitext(full_filename)
+    # TODO: Check/warn/die if two filenames are same after truncation
     dfs_filename = os.path.basename(filename)[:7].upper()
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
 
