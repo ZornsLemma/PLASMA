@@ -417,6 +417,11 @@ def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
     disc_files.append(makedfs.File(dfs_filename, content, load_addr, exec_addr, len(content)))
 
 if args.bootable:
+    # We could of course use the *RUN boot option and have the standalone
+    # executable or the PLASMA VM be !BOOT, but there seems little value in
+    # it and it's potentially confusing, so let's not do it unless a real
+    # benefit turns up. (I suppose it saves one filename, which just may be
+    # useful for a module-based SSD, but even that seems pretty tenuous.)
     if standalone:
         content = '*RUN ' + top_level_modules[0][:7] + '\r'
     else:
