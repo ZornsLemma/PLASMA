@@ -184,6 +184,28 @@ def add_file(full_filename):
         imported_by[module] = module_name
 
 
+def find_module_by_name(module_name):
+    # TODO: Path needs to be configurable and have sensible default (probably
+    # based on location of plasmac.py)
+    search_path = ['/home/steven/src/PLASMA/src/libsrc', '/home/steven/src/PLASMA/src/samplesrc']
+    candidates = []
+    for path in search_path:
+        for extension in ['.mo', '.pla']:
+            filename = os.path.join(path, module_name.lower() + extension)
+            print 'YYY', filename
+            if os.path.exists(filename):
+                candidates.append(filename)
+    print 'XXX', candidates
+    newest_candidate = None
+    newest_candidate_mtime = None
+    for candidate in candidates:
+        candidate_mtime = os.path.getmtime(candidate)
+        if newest_candidate_mtime is None or newest_candidate_mtime < candidate_mtime:
+            newest_candidate = candidate
+            newest_candidate_mtime = candidate_mtime
+    print 'ZZZ', newest_candidate
+    return newest_candidate
+
 
 def check_dependencies():
     top_level_modules = [m for m in imports.keys() if m not in imported_by.keys()]
@@ -253,16 +275,17 @@ def check_dependencies():
         assert not irrelevant_modules
 
         if missing_modules:
-            # TODO: Optionally allow automatic location of these from library directories
-            if False:
-                missing_modules_copy = missing_modules.copy()
-                for module in missing_modules_copy:
-                    if we_found_it:
-                        missing_modules.remove(module)
-                        add_file('the/filename/of/version/found/in/library')
-                        files_added = True
-                if files_added:
-                    continue
+            # TODO: Allow user to specify empty set of search paths to make
+            # this behaviour effectively optional
+            missing_modules_copy = missing_modules.copy()
+            for module in missing_modules_copy:
+                module_path = find_module_by_name(module)
+                if module_path:
+                    missing_modules.remove(module)
+                    add_file(module_path)
+                    files_added = True
+            if files_added:
+                continue
             die("Missing dependencies: " + ', '.join(missing_modules))
 
 
