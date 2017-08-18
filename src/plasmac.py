@@ -85,7 +85,7 @@ def compile_pla(full_filename):
     filename, extension = os.path.splitext(full_filename)
     prefix = '_' + os.path.basename(filename).upper() + '_'
     plasm_args = ['./plasm', '-A'] # TODO: Allow user to add to this
-    if not standalone:
+    if not args.standalone:
         plasm_args.append('-M')
     if args.optimise:
         plasma_args.append('-O')
@@ -95,13 +95,13 @@ def compile_pla(full_filename):
         plasma_args.append('-W')
     imports = []
     init_line = None
-    output_extension = '.sa' if standalone else '.a'
+    output_extension = '.sa' if args.standalone else '.a'
     output_name = get_output_name(filename, output_extension)
-    verbose_subprocess(plasm_args + ['< ' + full_filename, ('| standalone-filter' if standalone else '') + '> ' + output_name])
+    verbose_subprocess(plasm_args + ['< ' + full_filename, ('| standalone-filter ' if args.standalone else '') + '> ' + output_name])
     plasm = subprocess.Popen(plasm_args, stdin=open(full_filename, 'r'), stdout=subprocess.PIPE)
     with open(output_name, 'w') as output:
         for line in plasm.stdout:
-            if standalone:
+            if args.standalone:
                 # TODO: We could strip the leading JMP _INIT off the plasm output - it's redundant
                 if line.startswith('_INIT'):
                     # TODO: This is a bit hacky
@@ -136,7 +136,7 @@ def assemble(asm_filename, output_filename):
     # TODO: We need to allow various args to be passed to acme
     # TODO!
     acme_args = ['acme']
-    if standalone:
+    if args.standalone:
         address = '$2000'
         acme_args.extend(['--setpc', address, '-DSTART=' + address])
     else:
@@ -201,7 +201,7 @@ def add_file(full_filename):
         filename, extension = os.path.splitext(full_filename)
         extension = extension.lower()
         module_init_line[module_name] = init_line
-        if standalone:
+        if args.standalone:
             full_filename = asm_filename
         else:
             mo_filename = get_output_name(filename, '.mo')
@@ -210,7 +210,7 @@ def add_file(full_filename):
         
     # TODO: we should allow #FEnnnn as well as .mo
     elif extension == '.mo': # pre-compiled module
-        if standalone:
+        if args.standalone:
             die("Standalone build cannot use pre-compiled modules: " + full_filename)
         import_list = get_module_imports(full_filename)
     else:
@@ -266,15 +266,15 @@ def check_dependencies():
     # If we're building modules without putting them on an SSD, we don't have to worry
     # about dependencies as we have no idea what context the module will be used in.
 
-    if standalone and len(top_level_modules) == 0:
+    if args.standalone and len(top_level_modules) == 0:
         die("Standalone build requires a top-level module")
-    if (standalone or (ssd and args.bootable)) and len(top_level_modules) > 1:
-        if standalone:
+    if (args.standalone or (ssd and args.bootable)) and len(top_level_modules) > 1:
+        if args.standalone:
             s = "Standalone build"
         else:
             s = "Bootable module SSD"
         die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
-    if standalone and not init_lines[top_level_modules[0]]:
+    if args.standalone and not init_lines[top_level_modules[0]]:
         die("Top-level module " + top_level_modules[0] + " has no initialisation code")
 
     def recursive_imports(module, imports, seen):
@@ -412,7 +412,7 @@ for filename in args.inputs:
 
 # If we're just building modules from PLASMA source, there's nothing else to
 # do.
-if not (ssd or standalone):
+if not (ssd or args.standalone):
     sys.exit(0)
 
 # SSDs of modules and standalone executables (whether put on an SSD or not)
@@ -423,7 +423,7 @@ ordered_modules, top_level_modules = check_dependencies()
 print 'module_init_line:', module_init_line
 print 'module_filename:', module_filename
 
-if standalone:
+if args.standalone:
     executable_filename = build_standalone(ordered_modules)
     output_files = [executable_filename]
 else:
@@ -462,7 +462,7 @@ if args.bootable:
     # it and it's potentially confusing, so let's not do it unless a real
     # benefit turns up. (I suppose it saves one filename, which just may be
     # useful for a module-based SSD, but even that seems pretty tenuous.)
-    if standalone:
+    if args.standalone:
         content = '*RUN ' + top_level_modules[0][:7] + '\r'
     else:
         # TODO: Need to allow user to specify which VM to boot
@@ -470,12 +470,12 @@ if args.bootable:
         content = '*RUN PLASMA\r+' + top_level_modules[0][:7] + '\r'
     add_dfs_file(None, content, '$.!BOOT', 0x0000, 0x0000)
 
-if not standalone: # TODO: Make this optional?
+if not args.standalone: # TODO: Make this optional?
     # TODO: Don't hardcode path
     add_dfs_file("BBPLASMA#FF2000", None, "PLASMA", 0x2000, 0x2000)
 
 for full_filename in output_files:
-    if standalone:
+    if args.standalone:
         load_addr = exec_addr = 0x2000
     else:
         load_addr = exec_addr = 0x0000
