@@ -94,8 +94,20 @@ def compile_pla(full_filename):
 
 def assemble(full_filename):
     filename, extension = os.path.splitext(full_filename)
+    output_name = filename + '.mo'
+    # TODO: We need to allow various args to be passed to acme
     # TODO!
-    return filename + '.mo'
+    acme_args = ['acme']
+    if standalone:
+        address = '$2000'
+        acme_args.extend(['--setpc', address, '-DSTART=' + address])
+    else:
+        acme_args.extend(['--setpc', '4094'])
+    acme_args += ['-o', output_name, full_filename]
+    acme_result = subprocess.call(acme_args)
+    if acme_result != 0:
+        sys.exit(acme_result)
+    return output_name
 
 
 def get_module_imports(full_filename):
