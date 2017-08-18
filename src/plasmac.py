@@ -239,7 +239,7 @@ def check_dependencies():
 
     if standalone and len(top_level_modules) == 0:
         die("Standalone build requires a top-level module")
-    if (standalone or (ssd and bootable)) and len(top_level_modules) > 1:
+    if (standalone or (ssd and args.bootable)) and len(top_level_modules) > 1:
         if standalone:
             s = "Standalone build"
         else:
@@ -296,7 +296,7 @@ def check_dependencies():
                 continue
             die("Missing dependencies: " + ', '.join(missing_modules))
 
-        return ordered_modules
+    return ordered_modules, top_level_modules
 
 
 
@@ -354,9 +354,13 @@ if args.standalone and args.module:
 if args.ssd_name or args.bootable:
     args.ssd = True
 
+# Get rid of redundant arguments so we don't accidentally write code to check them
+# when we should be checking some other related argument instead.
+del args.acme
+del args.module
+
 standalone = False
 ssd = True
-bootable = False
 
 imports = {}
 imported_by = {}
@@ -374,7 +378,7 @@ if not (ssd or standalone):
 # SSDs of modules and standalone executables (whether put on an SSD or not)
 # trigger dependency checking, as we need (especially for the standalone
 # executable case) a complete set of modules to be available.
-ordered_modules = check_dependencies()
+ordered_modules, top_level_modules = check_dependencies()
 
 print 'module_init_line:', module_init_line
 print 'module_filename:', module_filename
@@ -399,7 +403,7 @@ import makedfs
 disc = makedfs.Disk()
 disc.new()
 catalogue = disc.catalogue()
-catalogue.boot_option = 0 # TODO!
+catalogue.boot_option = 3 if args.bootable else 0
 disc_files = []
 
 def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
@@ -412,9 +416,14 @@ def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
         dfs_filename = '$.' + dfs_filename
     disc_files.append(makedfs.File(dfs_filename, content, load_addr, exec_addr, len(content)))
 
-if bootable:
-    # TODO: Add a !BOOT file
-    pass
+if args.bootable:
+    if standalone:
+        content = '*RUN ' + top_level_modules[0][:7] + '\r'
+    else:
+        # TODO: Need to allow user to specify which VM to boot
+        # TODO: This probably won't work with PLAS128 due to the "tube off" code
+        content = '*RUN PLASMA\r+' + top_level_modules[0][:7] + '\r'
+    add_dfs_file(None, content, '$.!BOOT', 0x0000, 0x0000)
 
 if not standalone: # TODO: Make this optional?
     # TODO: Don't hardcode path
@@ -430,8 +439,10 @@ for full_filename in output_files:
     dfs_filename = os.path.basename(filename)[:7].upper()
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
 
-
-catalogue.write("TITLE", disc_files) # TODO: Allow setting title and provide sensible default
+# If we have multiple top-level modules we just use the first one for the
+# default title.
+disc_title = args.title if args.title is not None else top_level_modules[0][:12]
+catalogue.write(disc_title, disc_files)
 disc.file.seek(0, 0)
 # TODO: Allow command line to specify SSD filename and have a sensible default
 with open('foo.ssd', 'wb') as ssd_file:
