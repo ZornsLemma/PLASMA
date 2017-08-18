@@ -399,7 +399,6 @@ else:
 verbose(2, 'Target extension: ' + target_extension)
 
 # TODO: Get rid of these variables now we have args.foo
-standalone = False
 ssd = True
 
 imports = {}
