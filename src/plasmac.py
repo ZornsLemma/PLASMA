@@ -1,3 +1,6 @@
+# TODO: Check final version for any hard-coded '/' Unix-style path separators -
+# we should be using os.path.join() etc
+
 # TODO: I *think* Python on Windows is installed by default so .py files are
 # executed by python but python itself is not on the path. So (not just in this
 # file) we should probably make our .py files executable (using /usr/bin/env or
@@ -24,6 +27,7 @@ import argparse
 import atexit
 import collections
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -57,7 +61,14 @@ def verbose_subprocess(args):
     # TODO: This won't emit properly escaped shell commands; it's probably good
     # enough though - especially since this script is intended to be portable
     # and the escaping conventions are OS-dependent.
+    print 'XXX', args
     verbose(1, ' '.join(args))
+
+
+def cat(o, i):
+    with open(i, 'r') as f:
+        for line in f:
+            o.write(line)
 
 
 tempfiles = []
@@ -70,11 +81,12 @@ def remove_tempfiles():
 # TODO: Use this everywhere appropriate
 def get_output_name(filename, extension):
     if args.save_temps or extension == target_extension:
+        print 'XXXQ2', filename, extension
         return filename + extension
     else:
         f = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
         f.close()
-        print 'XXXQ', f.name
+        print 'XXXQ1', f.name
         tempfiles.append(f.name)
         return f.name
 
@@ -114,7 +126,9 @@ def compile_pla(full_filename):
                     else:
                         line = None
                 elif line.startswith('\t; IMPORT: '):
-                    imports.add(line.split(':')[1].strip())
+                    imported_module = line.split(':')[1].strip()
+                    if imported_module != 'CMDSYS':
+                        imports.append(imported_module)
                 else:
                     line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
                     # These three functions are in cmdsys.plh so they are imported by just
@@ -218,7 +232,7 @@ def add_file(full_filename):
 
     module_filename[module_name] = full_filename
     imports[module_name] = import_list
-    print "IMPORTS", module_name, import_list
+    verbose(1, "Module " + module_name + " imports: " + ", ".join(import_list))
     for module in import_list:
         imported_by[module] = module_name
 
@@ -228,8 +242,11 @@ def find_module_by_name(module_name):
     # based on location of plasmac.py)
     search_path = ['/home/steven/src/PLASMA/src/libsrc', '/home/steven/src/PLASMA/src/samplesrc']
     candidates = []
+    acceptable_extensions = ['.pla']
+    if not args.standalone:
+        acceptable_extensions.append('.mo')
     for path in search_path:
-        for extension in ['.mo', '.pla']:
+        for extension in acceptable_extensions:
             filename = os.path.join(path, module_name.lower() + extension)
             print 'YYY', filename
             if os.path.exists(filename):
@@ -274,7 +291,7 @@ def check_dependencies():
         else:
             s = "Bootable module SSD"
         die(s + " requires a single top-level module; we have: " + ', '.join(top_level_modules))
-    if args.standalone and not init_lines[top_level_modules[0]]:
+    if args.standalone and not module_init_line[top_level_modules[0]]:
         die("Top-level module " + top_level_modules[0] + " has no initialisation code")
 
     def recursive_imports(module, imports, seen):
@@ -326,6 +343,43 @@ def check_dependencies():
             die("Missing dependencies: " + ', '.join(missing_modules))
 
     return ordered_modules, top_level_modules
+
+
+# TODO: In general but certainly in this function we are totally inconsistent
+# about passing some values in as arguments and using others from global variables
+def build_standalone(ordered_modules, top_level_modules):
+    assert len(top_level_modules) == 1
+    # TODO: This always creates files in current directory; that's probably OK, but
+    # do think about this again later.
+    combined_asm_filename = get_output_name(top_level_modules[0].lower(), '.ca')
+    verbose(1, 'Combining module assembly into ' + combined_asm_filename)
+    with open(combined_asm_filename, 'w') as combined_asm_file:
+        # TODO: Don't hardcode location of input files
+        cat(combined_asm_file, 'vmsrc/plvmbb-pre.s')
+        with open('vmsrc/32cmd.sa', 'r') as infile:
+            for line in infile:
+                if line.endswith(': done\n'):
+                    discard = infile.next()
+                    assert discard == '\t!BYTE\t$00\t\t\t; ZERO\n'
+                    discard = infile.next()
+                    assert discard == '\t!BYTE\t$5C\t\t\t; RET\n'
+                combined_asm_file.write(line)
+        for module in ordered_modules:
+            init = module_init_line[module]
+            if init:
+                combined_asm_file.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
+                combined_asm_file.write('\t!WORD\t' + init + '\n')
+        # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
+        for module in ordered_modules:
+            cat(combined_asm_file, module_filename[module])
+        cat(combined_asm_file, 'vmsrc/plvmbb-post.s')
+
+    if args.compile_only:
+        sys.exit(0)
+
+    executable_filename = get_output_name(top_level_modules[0].lower(), '')
+    assemble(combined_asm_filename, executable_filename)
+    return executable_filename
 
 
 
@@ -383,6 +437,10 @@ if args.standalone and args.module:
 if args.ssd_name or args.bootable:
     args.ssd = True
 
+if args.compile_only and args.ssd:
+    warn("Ignoring --ssd as --compile_only specified")
+    args.ssd = False
+
 # Get rid of redundant arguments so we don't accidentally write code to check them
 # when we should be checking some other related argument instead.
 del args.acme
@@ -393,9 +451,18 @@ atexit.register(remove_tempfiles)
 if args.ssd:
     target_extension = '.ssd'
 elif args.standalone:
-    target_extension = '' # TODO: Not sure if this will work
+    if args.compile_only:
+        # TODO: Not very happy with this extension, but we 'need' to distinguish
+        # a merged standalone assembly source file from the individual .sa files
+        # built for each module and from '.a' files generated during module builds.
+        target_extension = '.ca'
+    else:
+        target_extension = '' # TODO: Not sure if this will work
 else:
-    target_extension = '.mo'
+    if args.compile_only:
+        target_extension = '.a'
+    else:
+        target_extension = '.mo'
 verbose(2, 'Target extension: ' + target_extension)
 
 # TODO: Get rid of these variables now we have args.foo
@@ -423,7 +490,7 @@ print 'module_init_line:', module_init_line
 print 'module_filename:', module_filename
 
 if args.standalone:
-    executable_filename = build_standalone(ordered_modules)
+    executable_filename = build_standalone(ordered_modules, top_level_modules)
     output_files = [executable_filename]
 else:
     # We reverse the order of ordered_modules so that the files appear on the
@@ -474,13 +541,17 @@ if not args.standalone: # TODO: Make this optional?
     add_dfs_file("BBPLASMA#FF2000", None, "PLASMA", 0x2000, 0x2000)
 
 for full_filename in output_files:
-    if args.standalone:
-        load_addr = exec_addr = 0x2000
-    else:
-        load_addr = exec_addr = 0x0000
     filename, extension = os.path.splitext(full_filename)
     # TODO: Check/warn/die if two filenames are same after truncation
     dfs_filename = os.path.basename(filename)[:7].upper()
+    if args.standalone:
+        load_addr = exec_addr = 0x2000
+        # If the user hasn't specified --save-temps, full_filename will be
+        # a gibberish temporary filename, so we need to override its name.
+        TODO THIS IS PROBABLY GOING TO HAVE TO BE FIXED ELSEWHERE ANYWAY SINCE WE HAVE SAME PROBLEM WITH MODULE BUILD - WE SHOULD PROBABLY HAVE output_files BE A LIST OF PAIRS (LOCAL NAME, DFS NAME)
+        dfs_filename = top_level_modules[0][:7].upper()
+    else:
+        load_addr = exec_addr = 0x0000
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
 
 # If we have multiple top-level modules we just use the first one for the
