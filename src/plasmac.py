@@ -377,6 +377,7 @@ def build_standalone(ordered_modules, top_level_modules):
     if args.compile_only:
         sys.exit(0)
 
+    # TODO: This needs to do all the relocatable/non-relocatable stuff - don't forget to pass -DNONRELOCATABLE=1 to acme if appropriate
     executable_filename = get_output_name(top_level_modules[0].lower(), '')
     assemble(combined_asm_filename, executable_filename)
     return executable_filename
@@ -404,6 +405,7 @@ compiler_group.add_argument('-W', '--warn', action='store_true', help='enable wa
 assembler_group = parser.add_argument_group('assembler arguments', 'Options controlling the assembler (ACME)')
 # We don't allow the report name to be specified, partly because it's awkward with argparse
 # but mainly because it avoids problems when we're compiling multiple files to modules.
+# TODO: Not saying I want to get rid of it, but I suspect --report is going to be a bit awkward with --save-temps. We probably want to make target_extensions a list so we can add '.lst' to it, but we are likely to end up generating '/tmp/dfasdasda.lst' files because the temporary filenames we are working with will naively be used as a base for the .lst name. We may need to pass the "conceptual" filename around with the actual filename all the time or something like that. Maybe we could create all our temp files in a directory and ensure they have the correct leafname? But that sounds awkward and error prone and I don't really like it.
 assembler_group.add_argument('-r', '--report', action='store_true', help='generate a report file')
 assembler_group.add_argument('-D', metavar='SYMBOL=VALUE', nargs=1, action='append', dest='defines', help='define global symbol')
 
