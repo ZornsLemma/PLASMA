@@ -491,7 +491,7 @@ print 'module_filename:', module_filename
 
 if args.standalone:
     executable_filename = build_standalone(ordered_modules, top_level_modules)
-    output_files = [executable_filename]
+    output_files = [(executable_filename, top_level_modules[0].upper()[:7])]
 else:
     # We reverse the order of ordered_modules so that the files appear on the
     # disc in the physical order the PLASMA VM will open them; this isn't
@@ -499,7 +499,7 @@ else:
     # chains (the VM will open the file to read the header, then seek forward
     # to read each dependency, then once the dependencies are loaded will
     # seek back to read the body of the file) but we might as well try.
-    output_files = [module_filename[module] for module in ordered_modules[::-1]]
+    output_files = [(module_filename[module], module[:7]) for module in ordered_modules[::-1]]
 
 if not ssd:
     sys.exit(0)
@@ -540,23 +540,19 @@ if not args.standalone: # TODO: Make this optional?
     # TODO: Don't hardcode path
     add_dfs_file("BBPLASMA#FF2000", None, "PLASMA", 0x2000, 0x2000)
 
-for full_filename in output_files:
+for full_filename, dfs_filename in output_files:
     filename, extension = os.path.splitext(full_filename)
     # TODO: Check/warn/die if two filenames are same after truncation
-    dfs_filename = os.path.basename(filename)[:7].upper()
     if args.standalone:
         load_addr = exec_addr = 0x2000
-        # If the user hasn't specified --save-temps, full_filename will be
-        # a gibberish temporary filename, so we need to override its name.
-        TODO THIS IS PROBABLY GOING TO HAVE TO BE FIXED ELSEWHERE ANYWAY SINCE WE HAVE SAME PROBLEM WITH MODULE BUILD - WE SHOULD PROBABLY HAVE output_files BE A LIST OF PAIRS (LOCAL NAME, DFS NAME)
-        dfs_filename = top_level_modules[0][:7].upper()
     else:
         load_addr = exec_addr = 0x0000
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
 
 # If we have multiple top-level modules we just use the first one for the
 # default title.
-disc_title = args.title if args.title is not None else top_level_modules[0][:12]
+disc_title = args.title[0] if args.title is not None else top_level_modules[0][:12]
+print repr(disc_title)
 catalogue.write(disc_title, disc_files)
 disc.file.seek(0, 0)
 # TODO: Allow command line to specify SSD filename and have a sensible default
