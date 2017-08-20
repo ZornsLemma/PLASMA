@@ -1,3 +1,5 @@
+# TODO: Provided plasm and acme output a message to stderr, we should just quietly
+# die (except perhaps is verbose>=1) if they fail, rather than outputting a redundant and mildly alarming "error executing foo" error - perhaps have a die_verbose() function and use that instead, but test both cases separately to see that plasm/acme *do* produce output
 # TODO: Check final version for any hard-coded '/' Unix-style path separators -
 # we should be using os.path.join() etc
 
