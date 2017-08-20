@@ -146,6 +146,9 @@ def compile_pla(full_filename):
             if line is not None:
                 output.write(line)
 
+    if plasm.wait() != 0:
+        die("Executing plasm failed")
+
     # imports will be empty for module builds; we determine them later on.
     return output_name, imports, init_line
 
@@ -157,6 +160,7 @@ def assemble(asm_filename, output_filename, load_address):
     if args.standalone:
         acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
     else:
+        assert load_address is None
         acme_args.extend(['--setpc', '4094'])
     for define in args.defines:
         acme_args.append('-D' + define)
@@ -164,7 +168,7 @@ def assemble(asm_filename, output_filename, load_address):
     verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args)
     if acme_result != 0:
-        sys.exit(acme_result)
+        die("Executing acme failed")
     return output_filename
 
 
@@ -223,7 +227,7 @@ def add_file(full_filename):
             full_filename = asm_filename
         else:
             mo_filename = get_output_name(filename, '.mo')
-            full_filename = assemble(asm_filename, mo_filename)
+            full_filename = assemble(asm_filename, mo_filename, None)
             import_list = get_module_imports(full_filename)
         
     # TODO: we should allow #FEnnnn as well as .mo
