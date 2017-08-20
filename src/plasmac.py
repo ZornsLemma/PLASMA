@@ -84,11 +84,15 @@ def get_output_name(filename, extension):
         print 'XXXQ2', filename, extension
         return filename + extension
     else:
-        f = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
-        f.close()
-        print 'XXXQ1', f.name
-        tempfiles.append(f.name)
-        return f.name
+        return get_temporary_name(extension)
+
+
+def get_temporary_name(extension):
+    f = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
+    f.close()
+    print 'XXXQ1', f.name
+    tempfiles.append(f.name)
+    return f.name
 
 
 
@@ -146,7 +150,7 @@ def compile_pla(full_filename):
     return output_name, imports, init_line
 
 
-def assemble(asm_filename, output_filename):
+def assemble(asm_filename, output_filename, load_address):
     # TODO: We need to allow various args to be passed to acme
     # TODO!
     acme_args = ['acme']
@@ -154,9 +158,8 @@ def assemble(asm_filename, output_filename):
         acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
     else:
         acme_args.extend(['--setpc', '4094'])
-    if args.defines:
-        for define in args.defines:
-            acme_args.append('-D' + define[0])
+    for define in args.defines:
+        acme_args.append('-D' + define)
     acme_args += ['-o', output_filename, asm_filename]
     verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args)
@@ -380,8 +383,22 @@ def build_standalone(ordered_modules, top_level_modules):
 
     # TODO: This needs to do all the relocatable/non-relocatable stuff - don't forget to pass -DNONRELOCATABLE=1 to acme if appropriate
     executable_filename = get_output_name(top_level_modules[0].lower(), '')
-    assemble(combined_asm_filename, executable_filename)
+    if args.non_relocatable:
+        args.defines.append('NONRELOCATABLE=1')
+    assemble(combined_asm_filename, executable_filename, load_address)
+    if args.non_relocatable:
+        return executable_filename
+    # TODO: Should probably remove executable_filename if an error occurs here
+    executable_filename2 = get_temporary_name('')
+    assemble(combined_asm_filename, executable_filename2, load_address + 0x1000)
+    # TODO: Should try to execute add-relocations.py from same dir as this .py file
+    relocation_args = ['./add-relocations.py', executable_filename, executable_filename2]
+    verbose_subprocess(relocation_args)
+    relocation_result = subprocess.call(relocation_args)
+    if relocation_result != 0:
+        die("Adding relocations failed")
     return executable_filename
+
 
 
 
@@ -443,6 +460,13 @@ if args.ssd_name or args.bootable or args.title:
 if args.compile_only and args.ssd:
     warn("Ignoring --ssd as --compile_only specified")
     args.ssd = False
+
+defines = []
+if args.defines:
+    for define in args.defines:
+        defines.append(define[0])
+args.defines = defines
+del defines
 
 load_address = ast.literal_eval(args.load_address[0].replace('$', '0x')) if args.load_address else 0x2000
 del args.load_address
