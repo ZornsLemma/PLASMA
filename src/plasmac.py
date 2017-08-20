@@ -155,6 +155,9 @@ def assemble(asm_filename, output_filename):
         acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
     else:
         acme_args.extend(['--setpc', '4094'])
+    if args.defines:
+        for define in args.defines:
+            acme_args.append('-D' + define[0])
     acme_args += ['-o', output_filename, asm_filename]
     verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args)
