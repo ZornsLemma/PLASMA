@@ -24,6 +24,7 @@
 # probably have to suck it and see)
 
 import argparse
+import ast
 import atexit
 import collections
 import os
@@ -151,8 +152,7 @@ def assemble(asm_filename, output_filename):
     # TODO!
     acme_args = ['acme']
     if args.standalone:
-        address = '$2000'
-        acme_args.extend(['--setpc', address, '-DSTART=' + address])
+        acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
     else:
         acme_args.extend(['--setpc', '4094'])
     acme_args += ['-o', output_filename, asm_filename]
@@ -443,6 +443,9 @@ if args.compile_only and args.ssd:
     warn("Ignoring --ssd as --compile_only specified")
     args.ssd = False
 
+load_address = ast.literal_eval(args.load_address[0].replace('$', '0x')) if args.load_address else 0x2000
+del args.load_address
+
 # Get rid of redundant arguments so we don't accidentally write code to check them
 # when we should be checking some other related argument instead.
 del args.acme
@@ -546,7 +549,7 @@ for full_filename, dfs_filename in output_files:
     filename, extension = os.path.splitext(full_filename)
     # TODO: Check/warn/die if two filenames are same after truncation
     if args.standalone:
-        load_addr = exec_addr = 0x2000
+        load_addr = exec_addr = load_address
     else:
         load_addr = exec_addr = 0x0000
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
