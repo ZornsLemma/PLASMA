@@ -552,11 +552,12 @@ for full_filename, dfs_filename in output_files:
     add_dfs_file(full_filename, None, dfs_filename, load_addr, exec_addr)
 
 # If we have multiple top-level modules we just use the first one for the
-# default title.
+# default title and default SSD name.
 disc_title = args.title[0] if args.title is not None else top_level_modules[0][:12]
 print repr(disc_title)
 catalogue.write(disc_title, disc_files)
 disc.file.seek(0, 0)
-# TODO: Allow command line to specify SSD filename and have a sensible default
-with open('foo.ssd', 'wb') as ssd_file:
+if not args.ssd_name:
+    args.ssd_name = top_level_modules[0].lower() + '.ssd'
+with open(args.ssd_name, 'wb') as ssd_file:
     ssd_file.write(disc.file.read())
