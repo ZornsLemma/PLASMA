@@ -288,7 +288,7 @@ def check_dependencies():
 
     if args.standalone and len(top_level_modules) == 0:
         die("Standalone build requires a top-level module")
-    if (args.standalone or (ssd and args.bootable)) and len(top_level_modules) > 1:
+    if (args.standalone or (args.ssd and args.bootable)) and len(top_level_modules) > 1:
         if args.standalone:
             s = "Standalone build"
         else:
@@ -425,7 +425,7 @@ ssd_group = parser.add_argument_group('ssd generator arguments', 'Options contro
 ssd_group.add_argument('--ssd', action='store_true', help="generate Acorn DFS disc image (.ssd)")
 ssd_group.add_argument('--ssd-name', help="output file for --ssd (implies --ssd)")
 ssd_group.add_argument('--bootable', action='store_true', help='make disc image bootable (implies --ssd)')
-ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title')
+ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title (implies --ssd)')
 
 args = parser.parse_args()
 print 'QPE', args.ssd, args.verbose
@@ -439,7 +439,7 @@ if args.non_relocatable or args.load_address:
 if args.standalone and args.module:
     die("--standalone and --module are mutually exclusive")
 
-if args.ssd_name or args.bootable:
+if args.ssd_name or args.bootable or args.title:
     args.ssd = True
 
 if args.compile_only and args.ssd:
