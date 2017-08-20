@@ -528,6 +528,7 @@ def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
             content = f.read()
     if '.' not in dfs_filename:
         dfs_filename = '$.' + dfs_filename
+    verbose(1, "Adding %s to SSD as %s, load address $%05X, exec address $%05X" % (source_filename if source_filename else repr(content), dfs_filename, load_addr, exec_addr))
     disc_files.append(makedfs.File(dfs_filename, content, load_addr, exec_addr, len(content)))
 
 if args.bootable:
@@ -565,5 +566,6 @@ catalogue.write(disc_title, disc_files)
 disc.file.seek(0, 0)
 if not args.ssd_name:
     args.ssd_name = top_level_modules[0].lower() + '.ssd'
+verbose(1, "Writing SSD to " + args.ssd_name)
 with open(args.ssd_name, 'wb') as ssd_file:
     ssd_file.write(disc.file.read())
