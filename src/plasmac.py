@@ -26,7 +26,6 @@
 import argparse
 import ast
 import atexit
-import collections
 import os
 import re
 import subprocess
@@ -101,11 +100,11 @@ def compile_pla(full_filename):
     if not args.standalone:
         plasm_args.append('-M')
     if args.optimise:
-        plasma_args.append('-O')
+        plasm_args.append('-O')
     if args.no_combine:
-        plasma_args.append('-N')
+        plasm_args.append('-N')
     if args.warn:
-        plasma_args.append('-W')
+        plasm_args.append('-W')
     imports = []
     init_line = None
     output_extension = '.sa' if args.standalone else '.a'
@@ -186,7 +185,6 @@ def get_module_imports(full_filename):
         return data[i] + (data[i+1]<<8)
     def dcistrrel(i):
         s = ""
-        length = 0
         while byterel(i) & 0x80:
             s += chr(byterel(i) & ~0x80)
             i += 1
