@@ -124,3 +124,5 @@ Standalone version - A "productionised" version would ideally do a topological s
 Include the git revision/label as a string at the end of the executable (after the relocation data, if any) - that way it wouldn't take any memory up at runtime but would be visible on disc
 
 I think you can load-execute-and-discard modules from other modules using modexec() etc library functions. Have a play with them - perhaps right a three module (base, "sort", "display") silly example where the base heap allocates a small array of ints and fills it with random data, then repeatedly calls sort (which does a single pass of bubble sort) and display (which shows the current state of the array) until finished. This might also test/prompt the addition of some means of getting the return value from a module; the "sort" module could return number of swaps done so base can tell when the sort is finished.
+
+Possibly we could optimise foo = foo + 256 so it loads the high byte using LLB, INCR, then saves high byte using LLB - and similarly for foo = foo - 256

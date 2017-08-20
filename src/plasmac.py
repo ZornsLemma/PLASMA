@@ -473,9 +473,6 @@ else:
         target_extension = '.mo'
 verbose(2, 'Target extension: ' + target_extension)
 
-# TODO: Get rid of these variables now we have args.foo
-ssd = True
-
 imports = {}
 imported_by = {}
 module_init_line = {}
@@ -486,7 +483,7 @@ for filename in args.inputs:
 
 # If we're just building modules from PLASMA source, there's nothing else to
 # do.
-if not (ssd or args.standalone):
+if not (args.ssd or args.standalone):
     sys.exit(0)
 
 # SSDs of modules and standalone executables (whether put on an SSD or not)
@@ -509,7 +506,7 @@ else:
     # seek back to read the body of the file) but we might as well try.
     output_files = [(module_filename[module], module[:7]) for module in ordered_modules[::-1]]
 
-if not ssd:
+if not args.ssd:
     sys.exit(0)
 
 # TODO: Don't hardcode path
