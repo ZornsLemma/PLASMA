@@ -68,7 +68,6 @@ def verbose_subprocess(args):
     # TODO: This won't emit properly escaped shell commands; it's probably good
     # enough though - especially since this script is intended to be portable
     # and the escaping conventions are OS-dependent.
-    print 'XXX', args
     verbose(1, ' '.join(args))
 
 
@@ -88,7 +87,6 @@ def remove_tempfiles():
 # TODO: Use this everywhere appropriate
 def get_output_name(filename, extension):
     if args.save_temps or extension == target_extension:
-        print 'XXXQ2', filename, extension
         return filename + extension
     else:
         return get_temporary_name(extension)
@@ -97,7 +95,6 @@ def get_output_name(filename, extension):
 def get_temporary_name(extension):
     f = tempfile.NamedTemporaryFile(mode='w', suffix=extension, delete=False)
     f.close()
-    print 'XXXQ1', f.name
     tempfiles.append(f.name)
     return f.name
 
@@ -263,10 +260,8 @@ def find_module_by_name(module_name):
     for path in search_path:
         for extension in acceptable_extensions:
             filename = os.path.join(path, module_name.lower() + extension)
-            print 'YYY', filename
             if os.path.exists(filename):
                 candidates.append(filename)
-    print 'XXX', candidates
     newest_candidate = None
     newest_candidate_mtime = None
     for candidate in candidates:
@@ -274,7 +269,11 @@ def find_module_by_name(module_name):
         if newest_candidate_mtime is None or newest_candidate_mtime < candidate_mtime:
             newest_candidate = candidate
             newest_candidate_mtime = candidate_mtime
-    print 'ZZZ', newest_candidate
+    if newest_candidate:
+        if len(candidates) == 1 or args.verbose == 1:
+            verbose(1, "Module %s needed; using %s (%d candidate%s)" % (module_name, newest_candidate, len(candidates), "s" if len(candidates) > 1 else ""))
+        else:
+            verbose(2, "Module %s needed; using %s (%d candidates: %s)" % (module_name, newest_candidate, len(candidates), repr(candidates)))
     return newest_candidate
 
 
