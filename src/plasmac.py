@@ -1,5 +1,3 @@
-# TODO: Provided plasm and acme output a message to stderr, we should just quietly
-# die (except perhaps is verbose>=1) if they fail, rather than outputting a redundant and mildly alarming "error executing foo" error - perhaps have a die_verbose() function and use that instead, but test both cases separately to see that plasm/acme *do* produce output
 # TODO: Check final version for any hard-coded '/' Unix-style path separators -
 # we should be using os.path.join() etc
 
@@ -53,6 +51,13 @@ def warn(s):
 
 def die(s):
     sys.stderr.write(s + '\n')
+    sys.exit(1)
+
+# For use where whatever caused us to die has probably already indicated that
+# to the user so we keep quiet normally, but we want to mention it in verbose
+# mode.
+def die_verbose(s):
+    verbose(1, s)
     sys.exit(1)
 
 def verbose(level, s):
@@ -149,7 +154,7 @@ def compile_pla(full_filename):
                 output.write(line)
 
     if plasm.wait() != 0:
-        die("Executing plasm failed")
+        die_verbose("Executing plasm failed")
 
     # imports will be empty for module builds; we determine them later on.
     return output_name, imports, init_line
@@ -170,7 +175,7 @@ def assemble(asm_filename, output_filename, load_address):
     verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args)
     if acme_result != 0:
-        die("Executing acme failed")
+        die_verbose("Executing acme failed")
     return output_filename
 
 
