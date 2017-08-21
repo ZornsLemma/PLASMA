@@ -7,8 +7,8 @@
 # whatever on Unix) and execute them directly rather than via 'python foo.py'
 # for portability.
 
-# TODO: This should have a verbose output mode which shows commands it's
-# executing, deductions it is making about module dependencies etc
+# TODO: We should generate a less verbose and scary error message if we can't
+# open a file!
 
 # TODO: In order to allow use of this in separate directories, we will probably
 # need to do something about include (both PLASMA and ACME in embedded
