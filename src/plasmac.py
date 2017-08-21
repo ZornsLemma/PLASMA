@@ -80,7 +80,7 @@ def cat(o, i):
 tempfiles = []
 def remove_tempfiles():
     for f in tempfiles:
-        verbose(1, 'Removing file ' + f)
+        verbose(2, 'Removing file ' + f)
         os.remove(f)
 
 
@@ -244,7 +244,7 @@ def add_file(full_filename):
 
     module_filename[module_name] = full_filename
     imports[module_name] = import_list
-    verbose(1, "Module " + module_name + " imports: " + ", ".join(import_list))
+    verbose(1, "Module %s imports: %s" % (module_name, ", ".join(import_list) if import_list else "None"))
     for module in import_list:
         imported_by[module] = module_name
 
@@ -279,7 +279,7 @@ def find_module_by_name(module_name):
 
 def check_dependencies():
     top_level_modules = [m for m in imports.keys() if m not in imported_by.keys()]
-    print 'TLM', top_level_modules
+    verbose(1, "Top-level modules are: " + ', '.join(top_level_modules))
 
     # If we're building a standalone executable, we must have exactly one top-level module,
     # i.e. a module which isn't imported by any other module, and we also need all the
@@ -309,7 +309,6 @@ def check_dependencies():
         die("Top-level module " + top_level_modules[0] + " has no initialisation code")
 
     def recursive_imports(module, imports, seen):
-        print 'X923', module, seen
         assert module not in seen
         seen.add(module)
         result = []
@@ -332,14 +331,13 @@ def check_dependencies():
         # direct and indirect, ordered so that the lowest level modules come first -
         # this is the order we want to invoke their initialisation code in a standalone
         # executable. TODO MAKE SURE WE USE IT
-        print 'QQNEW', ordered_modules
 
         ordered_modules_set = set(ordered_modules)
         all_modules_set = set(imports.keys())
         missing_modules = ordered_modules_set - all_modules_set
         irrelevant_modules = all_modules_set - ordered_modules_set
         # We can't have any "irrelevant" modules; any such module would be a
-        # top-level module and therefore will be in ordered_modules_set.
+        # top-level module and therefore would be in ordered_modules_set.
         assert not irrelevant_modules
 
         if missing_modules:
@@ -366,7 +364,7 @@ def build_standalone(ordered_modules, top_level_modules):
     # TODO: This always creates files in current directory; that's probably OK, but
     # do think about this again later.
     combined_asm_filename = get_output_name(top_level_modules[0].lower(), '.ca')
-    verbose(1, 'Combining module assembly into ' + combined_asm_filename)
+    verbose(1, 'Combining plasm output into ' + combined_asm_filename)
     with open(combined_asm_filename, 'w') as combined_asm_file:
         # TODO: Don't hardcode location of input files
         cat(combined_asm_file, 'vmsrc/plvmbb-pre.s')
@@ -453,7 +451,6 @@ ssd_group.add_argument('--bootable', action='store_true', help='make disc image 
 ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title (implies --ssd)')
 
 args = parser.parse_args()
-print 'QPE', args.ssd, args.verbose
 
 if args.no_combine and not args.optimise:
     warn("--no-combine has no effect without --optimise")
@@ -523,8 +520,7 @@ if not (args.ssd or args.standalone):
 # executable case) a complete set of modules to be available.
 ordered_modules, top_level_modules = check_dependencies()
 
-print 'module_init_line:', module_init_line
-print 'module_filename:', module_filename
+verbose(2, "Module initialisation routines: %s" % repr(module_init_line))
 
 if args.standalone:
     executable_filename = build_standalone(ordered_modules, top_level_modules)
@@ -590,7 +586,6 @@ for full_filename, dfs_filename in output_files:
 # If we have multiple top-level modules we just use the first one for the
 # default title and default SSD name.
 disc_title = args.title[0] if args.title is not None else top_level_modules[0][:12]
-print repr(disc_title)
 catalogue.write(disc_title, disc_files)
 disc.file.seek(0, 0)
 if not args.ssd_name:
