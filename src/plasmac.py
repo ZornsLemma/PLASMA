@@ -2,11 +2,7 @@
 # TODO: Check final version for any hard-coded '/' Unix-style path separators -
 # we should be using os.path.join() etc
 
-# TODO: I *think* Python on Windows is installed by default so .py files are
-# executed by python but python itself is not on the path. So (not just in this
-# file) we should probably make our .py files executable (using /usr/bin/env or
-# whatever on Unix) and execute them directly rather than via 'python foo.py'
-# for portability.
+# TODO: SSD SHOULD PROBABLY BE BOOTABLE BY DEFAULT
 
 # TODO: We should generate a less verbose and scary error message if we can't
 # open a file!
@@ -47,14 +43,6 @@ include_path = [plasma_root]
 # useful but it's also less than ideal because it prints something when it's loaded
 # - I should possibly "fork" it into a variant library
 library_path = [os.path.join(plasma_root, 'libsrc'), os.path.join(plasma_root, 'samplesrc')]
-
-
-# TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
-# single .pla -> .mo/#FExxxx file
-# single .pla -> SSD with .mo plus any additional .mo required plus VM executable
-# multiple .pla -> executable
-# multiple .pla -> SSD containing executable
-# SSDs may be optionally bootable and will boot "the main module/executable"
 
 
 def warn(s):
@@ -120,7 +108,7 @@ def find_include(filename):
         for path in include_path:
             abs_path = os.path.join(path, filename)
             if os.path.exists(abs_path):
-                verbose(2, 'Transforming include of "' + filename + '" into "' + abs_path + '"')
+                verbose(2, 'Transforming include of ' + filename + ' into ' + abs_path)
                 return abs_path
     return None
 
@@ -140,7 +128,7 @@ def preprocess_pla(filename, extension):
 def preprocess_file(input_filename, output_file):
     with open(input_filename, 'r') as input_file:
         for line in input_file:
-            line = line[:-1]
+            line = line[:-1] # strip trailing \n
             group = 1
             include_match = re.match(r'^\s*include\s*"([^"]*)"', line)
             if not include_match:
@@ -198,9 +186,9 @@ def compile_pla(full_filename):
                     # These three functions are in cmdsys.plh so they are imported by just
                     # about every program, but they make no sense in a standalone build. We
                     # comment out the imports so any use of them will fail at assembly time.
-                    # This seems better than wasting memory on a dummy implementation (albeit
-                    # they can probably all just be a single assembly function which does
-                    # nothing but RTS).
+                    # (We could instead provide a dummy implementation, but that would waste
+                    # at least one byte and it would be confusing if the dummy implementation
+                    # was actually called anyway.)
                     if '= _Y_MODADDR' in line or '= _Y_MODLOAD' in line or '= _Y_MODEXEC' in line:
                         line = '; ' + line
             if line is not None:
@@ -280,12 +268,10 @@ def add_file(full_filename):
 
     extension = extension.lower()
     if extension == '.pla': # PLASMA source file
-        print 'XX1', full_filename
         asm_filename, import_list, init_line = compile_pla(full_filename)
         filename, extension = os.path.splitext(full_filename)
         extension = extension.lower()
         module_init_line[module_name] = init_line
-        print 'XX2', full_filename
         if args.standalone:
             full_filename = asm_filename
         else:
