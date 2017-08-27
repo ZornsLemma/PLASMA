@@ -638,5 +638,5 @@ disc.file.seek(0, 0)
 if not args.ssd_name:
     args.ssd_name = top_level_modules[0].lower() + '.ssd'
 verbose(1, "Writing SSD to " + args.ssd_name)
-with open(args.ssd_name, 'wb') as ssd_file:
+with open(args.ssd_name, 'w+b') as ssd_file:
     ssd_file.write(disc.file.read())
