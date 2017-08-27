@@ -166,8 +166,10 @@ def compile_pla(full_filename):
     with open(output_name, 'w') as output:
         for line in plasm.stdout:
             if args.standalone:
-                # TODO: We could strip the leading JMP _INIT off the plasm output - it's redundant
-                if line.startswith('_INIT'):
+                if line.startswith('\tJMP\t_INIT'):
+                    # This initial JMP INIT is harmless but unnecessary.
+                    line = None
+                elif line.startswith('_INIT'):
                     # TODO: This is a bit hacky
                     next_line = plasm.stdout.next()
                     if 'JSR' in next_line and 'INTERP' in next_line:
