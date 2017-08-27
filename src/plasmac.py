@@ -167,18 +167,20 @@ def compile_pla(full_filename):
         for line in plasm.stdout:
             if args.standalone:
                 if line.startswith('\tJMP\t_INIT'):
-                    # This initial JMP INIT is harmless but unnecessary.
+                    # This initial JMP _INIT is harmless but unnecessary.
                     line = None
                 elif line.startswith('_INIT'):
-                    # TODO: This is a bit hacky
+                    # All PLASMA modules compiled without -M have a _INIT but there may well
+                    # be no init code and therefore no JSR INTERP line following. We detect
+                    # the presence of a _INIT label with bytecode, patch the label to be
+                    # module-specific and record it so the top-level code can invoke each
+                    # module's init code in turn.
                     next_line = plasm.stdout.next()
-                    if 'JSR' in next_line and 'INTERP' in next_line:
+                    if next_line == '\tJSR\tINTERP\n':
                         line = '_INIT' + prefix
                         init_line = line
                         output.write(line + '\n')
-                        line = next_line
-                    else:
-                        line = None
+                    line = next_line
                 elif line.startswith('\t; IMPORT: '):
                     imported_module = line.split(':')[1].strip()
                     if imported_module != 'CMDSYS':
