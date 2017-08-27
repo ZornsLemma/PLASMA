@@ -43,8 +43,11 @@ os.environ["PATH"] += os.pathsep + plasma_root
 # TODO: We may want to also append os.path.join(plasma_root, 'bin'); I could
 # imagine some installations might come with a bundled acme binary which would
 # possibly live in there, and maybe plasm would live in there too.
-# TODO: Include path needs to be configurable
 include_path = [plasma_root]
+# TODO: Include samplesrc by default is not ideal; the reality is that 'testlib' is
+# useful but it's also less than ideal because it prints something when it's loaded
+# - I should possibly "fork" it into a variant library
+library_path = [os.path.join(plasma_root, 'libsrc'), os.path.join(plasma_root, 'samplesrc')]
 
 
 # TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
@@ -304,14 +307,11 @@ def add_file(full_filename):
 
 
 def find_module_by_name(module_name):
-    # TODO: Path needs to be configurable and have sensible default (probably
-    # based on location of plasmac.py)
-    search_path = ['/home/steven/src/PLASMA/src/libsrc', '/home/steven/src/PLASMA/src/samplesrc']
     candidates = []
     acceptable_extensions = ['.pla']
     if not args.standalone:
         acceptable_extensions.append('.mo')
-    for path in search_path:
+    for path in library_path:
         for extension in acceptable_extensions:
             filename = os.path.join(path, module_name.lower() + extension)
             if os.path.exists(filename):
@@ -472,7 +472,8 @@ parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla 
 # TODO: Have a "this tool arguments" group???
 parser.add_argument('-v', '--verbose', action='count', help='show what this tool is doing')
 parser.add_argument('-S', '--compile-only', action='store_true', help="stop after compiling; don't assemble compiler output")
-parser.add_argument('-L', '--library', nargs=1, metavar='DIR', action='append', help="search DIR for missing imports")
+parser.add_argument('-I', '--include', metavar='DIR', action='append', help="search DIR for missing includes")
+parser.add_argument('-L', '--library', metavar='DIR', action='append', help="search DIR for missing imports")
 parser.add_argument('--save-temps', action='store_true', help="don't remove temporary files")
 
 compiler_group = parser.add_argument_group('compiler arguments', 'Options passed through to the PLASMA compiler (plasm)')
@@ -505,6 +506,14 @@ ssd_group.add_argument('--bootable', action='store_true', help='make disc image 
 ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title (implies --ssd)')
 
 args = parser.parse_args()
+
+if args.include:
+    include_path.extend(args.include)
+del args.include
+
+if args.library:
+    library_path.extend(args.library)
+del args.library
 
 if args.no_combine and not args.optimise:
     warn("--no-combine has no effect without --optimise")
