@@ -43,7 +43,7 @@ plas32vm = os.path.join(plasma_root, 'BBPLASMA#FF2000')
 # possibly live in there, and maybe plasm would live in there too.
 os.environ["PATH"] += os.pathsep + plasma_root
 include_path = [plasma_root]
-# TODO: Include samplesrc by default is not ideal; the reality is that 'testlib' is
+# TODO: Including samplesrc by default is not ideal; the reality is that 'testlib' is
 # useful but it's also less than ideal because it prints something when it's loaded
 # - I should possibly "fork" it into a variant library
 library_path = [os.path.join(plasma_root, 'libsrc'), os.path.join(plasma_root, 'samplesrc')]
@@ -125,7 +125,6 @@ def find_include(filename):
     return None
 
 
-# TODO: PROPER COMMENT - THE IDEA HERE IS THAT BECAUSE WE MAY BE DOING PLASMA OR ACME INCLUDES USING A RELATIVE PATH, WE NEED TO PREPROCESS THE SOURCE FILE AND CHANGE THEM TO ABSOLUTE PATHS - THIS IS NECESSARY TO, FOR INSTANCE, ALLOW A PROGRAM BEING COMPILED IN ITS OWN DIRECTORY TO FIND STANDARD PLASMA HAEADER FILES LIKE "INC/CMDSYS.PLH"
 def preprocess_pla(filename, extension):
     assert extension == '.pla'
     output_filename = get_output_name(filename, '.plp')
@@ -135,6 +134,9 @@ def preprocess_pla(filename, extension):
     return output_filename
 
 
+# Preprocess PLASMA or ACME source to replace relative paths in include statements
+# by absolute paths; this avoids problems where standard includes like inc/cmdsys.plh
+# can't be found if compiling in a separate directory.
 def preprocess_file(input_filename, output_file):
     with open(input_filename, 'r') as input_file:
         for line in input_file:
@@ -361,7 +363,7 @@ def check_dependencies():
         assert module not in seen
         seen.add(module)
         result = []
-        if module in imports: # if it's not, we'll notice later TODO CHECK
+        if module in imports: # if it's not, we'll notice later
             for imported_module in imports[module]:
                 if imported_module not in seen:
                     result.extend(recursive_imports(imported_module, imports, seen))
@@ -379,7 +381,7 @@ def check_dependencies():
         # ordered_modules contains the top-level modules and all of their imports,
         # direct and indirect, ordered so that the lowest level modules come first -
         # this is the order we want to invoke their initialisation code in a standalone
-        # executable. TODO MAKE SURE WE USE IT
+        # executable.
 
         ordered_modules_set = set(ordered_modules)
         all_modules_set = set(imports.keys())
