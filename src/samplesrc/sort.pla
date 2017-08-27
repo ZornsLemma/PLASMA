@@ -29,12 +29,21 @@ word acrndnum = 12345
 
 word i
 
-def acrnd
+def acrnd()
   byte block[5]
   call(osword, osword_read_time, @block, @block >> 8, 0)
   acrndnum = acrndnum ^ block:0
   acrndnum = acrndnum * 31421 + 6927
   return acrndnum & $7FFF
+end
+
+def shuffle()
+    word j, k
+    for i = 0 to size * 10
+	j = acrnd() % size
+	k = acrnd() % size
+	(array):[j], (array):[k] = (array):[k], (array):[j]
+    next
 end
 
 array = heapalloc(size * 2)
@@ -43,10 +52,10 @@ array = heapalloc(size * 2)
 // accept the output may be unreadable.
 mode(131)
 
-// TODO: Might be nicer to shuffle the numbers 0-(size-1) rather than use random values
 for i = 0 to size - 1
-    (array):[i] = acrnd() % size
+    (array):[i] = i
 next
+shuffle()
 
 // TODO: Would be good to check for a failure in modexec() return code
 result = 0
