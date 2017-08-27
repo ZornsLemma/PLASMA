@@ -481,7 +481,7 @@ assembler_group = parser.add_argument_group('assembler arguments', 'Options cont
 # but mainly because it avoids problems when we're compiling multiple files to modules.
 # TODO: Not saying I want to get rid of it, but I suspect --report is going to be a bit awkward with --save-temps. We probably want to make target_extensions a list so we can add '.lst' to it, but we are likely to end up generating '/tmp/dfasdasda.lst' files because the temporary filenames we are working with will naively be used as a base for the .lst name. We may need to pass the "conceptual" filename around with the actual filename all the time or something like that. Maybe we could create all our temp files in a directory and ensure they have the correct leafname? But that sounds awkward and error prone and I don't really like it.
 assembler_group.add_argument('-r', '--report', action='store_true', help='generate a report file')
-assembler_group.add_argument('-D', metavar='SYMBOL=VALUE', nargs=1, action='append', dest='defines', help='define global symbol')
+assembler_group.add_argument('-D', metavar='SYMBOL=VALUE', action='append', dest='defines', help='define global symbol')
 
 standalone_group = parser.add_argument_group('standalone executable generator arguments', 'Options controlling generation of a standalone executable (instead of PLASMA modules)')
 # The -M argument is really redundant but we allow it for "compatibility" with invoking plasm directly
@@ -523,13 +523,6 @@ if args.ssd_name or args.bootable or args.title:
 if args.compile_only and args.ssd:
     warn("Ignoring --ssd as --compile_only specified")
     args.ssd = False
-
-defines = []
-if args.defines:
-    for define in args.defines:
-        defines.append(define[0])
-args.defines = defines
-del defines
 
 load_address = ast.literal_eval(args.load_address[0].replace('$', '0x')) if args.load_address else 0x2000
 del args.load_address
