@@ -2,8 +2,6 @@
 # TODO: Check final version for any hard-coded '/' Unix-style path separators -
 # we should be using os.path.join() etc
 
-# TODO: SSD SHOULD PROBABLY BE BOOTABLE BY DEFAULT
-
 # TODO: We should generate a less verbose and scary error message if we can't
 # open a file!
 
@@ -348,7 +346,7 @@ def check_dependencies():
 
     if args.standalone and len(top_level_modules) == 0:
         die("Standalone build requires a top-level module")
-    if (args.standalone or (args.ssd and args.bootable)) and len(top_level_modules) > 1:
+    if (args.standalone or (args.ssd and bootable)) and len(top_level_modules) > 1:
         if args.standalone:
             s = "Standalone build"
         else:
@@ -491,7 +489,7 @@ ssd_group = parser.add_argument_group('ssd generator arguments', 'Options contro
 # using an optional argument with nargs='?' is greedy and it will consume an input file argument.
 ssd_group.add_argument('--ssd', action='store_true', help="generate Acorn DFS disc image (.ssd)")
 ssd_group.add_argument('--ssd-name', help="output file for --ssd (implies --ssd)")
-ssd_group.add_argument('--bootable', action='store_true', help='make disc image bootable (implies --ssd)')
+ssd_group.add_argument('--non-bootable', action='store_true', help="don't make disc image bootable (implies --ssd)")
 ssd_group.add_argument('--title', nargs=1, metavar='TITLE', help='set disc title (implies --ssd)')
 
 args = parser.parse_args()
@@ -513,12 +511,15 @@ if args.non_relocatable or args.load_address:
 if args.standalone and args.module:
     die("--standalone and --module are mutually exclusive")
 
-if args.ssd_name or args.bootable or args.title:
+if args.ssd_name or args.non_bootable or args.title:
     args.ssd = True
 
 if args.compile_only and args.ssd:
     warn("Ignoring --ssd as --compile_only specified")
     args.ssd = False
+
+bootable = not args.non_bootable
+del args.non_bootable
 
 load_address = ast.literal_eval(args.load_address[0].replace('$', '0x')) if args.load_address else 0x2000
 del args.load_address
@@ -589,7 +590,7 @@ import makedfs
 disc = makedfs.Disk()
 disc.new()
 catalogue = disc.catalogue()
-catalogue.boot_option = 3 if args.bootable else 0
+catalogue.boot_option = 3 if bootable else 0
 disc_files = []
 
 def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
@@ -603,7 +604,7 @@ def add_dfs_file(source_filename, content, dfs_filename, load_addr, exec_addr):
     verbose(1, "Adding %s to SSD as %s, load address $%05X, exec address $%05X" % (source_filename if source_filename else repr(content), dfs_filename, load_addr, exec_addr))
     disc_files.append(makedfs.File(dfs_filename, content, load_addr, exec_addr, len(content)))
 
-if args.bootable:
+if bootable:
     # We could of course use the *RUN boot option and have the standalone
     # executable or the PLASMA VM be !BOOT, but there seems little value in
     # it and it's potentially confusing, so let's not do it unless a real
