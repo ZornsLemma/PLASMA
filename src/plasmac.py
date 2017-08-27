@@ -139,7 +139,7 @@ def preprocess_file(input_filename, output_file):
                 if include_abs_path:
                     line = line[:include_match.start(group)] + include_abs_path + line[include_match.end(group):]
                 else:
-                    die(filename + extension + ': missing include file "' + include_match.group(group) + '"')
+                    die(input_filename + ': missing include file "' + include_match.group(group) + '"')
             output_file.write(line + '\n')
 
 
@@ -293,6 +293,8 @@ def add_file(full_filename):
         die("Invalid input: " + full_filename)
 
     module_filename[module_name] = full_filename
+    if module_name in import_list:
+        import_list.remove(module_name) # avoid problems if module self-imports
     imports[module_name] = import_list
     verbose(1, "Module %s imports: %s" % (module_name, ", ".join(import_list) if import_list else "None"))
     for module in import_list:
@@ -357,12 +359,14 @@ def check_dependencies():
 
     def recursive_imports(module, imports, seen):
         assert module not in seen
+        print('Q0', module)
         seen.add(module)
         result = []
         if module in imports: # if it's not, we'll notice later
             for imported_module in imports[module]:
                 if imported_module not in seen:
                     result.extend(recursive_imports(imported_module, imports, seen))
+        print('Q1', module)
         result.append(module)
         return result
 
@@ -385,6 +389,9 @@ def check_dependencies():
         irrelevant_modules = all_modules_set - ordered_modules_set
         # We can't have any "irrelevant" modules; any such module would be a
         # top-level module and therefore would be in ordered_modules_set.
+        print('X1', all_modules_set)
+        print('X2', ordered_modules_set)
+        print('X99', irrelevant_modules)
         assert not irrelevant_modules
 
         if missing_modules:

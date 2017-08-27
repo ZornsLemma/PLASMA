@@ -1,0 +1,11 @@
+include "sort.plh"
+
+word i
+result = 1
+for i = 1 to size-1
+    if array[i-1] > array[i]
+	array[i-1], array[i] = array[i], array[i-1]
+	result = 0
+    fin
+next
+done

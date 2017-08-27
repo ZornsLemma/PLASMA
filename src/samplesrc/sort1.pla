@@ -1,0 +1,33 @@
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+include "sort.plh"
+
+const start_line = 0
+const column_width = 3
+
+const vdu_tab = 31
+
+word i
+
+def tab(x, y)
+    putc(vdu_tab)
+    putc(x * column_width)
+    putc(y)
+end
+
+// TODO: Might be better to print the output horizontally rather than vertically
+for i = 0 to size - 1
+    // Perform a pointless heap allocation just to prove that the heap
+    // allocated by this module is freed every time it returns.
+    heapalloc(1)
+
+    tab(column, start_line + i) 
+    if (array[i] < 10)
+	putc(' ')
+    fin
+    puti(array[i])
+next
+
+putln()
+column++
+done
