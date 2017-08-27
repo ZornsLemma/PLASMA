@@ -138,22 +138,26 @@ def preprocess_pla(filename, extension):
     output_filename = get_output_name(filename, '.plp')
     verbose_subprocess(['preprocess-pla', '< ' + filename + extension, '> ' + output_filename])
     with open(output_filename, 'w') as output_file:
-        with open(filename + extension, 'r') as input_file:
-            for line in input_file:
-                line = line[:-1]
-                group = 1
-                include_match = re.match(r'^\s*include\s*"([^"]*)"', line)
-                if not include_match:
-                    group = 2
-                    include_match = re.match(r'^\s*!(source|src)\s*"([^"]*)', line, re.IGNORECASE)
-                if include_match:
-                    include_abs_path = find_include(include_match.group(group))
-                    if include_abs_path:
-                        line = line[:include_match.start(group)] + include_abs_path + line[include_match.end(group):]
-                    else:
-                        die(filename + extension + ': missing include file "' + include_match.group(group) + '"')
-                output_file.write(line + '\n')
+        preprocess_file(filename + extension, output_file)
     return output_filename
+
+
+def preprocess_file(input_filename, output_file):
+    with open(input_filename, 'r') as input_file:
+        for line in input_file:
+            line = line[:-1]
+            group = 1
+            include_match = re.match(r'^\s*include\s*"([^"]*)"', line)
+            if not include_match:
+                group = 2
+                include_match = re.match(r'^\s*!(source|src)\s*"([^"]*)', line, re.IGNORECASE)
+            if include_match:
+                include_abs_path = find_include(include_match.group(group))
+                if include_abs_path:
+                    line = line[:include_match.start(group)] + include_abs_path + line[include_match.end(group):]
+                else:
+                    die(filename + extension + ': missing include file "' + include_match.group(group) + '"')
+            output_file.write(line + '\n')
 
 
 # TODO: Not good that this uses 'imports' as a local variable when we have a global called that, it's confusing
@@ -227,7 +231,7 @@ def assemble(asm_filename, output_filename, load_address):
         acme_args.append('-D' + define)
     acme_args += ['-o', output_filename, asm_filename]
     verbose_subprocess(acme_args)
-    acme_result = subprocess.call(acme_args)
+    acme_result = subprocess.call(acme_args, env=os.environ)
     if acme_result != 0:
         die_verbose("Executing acme failed")
     return output_filename
@@ -420,9 +424,8 @@ def build_standalone(ordered_modules, top_level_modules):
     combined_asm_filename = get_output_name(top_level_modules[0].lower(), '.ca')
     verbose(1, 'Combining plasm output into ' + combined_asm_filename)
     with open(combined_asm_filename, 'w') as combined_asm_file:
-        # TODO: Don't hardcode location of input files
-        cat(combined_asm_file, 'vmsrc/plvmbb-pre.s')
-        with open('vmsrc/32cmd.sa', 'r') as infile:
+        preprocess_file(os.path.join(plasma_root, 'vmsrc', 'plvmbb-pre.s'), combined_asm_file)
+        with open(os.path.join(plasma_root, 'vmsrc', '32cmd.sa'), 'r') as infile:
             for line in infile:
                 if line.endswith(': done\n'):
                     discard = infile.next()
@@ -438,7 +441,7 @@ def build_standalone(ordered_modules, top_level_modules):
         # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
         for module in ordered_modules:
             cat(combined_asm_file, module_filename[module])
-        cat(combined_asm_file, 'vmsrc/plvmbb-post.s')
+        preprocess_file(os.path.join(plasma_root, 'vmsrc', 'plvmbb-post.s'), combined_asm_file)
 
     if args.compile_only:
         sys.exit(0)
@@ -453,10 +456,9 @@ def build_standalone(ordered_modules, top_level_modules):
     # TODO: Should probably remove executable_filename if an error occurs here
     executable_filename2 = get_temporary_name('')
     assemble(combined_asm_filename, executable_filename2, load_address + 0x1000)
-    # TODO: Should try to execute add-relocations.py from same dir as this .py file
-    relocation_args = ['./add-relocations.py', executable_filename, executable_filename2]
+    relocation_args = ['add-relocations.py', executable_filename, executable_filename2]
     verbose_subprocess(relocation_args)
-    relocation_result = subprocess.call(relocation_args)
+    relocation_result = subprocess.call(relocation_args, env=os.environ)
     if relocation_result != 0:
         die("Adding relocations failed")
     return executable_filename
