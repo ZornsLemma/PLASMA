@@ -1,3 +1,5 @@
+// Part of multi-module program example; see sort.pla
+
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
 include "sort.plh"

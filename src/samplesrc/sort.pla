@@ -1,3 +1,17 @@
+// Demonstration of how a large program can be split into separate parts which
+// share common data while allowing only part of the program to be in memory at
+// any time.
+//
+// This top-level module can be executed (+SORT). It will populate an array
+// with a random set of numbers, then perform a very slow bubble sort by
+// repeatedly invoking SORT1 to display the array and SORT2 to perform a single
+// bubble sort pass over the array, stopping when SORT2 indicates that no swaps
+// were performed (and the array is therefore sorted).
+//
+// While this example is silly, note that:
+// - data owned by this top-level module is available to all the modules
+// - only one of SORT1 and SORT2 is resident in memory at any one time
+
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/testlib.plh"
