@@ -97,7 +97,7 @@ def remove_tempfiles():
 
 # TODO: Use this everywhere appropriate
 def get_output_name(filename, extension):
-    if args.save_temps or extension == target_extension:
+    if args.save_temps or extension in target_extensions:
         return filename + extension
     else:
         return get_temporary_name(extension)
@@ -120,7 +120,7 @@ def find_include(filename):
         for path in include_path:
             abs_path = os.path.join(path, filename)
             if os.path.exists(abs_path):
-                verbose(2, 'Transforming "' + filename + '" into "' + abs_path + '"')
+                verbose(2, 'Transforming include of "' + filename + '" into "' + abs_path + '"')
                 return abs_path
     return None
 
@@ -213,15 +213,18 @@ def compile_pla(full_filename):
     return output_name, imports, init_line
 
 
-def assemble(asm_filename, output_filename, load_address):
+def assemble(asm_filename, output_filename, lst_filename, load_address):
     acme_args = ['acme']
     if args.standalone:
         acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
     else:
         assert load_address is None
         acme_args.extend(['--setpc', '4094'])
-    for define in args.defines:
-        acme_args.append('-D' + define)
+    if args.defines:
+        for define in args.defines:
+            acme_args.append('-D' + define)
+    if args.report and lst_filename:
+        acme_args.extend(['--report', lst_filename])
     acme_args += ['-o', output_filename, asm_filename]
     verbose_subprocess(acme_args)
     acme_result = subprocess.call(acme_args, env=os.environ)
@@ -277,15 +280,18 @@ def add_file(full_filename):
 
     extension = extension.lower()
     if extension == '.pla': # PLASMA source file
+        print 'XX1', full_filename
         asm_filename, import_list, init_line = compile_pla(full_filename)
         filename, extension = os.path.splitext(full_filename)
         extension = extension.lower()
         module_init_line[module_name] = init_line
+        print 'XX2', full_filename
         if args.standalone:
             full_filename = asm_filename
         else:
             mo_filename = get_output_name(filename, '.mo')
-            full_filename = assemble(asm_filename, mo_filename, None)
+            lst_filename = get_output_name(filename, '.lst')
+            full_filename = assemble(asm_filename, mo_filename, lst_filename, None)
             import_list = get_module_imports(full_filename)
         
     # TODO: we should allow #FEnnnn as well as .mo
@@ -415,7 +421,7 @@ def build_standalone(ordered_modules, top_level_modules):
     # TODO: This always creates files in current directory; that's probably OK, but
     # do think about this again later.
     combined_asm_filename = get_output_name(top_level_modules[0].lower(), '.ca')
-    verbose(1, 'Combining plasm output into ' + combined_asm_filename)
+    verbose(1, 'Combining plasm output into ' + combined_asm_filename + ' in order: ' + ', '.join(ordered_modules))
     with open(combined_asm_filename, 'w') as combined_asm_file:
         preprocess_file(os.path.join(plasma_root, 'vmsrc', 'plvmbb-pre.s'), combined_asm_file)
         with open(os.path.join(plasma_root, 'vmsrc', '32cmd.sa'), 'r') as infile:
@@ -440,14 +446,15 @@ def build_standalone(ordered_modules, top_level_modules):
         sys.exit(0)
 
     executable_filename = get_output_name(top_level_modules[0].lower(), '')
+    lst_filename = get_output_name(top_level_modules[0].lower(), '.lst')
     if args.non_relocatable:
         args.defines.append('NONRELOCATABLE=1')
-    assemble(combined_asm_filename, executable_filename, load_address)
+    assemble(combined_asm_filename, executable_filename, lst_filename, load_address)
     if args.non_relocatable:
         return executable_filename
     # TODO: Should probably remove executable_filename if an error occurs here
     executable_filename2 = get_temporary_name('')
-    assemble(combined_asm_filename, executable_filename2, load_address + 0x1000)
+    assemble(combined_asm_filename, executable_filename2, None, load_address + 0x1000)
     relocation_args = ['add-relocations.py', executable_filename, executable_filename2]
     verbose_subprocess(relocation_args)
     relocation_result = subprocess.call(relocation_args, env=os.environ)
@@ -458,7 +465,6 @@ def build_standalone(ordered_modules, top_level_modules):
 
 
 
-# TODO: Check we actually implement all these arguments!
 parser = argparse.ArgumentParser(description='PLASMA build tool; transforms PLASMA source code (foo.pla) into PLASMA modules (foo.mo) or standalone executables. The output can optionally be written to an Acorn DFS disc image (foo.ssd).')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla or .mo)")
 # TODO: Have a "this tool arguments" group???
@@ -478,7 +484,6 @@ compiler_group.add_argument('-W', '--warn', action='store_true', help='enable wa
 assembler_group = parser.add_argument_group('assembler arguments', 'Options controlling the assembler (ACME)')
 # We don't allow the report name to be specified, partly because it's awkward with argparse
 # but mainly because it avoids problems when we're compiling multiple files to modules.
-# TODO: Not saying I want to get rid of it, but I suspect --report is going to be a bit awkward with --save-temps. We probably want to make target_extensions a list so we can add '.lst' to it, but we are likely to end up generating '/tmp/dfasdasda.lst' files because the temporary filenames we are working with will naively be used as a base for the .lst name. We may need to pass the "conceptual" filename around with the actual filename all the time or something like that. Maybe we could create all our temp files in a directory and ensure they have the correct leafname? But that sounds awkward and error prone and I don't really like it.
 assembler_group.add_argument('-r', '--report', action='store_true', help='generate a report file')
 assembler_group.add_argument('-D', metavar='SYMBOL=VALUE', action='append', dest='defines', help='define global symbol')
 
@@ -533,22 +538,25 @@ del args.module
 
 atexit.register(remove_tempfiles)
 
+target_extensions = []
 if args.ssd:
-    target_extension = '.ssd'
+    target_extensions.append('.ssd')
 elif args.standalone:
     if args.compile_only:
         # TODO: Not very happy with this extension, but we 'need' to distinguish
         # a merged standalone assembly source file from the individual .sa files
         # built for each module and from '.a' files generated during module builds.
-        target_extension = '.ca'
+        target_extensions.append('.ca')
     else:
-        target_extension = '' # TODO: Not sure if this will work
+        target_extensions.append('') # TODO: Not sure if this will work
 else:
     if args.compile_only:
-        target_extension = '.a'
+        target_extensions.append('.a')
     else:
-        target_extension = '.mo'
-verbose(2, 'Target extension: ' + target_extension)
+        target_extensions.append('.mo')
+if args.report:
+    target_extensions.append('.lst')
+verbose(2, 'Target extensions: ' + ', '.join(target_extensions))
 
 imports = {}
 imported_by = {}
