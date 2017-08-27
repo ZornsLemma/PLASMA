@@ -359,14 +359,12 @@ def check_dependencies():
 
     def recursive_imports(module, imports, seen):
         assert module not in seen
-        print('Q0', module)
         seen.add(module)
         result = []
         if module in imports: # if it's not, we'll notice later
             for imported_module in imports[module]:
                 if imported_module not in seen:
                     result.extend(recursive_imports(imported_module, imports, seen))
-        print('Q1', module)
         result.append(module)
         return result
 
@@ -389,9 +387,6 @@ def check_dependencies():
         irrelevant_modules = all_modules_set - ordered_modules_set
         # We can't have any "irrelevant" modules; any such module would be a
         # top-level module and therefore would be in ordered_modules_set.
-        print('X1', all_modules_set)
-        print('X2', ordered_modules_set)
-        print('X99', irrelevant_modules)
         assert not irrelevant_modules
 
         if missing_modules:
