@@ -24,10 +24,10 @@ for i = 0 to size - 1
     heapalloc(1)
 
     tab(column, start_line + i) 
-    if (array[i] < 10)
+    if ((array):[i] < 10)
 	putc(' ')
     fin
-    puti(array[i])
+    puti((array):[i])
 next
 
 putln()
