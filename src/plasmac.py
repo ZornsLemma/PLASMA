@@ -427,7 +427,12 @@ def build_standalone(ordered_modules, top_level_modules):
             if init:
                 combined_asm_file.write('\t!BYTE\t$54\t\t\t; CALL ' + init + '\n')
                 combined_asm_file.write('\t!WORD\t' + init + '\n')
-        # TODO: What can/should we do (perhaps nothing) to "cope" if the final init returns? (It shouldn't)
+        # The top-level module should never actually finish in a program compiled
+        # as a standalone module - the program is effectively the current language
+        # and can only be exited by selecting another language - but to make things
+        # predictable if it does, we spend three bytes on an infinite loop.
+        combined_asm_file.write('_INFINITE\t!BYTE\t$50\t\t\t; BRNCH _INFINITE\n')
+        combined_asm_file.write('\t!WORD\t_INFINITE-*\n')
         for module in ordered_modules:
             cat(combined_asm_file, module_filename[module])
         preprocess_file(os.path.join(plasma_root, 'vmsrc', 'plvmbb-post.s'), combined_asm_file)
