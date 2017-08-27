@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # TODO: Check final version for any hard-coded '/' Unix-style path separators -
 # we should be using os.path.join() etc
 
@@ -31,6 +32,20 @@ import re
 import subprocess
 import sys
 import tempfile
+
+
+# We expect the relevant binaries to be present in the local PLASMA
+# installation only; the user may well not have modified PATH to include them.
+# We therefore add the appropriate directories to the end of PATH.
+plasma_root = os.path.dirname(os.path.abspath(__file__))
+plas32vm = os.path.join(plasma_root, 'BBPLASMA#FF2000')
+os.environ["PATH"] += os.pathsep + plasma_root
+# TODO: We may want to also append os.path.join(plasma_root, 'bin'); I could
+# imagine some installations might come with a bundled acme binary which would
+# possibly live in there, and maybe plasm would live in there too.
+# TODO: Include path needs to be configurable
+include_path = [plasma_root]
+
 
 # TODO: THIS COMMENT IS OUTDATED BUT LET'S KEEP IT FOR NOW - WAS ONLY A TEMP NOTE ANYWAY
 # single .pla -> .mo/#FExxxx file
@@ -100,11 +115,49 @@ def get_temporary_name(extension):
 
 
 
+def find_include(filename):
+    # If it's an absolute path or (not so sure this is a good idea) a relative path
+    # which happens to be found relative to the current directory, we're done.
+    if os.path.exists(filename):
+        return filename
+    if not os.path.isabs(filename):
+        for path in include_path:
+            abs_path = os.path.join(path, filename)
+            if os.path.exists(abs_path):
+                verbose(2, 'Transforming "' + filename + '" into "' + abs_path + '"')
+                return abs_path
+    return None
+
+
+# TODO: PROPER COMMENT - THE IDEA HERE IS THAT BECAUSE WE MAY BE DOING PLASMA OR ACME INCLUDES USING A RELATIVE PATH, WE NEED TO PREPROCESS THE SOURCE FILE AND CHANGE THEM TO ABSOLUTE PATHS - THIS IS NECESSARY TO, FOR INSTANCE, ALLOW A PROGRAM BEING COMPILED IN ITS OWN DIRECTORY TO FIND STANDARD PLASMA HAEADER FILES LIKE "INC/CMDSYS.PLH"
+def preprocess_pla(filename, extension):
+    assert extension == '.pla'
+    output_filename = get_output_name(filename, '.plp')
+    verbose_subprocess(['preprocess-pla', '< ' + filename + extension, '> ' + output_filename])
+    with open(output_filename, 'w') as output_file:
+        with open(filename + extension, 'r') as input_file:
+            for line in input_file:
+                line = line[:-1]
+                group = 1
+                include_match = re.match(r'^\s*include\s*"([^"]*)"', line)
+                if not include_match:
+                    group = 2
+                    include_match = re.match(r'^\s*!(source|src)\s*"([^"]*)', line, re.IGNORECASE)
+                if include_match:
+                    include_abs_path = find_include(include_match.group(group))
+                    if include_abs_path:
+                        line = line[:include_match.start(group)] + include_abs_path + line[include_match.end(group):]
+                    else:
+                        die(filename + extension + ': missing include file "' + include_match.group(group) + '"')
+                output_file.write(line + '\n')
+    return output_filename
+
+
 # TODO: Not good that this uses 'imports' as a local variable when we have a global called that, it's confusing
 def compile_pla(full_filename):
     filename, extension = os.path.splitext(full_filename)
     prefix = '_' + os.path.basename(filename).upper() + '_'
-    plasm_args = ['./plasm', '-A'] # TODO: Allow user to add to this
+    plasm_args = ['plasm', '-A']
     if not args.standalone:
         plasm_args.append('-M')
     if args.optimise:
@@ -117,8 +170,9 @@ def compile_pla(full_filename):
     init_line = None
     output_extension = '.sa' if args.standalone else '.a'
     output_name = get_output_name(filename, output_extension)
-    verbose_subprocess(plasm_args + ['< ' + full_filename, ('| standalone-filter ' if args.standalone else '') + '> ' + output_name])
-    plasm = subprocess.Popen(plasm_args, stdin=open(full_filename, 'r'), stdout=subprocess.PIPE)
+    preprocessed_filename = preprocess_pla(filename, extension)
+    verbose_subprocess(plasm_args + ['< ' + preprocessed_filename, ('| standalone-filter ' if args.standalone else '') + '> ' + output_name])
+    plasm = subprocess.Popen(plasm_args, stdin=open(preprocessed_filename, 'r'), stdout=subprocess.PIPE, env=os.environ)
     with open(output_name, 'w') as output:
         for line in plasm.stdout:
             if args.standalone:
@@ -572,7 +626,7 @@ if args.bootable:
 
 if not args.standalone: # TODO: Make this optional?
     # TODO: Don't hardcode path
-    add_dfs_file("BBPLASMA#FF2000", None, "PLASMA", 0x2000, 0x2000)
+    add_dfs_file(plas32vm, None, "PLASMA", 0x2000, 0x2000)
 
 for full_filename, dfs_filename in output_files:
     filename, extension = os.path.splitext(full_filename)
