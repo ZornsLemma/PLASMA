@@ -437,7 +437,6 @@ def build_standalone(ordered_modules, top_level_modules):
     if args.compile_only:
         sys.exit(0)
 
-    # TODO: This needs to do all the relocatable/non-relocatable stuff - don't forget to pass -DNONRELOCATABLE=1 to acme if appropriate
     executable_filename = get_output_name(top_level_modules[0].lower(), '')
     if args.non_relocatable:
         args.defines.append('NONRELOCATABLE=1')
@@ -457,8 +456,6 @@ def build_standalone(ordered_modules, top_level_modules):
 
 
 
-# TODO: Use the argument groups feature for nicer --help output
-# TODO: Way more arguments than this of course
 # TODO: Check we actually implement all these arguments!
 parser = argparse.ArgumentParser(description='PLASMA build tool; transforms PLASMA source code (foo.pla) into PLASMA modules (foo.mo) or standalone executables. The output can optionally be written to an Acorn DFS disc image (foo.ssd).')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla or .mo)")
@@ -586,7 +583,6 @@ else:
 if not args.ssd:
     sys.exit(0)
 
-# TODO: Don't hardcode path
 import makedfs
 disc = makedfs.Disk()
 disc.new()
@@ -620,7 +616,6 @@ if args.bootable:
     add_dfs_file(None, content, '$.!BOOT', 0x0000, 0x0000)
 
 if not args.standalone: # TODO: Make this optional?
-    # TODO: Don't hardcode path
     add_dfs_file(plas32vm, None, "PLASMA", 0x2000, 0x2000)
 
 for full_filename, dfs_filename in output_files:
