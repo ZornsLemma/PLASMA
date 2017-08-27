@@ -6,7 +6,6 @@ include "sort.plh"
 
 word i
 
-// TODO: Might be better to print the output horizontally rather than vertically
 for i = 0 to size - 1
     // Perform a pointless heap allocation just to prove that the heap
     // allocated by this module is freed every time it returns.
