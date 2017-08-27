@@ -17,11 +17,9 @@ include "inc/cmdsysac.plh"
 include "inc/testlib.plh"
 include "inc/acornc.plh"
 
-// TODO: Might be nicer to use heap-allocated storage for demo purposes to show it's not corrupted
 export word size = 20
 export word array
 export word result
-export word column = 0
 
 const vdu_cls = 12
 
@@ -68,7 +66,7 @@ while not result
     modexec("SORT1")
     // Print heapmark() to show it doesn't change, i.e. each modexec()
     // frees the memory it used before it returns.
-    puts("heapmark: ")
+    puts("| ")
     puti(heapmark())
     putln()
     modexec("SORT2")
