@@ -34,15 +34,14 @@ import sys
 import tempfile
 
 
-# We expect the relevant binaries to be present in the local PLASMA
-# installation only; the user may well not have modified PATH to include them.
-# We therefore add the appropriate directories to the end of PATH.
 plasma_root = os.path.dirname(os.path.abspath(__file__))
 plas32vm = os.path.join(plasma_root, 'BBPLASMA#FF2000')
-os.environ["PATH"] += os.pathsep + plasma_root
+# The binaries we need might not be on the standard PATH so we add our own
+# directory to it.
 # TODO: We may want to also append os.path.join(plasma_root, 'bin'); I could
 # imagine some installations might come with a bundled acme binary which would
 # possibly live in there, and maybe plasm would live in there too.
+os.environ["PATH"] += os.pathsep + plasma_root
 include_path = [plasma_root]
 # TODO: Include samplesrc by default is not ideal; the reality is that 'testlib' is
 # useful but it's also less than ideal because it prints something when it's loaded
@@ -56,12 +55,6 @@ library_path = [os.path.join(plasma_root, 'libsrc'), os.path.join(plasma_root, '
 # multiple .pla -> executable
 # multiple .pla -> SSD containing executable
 # SSDs may be optionally bootable and will boot "the main module/executable"
-
-# TODO: This is currently written so all intermediate files are persistent. Might 
-# be nice to have an option to use temporary files instead - we'd shove them in a big list
-# and remove them on exit, and I guess we could simply have the temporary code disable itself
-# when generating a file with an extension which is "the ultimate target" for the build (e.g.
-# .ssd for SSD builds, .mo for non-SSD module builds, .a/.sa for -S builds, etc)
 
 
 def warn(s):
@@ -219,8 +212,6 @@ def compile_pla(full_filename):
 
 
 def assemble(asm_filename, output_filename, load_address):
-    # TODO: We need to allow various args to be passed to acme
-    # TODO!
     acme_args = ['acme']
     if args.standalone:
         acme_args.extend(['-DSTART=$' + format(load_address, 'x')])
