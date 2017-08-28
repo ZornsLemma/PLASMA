@@ -77,14 +77,17 @@ const modinitkeep = $4000
 //
 // Predefined functions.
 //
-predef putln, putc, puts, getc, gets
-predef syscall, call
-predef heapmark, heapalloc, xheapalloc, heapallocalign, heaprelease, availheap
-predef memset, memcpy
-predef isugt, isuge, isult, isule
-predef modload, modexec, modaddr
+// TODO: Can I get rid of this an include inc/cmdsys.plh? Remember I have renamed these to always use the "true" names, unlike the Apple versions where they have a different name in cmd.pla.
+predef syscall(cmd,params)#1, call(addr,areg,xreg,yreg,status)#1
+predef putln()#0, putc(c)#0, puts(s)#0, getc()#1, gets(p)#1
+// TODO: add args/return val count to xheapalloc
+predef heapmark()#1, heapalloc(size)#1, xheapalloc, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
+predef memset(addr,value,size)#0, memcpy(dst,src,size)#0
+predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1
+predef modload(mod)#1, modexec(modfile)#1, modaddr(str)#1
+// TODO: add args/return val count to following
 predef setjmp, longjmp
-predef prbyte
+predef prbyte(v)#0
 predef oserror(n, msg)#0
 predef call_oscli
 predef stocr
@@ -245,7 +248,7 @@ word syslibsym
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
 //
-export asm call
+export asm call(addr,areg,xreg,yreg,sstatus)#1
 REGVALS =   SRC
         PHP
         LDA     ESTKL+4,X
@@ -262,7 +265,7 @@ REGVALS =   SRC
         INX
         INX
         INX
-    INX
+        INX
         STX     ESP
         TAX
         PLA
@@ -287,7 +290,7 @@ end
 // MEMSET(ADDR, VALUE, SIZE)
 //   With optimizations from Peter Ferrie
 //
-export asm memset
+export asm memset(addr,value,size)#0
 	LDA     ESTKL+2,X
 	STA     DSTL
 	LDA     ESTKH+2,X
@@ -321,32 +324,33 @@ end
 // COPY MEMORY
 // MEMCPY(DSTADDR, SRCADDR, SIZE)
 //
-export asm memcpy
+export asm memcpy(dst,src,size)#0
 	INX
 	INX
-MEMCPYINT
-	LDA	ESTKL-2,X
-	ORA	ESTKH-2,X
+; TODO: DELETE LABEL, NOT USED? MEMCPYINT // TODO: NEED TO CHECK USERS OF THIS WORK WITH THE NEW IMPL
+	INX
+	LDA	ESTKL-3,X
+	ORA	ESTKH-3,X
 	BEQ	CPYMEX
-	LDA	ESTKL-1,X
-	CMP	ESTKL,X
-	LDA	ESTKH-1,X
-	SBC	ESTKH,X
+	LDA	ESTKL-2,X
+	CMP	ESTKL-1,X
+	LDA	ESTKH-2,X
+	SBC	ESTKH-1,X
  	BCC	REVCPY
 ;
 ; FORWARD COPY
 ;
-	LDA	ESTKL,X
-	STA 	DSTL
-	LDA	ESTKH,X
-	STA 	DSTH
 	LDA	ESTKL-1,X
-	STA 	SRCL
+	STA 	DSTL
 	LDA	ESTKH-1,X
+	STA 	DSTH
+	LDA	ESTKL-2,X
+	STA 	SRCL
+	LDA	ESTKH-2,X
 	STA 	SRCH
-	LDY	ESTKL-2,X
+	LDY	ESTKL-3,X
 	BEQ	FORCPYLP
-	INC 	ESTKH-2,X
+	INC 	ESTKH-3,X
 	LDY	#$00
 FORCPYLP LDA	(SRC),Y
 	STA	(DST),Y
@@ -354,34 +358,34 @@ FORCPYLP LDA	(SRC),Y
 	BNE	+
 	INC	DSTH
 	INC	SRCH
-+	DEC 	ESTKL-2,X
++	DEC 	ESTKL-3,X
 	BNE	FORCPYLP
-	DEC	ESTKH-2,X
+	DEC	ESTKH-3,X
 	BNE	FORCPYLP
 	RTS
 ;
 ; REVERSE COPY
 ;
 REVCPY	;CLC
-	LDA 	ESTKL-2,X
-	ADC	ESTKL,X
+	LDA 	ESTKL-3,X
+	ADC	ESTKL-1,X
 	STA	DSTL
-	LDA	ESTKH-2,X
-	ADC	ESTKH,X
+	LDA	ESTKH-3,X
+	ADC	ESTKH-1,X
 	STA	DSTH
 	CLC
-	LDA 	ESTKL-2,X
-	ADC	ESTKL-1,X
+	LDA 	ESTKL-3,X
+	ADC	ESTKL-2,X
 	STA	SRCL
-	LDA	ESTKH-2,X
-	ADC	ESTKH-1,X
+	LDA	ESTKH-3,X
+	ADC	ESTKH-2,X
 	STA	SRCH
 	DEC	DSTH
 	DEC	SRCH
 	LDY	#$FF
-	LDA 	ESTKL-2,X
+	LDA 	ESTKL-3,X
 	BEQ	REVCPYLP
-	INC 	ESTKH-2,X
+	INC 	ESTKH-3,X
 REVCPYLP LDA	(SRC),Y
 	STA	(DST),Y
 	DEY
@@ -389,16 +393,16 @@ REVCPYLP LDA	(SRC),Y
 	BNE	+
 	DEC	DSTH
 	DEC	SRCH
-+	DEC 	ESTKL-2,X
++	DEC 	ESTKL-3,X
 	BNE	REVCPYLP
-	DEC	ESTKH-2,X
+	DEC	ESTKH-3,X
 	BNE	REVCPYLP
 CPYMEX	RTS
 end
 //
 // Unsigned word comparisons.
 //
-export asm isuge
+export asm isuge(a,b)#1
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
 	LDA	ESTKH+1,X
@@ -411,7 +415,7 @@ export asm isuge
 	INX
 	RTS
 end
-export asm isule
+export asm isule(a,b)#1
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
 	LDA	ESTKH,X
@@ -424,7 +428,7 @@ export asm isule
 	INX
 	RTS
 end
-export asm isugt
+export asm isugt(a,b)#1
 	LDA	ESTKL,X
 	CMP	ESTKL+1,X
 	LDA	ESTKH,X
@@ -436,7 +440,7 @@ export asm isugt
 	INX
 	RTS
 end
-export asm isult
+export asm isult(a,b)#1
 	LDA	ESTKL+1,X
 	CMP	ESTKL,X
 	LDA	ESTKH+1,X
@@ -475,7 +479,7 @@ end
 //    ^str = len
 //    return len
 //end
-asm dcitos
+asm dcitos(dci, str)#1
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -515,7 +519,7 @@ end
 //    loop
 //    return ^str
 //end
-asm stodci
+asm stodci(str,dci)#1
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -543,7 +547,7 @@ asm stodci
 	STY	ESTKH,X
 	RTS
 end
-asm toupper
+asm toupper(c)#1
 	LDA     ESTKL,X
 TOUPR	AND     #$7F
 	CMP     #'a'
@@ -631,7 +635,7 @@ end
 //    until !(c & $80)
 //    return dci
 //end
-asm modtosym
+asm modtosym(mod,dci)#1
 	LDA	ESTKL+1,X
 	STA	SRCL
 	LDA	ESTKH+1,X
@@ -655,7 +659,7 @@ end
 //
 // Lookup routines.
 //
-asm lookuptbl
+asm lookuptbl(dci, tbl)#1
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -1007,7 +1011,7 @@ end
 //
 // Assumes that DST to DST+SIZE-1 all lie in the same 16K bank; this will
 // be true given how allocxheap() works.
-asm memxcpy
+asm memxcpy(dst,src,size)#0
 	LDA	ESTKH,X
 	ORA	ESTKL,X
 	BEQ	MEMXCPYEX
@@ -1058,6 +1062,7 @@ MEMXCPYLP
 MEMXCPYEX
 	INX
 	INX
+	INX
 	RTS
 end
 #endif
@@ -1065,17 +1070,16 @@ end
 //
 // CONSOLE I/O
 //
-export asm putln
-	;* We must return a value; we just return junk.
-	DEX
-
+export asm putln()#0
+	; TODO: If this remains as just "JMP OSNEWL", can we use OSNEWL directly as its symtab entry?
 	JMP	OSNEWL
 end
-export asm putc
+export asm putc(c)#0
 	LDA	ESTKL,X
+	INX
 	JMP	OSWRCH
 end
-export asm getc
+export asm getc(c)#1
 	DEX
 	JSR	OSRDCH
 	STA	ESTKL,X
@@ -1083,7 +1087,7 @@ export asm getc
 	STA	ESTKH,X
 	RTS
 end
-export asm gets
+export asm gets(p)#1
 	STX	ESP
 	LDA	ESTKL,X
 	JSR	OSWRCH
@@ -1130,7 +1134,7 @@ not_escape
 	RTS
 end
 // def puts(str)
-export asm puts
+export asm puts(s)#0
 	STX	ESP
 	LDA	ESTKL,X
 	STA	TMPL
@@ -1146,20 +1150,21 @@ export asm puts
 	DEX
 	BNE	- 
 +	LDX	ESP
+	INX
 	RTS
 end
-export def syscall(cmd, params)
+export def syscall(cmd, params)#1
     // Just a dummy implementation
     oserror(0, "syscall")
 end
-export def prbyte(v)
+export def prbyte(v)#0
     putc(hexchar[(v >> 4) & $0F])
-    return putc(hexchar[v & $0F])
+    putc(hexchar[v & $0F])
 end
 #ifndef STANDALONE
-def prword(v)
+def prword(v)#0
     prbyte(v >> 8)
-    return prbyte(v)
+    prbyte(v)
 end
 #endif
 
@@ -1294,12 +1299,12 @@ end
 //
 // Heap routines.
 //
-def availheap
+def heapavail()#1
     byte fp
     return @fp - *heapptr
 end
 #endif
-def heapfull()
+def heapfull() // TODO: ADD #0?
     puts("heapalloc failed\n") // TODO TEMP
     oserror(0, "Heap full")
 end
@@ -1310,7 +1315,7 @@ end
 // allocations (e.g. loading a file containing user data) than it will
 // do with small allocations (where it might not be able to do much
 // except die even if it checks and notices that they failed).
-export def heapalloc(size)
+export def heapalloc(size)#1
     word addr
     addr = *heapptr
     *heapptr = *heapptr + size
@@ -1328,7 +1333,7 @@ export def heapalloc(size)
 end
 // Like heapalloc(), but *always* generates an error if the allocation
 // fails, regardless of the size requested and the fail threshold.
-export def xheapalloc(size)
+export def xheapalloc(size) // TODO: ADD #
     word addr
     addr = heapalloc(size)
     if addr == 0
@@ -1336,7 +1341,7 @@ export def xheapalloc(size)
     fin
     return addr
 end
-export def heapallocalign(size, pow2, freeaddr)
+export def heapallocalign(size, pow2, freeaddr) // TODO: ADD#? ALSO IN .plh
     word align, addr
     if freeaddr
         *freeaddr = *heapptr
@@ -1350,15 +1355,15 @@ export def heapallocalign(size, pow2, freeaddr)
     fin
     return addr
 end
-export def heapmark
+export def heapmark()#1
     return *heapptr
 end
-export def heaprelease(newheap)
+export def heaprelease(newheap)#1
     *heapptr = newheap
     return @newheap - *heapptr
 end
 #ifdef PLAS128
-def allocxheap(size)
+def allocxheap(size)#1
     word xaddr, start_bank, end_bank
     if isugt(size, 16*1024-xheap_bank_start)
 	return 0
@@ -1387,6 +1392,7 @@ end
 // Acorn MOS API
 //
 
+// TODO: ADD # TO MY CUSTOM ROUTINES?
 def call_oscli_internal(str, str_cr)
     stocr(str, str_cr)
     call(oscli, 0, str_cr, str_cr >> 8, 0)
@@ -1470,22 +1476,22 @@ end
 //
 // Module routines.
 //
-def lookupmod(mod)
+def lookupmod(mod)#1
     byte dci[17]
     return lookuptbl(modtosym(mod, @dci), symtbl)
 end
-def modaddr(str)
+def modaddr(str)#1
     byte mod[17]
     stodci(str, @mod)
     return lookupmod(@mod)
 end
 #endif
 #ifndef STANDALONE
-def addmod(mod, addr)
+def addmod(mod, addr)#0
     byte dci[17]
     return addsym(modtosym(mod, @dci), addr)
 end
-def lookupextern(esd, index)
+def lookupextern(esd, index)#1
     word sym, addr
     byte str[16]
     while ^esd
@@ -1505,7 +1511,7 @@ def lookupextern(esd, index)
     loop
     return 0
 end
-def adddef(addr, deflast)
+def adddef(addr, deflast)#1
     word defentry
     defentry = *deflast
     *deflast = defentry + 5
@@ -1515,7 +1521,7 @@ def adddef(addr, deflast)
     defentry->5 = 0 // null out next entry
     return defentry
 end
-def lookupdef(addr, deftbl)
+def lookupdef(addr, deftbl)#1
     while deftbl->0 == $20
         if deftbl=>3 == addr
             return deftbl
@@ -1524,7 +1530,7 @@ def lookupdef(addr, deftbl)
     loop
     return 0
 end
-def modload(mod)
+def modload(mod)#1
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
 #ifdef PLAS128
@@ -1836,7 +1842,7 @@ end
 //
 // Command mode
 //
-def stripspaces(strptr)
+def stripspaces(strptr)#0
     while ^strptr and ^(strptr + ^strptr) <= ' '
         ^strptr = ^strptr - 1
     loop
@@ -1845,7 +1851,7 @@ def stripspaces(strptr)
         ^strptr = ^strptr - 1
     loop
 end
-def striptrail(strptr)
+def striptrail(strptr)#1
     byte i
 
     for i = 1 to ^strptr
@@ -1856,7 +1862,7 @@ def striptrail(strptr)
     next
     return strptr
 end
-def parsecmd(strptr)
+def parsecmd(strptr)#1
     byte cmd
 
     cmd = 0
@@ -1882,7 +1888,7 @@ def error_handler
   longjmp(*errjb, ^errnum)
 end
 #ifndef STANDALONE
-def modexec(modfile)
+def modexec(modfile)#1
     byte moddci[17]
     word saveheap
 #ifdef PLAS128
@@ -2033,7 +2039,7 @@ if not ^cmdptr
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
     //puts(@freestr)
-    //prword(availheap)
+    //prword(heapavail)
 #ifdef PLAS128
     //puts(@xfreestr)
     //prword(xheapsize - 1 - xheap) // a bit approximate
@@ -2068,7 +2074,7 @@ while 1
 	putln()
     fin
     puts(@freestr)
-    prword(availheap)
+    prword(heapavail)
 #ifdef PLAS128
     puts(@xfreestr)
     prword(xheapsize - 1 - xheap) // a bit approximate

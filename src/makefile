@@ -91,14 +91,14 @@ $(PLVM): vmsrc/plvm.c
 	cc vmsrc/plvm.c -o $(PLVM)
 
 vmsrc/a1cmd.a: vmsrc/a1cmd.pla $(PLASM)
-	./$(PLASM) -AO < vmsrc/a1cmd.pla > vmsrc/a1cmd.a
+	./$(PLASM) -AOW < vmsrc/a1cmd.pla > vmsrc/a1cmd.a
 
 $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 	acme -o $(PLVM01) -l vmsrc/plvm01.sym vmsrc/plvm01.s
 
 vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
-	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
+	./$(PLASM) -AOW < vmsrc/32cmd.pla > vmsrc/32cmd.a
 	# TODO: optimise.py temporarily disabled
 	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 	# TODO: Building this here is a bit hacky
@@ -107,7 +107,7 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
-	./$(PLASM) -AO < vmsrc/128cmd.pla > vmsrc/128cmd.a
+	./$(PLASM) -AOW < vmsrc/128cmd.pla > vmsrc/128cmd.a
 
 $(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb-pre.s vmsrc/plvmbb-post.s vmsrc/32cmd.a add-relocations.py
 	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb-pre.s vmsrc/32cmd.a vmsrc/plvmbb-post.s
@@ -120,14 +120,14 @@ $(PLVM128): vmsrc/plvmzp.inc vmsrc/plvmbb-pre.s vmsrc/plvmbb-post.s vmsrc/128cmd
 	python add-relocations.py $(PLVM128) $(PLVM128X)
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
-	./$(PLASM) -AO < vmsrc/cmd.pla > vmsrc/cmd.a
+	./$(PLASM) -AOW < vmsrc/cmd.pla > vmsrc/cmd.a
 	acme --setpc 8192 -o $(CMD) vmsrc/cmdstub.s
 
 $(PLVM02): vmsrc/plvm02.s
 	acme -o $(PLVM02) -l vmsrc/plvm02.sym vmsrc/plvm02.s
 
 vmsrc/soscmd.a: vmsrc/soscmd.pla $(PLASM)
-	./$(PLASM) -AO < vmsrc/soscmd.pla > vmsrc/soscmd.a
+	./$(PLASM) -AOW < vmsrc/soscmd.pla > vmsrc/soscmd.a
 
 $(PLVM03): vmsrc/plvm03.s vmsrc/soscmd.a
 	acme -o $(PLVM03) -l vmsrc/plvm03.sym vmsrc/plvm03.s
@@ -136,9 +136,9 @@ $(PLVM03): vmsrc/plvm03.s vmsrc/soscmd.a
 # Sample code
 #
 test:	samplesrc/test.pla samplesrc/testlib.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AMO  < samplesrc/test.pla > samplesrc/test.a
+	./$(PLASM) -AMOW  < samplesrc/test.pla > samplesrc/test.a
 	acme --setpc 4094 -o $(TEST) samplesrc/test.a
-	./$(PLASM) -AMO  < samplesrc/testlib.pla > samplesrc/testlib.a
+	./$(PLASM) -AMOW  < samplesrc/testlib.pla > samplesrc/testlib.a
 	acme --setpc 4094 -o $(TESTLIB) samplesrc/testlib.a
 	./$(PLVM) TEST
 
@@ -175,7 +175,7 @@ $(ROD): samplesrc/rod.pla $(PLVM02) $(PLASM)
 	acme --setpc 4094 -o $(ROD) samplesrc/rod.a
 
 $(SIEVE): samplesrc/sieve.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMO < samplesrc/sieve.pla > samplesrc/sieve.a
+	./$(PLASM) -AMOW < samplesrc/sieve.pla > samplesrc/sieve.a
 	acme --setpc 4094 -o $(SIEVE) samplesrc/sieve.a
 
 $(UTHERNET): libsrc/uthernet.pla $(PLVM02) $(PLASM)
@@ -333,7 +333,7 @@ setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
 
 sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.pla $(PLVM) $(PLASM)
-	./plasmac.py -O -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
+	./plasmac.py -OW -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
 
 plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool symtbl setjmp sort $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA

@@ -13,8 +13,9 @@ import cmdsys
     // The maximum size of a jmp_buf is actually two bytes less on PLAS32
     // but we just use this value all the time.
     const jbsz = 1 + 32 + 4 + 1 + 255
+    // TODO: Add args/#return to these?
     predef setjmp, longjmp
-    predef prbyte
+    predef prbyte(v)#0
     predef oserror(n, msg)#0
     predef call_oscli
     predef stocr
