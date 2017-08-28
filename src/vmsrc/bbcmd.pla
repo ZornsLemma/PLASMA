@@ -1421,7 +1421,7 @@ end
 def lookupsym(sym)
     return lookuptbl(sym, symtbl)
 end
-def addsym(sym, addr)
+def addsym(sym, addr) // TODO: ADD #0
     word symtbl_chunk_size, newsymtblchunk
     word SFTODO // TODO: DELETE
     
@@ -1489,7 +1489,7 @@ end
 #ifndef STANDALONE
 def addmod(mod, addr)#0
     byte dci[17]
-    return addsym(modtosym(mod, @dci), addr)
+    addsym(modtosym(mod, @dci), addr)
 end
 def lookupextern(esd, index)#1
     word sym, addr
