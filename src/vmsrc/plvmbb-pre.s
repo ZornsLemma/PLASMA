@@ -127,11 +127,9 @@ IINTERP	PLA
 	; This code must be kept consistent with memxcpy()
 
 				; Rotate top two bits of A to low two bits
-	; TODO: Wouldn't ROL A*3 then AND #$03 be two cycles faster and three bytes shorter?
-	ASL
-	ADC	#$00
-	ASL
-	ADC	#$00
+	ROL
+	ROL
+	ROL
 	AND	#$03
 	; TODO: Could we store A on top of the low byte of the address of an LDA RAMBANK
 	; non-indexed load (if we knew RAMBANK's low byte was 0)? This code is definitely
