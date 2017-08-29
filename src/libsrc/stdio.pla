@@ -503,6 +503,7 @@ export def ungetc(c, file)
     file->r_eof = FALSE
     file=>r_pushback = c
     dword_dec(file + r_file_ptr)
+    // TODO: Should probably explicitly return something...
 end
 
 // TODO: write this in assembler?
