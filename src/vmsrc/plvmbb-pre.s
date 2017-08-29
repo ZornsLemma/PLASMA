@@ -127,7 +127,7 @@ IINTERP	PLA
 	; This code must be kept consistent with memxcpy()
 
 				; Rotate top two bits of A to low two bits
-	; TODO: Wouldn't ROL A*3 then AND #$03 be two cycles faster and one byte shorter?
+	; TODO: Wouldn't ROL A*3 then AND #$03 be two cycles faster and three bytes shorter?
 	ASL
 	ADC	#$00
 	ASL
