@@ -1,46 +1,57 @@
-// This file contains only constants. TODO: MORE ON WHY
-// TODO: NOTE THAT BECAUSE THIS DOESN'T HAVE AN IMPORT BLOCK,
-// IT MUST BE INCLUDED IN A PLACE WHERE IT'S SYNTACTICALLY VALID
-// TO DECLARE CONSTANTS - SO IN PARTICULAR IT MUST COME *AFTER*
-// MOST "ORDINARY" INCLUDES
+// Acorn OS constants
+//
+// This file contains *only* constants; this allows access to the Acorn OS via
+// the standard call() function without pulling in a big library of code,
+// most of which won't be used by any one program - unused constants cost
+// nothing at runtime.
+//
+// See inc/acornos.plh and inc/cmdsysac.plh for code to allow access to the
+// Acorn OS where these constants alone aren't efficient or convenient.
 
-const osfind = $FFCE
-const osgbpb = $FFD1
-const osbput = $FFD4
-const osbget = $FFD7
-const osargs = $FFDA
-const osfile = $FFDD
-const osrdch = $FFE0
-const osasci = $FFE3
-const osword = $FFF1
-const osbyte = $FFF4
-const oscli  = $FFF7
+// These constants don't actually have any runtime dependency on a module,
+// but for syntatic reasons it's convenient to wrap them in an import block.
+// (Without this import block, this header would have to be included
+// last.) We therefore declare a dependency on the special cmdsys module
+// which is built into the VM.
+import cmdsys
+    const osfind = $FFCE
+    const osgbpb = $FFD1
+    const osbput = $FFD4
+    const osbget = $FFD7
+    const osargs = $FFDA
+    const osfile = $FFDD
+    const osrdch = $FFE0
+    const osasci = $FFE3
+    const osword = $FFF1
+    const osbyte = $FFF4
+    const oscli  = $FFF7
 
-const osfind_close  = $00
-const osfind_input  = $40
-const osfind_output = $80
-const osfind_update = $C0
+    const osfind_close  = $00
+    const osfind_input  = $40
+    const osfind_output = $80
+    const osfind_update = $C0
 
-const osgbpb_block_size             = $0D
-const osgbpb_write_using_new_ptr    = $01
-const osgbpb_write_ignoring_new_ptr = $02
-const osgbpb_read_using_new_ptr     = $03
-const osgbpb_read_ignoring_new_ptr  = $04
+    const osgbpb_block_size             = $0D
+    const osgbpb_write_using_new_ptr    = $01
+    const osgbpb_write_ignoring_new_ptr = $02
+    const osgbpb_read_using_new_ptr     = $03
+    const osgbpb_read_ignoring_new_ptr  = $04
 
-const osargs_read_ext = $02
+    const osargs_read_ext = $02
 
-const osfile_block_size = $12
-const osfile_load_file  = $FF
+    const osfile_block_size = $12
+    const osfile_load_file  = $FF
 
-const osword_read_time = $01
-const osword_sound     = $07
-const osword_sound_block_size = $08
+    const osword_read_time = $01
+    const osword_sound     = $07
+    const osword_sound_block_size = $08
 
-const osbyte_set_cursor_key_action   = $04
-const osbyte_flush_buffer	     = $15
-const osbyte_read_high_order_address = $82
-const osbyte_read_himem              = $84
-const osbyte_read_himem_for_mode     = $85
-const osbyte_rw_escape_status        = $E5
+    const osbyte_set_cursor_key_action   = $04
+    const osbyte_flush_buffer	     = $15
+    const osbyte_read_high_order_address = $82
+    const osbyte_read_himem              = $84
+    const osbyte_read_himem_for_mode     = $85
+    const osbyte_rw_escape_status        = $E5
 
-const buffer_keyboard = 0
+    const buffer_keyboard = 0
+end
