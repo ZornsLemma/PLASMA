@@ -1,10 +1,4 @@
-import cmdsys
-    predef syscall, call, getc, putc, puts, putln
-    predef memset, memcpy, modaddr
-    predef heapmark, heapallocalign, heapalloc, heaprelease, heapavail
-    predef stocr
-    byte MACHID
-end
+include "inc/cmdsys.plh"
 include "inc/acornos.plh"
 
 include "inc/acornc.plh"
