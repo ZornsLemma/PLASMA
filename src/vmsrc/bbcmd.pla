@@ -80,18 +80,16 @@ const modinitkeep = $4000
 // TODO: Can I get rid of this an include inc/cmdsys.plh? Remember I have renamed these to always use the "true" names, unlike the Apple versions where they have a different name in cmd.pla.
 predef syscall(cmd,params)#1, call(addr,areg,xreg,yreg,status)#1
 predef putln()#0, putc(c)#0, puts(s)#0, getc()#1, gets(p)#1
-// TODO: add args/return val count to xheapalloc
-predef heapmark()#1, heapalloc(size)#1, xheapalloc, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
+predef heapmark()#1, heapalloc(size)#1, xheapalloc(size)#1, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
 predef memset(addr,value,size)#0, memcpy(dst,src,size)#0
 predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1
 predef modload(mod)#1, modexec(modfile)#1, modaddr(str)#1
-// TODO: add args/return val count to following
-predef setjmp, longjmp
+predef setjmp(b)#1, longjmp(b, val)#0
 predef prbyte(v)#0
 predef oserror(n, msg)#0
-predef call_oscli
-predef stocr
-predef mode
+predef call_oscli(str)#0
+predef stocr(str, cr)#0
+predef mode(n)#1
 predef callalloca
 //
 // System variables.
@@ -591,7 +589,7 @@ end
 #endif
 // Converts a PLASMA string to an Acorn OS-style string terminated by CR
 // void stocr(str, cr)
-export asm stocr
+export asm stocr(str, cr)#0
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -601,6 +599,7 @@ export asm stocr
 	LDA	ESTKH+1,X
 	STA	SRCH
 	INX
+        INX
 	STX	ESP
 	LDY	#0
 	LDA	(SRC),Y
@@ -734,6 +733,11 @@ end
 // and then 'tmp' is immediately freed on exit from foo().
 // This is useful because "normal" local variables are restricted to a total
 // of 256 bytes per function.
+//
+// Note that if the function being called has a #n on its definition with n!=1,
+// the same #n must be appended to the call to callalloca(), otherwise things
+// will go wrong - callalloca() actually leaves the expression stack alone after
+// calling the specified function.
 export asm callalloca(fn, size)
 	LDA	ESTKL+1,X
 	STA	TMPL
@@ -820,7 +824,7 @@ end
 //
 
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
-export asm setjmp
+export asm setjmp(b)#1
 	STX	ESP
 
 	LDY	#0
@@ -905,7 +909,9 @@ export asm setjmp
 end
 
 // longjmp(jmp_buf *b, word val)
-export asm longjmp
+// Control never returns to caller; we declare this to return no values so the
+// caller doesn't waste space on a redundant DROP opcode after the CALL.
+export asm longjmp(b, val)#0
 	LDA	ESTKL+1,X
 	STA	TMPL
 	LDA	ESTKH+1,X
@@ -1208,7 +1214,7 @@ end
 //
 // Returns TRUE if the mode change was successful and FALSE if not (typically
 // caused by insufficient memory).
-export def mode(n)
+export def mode(n)#1
     word new_himemh, himem, new_himem
     byte s, frame_size
     word call_jsr_return, ical_jsr_return, possible_jsr_return
@@ -1334,7 +1340,7 @@ export def heapalloc(size)#1
 end
 // Like heapalloc(), but *always* generates an error if the allocation
 // fails, regardless of the size requested and the fail threshold.
-export def xheapalloc(size) // TODO: ADD #
+export def xheapalloc(size)#1
     word addr
     addr = heapalloc(size)
     if addr == 0
@@ -1393,15 +1399,14 @@ end
 // Acorn MOS API
 //
 
-// TODO: ADD # TO MY CUSTOM ROUTINES?
-def call_oscli_internal(str, str_cr)
+def call_oscli_internal(str, str_cr)#0
     stocr(str, str_cr)
     call(oscli, 0, str_cr, str_cr >> 8, 0)
 end
 
 // call_oscli(str)
-export def call_oscli(str)
-    return callalloca(str, @call_oscli_internal, ^str + 1)
+export def call_oscli(str)#0
+    callalloca(str, @call_oscli_internal, ^str + 1)#0
 end
 
 #ifndef STANDALONE
