@@ -2,5 +2,16 @@
 *.a
 *.o
 *.sym
+*.mo
+*.plp
+*.sa
+*.zip
+*.ssd
+*.pyc
+*.lst
 plasm
 plvm
+tmp/
+vmsrc/128cmd.pla
+vmsrc/32cmd.pla
+vmsrc/32cmds.pla
