@@ -318,6 +318,7 @@ SETMLPH	STA     (DST),Y
 	BNE     -
 SETMEX	INX
 	INX
+	INX
 	RTS
 end
 //
