@@ -11,15 +11,11 @@
 ;* code. Probably just review code myself if/when a ROM build is supported.
 SELFMODIFY  =   0
 
-;* If this is 1, code is included when lowering IFP/PP
-;* to ensure they don't drop below the top of the heap. This
-;* is fairly cheap; the fncall benchmark slows down by <2%
-;* and ENTER is the main opcode penalised by this checking, so
-;* most code should see even less cost. (CS is also penalised,
-;* but only when the string isn't already in the pool, and it's
-;* relatively slow anyway.)
-; TODO WITH THIS 0, FNCALL 3.56 3.56 3.57
-; TODO WITH THIS 1 3.63 3.63
+;* If this is 1, code is included when lowering IFP/PP to ensure they don't
+;* drop below the top of the heap. This is fairly cheap; the fncall benchmark
+;* slows down by <2% and ENTER is the main opcode penalised by this checking,
+;* so most code should see even less cost. (CS is also penalised, but only when
+;* the string isn't already in the pool, and it's relatively slow anyway.)
 CHECKPARAMETERSTACK = 1
 
 ;* If this is 1, code is included in ENTER and CALL (when the called function
@@ -29,9 +25,6 @@ CHECKPARAMETERSTACK = 1
 ;* practice. (This is much more likely when using the new #n feature to specify
 ;* the number of return values for a function, as getting a mismatch between
 ;* caller and callee is possible.) This slows the fncall benchmark down by 1.4%.
-;* TODO: COMMENT AND DO TIMING
-; WITH THIS 0, FNCALL TAKES (MASTER 128, B-EM): 3.58 3.58 3.58
-; WITH THIS 1, 3.63 3.63 3.63
 CHECKEXPRESSIONSTACK = 1
 
 BBC = 1
@@ -54,7 +47,7 @@ BBC = 1
 	}
 
 	!MACRO	CHECKVSHEAPHIGHINA .P {
-		!IF CHECKPARAMETERSTACK = 1 {
+		!IF CHECKPARAMETERSTACK {
 			CMP	HEAPH
 			BEQ	.CHECKLOW
 			BCS	.OK
@@ -69,7 +62,7 @@ BBC = 1
 	}
 
 	!MACRO	CHECKVSHEAP .P {
-		!IF CHECKPARAMETERSTACK = 1 {
+		!IF CHECKPARAMETERSTACK {
 			LDA	.P+1
 			+CHECKVSHEAPHIGHINA .P
 		}
@@ -1127,7 +1120,7 @@ CALL 	+INC_IP
 	STA	$F4
 	STA	$FE30
 }
-!IF CHECKEXPRESSIONSTACK = 1 {
+!IF CHECKEXPRESSIONSTACK {
 	CPX	#(ESTKSZ/2)+1
 	BCS	ESTKERR
 }
@@ -1139,7 +1132,7 @@ CALL 	+INC_IP
 	PLA
 	STA	IPH
 	JMP	NEXTOP
-!IF CHECKEXPRESSIONSTACK = 1 {
+!IF CHECKEXPRESSIONSTACK {
 ESTKERR
 	BRK
 	!BYTE	$01
@@ -1227,7 +1220,7 @@ ENTER	INY
 	STA	(IFP),Y
 	BNE	-
 +	LDY	#$02
-!IF CHECKEXPRESSIONSTACK = 1 {
+!IF CHECKEXPRESSIONSTACK {
 	CPX	#(ESTKSZ/2)+1
 	BCS	ESTKERR
 }
