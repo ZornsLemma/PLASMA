@@ -669,7 +669,6 @@ LW	LDA	ESTKL,X
 	STA	ESTKH,X
 	LDY	IPY
 	JMP	NEXTOP
-; TODO: I think LB can benefit from the possible optimisations I have identified for SB
 ;*
 ;* LOAD ADDRESS OF LOCAL FRAME OFFSET
 ;*
@@ -712,7 +711,6 @@ LLW 	+INC_IP
 ;*
 ;* LOAD VALUE FROM ABSOLUTE ADDRESS
 ;*
-; TODO: LAB might benefit from same optimisations as SB/LB
 !IF SELFMODIFY {
 LAB	+INC_IP
 	LDA	(IP),Y
@@ -761,7 +759,6 @@ LAW	+INC_IP
 ;*
 ;* STORE VALUE TO ADDRESS
 ;*
-; TODO: Any potential to optimise this and maybe other ops if we set aside a pair of zp locations the low byte of which was always 0? We could then replace STA TMPH with STA thathighbyte and LDY ESTKL,X, couldn't we? We then wouldn't need to bother writing to TMPL. OTOH maybe self modifying code would be worth it here.
 !IF SELFMODIFY {
 SB	LDA	ESTKL,X
 	STA	SBSTA+1
@@ -782,23 +779,6 @@ SB	LDA	ESTKL,X
 	STY	IPY
 	LDY	#$00
 	STA	(TMP),Y
-	LDY	IPY
-	INX
-;	INX
-;	JMP	NEXTOP
-	JMP	DROP
-}
-!IF 1=2 { ; TODO: Alternate implementation - this assumes we have ZEROL permanently set to 0
-; TODO: This is slower than self-modifying code but faster than non-self-modifying code above
-; provided we can spare a byte for ZEROL (we can put it just below TMP and overload TMPL), also
-; it may be that this ZEROL-based idea can optimise word load/stores whereas self-modifying code
-; doesn't help then (i.e. it may have value even where self-modification is OK)
-SBTODO	STY	IPY
-	LDY	ESTKL,X
-	LDA	ESTKH,X
-	STA	ZEROH
-	LDA	ESTKL+1,X
-	STA	(ZEROL),Y
 	LDY	IPY
 	INX
 ;	INX
@@ -881,7 +861,6 @@ SAB	+INC_IP
 	STA	SABSTA+2
 	LDA	ESTKL,X
 SABSTA	STA	$FFFF
-; TODO: SB optimisation might benefit here too
 ;	INX
 ;	JMP	NEXTOP
 	JMP	DROP
@@ -921,7 +900,6 @@ SAW	+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS WITHOUT POPPING STACK
 ;*
-; TODO: Possibility of SB-style optimisation
 !IF SELFMODIFY {
 DAB	+INC_IP
 	LDA	(IP),Y
