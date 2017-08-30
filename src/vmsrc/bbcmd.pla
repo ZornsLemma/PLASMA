@@ -1899,12 +1899,13 @@ end
 // it's probably not a good idea; most of the time user code should
 // restrict itself to manipulating *errjb.
 def error_handler
-  // The error number is available to the target at ^errnum but since
-  // longjmp() naturally passes along a value we pass the error number.
-  // TODO: Should we not do this? 0 is a valid error number but it wont'
-  // be transmitted unmodified, so this perhaps invites error handler to
-  // write code which has a latent bug.
-  longjmp(*errjb, ^errnum)
+  // The error number is available to the target at ^errnum; longjmp() naturally
+  // passes along a value so it's tempting to pass the error number using it,
+  // but it can't send a value of 0 (which is a valid error number) so we don't
+  // do that as it just adds to the temptation to write not-quite-correct client
+  // code. (Passing 0 also saves a few bytes in the VM, although that is just a
+  // bonus.)
+  longjmp(*errjb, 0)
 end
 #ifndef STANDALONE
 def modexec(modfile)#1
