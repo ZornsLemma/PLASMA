@@ -22,6 +22,7 @@ import cmdsys
     const osfile = $FFDD
     const osrdch = $FFE0
     const osasci = $FFE3
+    const osnewl = $FFE7
     const osword = $FFF1
     const osbyte = $FFF4
     const oscli  = $FFF7
