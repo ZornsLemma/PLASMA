@@ -5,11 +5,10 @@
 ;*             SYSTEM ROUTINES AND LOCATIONS
 ;*
 ;**********************************************************
-;* TODO: We can probably default SELFMODIFY to 1
 ;* TODO: I haven't got *all* self-modifying code covered by SELFMODIFY; I
 ;* haven't ported one or two SELFMODIFY references across from the Apple II
 ;* code. Probably just review code myself if/when a ROM build is supported.
-SELFMODIFY  =   0
+SELFMODIFY = 1
 
 ;* If this is 1, code is included when lowering IFP/PP to ensure they don't
 ;* drop below the top of the heap. This is fairly cheap; the fncall benchmark
