@@ -1075,7 +1075,18 @@ end
 // CONSOLE I/O
 //
 export asm putln()#0
-	; TODO: If this remains as just "JMP OSNEWL", can we use OSNEWL directly as its symtab entry?
+        ; Since this is so simple, it's highly tempting to try to do away with
+        ; it and have code call OSNEWL directly. This is possible for loaded
+        ; modules - we can simply arrange for the "putln" entry in the symbol
+        ; table to point to OSNEWL. However, it's trickier to make it work here
+        ; in the core VM. We can omit this definition and do 'const putln =
+        ; osnewl' but calling through a function pointer (as this effectively
+        ; is) requires the call site to specify '#0' (we can't attach that type
+        ; information to the function pointer itself) - I haven't actually tried
+        ; that but it would probably work, but it would be a bit intrusive.
+        ; Since this JMP OSNEWL therefore "has" to exist, I haven't bothered
+        ; making the symbol table just refer directly to OSNEWL lest it cause
+        ; confusion - the performance overhead is negligible.
 	JMP	OSNEWL
 end
 export asm putc(c)#0
