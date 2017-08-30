@@ -198,7 +198,6 @@ byte modadrstr[]  = "MODADDR"
 // avoid exporting this when it may not work and it's just wasting space in the
 // VM.
 // byte argstr[]     = "ARGS"
-// TODO: Apple II code now has AUTORUN, do we want that?
 byte setjmpstr[]  = "SETJMP"
 byte longjmpstr[] = "LONGJMP"
 byte prbytestr[]  = "PRBYTE"
@@ -326,7 +325,6 @@ end
 export asm memcpy(dst,src,size)#0
 	INX
 	INX
-; TODO: DELETE LABEL, NOT USED? MEMCPYINT // TODO: NEED TO CHECK USERS OF THIS WORK WITH THE NEW IMPL
 	INX
 	LDA	ESTKL-3,X
 	ORA	ESTKH-3,X
@@ -775,8 +773,7 @@ export asm callalloca(fn, size)
 }
 	INX
 
-	; TODO: Can we re-use the JMPTMP label in plvmbb.s?
-	JSR	+
+	JSR	JMPTMP
 
 !IFNDEF PLAS128 {
 	PLA
@@ -792,8 +789,6 @@ export asm callalloca(fn, size)
 }
 
 	RTS
-
-+	JMP	(TMP)
 end
 
 //
