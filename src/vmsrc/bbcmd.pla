@@ -1843,6 +1843,11 @@ def modload(mod)#1
 	    fixup = fixup & ~modinitkeep
 	fin
     fin
+#if 0 // TODO: Temporary code for forcing multiple 16K banks to be used for PLAS128 testing
+    #ifdef PLAS128
+        prword(allocxheap(7000)); putln()
+    #endif
+#endif
     return fixup
 end
 #endif

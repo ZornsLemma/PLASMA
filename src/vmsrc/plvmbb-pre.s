@@ -122,28 +122,35 @@ IINTERP	PLA
 	LDY	#$02
 	LDA     (TMP),Y
 
+!IFNDEF PLAS128 {
 	STA	IPH
-!IFDEF PLAS128 {
+	DEY
+} ELSE {
 	; This code must be kept consistent with memxcpy()
 
-	ROL			; Rotate top two bits of A to low two bits
+	; Copy top two bits of A to low two bits of Y and force top two bits of
+	; A to %10. We then page in our RAM bank Y (0-3) and use A as IPH.
+	; Note that Y=2 and the flags reflect the current value in A.
+	BMI	+
+	LDY	#$00
++	; b1 of Y is now b7 of A. ROL A so N flag reflects b7 of original A.
 	ROL
-	ROL
-	AND	#$03
+	BPL	++
+	INY
+++	; Low two bits of Y now contain top two bits of original A. We need to
+	; ROR A to undo the ROL A; we take this opportunity to force its high
+	; bit to 1.
+	SEC
+	ROR
+	; We can now clear b6 of A and we have A and Y set how we want them.
+	AND	#$BF
+	STA 	IPH
 
-	TAY
 	LDA	RAMBANK,Y
 	STA	$F4
 	STA	$FE30
-	LDA	IPH
-	AND	#$BF		; Force top two bits to %10
-	ORA	#$80
-	STA	IPH
 
 	LDY	#$01
-}
-!IFNDEF PLAS128 {
-	DEY
 }
 	
 	LDA     (TMP),Y
