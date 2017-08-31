@@ -15,6 +15,7 @@ export asm call_osbput(c, handle)#0
     LDA ESTKL+1,X
     LDY ESTKL,X
     INX
+    INX
     JMP OSBPUT
 end
 
