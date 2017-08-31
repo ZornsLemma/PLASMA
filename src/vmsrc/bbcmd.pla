@@ -1096,10 +1096,12 @@ export asm puts(s)#0
 	INX
 	RTS
 end
+#if 0 // TODO
 export def syscall(cmd, params)#1
     // Just a dummy implementation
     oserror(0, "syscall")
 end
+#endif
 export def prbyte(v)#0
     putc(hexchar[(v >> 4) & $0F])
     putc(hexchar[v & $0F])
