@@ -17,7 +17,7 @@ symtab = [
     ("HEAPRELEASE", "@heaprelease"),
     ("MEMSET", "@memset"),
     ("MEMCPY", "@memcpy"),
-    ("ISUGE", "@isugt"),
+    ("ISUGT", "@isugt"),
     ("ISUGE", "@isuge"),
     ("ISULT", "@isult"),
     ("ISULE", "@isule"),
