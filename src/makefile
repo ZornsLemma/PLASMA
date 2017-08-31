@@ -280,7 +280,7 @@ $(ACORNOS): libsrc/acornos.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o $(ACORNOS) libsrc/acornos.a
 
 dword: libsrc/dword.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AMO < libsrc/dword.pla > libsrc/dword.a
+	./$(PLASM) -AMOW < libsrc/dword.pla > libsrc/dword.a
 	acme --setpc 4094 -o DWORD\#FE1000 libsrc/dword.a
 
 hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
@@ -312,7 +312,7 @@ bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
 
 bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AMO < samplesrc/bench2.pla > samplesrc/bench2.a
+	./$(PLASM) -AMOW < samplesrc/bench2.pla > samplesrc/bench2.a
 	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)

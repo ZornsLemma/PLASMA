@@ -6,7 +6,7 @@
 // different asm functions to share code?
 
 // void dword_add(dword *result, const dword *lhs, const dword *rhs)
-export asm dword_add
+export asm dword_add(result, lhs, rhs)#0
     BBC=1
     !SOURCE "vmsrc/plvmzp.inc"
 
@@ -22,6 +22,7 @@ export asm dword_add
     STA TMPL
     LDA ESTKH,X
     STA TMPH
+    INX
     INX
     INX
     STX ESP
@@ -42,7 +43,7 @@ end
 
 // void dword_sub(dword *result, const dword *lhs, const dword *rhs)
 // TODO: This is almost identical to dword_add, should they share code?
-export asm dword_sub
+export asm dword_sub(result, lhs, rhs)#0
     BBC=1
     !SOURCE "vmsrc/plvmzp.inc"
 
@@ -58,6 +59,7 @@ export asm dword_sub
     STA TMPL
     LDA ESTKH,X
     STA TMPH
+    INX
     INX
     INX
     STX ESP
@@ -82,7 +84,7 @@ end
 // TODO: Should we expose the high 32 bits of the result? Possibly via a
 // separate function? It might be nicer if we can calculate faster and
 // not generate the high 32 bits.
-export asm dword_mul
+export asm dword_mul(result, lhs, rhs)#0
     MULR  = SCRATCH
     MULND = SCRATCH+4
     PROD  = SCRATCH+8
@@ -151,6 +153,7 @@ ROTATE_R:  ror              ;Rotate partial product
     STA TMPL
     LDA ESTKH,X
     STA TMPH
+    INX
     LDY #3
 --- LDA PROD,Y
     STA (TMP),Y
@@ -164,7 +167,7 @@ end
 // Based on the code at http://6502.org/source/integers/32muldiv.htm
 // TODO: Is there any faster code available?
 // TODO: No thought given to signedness considerations
-export asm dword_div
+export asm dword_div(quotient, remainder, lhs, rhs)#0
     DVDQUO = SCRATCH
     DVDR   = SCRATCH+4
     DMULR  = SCRATCH+12
@@ -251,6 +254,9 @@ NOREMAINDER
     BPL ----
 NOQUOTIENT
 
+    ;* TODO: We could put an INX inside the previous LDY #3 loop and get rid of
+    ;* these
+    INX
     INX
     INX
     INX
@@ -262,11 +268,12 @@ end
 // does it - you just mustn't declare them with 'predef'
 
 // void dword_inc(dword *n)
-export asm dword_inc
+export asm dword_inc(n)#0
     LDA ESTKL,X
     STA TMPL
     LDA ESTKH,X
     STA TMPH
+    INX
 
     LDY #0
     LDA (TMP),Y
@@ -287,11 +294,12 @@ DONEINC
 end
 
 // void dword_dec(dword *n)
-export asm dword_dec
+export asm dword_dec(n)#0
     LDA ESTKL,X
     STA TMPL
     LDA ESTKH,X
     STA TMPH
+    INX
 
     LDY #0
     LDA (TMP),Y
@@ -311,7 +319,7 @@ DONEDEC
 end
 
 // void dword_fromuword(dword *lhs, word rhs)
-export asm dword_fromuword
+export asm dword_fromuword(lhs, rhs)#0
     LDA ESTKL+1,X
     STA TMPL
     LDA ESTKH+1,X
@@ -328,11 +336,12 @@ export asm dword_fromuword
     INY
     STA (TMP),Y
     INX
+    INX
     RTS
 end
 
 // bool dword_isuword(const dword *p)
-export asm dword_isuword
+export asm dword_isuword(p)#1
     LDA ESTKL,X
     STA TMPL
     LDA ESTKH,X
@@ -353,7 +362,7 @@ NOTUWORD
 end
 
 // word dword_touword(const dword *p)
-export asm dword_touword
+export asm dword_touword(p)#1
     LDA ESTKL,X
     STA TMPL
     LDA ESTKH,X
@@ -368,7 +377,7 @@ export asm dword_touword
 end
 
 // bool dword_isugt(const dword *lhs, const dword *rhs)
-export asm dword_isugt
+export asm dword_isugt(lhs, rhs)#1
     LDA ESTKL+1,X
     LDY ESTKL,X
     STY ESTKL+1,X
@@ -381,7 +390,7 @@ export asm dword_isugt
 end
 
 // bool dword_isult(const dword *lhs, const dword *rhs)
-export asm dword_isult
+export asm dword_isult(lhs, rhs)#1
     LDA ESTKL+1,X
     STA SRCL
     LDA ESTKH+1,X
@@ -411,7 +420,7 @@ ISTRUE
 end
 
 // bool dword_isuge(const dword *lhs, const dword *rhs)
-export asm dword_isuge
+export asm dword_isuge(lhs, rhs)#1
     LDA ESTKL+1,X
     STA SRCL
     LDA ESTKH+1,X
@@ -433,10 +442,10 @@ end
 
 // void dword_adduword(dword *result, const dword *lhs, word rhs)
 // TODO: rewrite in assembler?
-export def dword_adduword(result, lhs, rhs)
+export def dword_adduword(result, lhs, rhs)#0
     byte rhs_dword[4]
     dword_fromuword(@rhs_dword, rhs)
-    return dword_add(result, lhs, @rhs_dword)
+    dword_add(result, lhs, @rhs_dword)
 end
 
 // vi: sts=4 sw=4

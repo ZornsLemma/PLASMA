@@ -58,9 +58,8 @@ def time_delta(start, finish)#1
     dword_sub(@delta_dword, finish, start)
     if dword_isuword(@delta_dword)
 	return dword_touword(@delta_dword)
-    else
-	return 0
     fin
+    return 0
 end
 
 def log_time(name)#0
@@ -74,7 +73,7 @@ def log_time(name)#0
     results_tail_ptr = result+r_next
 end
 
-def show_times()
+def show_times()#0
     word p, i
     p = results_head
     while p <> 0
