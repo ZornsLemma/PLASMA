@@ -308,7 +308,7 @@ hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
 
 bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AMO < samplesrc/bench1.pla > samplesrc/bench1.a
+	./$(PLASM) -AMOW < samplesrc/bench1.pla > samplesrc/bench1.a
 	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
 
 bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)

@@ -38,7 +38,7 @@ end
 word results_head = 0
 word results_tail_ptr = @results_head
 
-def puti32(p)
+def puti32(p)#0
     byte ten[4], j[4], k[4]
     dword_fromuword(@ten, 10)
     if dword_isult(p, @ten)
@@ -50,7 +50,7 @@ def puti32(p)
     fin
 end
 
-def time_delta(start, finish)
+def time_delta(start, finish)#1
     // We can get away with ignoring the fifth byte; the result will be
     // correct unless there's a difference of more than one in the fifth
     // byte, and that's just not going to happen.
@@ -63,7 +63,7 @@ def time_delta(start, finish)
     fin
 end
 
-def log_time(name)
+def log_time(name)#0
     word result
 
     result = heapalloc(t_result)
@@ -92,17 +92,17 @@ def show_times()
     loop
 end
 
-def time(t)
+def time(t)#0
     call(osword, osword_read_time, t, t >> 8, 0)
 end
 
-def high_order_address
+def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
 
 // Actual benchmarks
 
-def intmath16()
+def intmath16()#0
     word x, y, i
     time(@start)
     x = 0
@@ -121,7 +121,7 @@ def intmath16()
     fin
 end
 
-def intmath32()
+def intmath32()#0
     byte x[4], y[4], a[4]
     word i
     time(@start)
@@ -147,7 +147,7 @@ end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-def storestdio()
+def storestdio()#0
     word i, file, oldheap
     oldheap = heapmark()
     time(@start)
@@ -177,7 +177,7 @@ end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-def storebput()
+def storebput()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
     word file, i, j, p
@@ -206,7 +206,7 @@ end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-def storegbpb()
+def storegbpb()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
     word file, i, j, p
@@ -231,14 +231,14 @@ def storegbpb()
     log_time(@storegbpbstr)
 end
 
-def sum(n)
+def sum(n)#1
     if n == 0
 	return 0
     fin
     return n + sum(n - 1)
 end
 
-def fncall()
+def fncall()#0
     // Test of function call performance
     const n = 1000
     word i, j

@@ -30,7 +30,7 @@ word results_tail_ptr = @results_head
 // this benchmark, but this could be trivially "promoted" into a standard
 // library, so I don't think it's terribly unreasonable.
 // TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
-asm plot
+asm plot(x, y)#0
     BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
     LDA #25
@@ -45,10 +45,11 @@ asm plot
     JSR $FFEE
     LDA ESTKH,X
     INX
+    INX
     JMP $FFEE
 end
 
-def puti(i)
+def puti(i)#0
   if i < 0; putc('-'); i = -i; fin
   if i < 10
     putc(i + '0')
@@ -58,7 +59,7 @@ def puti(i)
   fin
 end
 
-def time_delta(start, finish)
+def time_delta(start, finish)#1
     // We can get away with ignoring the fifth byte; the result will be
     // correct unless there's a difference of more than one in the fifth
     // byte, and that's just not going to happen.
@@ -71,7 +72,7 @@ def time_delta(start, finish)
     fin
 end
 
-def log_time(name)
+def log_time(name)#0
     word result
 
     result = heapalloc(t_result)
@@ -82,7 +83,7 @@ def log_time(name)
     results_tail_ptr = result+r_next
 end
 
-def show_times()
+def show_times()#0
     word p, i
     p = results_head
     while p <> 0
@@ -100,13 +101,13 @@ def show_times()
     loop
 end
 
-def time(t)
+def time(t)#0
     call(osword, osword_read_time, t, t >> 8, 0)
 end
 
 // Actual benchmarks
 
-def textscrn()
+def textscrn()#0
     word i
     if not mode(3)
 	oserror(0, "Bad mode")
@@ -123,7 +124,7 @@ def textscrn()
     log_time(@textscrnstr)
 end
 
-def grafscrn()
+def grafscrn()#0
     word x, y
     const x_scale = 8
     const y_scale = 4
