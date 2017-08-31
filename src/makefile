@@ -96,7 +96,10 @@ vmsrc/a1cmd.a: vmsrc/a1cmd.pla $(PLASM)
 $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 	acme -o $(PLVM01) -l vmsrc/plvm01.sym vmsrc/plvm01.s
 
-vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
+vmsrc/symtab.pla: vmsrc/makesymtab.py
+	python vmsrc/makesymtab.py > vmsrc/symtab.pla
+
+vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
 	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
 	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
 	# TODO: optimise.py temporarily disabled
@@ -105,7 +108,7 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM)
 	cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
 	./$(PLASM) -AO < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
-vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM)
+vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
 	./$(PLASM) -AO < vmsrc/128cmd.pla > vmsrc/128cmd.a
 

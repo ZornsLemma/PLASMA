@@ -10,6 +10,9 @@ include "inc/cmdsysac.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
 
+// The first chunk of the symbol table is in the VM code at an address we can't
+// know; we just ignore it here. This is only a test/demonstration anyway, it's
+// not something a real application should be doing.
 const initialsymtbl = $0409
 const max_symbol_length = 16
 

@@ -60,8 +60,8 @@ const errjb	   = $0407	// 2 bytes
 // now we just allot this little part of it for the initial symbol
 // table, but this can probably be expanded later as the memory use
 // is tided up
-const initialsymtbl = $0409
-const initialsymtblsz = $50 // $150 // TODO $02f7
+const lowsymtblchunk = $0409
+const lowsymtblchunksz = $50 // $150 // TODO $02f7
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
@@ -110,7 +110,6 @@ const heapptr = $0089
     word xheap = xheap_bank_start
 #endif
 #ifndef STANDALONE
-word symtbl
 word symtblchunk
 word lastsym
 byte perr
@@ -168,78 +167,7 @@ byte gm_new_mode
 //
 // Standard Library exported functions.
 //
-byte syslibstr[]  = "CMDSYS"
-byte machidstr[]  = "MACHID"
-// TODO: I should probably get rid of syscall - but maybe that would break "pseudo-portable" programs like my Rogue port - think about it
-byte sysstr       = "SYSCALL"
-byte putcstr[]    = "PUTC"
-byte putlnstr[]   = "PUTLN"
-byte putsstr[]    = "PUTS"
-byte getcstr[]    = "GETC"
-byte getsstr[]    = "GETS"
-byte callstr[]    = "CALL"
-byte hpmarkstr[]  = "HEAPMARK"
-byte hpalignstr[] = "HEAPALLOCALIGN"
-byte hpallocstr[] = "HEAPALLOC"
-byte xhpallocstr[]= "XHEAPALLOC"
-byte hprelstr[]   = "HEAPRELEASE"
-byte memsetstr[]  = "MEMSET"
-byte memcpystr[]  = "MEMCPY"
-byte uisgtstr[]   = "ISUGT"
-byte uisgestr[]   = "ISUGE"
-byte uisltstr[]   = "ISULT"
-byte uislestr[]   = "ISULE"
-byte loadstr[]    = "MODLOAD"
-byte execstr[]    = "MODEXEC"
-byte modadrstr[]  = "MODADDR"
-// TODO: ARGS is currently not used by any of the Apple examples (they seem to
-// assume the command line is at $01FF). I think I can see how this is meant to
-// work and I could probably support it, but for the moment let's at least
-// avoid exporting this when it may not work and it's just wasting space in the
-// VM.
-// byte argstr[]     = "ARGS"
-byte setjmpstr[]  = "SETJMP"
-byte longjmpstr[] = "LONGJMP"
-byte prbytestr[]  = "PRBYTE"
-byte oserrorstr[] = "OSERROR"
-byte call_osclistr[] = "CALL_OSCLI"
-byte stocrstr[]   = "STOCR"
-byte modestr[]    = "MODE"
-byte callallocastr[] = "CALLALLOCA"
-word exports[]	  = @callstr,   @call
-word		  = @sysstr,    @syscall
-word 		  = @putcstr,   @putc
-word              = @putlnstr,  @putln
-word		  = @putsstr,   @puts
-word		  = @getcstr,   @getc
-word		  = @getsstr,   @gets
-word		  = @hpmarkstr, @heapmark
-word		  = @hpallocstr,@heapalloc
-word		  = @xhpallocstr,@xheapalloc
-word		  = @hpalignstr,@heapallocalign
-word		  = @hprelstr,  @heaprelease
-word		  = @memsetstr, @memset
-word		  = @memcpystr, @memcpy
-word              = @uisgtstr,  @isugt
-word              = @uisgestr,  @isuge
-word              = @uisltstr,  @isult
-word              = @uislestr,  @isule
-word              = @loadstr,   @modload
-word              = @execstr,   @modexec
-word              = @modadrstr, @modaddr
-word              = @machidstr, @machid
-// TODO: Commented out - see comment on argstr
-//word              = @argstr,    @cmdptr
-word		  = @setjmpstr, @setjmp
-word		  = @longjmpstr,@longjmp
-word		  = @prbytestr, @prbyte
-word		  = @oserrorstr,@oserror
-word		  = @call_osclistr, @call_oscli
-word		  = @stocrstr,  @stocr
-word		  = @modestr,   @mode
-word		  = @callallocastr, @callalloca
-word              = 0
-word syslibsym
+include "vmsrc/symtab.pla"
 #endif
 //
 // CALL 6502 ROUTINE
@@ -1433,7 +1361,7 @@ end
 // relevant to addsym(); it makes no difference to lookuptbl().
 //
 def lookupsym(sym)
-    return lookuptbl(sym, symtbl)
+    return lookuptbl(sym, @symtbl)
 end
 def addsym(sym, addr) // TODO: ADD #0
     word symtbl_chunk_size, newsymtblchunk
@@ -1453,8 +1381,8 @@ def addsym(sym, addr) // TODO: ADD #0
 	    putc(^SFTODO)
 	    putln()
     fin
-    if symtblchunk == initialsymtbl
-	symtbl_chunk_size = initialsymtblsz
+    if symtblchunk == lowsymtblchunk
+	symtbl_chunk_size = lowsymtblchunksz
     else
 	symtbl_chunk_size = max_entry_size
     fin
@@ -1492,7 +1420,7 @@ end
 //
 def lookupmod(mod)#1
     byte dci[17]
-    return lookuptbl(modtosym(mod, @dci), symtbl)
+    return lookuptbl(modtosym(mod, @dci), @symtbl)
 end
 def modaddr(str)#1
     byte mod[17]
@@ -2005,23 +1933,13 @@ end
 //
 // Init globals; see note at top about why we have to do this.
 //
-symtbl = initialsymtbl
-symtblchunk = initialsymtbl
-lastsym = initialsymtbl
-syslibsym = @exports     
+symtblchunk = lowsymtblchunk
+lastsym = lowsymtblchunk
 //
 // Init symbol table.
 //
 ^lastsym = 0
 lastsym=>1 = 0
-stodci(@syslibstr, *heapptr)
-addmod(*heapptr, @version)
-// TODO: Can we have the symbol table in the binary be usable directly?
-while *syslibsym
-    stodci(syslibsym=>0, *heapptr)
-    addsym(*heapptr, syslibsym=>2)
-    syslibsym = syslibsym + 4
-loop
 #endif
 //
 // Set up error handler
