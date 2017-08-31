@@ -381,7 +381,7 @@ end
 //
 // Addresses of internal routines.
 //
-asm interp
+asm interp()#1
 	DEX
 	LDA	#<IINTERP
 	STA	ESTKL,X
@@ -485,7 +485,7 @@ TOUPR	AND     #$7F
 end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // int dcitocr(dci, cr) - returns length (of DCI string/excluding CR)
-asm dcitocr
+asm dcitocr(dci, cr)#1
 	; TODO: This little code fragment to set up SRC/DST is used in
 	; a few places and could possibly be factored out; as long as
 	; we continue to assemble this file directly into the VM
@@ -664,7 +664,7 @@ end
 // the same #n must be appended to the call to callalloca(), otherwise things
 // will go wrong - callalloca() actually leaves the expression stack alone after
 // calling the specified function.
-export asm callalloca(fn, size)
+export asm callalloca
 	LDA	ESTKL+1,X
 	STA	TMPL
 	LDA	ESTKH+1,X
@@ -1022,7 +1022,7 @@ export asm putc(c)#0
 	INX
 	JMP	OSWRCH
 end
-export asm getc(c)#1
+export asm getc()#1
 	DEX
 	JSR	OSRDCH
 	STA	ESTKL,X
@@ -1115,7 +1115,7 @@ end
 
 // TODO: export this?
 // dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
-def jmpbufsz(jb)
+def jmpbufsz(jb)#1
 	const esp_size = 1
 	const esp_offset = 0
 #ifdef PLAS128
@@ -1229,10 +1229,11 @@ end
 // FILE I/O
 //
 #ifndef STANDALONE
-def high_order_address
+def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
-def readfile(filename, buffer)
+// TODO: Is the return value of readfile() necessary? Switch to #0?
+def readfile(filename, buffer)#1
     byte block[osfile_block_size]
     block:0 = filename
     block:2 = buffer
@@ -1249,7 +1250,7 @@ def heapavail()#1
     return @fp - *heapptr
 end
 #endif
-def heapfull() // TODO: ADD #0?
+def heapfull()#0
     puts("heapalloc failed\n") // TODO TEMP
     oserror(0, "Heap full")
 end
@@ -1362,10 +1363,10 @@ end
 // The first chunk is a different size than later chunks but this is only
 // relevant to addsym(); it makes no difference to lookuptbl().
 //
-def lookupsym(sym)
+def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
-def addsym(sym, addr) // TODO: ADD #0
+def addsym(sym, addr)#0
     word symtbl_chunk_size, newsymtblchunk
     word SFTODO // TODO: DELETE
     
@@ -1828,7 +1829,7 @@ end
 // User code could choose to install an alternate error handler, but
 // it's probably not a good idea; most of the time user code should
 // restrict itself to manipulating *errjb.
-def error_handler
+def error_handler()#0
   // The error number is available to the target at ^errnum; longjmp() naturally
   // passes along a value so it's tempting to pass the error number using it,
   // but it can't send a value of 0 (which is a valid error number) so we don't
@@ -1904,7 +1905,7 @@ end
 // machine too much. It also works in our favour because parsecmd() only pays
 // attention to the first character, so this means that "M7" and "MODE 7" both
 // work (as, in fact, will things like " M O D E    1 3  5").
-def modechange(cmdptr)
+def modechange(cmdptr)#0
     word n, i
     byte c
     n = 0

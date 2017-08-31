@@ -106,11 +106,11 @@ vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
 	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
 	# TODO: Building this here is a bit hacky
 	cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
-	./$(PLASM) -AO < vmsrc/32cmds.pla > vmsrc/32cmd.sa
+	./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
 vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
 	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
-	./$(PLASM) -AO < vmsrc/128cmd.pla > vmsrc/128cmd.a
+	./$(PLASM) -AOW < vmsrc/128cmd.pla > vmsrc/128cmd.a
 
 $(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb-pre.s vmsrc/plvmbb-post.s vmsrc/32cmd.a add-relocations.py
 	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb-pre.s vmsrc/32cmd.a vmsrc/plvmbb-post.s

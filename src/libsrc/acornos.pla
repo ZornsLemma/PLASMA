@@ -11,7 +11,7 @@ asm equates
 end
 
 // void call_osbput(byte c, int handle)
-export asm call_osbput
+export asm call_osbput(c, handle)#0
     LDA ESTKL+1,X
     LDY ESTKL,X
     INX
@@ -19,7 +19,7 @@ export asm call_osbput
 end
 
 // int call_osbget(int handle) - returns byte read or eof (-1)
-export asm call_osbget
+export asm call_osbget(handle)#1
     LDY ESTKL,X
     JSR OSBGET
     LDY #0
@@ -33,16 +33,16 @@ NOTEOF
 end
 
 
-def call_osfind_open_internal(a, filename, filename_cr)
+def call_osfind_open_internal(a, filename, filename_cr)#1
     stocr(filename, filename_cr)
     return call(osfind, a, filename_cr, filename_cr >> 8, 0).0
 end
 
-export def call_osfind_open(a, filename)
+export def call_osfind_open(a, filename)#1
     return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
 end
 
-export def call_osrdch()
+export def call_osrdch()#1
     return call(osrdch, 0, 0, 0, 0).0
 end
 

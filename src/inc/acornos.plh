@@ -9,8 +9,8 @@
 // extra code at runtime.
 
 import acornos
-  predef call_osfind_open
-  predef call_osbput, call_osbget
-  predef call_osrdch
+  predef call_osfind_open(a, filename)#1
+  predef call_osbput(c, handle)#0, call_osbget(handle)#1
+  predef call_osrdch()#1
   const eof = -1 // TODO: delete if not needed eventually
 end
