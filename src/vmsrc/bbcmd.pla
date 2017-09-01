@@ -77,7 +77,7 @@ const modinitkeep = $4000
 //
 // Predefined functions.
 //
-// TODO: Can I get rid of this an include inc/cmdsys.plh? Remember I have renamed these to always use the "true" names, unlike the Apple versions where they have a different name in cmd.pla.
+// TODO: Can I get rid of this and include inc/cmdsys.plh? Remember I have renamed these to always use the "true" names, unlike the Apple versions where they have a different name in cmd.pla.
 predef syscall(cmd,params)#1, call(addr,areg,xreg,yreg,status)#1
 predef putln()#0, putc(c)#0, puts(s)#0, getc()#1, gets(p)#1
 predef heapmark()#1, heapalloc(size)#1, xheapalloc(size)#1, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
