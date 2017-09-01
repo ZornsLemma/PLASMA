@@ -21,4 +21,5 @@ import cmdsys
     predef mode(n)#1
     predef callalloca
     predef xheapalloc(size)#1
+    word modname
 end

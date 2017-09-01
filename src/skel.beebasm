@@ -13,6 +13,7 @@ putfile "BENCH1#FE1000", "BENCH1", &0000
 putfile "BENCH2#FE1000", "BENCH2", &0000
 putbasic "samplesrc/pcw.bas", "B.PCW"
 putfile "DWORD#FE1000", "DWORD", &0000
+putfile "samplesrc/modname.mo", "MODNAME", &0000
 putfile "STDIO#FE1000", "STDIO", &0000
 putfile "STDIOTS#FE1000", "STDIOTS", &0000
 putfile "STRPOOL#FE1000", "STRPOOL", &0000

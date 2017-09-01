@@ -56,12 +56,16 @@ const scratch	   = $0079
 const errfp	   = $0405	// 2 bytes
 const errjb	   = $0407	// 2 bytes
 
+#ifndef STANDALONE
 // TODO: I am currently very wasteful of memory in $400-$800; for
 // now we just allot this little part of it for the initial symbol
 // table, but this can probably be expanded later as the memory use
 // is tided up
 const lowsymtblchunk = $0409
 const lowsymtblchunksz = $50 // $150 // TODO $02f7
+
+const path_max = 256
+#endif
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
@@ -151,6 +155,12 @@ word cmdptr
 // File handle used by modload (so we can close it if an error occurs)
 //
 byte modload_handle
+//
+// Pointer to function used to transform a module name into a filename; used to
+// allow a user to load a resident module to override the default
+// small-but-simplistic implementation.
+//
+word modname
 #endif
 //
 // Global variables for use by mode()
@@ -1432,6 +1442,8 @@ def modaddr(str)#1
 end
 #endif
 #ifndef STANDALONE
+// TODO: If this has only one caller we might be as well to inline it - but
+// maybe that's over-optimisation.
 def addmod(mod, addr)#0
     byte dci[17]
     addsym(modtosym(mod, @dci), addr)
@@ -1475,7 +1487,18 @@ def lookupdef(addr, deftbl)#1
     loop
     return 0
 end
-def modload(mod)#1
+def modname_default(modcr)#0
+    // TODO: This implementation simply truncates module names at 7 characters.
+    // Not ideal but in practice acceptable, at least on DFS. This is done
+    // rather than using the module name directly as the filename simply to get
+    // ROGUE working; possibly we should just rename the modules to have 7
+    // character names and remove this hack.
+    ^(modcr + 7) = 13
+end
+// Load the module whose name is 'moddci' (a DCI string) from the file 'modcr'
+// (a CR-terminated string); modcr points to at least path_max bytes of space to
+// allow modname() to generate a long filename in place if it wants to.
+def modloadcr_internal(moddci, modcr)#1
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
 #ifdef PLAS128
@@ -1484,7 +1507,7 @@ def modload(mod)#1
     word modaddr, modfix, modend
     word deftbl, deflast
     word moddep, rld, esd, sym
-    byte str[17], filename[17]
+    byte str[17]
     const header_size = 128
     byte header[header_size]
     byte handle
@@ -1515,18 +1538,8 @@ def modload(mod)#1
     // Read the RELocatable module header (first header_size bytes); we also
     // get the file length while we have the file open.
     //
-    dcitocr(mod, @filename)
-    // TODO: Nasty temporary hack while I try to get ROGUE working
-    deftbl = @filename
-    if 0 // TODO
-    while ^deftbl <> 13
-    	putc(^deftbl)
-	deftbl++
-    loop
-    putln()
-    fin
-    filename[7] = 13
-    handle = call(osfind, osfind_input, @filename, @filename >> 8, 0).0
+    modname(modcr)#0
+    handle = call(osfind, osfind_input, modcr, modcr >> 8, 0).0
     if handle == 0
 	oserror(0, "Not found")
     fin
@@ -1598,7 +1611,7 @@ def modload(mod)#1
 	// have modaddr available here (unlike the Apple code), so we just
 	// use a non-zero constant.
 	//
-	addmod(mod, $0001)
+	addmod(moddci, $0001)
 	//
 	// Check there's room for the entire file onto the heap now any
 	// dependencies have been loaded.
@@ -1612,7 +1625,7 @@ def modload(mod)#1
 	//
 	// Load the file
 	//
-	if readfile(@filename, addr)
+	if readfile(modcr, addr)
 	    return -perr
 	fin
 	//
@@ -1787,6 +1800,38 @@ def modload(mod)#1
 #endif
     return fixup
 end
+def modloadpstr_internal(modpstr, modcr)#1
+    byte moddci[16] // TODO: MAGIC CONSTANT
+    word i
+    if ^modpstr == 0 or ^modpstr > 16
+        oserror(0, "Bad name") // TODO: Share a common error with some other case?
+    fin
+    stodci(modpstr, @moddci)
+    stocr(modpstr, modcr)
+    return modloadcr_internal(@moddci, modcr)
+end
+// Load the module named by the PLASMA string modpstr; this is taken from a
+// command line and may be overlong or invalid in some other way.
+// For the moment at least, I am going to work on the model that what you type
+// after the + sign at the prompt is a module name - never a path of any
+// description. modname() allows custom "module name to filename" conversion
+// (including potentially locating the module in a directory other than the
+// current one and therefore returning a filename with path components), but the
+// user input is just a module name. We can therefore validate modpstr and
+// convert it to a DCI module name quite naively.
+def modloadpstr(modpstr)#1
+    return callalloca(modpstr, @modloadpstr_internal, path_max)#1
+end
+def modload_internal(moddci, modcr)#1
+    dcitocr(moddci, modcr)
+    return modloadcr_internal(moddci, modcr)
+end
+// Load the module named by the DCI string moddci; this is taken from a module
+// reference in another module and therefore should be valid (e.g. not
+// arbitrarily long).
+export def modload(moddci)#1
+    return callalloca(moddci, @modload_internal, path_max)#1
+end
 #endif
 #ifndef STANDALONE
 //
@@ -1840,7 +1885,6 @@ def error_handler()#0
 end
 #ifndef STANDALONE
 def modexec(modfile)#1
-    byte moddci[17]
     word saveheap
 #ifdef PLAS128
     word savexheap
@@ -1850,52 +1894,47 @@ def modexec(modfile)#1
     word error, action, olderrjb, jb
 
     perr = 1
-    // TODO: There's currently nothing to prevent the user entering
-    // +MORETHANSEVENTEENCHARACTERS at the prompt and then we'll overflow
-    // moddci here.
-    if stodci(modfile, @moddci)
-        saveheap  = *heapptr
+    saveheap  = *heapptr
 #ifdef PLAS128
-	savexheap = xheap
+    savexheap = xheap
 #endif
-	savesym   = lastsym
-	savesymtblchunk = symtblchunk
-	// saveflags = systemflags
-        modload_handle = 0
-        olderrjb = *errjb
-	// We allocate a jmp_buf on the heap; it will get trapped and
-	// leaked if the module being executed remains resident, but
-	// that can't really be helped (and it will be fairly small).
-	// We can't allocate a local jmp_buf because the address of
-	// it would change if the executed module changes mode and
-	// thereby alters HIMEM; mode() will relocate the frame
-	// stack but it won't patch up the address at *errjb.
-	jb = saveheap
-	error = setjmp(jb)
-	if error == 0
-	    xheapalloc(jmpbufsz(jb))
-	    *errjb = jb
-	    action = modload(@moddci)
-	fin
-	*errjb = olderrjb
-	if error <> 0 or action < modkeep
-	    if modload_handle <> 0
-		call(osfind, osfind_close, 0, modload_handle, 0)
-	    fin
+    savesym   = lastsym
+    savesymtblchunk = symtblchunk
+    // saveflags = systemflags
+    modload_handle = 0
+    olderrjb = *errjb
+    // We allocate a jmp_buf on the heap; it will get trapped and
+    // leaked if the module being executed remains resident, but
+    // that can't really be helped (and it will be fairly small).
+    // We can't allocate a local jmp_buf because the address of
+    // it would change if the executed module changes mode and
+    // thereby alters HIMEM; mode() will relocate the frame
+    // stack but it won't patch up the address at *errjb.
+    jb = saveheap
+    error = setjmp(jb)
+    if error == 0
+        xheapalloc(jmpbufsz(jb))
+        *errjb = jb
+        action = modloadpstr(modfile)
+    fin
+    *errjb = olderrjb
+    if error <> 0 or action < modkeep
+        if modload_handle <> 0
+            call(osfind, osfind_close, 0, modload_handle, 0)
+        fin
 
-	    lastsym     = savesym
-	    symtblchunk = savesymtblchunk
-	    ^lastsym    = 0
-	    lastsym=>1  = 0
+        lastsym     = savesym
+        symtblchunk = savesymtblchunk
+        ^lastsym    = 0
+        lastsym=>1  = 0
 #ifdef PLAS128
-	    xheap       = savexheap
+        xheap       = savexheap
 #endif
-	    *heapptr    = saveheap
-	fin
-	// systemflags = saveflags
-	if error <> 0
-	    error_handler()
-	fin
+        *heapptr    = saveheap
+    fin
+    // systemflags = saveflags
+    if error <> 0
+        error_handler()
     fin
     return -perr
 end
@@ -1938,6 +1977,7 @@ end
 //
 symtblchunk = lowsymtblchunk
 lastsym = lowsymtblchunk
+modname = @modname_default
 //
 // Init symbol table.
 //

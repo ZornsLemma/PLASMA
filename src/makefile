@@ -315,6 +315,9 @@ bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/bench2.pla > samplesrc/bench2.a
 	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
 
+modname: samplesrc/modname.pla $(PLVM) $(PLASM)
+	./plasmac.py -OW samplesrc/modname.pla
+
 stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
 	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AMO > libsrc/stdio.a
 	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
@@ -338,5 +341,5 @@ setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.pla $(PLVM) $(PLASM)
 	./plasmac.py -O -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 dword stdio stdiots strpool symtbl setjmp sort $(ACORNOS) samplesrc/pcw.bas
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 dword modname stdio stdiots strpool symtbl setjmp sort $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA

@@ -1,0 +1,26 @@
+// Simple (and rather pointless) example of how to implement a custom modname()
+// function; a more sophisticated version of this might allow things like
+// searching for modules in a library directory.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+
+def my_modname(modcr)#0
+    word i
+    puts("modname: ")
+    i = modcr
+    while ^i <> 13
+        putc(^i)
+        i++
+    loop
+    putln() 
+end
+
+// TODO: Some means of preventing this being installed over and over again
+// (burning memory each time) might be nice, but as far as I can see upstream
+// PLASMA doesn't support this and I am not sure it's a good idea to make
+// Acorn-specific changes here.
+modname = @my_modname
+puts("Installed my_modname()\n")
+return modkeep
+done
