@@ -924,10 +924,9 @@ asm memxcpy(dst,src,size)#0
         ;* TODO: We may not want to use the exact same code as IINTERP but I
         ;* think this can be improved by 3*ROL A rather than 2*(synthetic 8-bit ROL A)
 	LDA	ESTKH+2,X
-	ASL
-	ADC	#$00
-	ASL
-	ADC	#$00
+        ROL
+        ROL
+        ROL
 	AND	#$03
 	TAY
 	LDA	RAMBANK,Y
