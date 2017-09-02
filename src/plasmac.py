@@ -185,13 +185,14 @@ def compile_pla(full_filename):
                         imports.append(imported_module)
                 else:
                     line = re.sub(r'\b_([ABCDFPX])', prefix + r'\1', line)
-                    # These three functions are in cmdsys.plh so they are imported by just
-                    # about every program, but they make no sense in a standalone build. We
+                    # These functions are in cmdsys.plh so they are imported by just
+                    # about every program, but they make no sense in a
+                    # standalone build. (SYSCALL is just not supported at all.) We
                     # comment out the imports so any use of them will fail at assembly time.
                     # (We could instead provide a dummy implementation, but that would waste
                     # at least one byte and it would be confusing if the dummy implementation
                     # was actually called anyway.)
-                    if '= _Y_MODADDR' in line or '= _Y_MODLOAD' in line or '= _Y_MODEXEC' in line:
+                    if '= _Y_MODADDR' in line or '= _Y_MODLOAD' in line or '= _Y_MODEXEC' in line or '= _Y_MODNAME' in line or '= _Y_SYSCALL' in line:
                         line = '; ' + line
             if line is not None:
                 output.write(line)

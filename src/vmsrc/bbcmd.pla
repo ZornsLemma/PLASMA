@@ -1252,14 +1252,14 @@ def readfile(filename, buffer)#1
     perr = (call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0)
     return perr
 end
+#endif
 //
 // Heap routines.
 //
-def heapavail()#1
+export def heapavail()#1
     byte fp
     return @fp - *heapptr
 end
-#endif
 def heapfull()#0
     puts("heapalloc failed\n") // TODO TEMP
     oserror(0, "Heap full")
