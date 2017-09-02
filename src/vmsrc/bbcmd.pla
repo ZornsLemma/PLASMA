@@ -106,10 +106,6 @@ predef callalloca
 //
 word version     = $0099 // 00.99
 // word systemflags = 0 TODO: delete this? commented out for now
-// TODO: I've experimentally moved heap to a fixed location in zero
-// page to support run-time detection of the parameter stack colliding
-// with the heap. May want to revert this, or make it conditionally
-// compiled.
 const heapptr = $0089
 #ifdef PLAS128
     word xheapsize
@@ -421,7 +417,7 @@ end
 //    return len
 //end
 asm dcitos(dci, str)#1
-	JSR	SFTODOCOMMON
+	JSR	INITDSTSRCY
 -	LDA	(SRC),Y
 	CMP	#$80
 	AND	#$7F
@@ -435,7 +431,7 @@ asm dcitos(dci, str)#1
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
-SFTODOCOMMON
+INITDSTSRCY
 	LDA	ESTKL,X
 	STA	DSTL
 	LDA	ESTKH,X
@@ -464,7 +460,7 @@ end
 //    return ^str
 //end
 asm stodci(str,dci)#1
-	JSR	SFTODOCOMMON
+	JSR	INITDSTSRCY
         INX
 	LDA	(SRC),Y
 	BEQ	++
@@ -497,7 +493,7 @@ end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // int dcitocr(dci, cr) - returns length (of DCI string/excluding CR)
 asm dcitocr(dci, cr)#1
-	JSR	SFTODOCOMMON
+	JSR	INITDSTSRCY
 	INX
 	STY	ESTKH,X
 -	LDA	(SRC),Y
@@ -515,7 +511,7 @@ end
 // Converts a PLASMA string to an Acorn OS-style string terminated by CR
 // void stocr(str, cr)
 export asm stocr(str, cr)#0
-	JSR	SFTODOCOMMON
+	JSR	INITDSTSRCY
         INX
 	INX
 	STX	ESP
@@ -577,7 +573,7 @@ end
 // Lookup routines.
 //
 asm lookuptbl(dci, tbl)#1
-	JSR	SFTODOCOMMON
+	JSR	INITDSTSRCY
 .NEXT	LDY	#$00
 .NEXTY	LDA	(DST),Y
 	BEQ	.CHUNKEND
@@ -1101,7 +1097,6 @@ def jmpbufsz(jb)#1
 	size = esp_size + 2 * (estksz_elems - jb->esp_offset) + ifp_size + pp_size
 	stack_ptr = ^(jb + size)
 	size = size + stack_ptr_size + (255 - stack_ptr)
-	// putc('E'); prword(size) // TODO TEMP
 	return size
 end
 
