@@ -793,23 +793,16 @@ export asm setjmp(b)#1
 	TSX
 	TXA
 	STA	(TMP),Y
-	; We must start this loop with Y=0 so we have the ability to store a
-	; full 256 bytes of stack without wrapping Y; this will never happen
-	; in practice, but still... So we need to bump TMP past the stack
-	; pointer just saved instead of incrementing Y. TODO: Hmm, I am not
-	; sure if that's true - ignoring the unreality of the stack being
-	; totally full, in that case SP(=X) would have wrapped round to 255
-	; and this loop would exit on the first pass.
-	INC	TMPL
-	BNE	++++
-	INC	TMPH
-++++ 	
+        ; Y=0 at this point; we assume the CPU stack is not completely full
+        ; (X=$FF) at this point (if it is, we're in trouble, because an
+        ; interrupt could occur and push more onto the stack) and therefore we
+        ; know that Y can't wrap round during the following loop.
 --	INX
 	BEQ	++
 	LDA	$0100,X
-	STA	(TMP),Y
 	INY
-	JMP	--
+	STA	(TMP),Y
+        BNE     --              ; always branches
 
 ++	LDX	ESP
 	RTS
@@ -831,7 +824,6 @@ export asm longjmp(b, val)#0
 	LDY	#0
 	LDA	(TMP),Y
 	STA	ESP
-	PHA
 	TAX
 	INY
 -	LDA	(TMP),Y
@@ -843,8 +835,7 @@ export asm longjmp(b, val)#0
 	INX
 	CPX 	#ESTKSZ/2
 	BNE	-
-	PLA
-	TAX
+        LDX	ESP
 
 	PLA
 	STA	ESTKH,X
@@ -894,17 +885,15 @@ export asm longjmp(b, val)#0
 	LDA	(TMP),Y
 	TAX
 	TXS
-	INC	TMPL
-	BNE	+++++
-	INC	TMPH
-+++++
 
+        ;* As in setjmp(), we can assume X is not $FF and so we know Y can't
+        ;* wrap round during this loop.
 --	INX
 	BEQ	+++
+        INY
 	LDA	(TMP),Y
 	STA	$0100,X
-	INY
-	JMP	--
+        JMP	--
 
 +++	
 
