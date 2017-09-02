@@ -422,7 +422,6 @@ end
 //end
 asm dcitos(dci, str)#1
 	JSR	SFTODOCOMMON
-	LDY	#$00
 -	LDA	(SRC),Y
 	CMP	#$80
 	AND	#$7F
@@ -432,7 +431,7 @@ asm dcitos(dci, str)#1
 	TYA
 	LDY	#$00
 	STA	(DST),Y
-	INX
+        INX
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
@@ -445,6 +444,7 @@ SFTODOCOMMON
 	STA	SRCL
 	LDA	ESTKH+1,X
 	STA	SRCH
+	LDY	#$00
         RTS
 end
 //def stodci(str, dci)
@@ -465,8 +465,7 @@ end
 //end
 asm stodci(str,dci)#1
 	JSR	SFTODOCOMMON
-	INX
-	LDY	#$00
+        INX
 	LDA	(SRC),Y
 	BEQ	++
 	TAY
@@ -500,7 +499,6 @@ end
 asm dcitocr(dci, cr)#1
 	JSR	SFTODOCOMMON
 	INX
-	LDY	#0
 	STY	ESTKH,X
 -	LDA	(SRC),Y
 	CMP	#$80		; set C iff >= $80
@@ -518,10 +516,9 @@ end
 // void stocr(str, cr)
 export asm stocr(str, cr)#0
 	JSR	SFTODOCOMMON
-	INX
         INX
+	INX
 	STX	ESP
-	LDY	#0
 	LDA	(SRC),Y
 	BEQ	+
 	TAX
