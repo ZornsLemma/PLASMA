@@ -1477,15 +1477,6 @@ def modloadcr_internal(moddci, modcr)#1
     // BeebEm suggest OSFILE can load 6.25K in 1.74s compared with 4.47s for
     // OSGBPB. So it's well worth the "waste" of reading the header twice.
 
-    // TODO: The filename could in principle be very long and could overflow
-    // the filename[] array; we could perhaps use the fixed space at inbuff
-    // for the filename. But this might not be the only place filenames
-    // are held in small arrays, so check before changing anything. (On the
-    // other hand, filenames are embedded in modules as dependencies, and
-    // those "have" to be short, so we might want to just refuse to handle
-    // long filenames anyway. Then again, perhaps eventually we might
-    // support a "library" where things are searched for if not in CSD.)
-
     // TODO: Do I need to be setting perr in any situations here? Can I
     // perhaps get rid of perr altogether (e.g. and replace it with calls
     // to oserror())?
