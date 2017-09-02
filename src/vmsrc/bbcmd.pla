@@ -28,7 +28,11 @@ include "inc/acornc.plh"
 // a command to be executed to be given as an argument to PLAS128 - then you
 // could do '*PLAS128 +MYPROG' - but even then losing the flexibility of the
 // *EXEC !BOOT option isn't ideal. I haven't tested to see if this does break
-// that case yet.)
+// that case yet.) OK, I have now tested - yes, on a second processor such a
+// !BOOT does stop without "typing" in the +MYPROG. It *does* work fine if you
+// don't have a second processor turned on, so arguably this is not too big a
+// deal - the alternatives are "if there is a second processor, do we refuse to
+// run PLAS128 or run it but refuse to accept any commands via *EXEC"
 
 const MODADDR      = $1000
 
@@ -81,7 +85,9 @@ const modinitkeep = $4000
 //
 // Predefined functions.
 //
-// TODO: Can I get rid of this and include inc/cmdsys.plh? Remember I have renamed these to always use the "true" names, unlike the Apple versions where they have a different name in cmd.pla.
+// TODO: It would be nice if these could be omitted and we could 'include
+// "inc/cmdsys.plh"' instead, but this doesn't seem to work. Perhaps try this
+// kind of thing with upstream compiler and ask Dave.
 predef syscall(cmd,params)#1, call(addr,areg,xreg,yreg,status)#1
 predef putln()#0, putc(c)#0, puts(s)#0, getc()#1, gets(p)#1
 predef heapmark()#1, heapalloc(size)#1, xheapalloc(size)#1, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
