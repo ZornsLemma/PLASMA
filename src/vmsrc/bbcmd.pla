@@ -1205,6 +1205,7 @@ def readfile(filename, buffer)#1
     block:2 = buffer
     block:4 = high_order_address()
     block:6 = 0 // ignore file's load address, use our own
+    // TODO: Should I in fact check that the returned value *is* 1 (file found)?
     perr = (call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0)
     return perr
 end
