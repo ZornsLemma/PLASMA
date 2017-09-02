@@ -415,14 +415,7 @@ end
 //    return len
 //end
 asm dcitos(dci, str)#1
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
+	JSR	SFTODOCOMMON
 	LDY	#$00
 -	LDA	(SRC),Y
 	CMP	#$80
@@ -437,6 +430,16 @@ asm dcitos(dci, str)#1
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
+SFTODOCOMMON
+	LDA	ESTKL,X
+	STA	DSTL
+	LDA	ESTKH,X
+	STA	DSTH
+	LDA	ESTKL+1,X
+	STA	SRCL
+	LDA	ESTKH+1,X
+	STA	SRCH
+        RTS
 end
 //def stodci(str, dci)
 //    byte len, c
@@ -455,14 +458,7 @@ end
 //    return ^str
 //end
 asm stodci(str,dci)#1
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
+	JSR	SFTODOCOMMON
 	INX
 	LDY	#$00
 	LDA	(SRC),Y
@@ -496,18 +492,7 @@ end
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // int dcitocr(dci, cr) - returns length (of DCI string/excluding CR)
 asm dcitocr(dci, cr)#1
-	; TODO: This little code fragment to set up SRC/DST is used in
-	; a few places and could possibly be factored out; as long as
-	; we continue to assemble this file directly into the VM
-	; executable, we can safely use JSR (unlike a normal module).
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
+	JSR	SFTODOCOMMON
 	INX
 	LDY	#0
 	STY	ESTKH,X
@@ -526,14 +511,7 @@ end
 // Converts a PLASMA string to an Acorn OS-style string terminated by CR
 // void stocr(str, cr)
 export asm stocr(str, cr)#0
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
+	JSR	SFTODOCOMMON
 	INX
         INX
 	STX	ESP
@@ -596,14 +574,7 @@ end
 // Lookup routines.
 //
 asm lookuptbl(dci, tbl)#1
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
+	JSR	SFTODOCOMMON
 .NEXT	LDY	#$00
 .NEXTY	LDA	(DST),Y
 	BEQ	.CHUNKEND
