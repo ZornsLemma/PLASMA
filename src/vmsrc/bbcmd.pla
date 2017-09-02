@@ -167,7 +167,7 @@ word modname
 //
 // Global variables for use by mode()
 //
-byte gm_new_himem_higher
+word gm_himem_delta
 word gm_new_frame_start
 #ifdef PLAS128
     word gm_new_ifp
@@ -1118,9 +1118,6 @@ end
 // caused by insufficient memory).
 export def mode(n)#1
     word new_himemh, himem, new_himem
-    byte s, frame_size
-    word call_jsr_return, ical_jsr_return, possible_jsr_return
-    word working_ifp, working_pp
 
     // If the mode change doesn't alter HIMEM, it's trivial. We need to check
     // specifically for the second processor case here; see the code just
@@ -1134,14 +1131,15 @@ export def mode(n)#1
 
     himem = ^himemh << 8
     new_himem = new_himemh << 8
+    gm_himem_delta = new_himem - himem
 #ifdef PLAS128
-    gm_new_frame_start = *pp + (new_himem - himem)
+    gm_new_frame_start = *pp + gm_himem_delta
     // Because we use gm_new_frame_start below, it's important that PP doesn't
     // move between now and then - which means none of the following code can
     // use constant strings. (We could redo this calculation at that point, but
     // it's nicer not to have to.)
 #else
-    gm_new_frame_start = *ifp + (new_himem - himem)
+    gm_new_frame_start = *ifp + gm_himem_delta
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
@@ -1155,9 +1153,8 @@ export def mode(n)#1
     // PP for PLAS128) accordingly. We need a temporary parameter frame
     // stack so we can call memcpy(); once we've switched to that we can't
     // access any local variables, so we copy everything into globals first.
-    gm_new_himem_higher = isuge(new_himem, himem)
 #ifdef PLAS128
-    gm_new_ifp = *ifp + (new_himem - himem)
+    gm_new_ifp = *ifp + gm_himem_delta
     gm_copy_from = *pp
 #else
     gm_copy_from = *ifp
@@ -1166,12 +1163,12 @@ export def mode(n)#1
     gm_new_mode = n
     *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
-    if gm_new_himem_higher
+    if gm_himem_delta >= 0
 	putc(22)
 	putc(gm_new_mode)
     fin
     memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
-    if not gm_new_himem_higher
+    if gm_himem_delta < 0
 	putc(22)
 	putc(gm_new_mode)
     fin
