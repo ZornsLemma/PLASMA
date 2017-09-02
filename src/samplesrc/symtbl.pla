@@ -14,7 +14,7 @@ include "inc/acornos.plh"
 // know; we just ignore it here. This is only a test/demonstration anyway, it's
 // not something a real application should be doing.
 const initialsymtbl = $0409
-const max_symbol_length = 16
+const max_symbol_length = 17 // module names can be 16 chars plus # prefix
 
 word chunk = initialsymtbl
 word symbol
