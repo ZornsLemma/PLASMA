@@ -576,7 +576,9 @@ asm lookuptbl(dci, tbl)#1
 	JSR	INITDSTSRCY
 .NEXT	LDY	#$00
 .NEXTY	LDA	(DST),Y
-	BEQ	.CHUNKEND
+	BEQ	.TABLEEND
+        CMP	#$01
+        BEQ	.CHUNKEND
 	CMP	(SRC),Y
 	BNE	.NOTMATCH
 	INY
@@ -592,6 +594,9 @@ asm lookuptbl(dci, tbl)#1
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
+.TABLEEND
+        TAY
+        BEQ	.EXIT
 .NOTMATCH
 	LDY	#$00
 .SKIP	LDA	(DST),Y
@@ -612,10 +617,6 @@ asm lookuptbl(dci, tbl)#1
 .CHUNKEND 
 	LDY	#$02
 	LDA	(DST),Y
-	BNE	.NEXTCHUNK
-	TAY
-	BEQ	.EXIT
-.NEXTCHUNK
 	PHA
 	DEY
 	LDA	(DST),Y
@@ -1320,6 +1321,7 @@ end
 //
 // Symbol table routines.
 //
+// TODO UPDATE THIS COMMENT TO REFLECT TWEAKED DATA STRUCTURE
 // The symbol table is a "chunked array"; the first chunk is at symtbl and
 // each chunk consists of a number of entries, each of which consists of:
 // - symbol name (as DCI string)
@@ -1340,10 +1342,15 @@ def addsym(sym, addr)#0
     
     // We must always have room for a 16 character name, two bytes for the
     // address associated with that name and another three bytes for the
-    // 'next chunk' pointer.
+    // 'next chunk' pointer. TODO: A NAME CAN BE 17 CHARACTERS IN THEORY, CAN'T
+    // IT? A 16 CHARACTER MODULE NAME PLUS A PRECEDING # - OR ARE MODULE NAMES
+    // ACTUALLY LIMITED TO 15 CHARACTERS? I DON'T THINK SO
+    // TODO: WHY DO WE USE 16 ANYWAY, RATHER THAN THE SIZE OF 'SYM'? THIS WOULD
+    // AVOID A LITTLE BIT OF SPACE WASTAGE AFTER THE LAST SYMBOL IN A MODULE
+    // (THE OTHERS DON'T REALLY MATTER BECAUSE OF OUR 'CONTIGUOUSITY TRICK')
     const max_entry_size = 16 + 2 + 3
     if 1 // TODO: DELETE
-	    prword(addr)
+	    prword(addr); putc(' ')
 	    SFTODO = sym
 	    while ^SFTODO & $80
 		putc(^SFTODO & $7f)
@@ -1375,6 +1382,7 @@ def addsym(sym, addr)#0
 	else
             puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
+            lastsym->0 = 1 // end of chunk but not end of table
 	    lastsym=>1 = symtblchunk
 	    lastsym = symtblchunk
 	fin
@@ -1387,8 +1395,7 @@ def addsym(sym, addr)#0
     lastsym->0 = ^sym
     lastsym=>1 = addr
     lastsym    = lastsym + 3
-    ^lastsym   = 0
-    lastsym=>1 = 0
+    ^lastsym   = 0 // end of table
 end
 //
 // Module routines.
@@ -1717,9 +1724,9 @@ def modloadcr_internal(moddci, modcr)#1
                 puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
 		// TODO: The following test could be removed eventually.
 		// Assert that the last byte written in the symbol table
-		// (lastsym + 2) hasn't trampled over the next ESD entry
+		// (lastsym) hasn't trampled over the next ESD entry
 		// (at esd + 3).
-		if isuge(lastsym + 2, esd + 3)
+		if isuge(lastsym, esd + 3)
 		    oserror(0, "Symbol table clash")
 		fin
             fin
@@ -1942,8 +1949,7 @@ modname = @modname_default
 //
 // Init symbol table.
 //
-^lastsym = 0
-lastsym=>1 = 0
+^lastsym = 0 // end of symbol table
 #endif
 //
 // Set up error handler

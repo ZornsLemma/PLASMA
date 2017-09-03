@@ -53,5 +53,5 @@ for (name, value) in symtab:
         sep = ", "
     print(s + "; word = " + value + " // " + name)
 
-print("byte = $00 // end of symbol table chunk")
+print("byte = $01 // end of symbol table chunk")
 print("word = lowsymtblchunk // next symbol table chunk")

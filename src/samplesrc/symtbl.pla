@@ -26,41 +26,43 @@ def prword(w)
 end
 
 puts("chunk elem symbol           address\n")
-repeat
-    symbol = chunk
-    while ^symbol
-	if symbol == chunk
-	    prword(symbol)
-	    puts("  ")
-	else
-	    puts("      ")
-	fin
+symbol = chunk
+while ^symbol
+    if ^symbol == 1
+        chunk = symbol=>1
+        symbol = chunk
+        continue
+    fin
+        
+    if symbol == chunk
+        prword(symbol)
+        puts("  ")
+    else
+        puts("      ")
+    fin
 
-	prword(symbol)
-	putc(' ')
+    prword(symbol)
+    putc(' ')
 
-	pad = max_symbol_length + 1
-	while ^symbol & $80
-	    putc(^symbol & $7F)
-	    symbol++
-	    pad--
-	loop
-	putc(^symbol)
-	symbol++
-	pad--
-	while pad > 0
-	    putc(' ')
-	    pad--
-	loop
-
-	prword(*symbol)
-	symbol = symbol + 2
-
-	putln()
+    pad = max_symbol_length + 1
+    while ^symbol & $80
+        putc(^symbol & $7F)
+        symbol++
+        pad--
+    loop
+    putc(^symbol)
+    symbol++
+    pad--
+    while pad > 0
+        putc(' ')
+        pad--
     loop
 
-    chunk = symbol=>1
-until chunk == 0
+    prword(*symbol)
+    symbol = symbol + 2
+
+    putln()
+loop
 
 done
 
