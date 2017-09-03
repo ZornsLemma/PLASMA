@@ -1199,15 +1199,16 @@ def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
 // TODO: Is the return value of readfile() necessary? Switch to #0?
-def readfile(filename, buffer)#1
+def readfile(filename, buffer)#0
     byte block[osfile_block_size]
     block:0 = filename
     block:2 = buffer
     block:4 = high_order_address()
     block:6 = 0 // ignore file's load address, use our own
     // TODO: Should I in fact check that the returned value *is* 1 (file found)?
-    perr = (call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0)
-    return perr
+    if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0
+        oserror(0, "Not found") // TODO: Different error/code? Share with other Not Found error?
+    fin
 end
 #endif
 //
@@ -1341,7 +1342,7 @@ def addsym(sym, addr)#0
     // address associated with that name and another three bytes for the
     // 'next chunk' pointer.
     const max_entry_size = 16 + 2 + 3
-    if 0 // TODO: DELETE
+    if 1 // TODO: DELETE
 	    prword(addr)
 	    SFTODO = sym
 	    while ^SFTODO & $80
@@ -1356,9 +1357,12 @@ def addsym(sym, addr)#0
     else
 	symtbl_chunk_size = max_entry_size
     fin
+    puts("SFTDOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
     	newsymtblchunk = xheapalloc(max_entry_size)
+        puts("SFTODOX1 "); prword(newsymtblchunk); putln()
 	if symtblchunk + max_entry_size == newsymtblchunk
+            puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
 	    // end. This is important when we're called in modload(), as
@@ -1369,6 +1373,7 @@ def addsym(sym, addr)#0
 	    symtblchunk = lastsym
 	    heaprelease(symtblchunk + max_entry_size)
 	else
+            puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
 	    lastsym=>1 = symtblchunk
 	    lastsym = symtblchunk
@@ -1478,10 +1483,6 @@ def modloadcr_internal(moddci, modcr)#1
     // BeebEm suggest OSFILE can load 6.25K in 1.74s compared with 4.47s for
     // OSGBPB. So it's well worth the "waste" of reading the header twice.
 
-    // TODO: Do I need to be setting perr in any situations here? Can I
-    // perhaps get rid of perr altogether (e.g. and replace it with calls
-    // to oserror())?
-
     //
     // Read the RELocatable module header (first header_size bytes); we also
     // get the file length while we have the file open.
@@ -1573,9 +1574,7 @@ def modloadcr_internal(moddci, modcr)#1
 	//
 	// Load the file
 	//
-	if readfile(modcr, addr)
-	    return -perr
-	fin
+	readfile(modcr, addr)
 	//
 	// Release the claim we just made; we really did it only to see if it
 	// would fail. The code immediately following will shift the loaded
@@ -1626,8 +1625,21 @@ def modloadcr_internal(moddci, modcr)#1
 	// len(symbol_name) + 2 (symbol address) new bytes, and each ESD entry
 	// is len(symbol_name) + 3 bytes, so we're always OK even if there
 	// are no RLD entries. TODO: Double check this reasoning!
+        // TODO: ALAS SEEMS TO BE FALSE NOW WE ARE CHUNKED - ADDSYM CAN TOUCH
+        // LEN(SYMBOL_NAME)+2(SYMBOL ADDRESS)+1 (END OF CHUNK ZERO)+2 (NEXT CHUNK ADDR==0)
+        // BYTES IE LEN(SYMNAME)+5. THIS IS BEING TRIGGERED BY FOR UNRELATED
+        // REASONS EXPERIMENTALLY REMOVING THE LAST FN IN DWORD.PLA, PROBABLY GIVING
+        // ZERO-SIZE RLD (YES, I'VE CHECKED THAT WITH PDUMP.PY) - WELL, IT'S
+        // NEARLY TRUE BECAUSE THE THREE ZERO BYTES ARE A FIXED ONE-OFF OVERHEAD
+        // NOT A PER ENTRY, BUT WITH ZERO RLD IT'S STILL NO GOOD
+        // - ONCE POSSIBLE HACK WOULD BE TO USE (SAY) A '1' BYTE TO MARK END OF
+        // LAST CHUNK IN LIEU OF A '0' BYTE FOLLOWED BY TWO MORE 0 BYTES, I THINK
+        // THAT WOULD WORK AROUND THE PROBLEM BUT NOT NECESSARILY IDEAL - IT *JUST*
+        // WORKS (I THINK) BECAUSE EVEN AN EMPTY RLD OCCUPIES ONE BYTE
+
 	//
 	heaprelease(modend)    
+        puts("SFTODOHR "); prword(modend); putln();
         //
         // Run through the Re-Location Dictionary.
         //
@@ -1700,7 +1712,9 @@ def modloadcr_internal(moddci, modcr)#1
                     addr = lookupdef(addr - bytecode + bytecode, deftbl)
 #endif
                 fin
+                puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
                 addsym(sym, addr)
+                puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
 		// TODO: The following test could be removed eventually.
 		// Assert that the last byte written in the symbol table
 		// (lastsym + 2) hasn't trampled over the next ESD entry
@@ -1841,7 +1855,6 @@ def modexec(modfile)#1
     // word saveflags
     word error, action, olderrjb, jb
 
-    perr = 1
     saveheap  = *heapptr
 #ifdef PLAS128
     savexheap = xheap
