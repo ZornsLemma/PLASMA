@@ -1199,7 +1199,6 @@ end
 def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
-// TODO: Is the return value of readfile() necessary? Switch to #0?
 def readfile(filename, buffer)#0
     byte block[osfile_block_size]
     block:0 = filename
@@ -1321,14 +1320,16 @@ end
 //
 // Symbol table routines.
 //
-// TODO UPDATE THIS COMMENT TO REFLECT TWEAKED DATA STRUCTURE
 // The symbol table is a "chunked array"; the first chunk is at symtbl and
 // each chunk consists of a number of entries, each of which consists of:
 // - symbol name (as DCI string)
 // - symbol address (2 bytes)
-// If the symbol name's first byte is 0, that marks the end of the chunk.
-// The two following bytes are 0 if there are no more chunks, otherwise
-// they are the address of the next chunk.
+//
+// If the symbol name's first byte is 0, that marks the end of the symbol table.
+//
+// If the symbol name's first byte is 1, that marks the end of the current chunk
+// but not the symbol table; it is followed by two bytes which are the address
+// of the next chunk.
 //
 // The first chunk is a different size than later chunks but this is only
 // relevant to addsym(); it makes no difference to lookuptbl().
@@ -1340,16 +1341,21 @@ def addsym(sym, addr)#0
     word symtbl_chunk_size, newsymtblchunk
     word SFTODO // TODO: DELETE
     
-    // We must always have room for a 16 character name, two bytes for the
+    // We must always have room for a 17 character name, two bytes for the
     // address associated with that name and another three bytes for the
-    // 'next chunk' pointer. TODO: A NAME CAN BE 17 CHARACTERS IN THEORY, CAN'T
-    // IT? A 16 CHARACTER MODULE NAME PLUS A PRECEDING # - OR ARE MODULE NAMES
-    // ACTUALLY LIMITED TO 15 CHARACTERS? I DON'T THINK SO
-    // TODO: WHY DO WE USE 16 ANYWAY, RATHER THAN THE SIZE OF 'SYM'? THIS WOULD
-    // AVOID A LITTLE BIT OF SPACE WASTAGE AFTER THE LAST SYMBOL IN A MODULE
-    // (THE OTHERS DON'T REALLY MATTER BECAUSE OF OUR 'CONTIGUOUSITY TRICK')
-    const max_entry_size = 16 + 2 + 3
-    if 1 // TODO: DELETE
+    // 'next chunk' pointer. (Initially we only need one byte for the 'end of
+    // table' marker, but sooner or later another chunk will be added so we need
+    // to allocate three bytes. Those extra two bytes are not *touched* yet,
+    // which is important for the assumptions we make about symbol table growth
+    // in modload().)
+    // TODO: Can we instead just allocate exactly the space we need for this
+    // symbol's name? The contiguous trick we use means it mostly doesn't
+    // matter, but I think we can effectively waste space on the last symbol
+    // for each module. Alternatively it might be easer if we simply freed
+    // any trailing space (allowing for the next chunk pointer) at the end
+    // of modload().
+    const max_entry_size = 17 + 2 + 3
+    if 0 // TODO: DELETE
 	    prword(addr); putc(' ')
 	    SFTODO = sym
 	    while ^SFTODO & $80
@@ -1364,12 +1370,12 @@ def addsym(sym, addr)#0
     else
 	symtbl_chunk_size = max_entry_size
     fin
-    puts("SFTDOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
+    //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
     if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
     	newsymtblchunk = xheapalloc(max_entry_size)
-        puts("SFTODOX1 "); prword(newsymtblchunk); putln()
+        //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
 	if symtblchunk + max_entry_size == newsymtblchunk
-            puts("SFTODOX2\n")
+            //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
 	    // end. This is important when we're called in modload(), as
@@ -1380,10 +1386,10 @@ def addsym(sym, addr)#0
 	    symtblchunk = lastsym
 	    heaprelease(symtblchunk + max_entry_size)
 	else
-            puts("SFTODOX3\n")
+            //puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
             lastsym->0 = 1 // end of chunk but not end of table
-	    lastsym=>1 = symtblchunk
+	    lastsym=>1 = symtblchunk // next chunk
 	    lastsym = symtblchunk
 	fin
     fin
@@ -1629,24 +1635,12 @@ def modloadcr_internal(moddci, modcr)#1
 	// "risky", because any more heap allocations could allocate memory
 	// we will try to read. We get away with it because only addsym() is
 	// going to touch heap-allocated memory. Any one addsym() call can only touch
-	// len(symbol_name) + 2 (symbol address) new bytes, and each ESD entry
+	// len(symbol_name) + 2 (symbol address) + 1 (end-of-table marker) new bytes, and each ESD entry
 	// is len(symbol_name) + 3 bytes, so we're always OK even if there
 	// are no RLD entries. TODO: Double check this reasoning!
-        // TODO: ALAS SEEMS TO BE FALSE NOW WE ARE CHUNKED - ADDSYM CAN TOUCH
-        // LEN(SYMBOL_NAME)+2(SYMBOL ADDRESS)+1 (END OF CHUNK ZERO)+2 (NEXT CHUNK ADDR==0)
-        // BYTES IE LEN(SYMNAME)+5. THIS IS BEING TRIGGERED BY FOR UNRELATED
-        // REASONS EXPERIMENTALLY REMOVING THE LAST FN IN DWORD.PLA, PROBABLY GIVING
-        // ZERO-SIZE RLD (YES, I'VE CHECKED THAT WITH PDUMP.PY) - WELL, IT'S
-        // NEARLY TRUE BECAUSE THE THREE ZERO BYTES ARE A FIXED ONE-OFF OVERHEAD
-        // NOT A PER ENTRY, BUT WITH ZERO RLD IT'S STILL NO GOOD
-        // - ONCE POSSIBLE HACK WOULD BE TO USE (SAY) A '1' BYTE TO MARK END OF
-        // LAST CHUNK IN LIEU OF A '0' BYTE FOLLOWED BY TWO MORE 0 BYTES, I THINK
-        // THAT WOULD WORK AROUND THE PROBLEM BUT NOT NECESSARILY IDEAL - IT *JUST*
-        // WORKS (I THINK) BECAUSE EVEN AN EMPTY RLD OCCUPIES ONE BYTE
-
 	//
 	heaprelease(modend)    
-        puts("SFTODOHR "); prword(modend); putln();
+        //puts("SFTODOHR "); prword(modend); putln();
         //
         // Run through the Re-Location Dictionary.
         //
@@ -1719,9 +1713,9 @@ def modloadcr_internal(moddci, modcr)#1
                     addr = lookupdef(addr - bytecode + bytecode, deftbl)
 #endif
                 fin
-                puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
+                //puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
                 addsym(sym, addr)
-                puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
+                //puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
 		// TODO: The following test could be removed eventually.
 		// Assert that the last byte written in the symbol table
 		// (lastsym) hasn't trampled over the next ESD entry

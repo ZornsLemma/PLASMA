@@ -442,11 +442,10 @@ end
 
 // void dword_adduword(dword *result, const dword *lhs, word rhs)
 // TODO: rewrite in assembler?
-// TODO: TEMP REMOVED
-//export def dword_adduword(result, lhs, rhs)#0
-//    byte rhs_dword[4]
-//    dword_fromuword(@rhs_dword, rhs)
-//    dword_add(result, lhs, @rhs_dword)
-//end
+export def dword_adduword(result, lhs, rhs)#0
+    byte rhs_dword[4]
+    dword_fromuword(@rhs_dword, rhs)
+    dword_add(result, lhs, @rhs_dword)
+end
 
 // vi: sts=4 sw=4
