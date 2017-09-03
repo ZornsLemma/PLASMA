@@ -1743,6 +1743,9 @@ def modloadcr_internal(moddci, modcr)#1
 	if fixup < modinitkeep
 	    //
 	    // Free init routine unless initkeep
+            // TODO: I AM NOT SURE THIS IS TRUE - AT LEAST ON PLAS32 - AND MAYBE
+            // IT *CAN'T* BE GIVEN THE WAY OUR SYMBOL TABLE WORKS, BUT IF SO WE
+            // SHOULD UPDATE THIS COMMENT - THINK ABOUT IT A BIT
 	    //
 #ifdef PLAS128
             xheap = init - defofst + defaddr
