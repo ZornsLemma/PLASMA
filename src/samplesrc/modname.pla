@@ -5,21 +5,39 @@
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 
-def my_modname(modcr)#0
+// There's no requirement to chain modname() functions, but let's demonstrate
+// that it's possible if desired. If we don't do this, installing this modname()
+// prevents ROGUE running, as we lose the truncate-to-7-characters behaviour of
+// the default modname(). By doing this, we can see the truncation happening. We
+// could simply implement such truncation directly ourselves instead if we
+// wished.
+word parent_modname
+
+def putcr(cr)#0
     word i
-    puts("modname: ")
-    i = modcr
+    i = cr
     while ^i <> 13
         putc(^i)
         i++
     loop
+end
+
+def my_modname(modcr)#0
+    word i
+    puts("modname before: ")
+    putcr(modcr)
     putln() 
+    parent_modname(modcr)#0
+    puts("modname after: ")
+    putcr(modcr)
+    putln()
 end
 
 // TODO: Some means of preventing this being installed over and over again
 // (burning memory each time) might be nice, but as far as I can see upstream
 // PLASMA doesn't support this and I am not sure it's a good idea to make
 // Acorn-specific changes here.
+parent_modname = modname
 modname = @my_modname
 puts("Installed my_modname()\n")
 return modkeep
