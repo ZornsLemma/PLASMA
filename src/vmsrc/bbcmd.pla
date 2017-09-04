@@ -1342,6 +1342,8 @@ def lookupsym(sym)#1
 end
 def addsym(sym, addr)#0
     word symtbl_chunk_size, newsymtblchunk
+    byte str[maxsymlen]
+    word entry_size
     word SFTODO // TODO: DELETE
     
     // We must always have room for a maxsymlen character name, two bytes for the
@@ -1357,7 +1359,7 @@ def addsym(sym, addr)#0
     // for each module. Alternatively it might be easer if we simply freed
     // any trailing space (allowing for the next chunk pointer) at the end
     // of modload().
-    const max_entry_size = maxsymlen + 2 + 3
+    entry_size = dcitos(sym, @str) + 2 + 3
     if 0 // TODO: DELETE
 	    prword(addr); putc(' ')
 	    SFTODO = sym
@@ -1371,13 +1373,14 @@ def addsym(sym, addr)#0
     if symtblchunk == lowsymtblchunk
 	symtbl_chunk_size = lowsymtblchunksz
     else
-	symtbl_chunk_size = max_entry_size
+	symtbl_chunk_size = 0
     fin
     //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
-    if lastsym - symtblchunk + max_entry_size > symtbl_chunk_size
-    	newsymtblchunk = xheapalloc(max_entry_size)
+    if lastsym - symtblchunk + entry_size > symtbl_chunk_size
+    	newsymtblchunk = xheapalloc(entry_size)
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
-	if symtblchunk + max_entry_size == newsymtblchunk
+        // TODO: DUPLICATION IN NEXT LINE
+	if symtblchunk + dcitos(symtblchunk, @str) + 2 + 3 == newsymtblchunk
             //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
@@ -1387,7 +1390,7 @@ def addsym(sym, addr)#0
 	    // case, we can get away with allocating only max_entry_size bytes
 	    // every time without fragmentation wasting space.
 	    symtblchunk = lastsym
-	    heaprelease(symtblchunk + max_entry_size)
+	    heaprelease(symtblchunk + entry_size)
 	else
             //puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
