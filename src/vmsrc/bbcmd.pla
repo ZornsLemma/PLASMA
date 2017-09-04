@@ -1342,7 +1342,6 @@ def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
 def addsym(sym, addr)#0
-    word newsymtblchunk
     byte str[maxsymlen]
     word entrysz
     word SFTODO // TODO: DELETE
@@ -1369,9 +1368,9 @@ def addsym(sym, addr)#0
     fin
     //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
     if (symtblchunk <> lowsymtblchunk) or (lastsym - symtblchunk + entrysz > lowsymtblchunksz)
-    	newsymtblchunk = xheapalloc(entrysz)
+    	symtblchunk = xheapalloc(entrysz)
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
-	if lastsym + nextchunkptrsz == newsymtblchunk
+	if lastsym + nextchunkptrsz == symtblchunk
             //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we
             // therefore don't need a chunk end marker and a symbol table
@@ -1384,7 +1383,6 @@ def addsym(sym, addr)#0
 	    symtblchunk = lastsym
 	else
             //puts("SFTODOX3\n")
-	    symtblchunk = newsymtblchunk
             lastsym->0 = 1 // end of chunk but not end of table
 	    lastsym=>1 = symtblchunk // next chunk
 	    lastsym = symtblchunk
