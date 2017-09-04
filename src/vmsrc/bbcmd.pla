@@ -68,7 +68,9 @@ const errjb	   = $0407	// 2 bytes
 const lowsymtblchunk = $0409
 const lowsymtblchunksz = $50 // $150 // TODO $02f7
 
-const path_max = 256
+const maxnamelen = 16
+const maxsymlen = maxnamelen + 1 // 1 for '#' prefix for module name
+const maxpathlen = 256
 #endif
 const FALSE = 0
 const TRUE = NOT FALSE
@@ -1341,7 +1343,7 @@ def addsym(sym, addr)#0
     word symtbl_chunk_size, newsymtblchunk
     word SFTODO // TODO: DELETE
     
-    // We must always have room for a 17 character name, two bytes for the
+    // We must always have room for a maxsymlen character name, two bytes for the
     // address associated with that name and another three bytes for the
     // 'next chunk' pointer. (Initially we only need one byte for the 'end of
     // table' marker, but sooner or later another chunk will be added so we need
@@ -1354,7 +1356,7 @@ def addsym(sym, addr)#0
     // for each module. Alternatively it might be easer if we simply freed
     // any trailing space (allowing for the next chunk pointer) at the end
     // of modload().
-    const max_entry_size = 17 + 2 + 3
+    const max_entry_size = maxsymlen + 2 + 3
     if 0 // TODO: DELETE
 	    prword(addr); putc(' ')
 	    SFTODO = sym
@@ -1407,11 +1409,11 @@ end
 // Module routines.
 //
 def lookupmod(mod)#1
-    byte dci[17]
+    byte dci[maxsymlen]
     return lookuptbl(modtosym(mod, @dci), @symtbl)
 end
 def modaddr(str)#1
-    byte mod[17]
+    byte mod[maxsymlen]
     stodci(str, @mod)
     return lookupmod(@mod)
 end
@@ -1420,12 +1422,12 @@ end
 // TODO: If this has only one caller we might be as well to inline it - but
 // maybe that's over-optimisation.
 def addmod(mod, addr)#0
-    byte dci[17]
+    byte dci[maxsymlen]
     addsym(modtosym(mod, @dci), addr)
 end
 def lookupextern(esd, index)#1
     word sym, addr
-    byte str[16]
+    byte str[maxnamelen]
     while ^esd
         sym = esd
         esd = esd + dcitos(esd, @str)
@@ -1471,7 +1473,7 @@ def modname_default(modcr)#0
     ^(modcr + 7) = 13
 end
 // Load the module whose name is 'moddci' (a DCI string) from the file 'modcr'
-// (a CR-terminated string); modcr points to at least path_max bytes of space to
+// (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
 // allow modname() to generate a long filename in place if it wants to.
 def modloadcr_internal(moddci, modcr)#1
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
@@ -1482,7 +1484,7 @@ def modloadcr_internal(moddci, modcr)#1
     word modaddr, modfix, modend
     word deftbl, deflast
     word moddep, rld, esd, sym
-    byte str[17]
+    byte str[maxsymlen]
     const header_size = 128
     byte header[header_size]
     byte handle
@@ -1778,9 +1780,9 @@ def modloadcr_internal(moddci, modcr)#1
     return fixup
 end
 def modloadpstr_internal(modpstr, modcr)#1
-    byte moddci[16] // TODO: MAGIC CONSTANT
+    byte moddci[maxnamelen]
     word i
-    if ^modpstr == 0 or ^modpstr > 16
+    if ^modpstr == 0 or ^modpstr > maxnamelen
         oserror(0, "Bad name") // TODO: Share a common error with some other case?
     fin
     stodci(modpstr, @moddci)
@@ -1797,7 +1799,7 @@ end
 // user input is just a module name. We can therefore validate modpstr and
 // convert it to a DCI module name quite naively.
 def modloadpstr(modpstr)#1
-    return callalloca(modpstr, @modloadpstr_internal, path_max)#1
+    return callalloca(modpstr, @modloadpstr_internal, maxpathlen)#1
 end
 def modload_internal(moddci, modcr)#1
     dcitocr(moddci, modcr)
@@ -1807,7 +1809,7 @@ end
 // reference in another module and therefore should be valid (e.g. not
 // arbitrarily long).
 export def modload(moddci)#1
-    return callalloca(moddci, @modload_internal, path_max)#1
+    return callalloca(moddci, @modload_internal, maxpathlen)#1
 end
 #endif
 #ifndef STANDALONE
