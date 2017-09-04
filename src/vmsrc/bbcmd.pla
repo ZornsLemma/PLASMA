@@ -1328,11 +1328,12 @@ end
 // - symbol name (as DCI string)
 // - symbol address (2 bytes)
 //
-// If the symbol name's first byte is 0, that marks the end of the symbol table.
+// If the symbol name's first byte is 0, that marks the end of the symbol
+// table.
 //
-// If the symbol name's first byte is 1, that marks the end of the current chunk
-// but not the symbol table; it is followed by two bytes which are the address
-// of the next chunk.
+// If the symbol name's first byte is 1, that marks the end of the current
+// chunk but not the symbol table; it is followed by two bytes which are
+// the address of the next chunk.
 //
 // The first chunk is a different size than later chunks but this is only
 // relevant to addsym(); it makes no difference to lookuptbl().
@@ -1340,26 +1341,26 @@ end
 def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
+// Return the size of a "terminal" entry in the symbol table; this is really
+// just common code factored out of addsym() and isn't generic.
+def symtblentrysz(sym)#1
+    // We must always have room for the symbol name, two bytes for the
+    // address associated with that name and another three bytes for the
+    // 'next chunk' pointer. (Initially we only need one byte for the 'end of
+    // table' marker, but sooner or later another chunk will be added so we
+    // need to allocate three bytes. Those extra two bytes are not *touched*
+    // by addsym() yet, which is important for the assumptions we make about
+    // symbol table growth in modload().)
+    byte str[maxsymlen]
+    return 2 + 3 + dcitos(sym, @str)
+end
 def addsym(sym, addr)#0
-    word symtbl_chunk_size, newsymtblchunk
+    word newsymtblchunk
     byte str[maxsymlen]
     word entry_size
     word SFTODO // TODO: DELETE
     
-    // We must always have room for a maxsymlen character name, two bytes for the
-    // address associated with that name and another three bytes for the
-    // 'next chunk' pointer. (Initially we only need one byte for the 'end of
-    // table' marker, but sooner or later another chunk will be added so we need
-    // to allocate three bytes. Those extra two bytes are not *touched* yet,
-    // which is important for the assumptions we make about symbol table growth
-    // in modload().)
-    // TODO: Can we instead just allocate exactly the space we need for this
-    // symbol's name? The contiguous trick we use means it mostly doesn't
-    // matter, but I think we can effectively waste space on the last symbol
-    // for each module. Alternatively it might be easer if we simply freed
-    // any trailing space (allowing for the next chunk pointer) at the end
-    // of modload().
-    entry_size = dcitos(sym, @str) + 2 + 3
+    entry_size = symtblentrysz(sym)
     if 0 // TODO: DELETE
 	    prword(addr); putc(' ')
 	    SFTODO = sym
@@ -1370,25 +1371,19 @@ def addsym(sym, addr)#0
 	    putc(^SFTODO)
 	    putln()
     fin
-    if symtblchunk == lowsymtblchunk
-	symtbl_chunk_size = lowsymtblchunksz
-    else
-	symtbl_chunk_size = 0
-    fin
     //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
-    if lastsym - symtblchunk + entry_size > symtbl_chunk_size
+    if (symtblchunk <> lowsymtblchunk) or (lastsym - symtblchunk + entry_size > lowsymtblchunksz)
     	newsymtblchunk = xheapalloc(entry_size)
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
-        // TODO: DUPLICATION IN NEXT LINE
-	if symtblchunk + dcitos(symtblchunk, @str) + 2 + 3 == newsymtblchunk
+	if symtblchunk + symtblentrysz(symtblchunk) == newsymtblchunk
             //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we can
 	    // therefore merge this allocation to avoid the wasted space at the
 	    // end. This is important when we're called in modload(), as
 	    // otherwise the assumption about the growth of the symbol table
 	    // per addsym() call wouldn't be true. Because this is the common
-	    // case, we can get away with allocating only max_entry_size bytes
-	    // every time without fragmentation wasting space.
+	    // case, we can get away with allocating only the extra number of bytes
+	    // required every time without fragmentation wasting space.
 	    symtblchunk = lastsym
 	    heaprelease(symtblchunk + entry_size)
 	else
