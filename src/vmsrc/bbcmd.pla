@@ -1745,15 +1745,23 @@ def modloadcr_internal(moddci, modcr)#1
 #endif
 	if fixup < modinitkeep
 	    //
-	    // Free init routine unless initkeep
-            // TODO: I AM NOT SURE THIS IS TRUE - AT LEAST ON PLAS32 - AND MAYBE
-            // IT *CAN'T* BE GIVEN THE WAY OUR SYMBOL TABLE WORKS, BUT IF SO WE
-            // SHOULD UPDATE THIS COMMENT - THINK ABOUT IT A BIT
+	    // Free init routine unless initkeep. Because we grow our symbol
+	    // table dynamically, we aren't as flexible as the Apple code here.
+	    // On PLAS128 we're fine, because the symbol table lives in
+	    // main RAM and the bytecode lives in the 'AUX' RAM. On PLAS32
+	    // we may have allocated space for a symbol table chunk on top
+	    // of the module's RLD/ESD, and that comes *after* the module's
+	    // init. However, even on PLAS32 we can free the init code if we
+	    // haven't yet exhausted the low symbol table chunk (and therefore
+	    // haven't dynamically allocated a new symbol table chunk).
 	    //
 #ifdef PLAS128
             xheap = init - defofst + defaddr
 #else
             modend = init - defofst + bytecode
+            if symtblchunk == lowsymtblchunk
+                heaprelease(modend)
+            fin
 #endif
 	    if fixup < 0
 		perr = -fixup
