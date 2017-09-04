@@ -64,6 +64,11 @@ while ^symbol
     putln()
 loop
 
+putln()
+puts("heapavail: $")
+prword(heapavail())
+putln()
+
 done
 
 // vi: sw=4 sts=4

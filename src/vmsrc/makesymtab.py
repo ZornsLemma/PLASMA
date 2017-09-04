@@ -11,6 +11,7 @@ symtab = [
     ("GETC", "@getc"),
     ("GETS", "@gets"),
     ("HEAPMARK", "@heapmark"),
+    ("HEAPAVAIL", "@heapavail"),
     ("HEAPALLOC", "@heapalloc"),
     ("XHEAPALLOC", "@xheapalloc"),
     ("HEAPALLOCALIGN", "@heapallocalign"),
