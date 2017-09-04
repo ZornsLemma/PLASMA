@@ -1517,6 +1517,9 @@ def modloadcr_internal(moddci, modcr)#1
     file_length:0 = scratch:0; file_length:2 = scratch:2
     modload_handle = 0; call(osfind, osfind_close, 0, handle, 0)
 
+    // TODO: Should we simply get rid of this huge rdlen > 16 if and return an
+    // error code/call oserror() if rdlen is <= 16? As it is we won't even set
+    // perr.
     if rdlen > 16
 	modsize = header:0
 	moddep  = @header.1
