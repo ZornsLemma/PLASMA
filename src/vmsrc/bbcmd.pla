@@ -1341,26 +1341,22 @@ end
 def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
-// Return the size of a "terminal" entry in the symbol table; this is really
-// just common code factored out of addsym() and isn't generic.
-def symtblentrysz(sym)#1
-    // We must always have room for the symbol name, two bytes for the
-    // address associated with that name and another three bytes for the
-    // 'next chunk' pointer. (Initially we only need one byte for the 'end of
-    // table' marker, but sooner or later another chunk will be added so we
-    // need to allocate three bytes. Those extra two bytes are not *touched*
-    // by addsym() yet, which is important for the assumptions we make about
-    // symbol table growth in modload().)
-    byte str[maxsymlen]
-    return 2 + 3 + dcitos(sym, @str)
-end
 def addsym(sym, addr)#0
     word newsymtblchunk
     byte str[maxsymlen]
-    word entry_size
+    word entrysz
     word SFTODO // TODO: DELETE
+    const addrsz = 2
+    const nextchunkptrsz = 3 // end of chunk marker followed by two byte pointer
     
-    entry_size = symtblentrysz(sym)
+    // We must always have room for the symbol name, two bytes for the
+    // address associated with that name and another three bytes for the
+    // 'next chunk' pointer. (Initially we only need one byte for the 'end
+    // of table' marker, but sooner or later another chunk will be added
+    // so we need to allocate three bytes. Those extra two bytes are not
+    // *touched* yet, which is important for the assumptions we make about
+    // symbol table growth in modload().)
+    entrysz = addrsz + nextchunkptrsz + dcitos(sym, @str)
     if 0 // TODO: DELETE
 	    prword(addr); putc(' ')
 	    SFTODO = sym
@@ -1372,20 +1368,20 @@ def addsym(sym, addr)#0
 	    putln()
     fin
     //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
-    if (symtblchunk <> lowsymtblchunk) or (lastsym - symtblchunk + entry_size > lowsymtblchunksz)
-    	newsymtblchunk = xheapalloc(entry_size)
+    if (symtblchunk <> lowsymtblchunk) or (lastsym - symtblchunk + entrysz > lowsymtblchunksz)
+    	newsymtblchunk = xheapalloc(entrysz)
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
-	if symtblchunk + symtblentrysz(symtblchunk) == newsymtblchunk
+	if lastsym + nextchunkptrsz == newsymtblchunk
             //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we can
-	    // therefore merge this allocation to avoid the wasted space at the
-	    // end. This is important when we're called in modload(), as
+	    // therefore merge this allocation to avoid the wasted space at
+	    // the end. This is important when we're called in modload(), as
 	    // otherwise the assumption about the growth of the symbol table
 	    // per addsym() call wouldn't be true. Because this is the common
-	    // case, we can get away with allocating only the extra number of bytes
-	    // required every time without fragmentation wasting space.
+	    // case, we can get away with allocating only the exact number of
+	    // bytes required every time without fragmentation wasting space.
 	    symtblchunk = lastsym
-	    heaprelease(symtblchunk + entry_size)
+	    heaprelease(symtblchunk + entrysz)
 	else
             //puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
