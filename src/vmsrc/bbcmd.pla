@@ -1381,6 +1381,7 @@ def addsym(sym, addr)#0
 	    // bytes required every time without this wasting space by causing
             // us to have one symbol table chunk per symbol.
 	    symtblchunk = lastsym
+            heaprelease(symtblchunk + entrysz)
 	else
             //puts("SFTODOX3\n")
             lastsym->0 = 1 // end of chunk but not end of table
