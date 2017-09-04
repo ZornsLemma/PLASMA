@@ -1373,15 +1373,15 @@ def addsym(sym, addr)#0
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
 	if lastsym + nextchunkptrsz == newsymtblchunk
             //puts("SFTODOX2\n")
-	    // This allocation is contiguous with the previous chunk; we can
-	    // therefore merge this allocation to avoid the wasted space at
-	    // the end. This is important when we're called in modload(), as
+	    // This allocation is contiguous with the previous chunk; we
+            // therefore don't need a chunk end marker and a symbol table
+            // pointer. This is important when we're called in modload(), as
 	    // otherwise the assumption about the growth of the symbol table
 	    // per addsym() call wouldn't be true. Because this is the common
 	    // case, we can get away with allocating only the exact number of
-	    // bytes required every time without fragmentation wasting space.
+	    // bytes required every time without this wasting space by causing
+            // us to have one symbol table chunk per symbol.
 	    symtblchunk = lastsym
-	    heaprelease(symtblchunk + entrysz)
 	else
             //puts("SFTODOX3\n")
 	    symtblchunk = newsymtblchunk
