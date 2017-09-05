@@ -640,7 +640,7 @@ end
 //	byte tmp[512]
 //	x = foo(5, 25, @tmp)
 // and then 'tmp' is immediately freed on exit from foo().
-// This is useful because "normal" local variables are restricted to a total
+// This is useful because normal local variables are restricted to a total
 // of 256 bytes per function.
 //
 // Note that if the function being called has a #n on its definition with n!=1,
@@ -666,8 +666,7 @@ export asm callalloca
 	STA	IFPH
 	STA	ESTKH+1,X
 	+CHECKVSHEAP IFP
-}
-!IFDEF PLAS128 {
+} ELSE {
 	LDA	PPL
 	PHA
 	SBC	ESTKL,X
@@ -691,8 +690,7 @@ export asm callalloca
 	STA	IFPH
 	PLA
 	STA	IFPL
-}
-!IFDEF PLAS128 {
+} ELSE {
 	PLA
 	STA	PPH
 	PLA
@@ -998,6 +996,7 @@ asm putc22(n)#0
 	INX
 	JMP	OSWRCH
 end
+// TODO: Does getc() need to do anything about handling ESCAPE?
 export asm getc()#1
 	DEX
 	JSR	OSRDCH
@@ -1006,6 +1005,9 @@ export asm getc()#1
 	STA	ESTKH,X
 	RTS
 end
+// TODO: Might it save space overall if we had a dedicated OSWORD 0 block rather
+// than building one here? We'd burn space for the block but save on the code
+// here.
 export asm gets(p)#1
 	STX	ESP
 	LDA	ESTKL,X
@@ -1218,6 +1220,11 @@ end
 //
 export def heapavail()#1
     byte fp
+    // TODO: Could this ever return a "negative" value and cause confusion?
+    // Probably not but it would be good if at least in theory we could rule
+    // this out. Think about it, just possibly put an 'unsigned min(x, 0)'
+    // equivalent in? (The return value is effectively unsigned, because on a
+    // second processor or probably some Apple versions there can be >32K free.)
     return @fp - *heapptr
 end
 def heapfull()#0
@@ -1263,6 +1270,8 @@ export def heapallocalign(size, pow2, freeaddr) // TODO: ADD#? ALSO IN .plh
     if freeaddr
         *freeaddr = *heapptr
     fin
+    // TODO: This is copied from upstream so it's probably correct but do have a
+    // think and check/see if upstream has made any changes.
     align = (1 << pow2) - 1
     addr = (*heapptr | align) + 1
     *heapptr = addr + size
@@ -1285,6 +1294,9 @@ def allocxheap(size)#1
     if isugt(size, 16*1024-xheap_bank_start)
 	return 0
     fin
+    // TODO: Would it perhaps be helpful to work with a 'localxheap' which
+    // starts off as 'xheap' and only right at the end assign 'localxheap' back
+    // to 'xheap' if we succeed?
     repeat
 	xaddr = xheap
 	xheap = xheap + size
@@ -1293,12 +1305,15 @@ def allocxheap(size)#1
 	if start_bank <> end_bank
 	    xheap = (xheap & $C000) | xheap_bank_start
 	    if isult(xheap, xaddr) // if xheap has wrapped around
+                // TODO: We could restore the original xheap value here; it's
+                // not really fair to burn all the remaining memory.
 		xheap = $FFFF
 		return 0
 	    fin
 	fin
     until start_bank == end_bank
     if ^rambankcount < 4 and isuge(xheap, xheapsize)
+        // TODO: Again, we could restore the original xheap here
 	return 0
     fin
     return xaddr
