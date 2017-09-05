@@ -1353,6 +1353,7 @@ end
 // The first chunk is a different size than later chunks but this is only
 // relevant to addsym(); it makes no difference to lookuptbl().
 //
+// TODO: lookupsym has only one caller, inline it??
 def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
@@ -1382,7 +1383,7 @@ def addsym(sym, addr)#0
 	    putln()
     fin
     //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
-    if (symtblchunk <> lowsymtblchunk) or (lastsym - symtblchunk + entrysz > lowsymtblchunksz)
+    if (symtblchunk <> lowsymtblchunk) or (lastsym - lowsymtblchunk + entrysz > lowsymtblchunksz)
     	symtblchunk = xheapalloc(entrysz)
         //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
 	if lastsym + nextchunkptrsz == symtblchunk
@@ -1404,6 +1405,10 @@ def addsym(sym, addr)#0
 	    lastsym = symtblchunk
 	fin
     fin
+    // TODO: Could we save code by using stodci here? We did after all just copy
+    // the symbol into str[] in our call to dcitos() above. A bit roundabout but
+    // if it saves space it's not too bad; arguably clearer than writing this
+    // manual copy loop anyway.
     while ^sym & $80
         ^lastsym = ^sym
         lastsym  = lastsym + 1
@@ -1421,6 +1426,8 @@ def lookupmod(mod)#1
     byte dci[maxsymlen]
     return lookuptbl(modtosym(mod, @dci), @symtbl)
 end
+// TODO: Is modaddr() ever called? Don't confuse it with local variable of same
+// name...
 def modaddr(str)#1
     byte mod[maxsymlen]
     stodci(str, @mod)
@@ -1508,10 +1515,14 @@ def modloadcr_internal(moddci, modcr)#1
     // OSGBPB. So it's well worth the "waste" of reading the header twice.
 
     //
+    // Perform any transformations on the filename we are going to load from.
+    //
+    modname(modcr)#0
+
+    //
     // Read the RELocatable module header (first header_size bytes); we also
     // get the file length while we have the file open.
     //
-    modname(modcr)#0
     handle = call(osfind, osfind_input, modcr, modcr >> 8, 0).0
     if handle == 0
 	oserror(0, "Not found")
