@@ -1426,9 +1426,7 @@ def lookupmod(mod)#1
     byte dci[maxsymlen]
     return lookuptbl(modtosym(mod, @dci), @symtbl)
 end
-// TODO: Is modaddr() ever called? Don't confuse it with local variable of same
-// name...
-def modaddr(str)#1
+export def modaddr(str)#1
     byte mod[maxsymlen]
     stodci(str, @mod)
     return lookupmod(@mod)
@@ -1578,7 +1576,7 @@ def modloadcr_internal(moddci, modcr)#1
         // inside the above modload() hasn't overflowed, but it should be
         // fairly reliable in practice.
         if (moddep - @header) >= rdlen
-            oserror(0, "Header too long")
+            oserror(0, "Header too long") // TODO: shorter error? very rare... "Bad header"? "Bad module"? Perhaps just return 69 as above?
         fin
     loop
     //
@@ -1635,7 +1633,7 @@ def modloadcr_internal(moddci, modcr)#1
     modend   = modaddr + modsize
     rld      = modend  // Re-Locatable Directory
     esd      = rld     // Extern+Entry Symbol Directory
-    while ^esd         // Scan to end of ESD (SF: actually, scan to start of ESD?)
+    while ^esd         // Scan to start of ESD
         esd = esd + 4
     loop
     esd = esd + 1
@@ -1798,7 +1796,6 @@ def modloadcr_internal(moddci, modcr)#1
 end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
-    word i
     if ^modpstr == 0 or ^modpstr > maxnamelen
         oserror(0, "Bad name") // TODO: Share a common error with some other case?
     fin
@@ -1875,8 +1872,8 @@ def error_handler()#0
   // passes along a value so it's tempting to pass the error number using it,
   // but it can't send a value of 0 (which is a valid error number) so we don't
   // do that as it just adds to the temptation to write not-quite-correct client
-  // code. (Passing 0 also saves a few bytes in the VM, although that is just a
-  // bonus.)
+  // code. (Passing 0 saves a few bytes in the VM; this will be turned into 1
+  // by longjmp() internally, not that anything is likely to examine the value.)
   longjmp(*errjb, 0)
 end
 #ifndef STANDALONE
@@ -1952,10 +1949,10 @@ def modechange(cmdptr)#0
 	i++
     loop
     if not mode(n)
-	// Nothing is likely to check the error code, but we might as well follow
-	// BASIC's lead anyway. (This is interactive only; mode() returns a
-	// a success/failure indicator rather than raising an OS error.)
-	oserror(25, "Bad mode")
+        // We use error code 0 to save a few bytes in the VM; note that this is
+        // for interactive use only - mode() returns a boolean success/failure
+        // indicator instead - so there is no need for a distinct error code.
+	oserror(0, "Bad mode")
     fin
 end
 #endif
