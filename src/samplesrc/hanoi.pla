@@ -285,7 +285,7 @@ def main()
 	tab(0, 3) 
 	puts("How many discs (3-7) or Q to quit? ")
 	repeat
-	    discs = call_osrdch()
+	    discs = call_osrdch() // TODO: use getc()?
 	    if discs == 'Q' or discs == 'q'
 		return
 	    fin
@@ -295,6 +295,8 @@ def main()
     loop
 end
 
+// TODO: Don't disable escape, call OSBYTE &7E periodically and use it to allow
+// early termination of a run and come back to how many discs prompt?
 fx(osbyte_rw_escape_status, 1)
 main()
 tab(0,5)
