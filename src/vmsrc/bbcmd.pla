@@ -1005,9 +1005,6 @@ export asm getc()#1
 	STA	ESTKH,X
 	RTS
 end
-// TODO: Might it save space overall if we had a dedicated OSWORD 0 block rather
-// than building one here? We'd burn space for the block but save on the code
-// here.
 export asm gets(p)#1
 	STX	ESP
 	LDA	ESTKL,X
@@ -1016,43 +1013,26 @@ export asm gets(p)#1
 	STA	ESTKL,X
 	LDA	#>INBUFF
 	STA	ESTKH,X
-
-	LDA	#<SCRATCH
-	STA	TMPL
-	LDA	#>SCRATCH
-	STA	TMPH
-	LDA	#<(INBUFF+1)
-	LDY	#0
-	STA	(TMP),Y
-	LDA	#>(INBUFF+1)
-	INY
-	STA	(TMP),Y
-	LDA	#(INBUFFSZ-1)
-	INY
-	STA	(TMP),Y
-	LDA	#32
-	INY
-	STA	(TMP),Y
-	LDA	#255
-	INY
-	STA	(TMP),Y
-
-	LDA	#0
-	LDX	TMPL
-	LDY	TMPH
+        LDA	#0
+        LDX	#<.osword_0_block
+        LDY	#>.osword_0_block
 	JSR	OSWORD
-	BCC	not_escape
+	BCS	.escape
+	STY	INBUFF
+	LDX	ESP
+	RTS
+.escape
 	LDA	#osbyte_acknowledge_escape
 	JSR	OSBYTE
 	BRK
 	!BYTE	17
 	!TEXT	"Escape"
 	BRK
-not_escape
-	STY	INBUFF
-
-	LDX	ESP
-	RTS
+.osword_0_block
+	!WORD	INBUFF+1
+        !BYTE	INBUFFSZ-1
+        !BYTE	32
+        !BYTE	255
 end
 // def puts(str)
 export asm puts(s)#0
