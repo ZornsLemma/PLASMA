@@ -1542,216 +1542,213 @@ def modloadcr_internal(moddci, modcr)#1
     // TODO: Should we simply get rid of this huge rdlen > 16 if and return an
     // error code/call oserror() if rdlen is <= 16? As it is we won't even set
     // perr.
-    if rdlen > 16
-	modsize = header:0
-	moddep  = @header.1
-	defofst = modsize
-        init    = 0
-	// TODO: Once finished reworking this, should test with a file which doesn't
-	// have $DA7F special stuff, if I can find or create one. (Just hack the
-	// $DA7F in a hex editor to change it to $0000 or something.)
-	// TODO: The rdlen > 4 test is probably redundant, let's wait until this
-	// code has settled down before removing it.
-        if rdlen > 4 and header:2 == $DA7F // DAVE+1 = magic number :-)
-            //
-            // This is an EXTended RELocatable (data+bytecode) module.
-            //
-	    // systemflags = header:4 | systemflags
-            defofst  = header:6
-            defcnt   = header:8
-            init     = header:10
-            moddep   = @header.12
-	    //
-	    // Load module dependencies.
-	    //
-            while ^moddep
-                if !lookupmod(moddep)
-                    if modload(moddep) < 0
-	      	        return -perr
-		    fin
-                fin
-                moddep = moddep + dcitos(moddep, @str)
-		// Just to be paranoid, let's check for the case where a module has
-		// loads of dependencies and they overflow the header. This won't
-		// catch everything, as it doesn't check the call to dcitocr()
-		// inside the above modload() hasn't overflowed, but it should be
-		// fairly reliable in practice.
-		if (moddep - @header) >= rdlen
-		    oserror(0, "Header too long")
-		fin
-            loop
-	    //
-	    // Init def table.
-	    //
-	    deftbl   = xheapalloc(defcnt * 5 + 1)
-	    deflast  = deftbl
-	    ^deflast = 0
-	else
-            return -69
-        fin
-	//
-	// Add module to symbol table. This may grow the symbol table, so we
-	// do it before we allocate space on the heap for the module. The
-	// address of the module is not used (although it's important it's
-	// not zero, otherwise lookupmod() will indicate the module isn't
-	// loaded when it is) and due to the symbol table changes we don't
-	// have modaddr available here (unlike the Apple code), so we just
-	// use a non-zero constant.
-	//
-	addmod(moddci, $0001)
-	//
-	// Check there's room for the entire file onto the heap now any
-	// dependencies have been loaded.
-	//
-	addr = 0
-	if file_length:2 <> 0 // if file is >=64K
-	    heapfull()
-	fin
-	rdlen = file_length:0
-	addr = xheapalloc(rdlen)
-	//
-	// Load the file
-	//
-	readfile(modcr, addr)
-	//
-	// Release the claim we just made; we really did it only to see if it
-	// would fail. The code immediately following will shift the loaded
-	// module down to avoid wasting space on the header and claim the
-	// required amount of space for the module's data and code.
-	//
-	heaprelease(addr)
-	//
-	// Alloc heap space for relocated module (data + bytecode).
-	//
-	moddep  = moddep  + 1 - @header + *heapptr
-	modfix  = moddep  - (*heapptr + 2) // Adjust to skip header
-	modsize = modsize - modfix
-	rdlen   = rdlen   - modfix - 2
-	modaddr = xheapalloc(modsize) // can't fail anyway
-	memcpy(modaddr, moddep, rdlen)
-	//
-	// Apply all fixups and symbol import/export.
-	//
-        modfix   = modaddr - modfix
-        bytecode = defofst + modfix - MODADDR
-        modend   = modaddr + modsize
-        rld      = modend  // Re-Locatable Directory
-        esd      = rld     // Extern+Entry Symbol Directory
-        while ^esd         // Scan to end of ESD (SF: actually, scan to start of ESD?)
-            esd = esd + 4
-	loop
-        esd = esd + 1
-#ifdef PLAS128
-	//
-	// Locate bytecode defs in appropriate bank.
-	//
-	defaddr = allocxheap(rld - bytecode)
-	// TODO: If there's only one caller of allocxheap(), might as well fold
-	// the following test into allocxheap() itself.
-	if defaddr == 0
-	    heapfull()
-	fin
-	modend  = bytecode
-#endif
-	//
-	// Free up the end-of-module in main memory. This is premature
-	// as we are going to access that data, but we may allocate from the
-	// heap to expand the symbol table, so we must do this first. This is
-	// "risky", because any more heap allocations could allocate memory
-	// we will try to read. We get away with it because only addsym() is
-	// going to touch heap-allocated memory. Any one addsym() call can only touch
-	// len(symbol_name) + 2 (symbol address) + 1 (end-of-table marker) new bytes, and each ESD entry
-	// is len(symbol_name) + 3 bytes, so we're always OK even if there
-	// are no RLD entries. TODO: Double check this reasoning!
-	//
-	heaprelease(modend)    
-        //puts("SFTODOHR "); prword(modend); putln();
-        //
-        // Run through the Re-Location Dictionary.
-        //
-        while ^rld
-            if ^rld == $02
-	        //
-		// This is a bytcode def entry - add it to the def directory.
-		//
-#ifdef PLAS128
-                adddef(rld=>1 - defofst + defaddr, @deflast)
-#else
-		adddef(rld=>1 - defofst + bytecode, @deflast)
-#endif
-            else
-                addr = rld=>1 + modfix
-                if isuge(addr, modaddr) // Skip fixups to header
-                    if ^rld & $80 // WORD sized fixup.
-                        fixup = *addr
-                    else	  // BYTE sized fixup.
-                        fixup = ^addr
-                    fin
-                    if ^rld & $10 // EXTERN reference.
-                        fixup = fixup + lookupextern(esd, rld->3)
-                    else	  // INTERN fixup.
-                        fixup = fixup + modfix - MODADDR
-                        if isuge(fixup, bytecode)
-                            //
-                            // Bytecode address - replace with call def directory.
-                            //
-#ifdef PLAS128
-                            fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
-#else
-                            fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
-#endif
-                        fin
-                    fin
-                    if ^rld & $80 // WORD sized fixup.
-                        *addr = fixup
-                    else	  // BYTE sized fixup.
-                        ^addr = fixup
-                    fin
-                fin
-            fin
-            rld = rld + 4
-        loop
-#ifdef PLAS128
-	//
-	// Move bytecode to AUX bank.
-	//
-	memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
-#endif
-	//
-        // Run through the External/Entry Symbol Directory.
-	//
-        while ^esd
-            sym = esd
-            esd = esd + dcitos(esd, @str)
-            if ^esd & $08
-		//
-                // EXPORT symbol - add it to the global symbol table.
-		//
-                addr = esd=>1 + modfix - MODADDR
-                if isuge(addr, bytecode)
-		    //
-		    // Use the def directory address for bytecode.
-		    //
-#ifdef PLAS128
-                    addr = lookupdef(addr - bytecode + defaddr, deftbl)
-#else
-                    addr = lookupdef(addr - bytecode + bytecode, deftbl)
-#endif
-                fin
-                //puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
-                addsym(sym, addr)
-                //puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
-		// TODO: The following test could be removed eventually.
-		// Assert that the last byte written in the symbol table
-		// (lastsym) hasn't trampled over the next ESD entry
-		// (at esd + 3).
-		if isuge(lastsym, esd + 3)
-		    oserror(0, "Symbol table clash")
-		fin
-            fin
-            esd = esd + 3
-        loop
+    // TODO: Once finished reworking this, should test with a file which doesn't
+    // have $DA7F special stuff, if I can find or create one. (Just hack the
+    // $DA7F in a hex editor to change it to $0000 or something.)
+    if rdlen <= 16 or header:2 <> $DA7F // DAVE+1 = magic number :-)
+        perr = 69
+        return -perr
     fin
+
+    modsize = header:0
+    moddep  = @header.1
+    defofst = modsize
+    init    = 0
+    //
+    // This is an EXTended RELocatable (data+bytecode) module.
+    //
+    // systemflags = header:4 | systemflags
+    defofst  = header:6
+    defcnt   = header:8
+    init     = header:10
+    moddep   = @header.12
+    //
+    // Load module dependencies.
+    //
+    while ^moddep
+        if !lookupmod(moddep)
+            if modload(moddep) < 0
+                return -perr
+            fin
+        fin
+        moddep = moddep + dcitos(moddep, @str)
+        // Just to be paranoid, let's check for the case where a module has
+        // loads of dependencies and they overflow the header. This won't
+        // catch everything, as it doesn't check the call to dcitocr()
+        // inside the above modload() hasn't overflowed, but it should be
+        // fairly reliable in practice.
+        if (moddep - @header) >= rdlen
+            oserror(0, "Header too long")
+        fin
+    loop
+    //
+    // Init def table.
+    //
+    deftbl   = xheapalloc(defcnt * 5 + 1)
+    deflast  = deftbl
+    ^deflast = 0
+    //
+    // Add module to symbol table. This may grow the symbol table, so we
+    // do it before we allocate space on the heap for the module. The
+    // address of the module is not used (although it's important it's
+    // not zero, otherwise lookupmod() will indicate the module isn't
+    // loaded when it is) and due to the symbol table changes we don't
+    // have modaddr available here (unlike the Apple code), so we just
+    // use a non-zero constant.
+    //
+    addmod(moddci, $0001)
+    //
+    // Check there's room for the entire file onto the heap now any
+    // dependencies have been loaded.
+    //
+    addr = 0
+    if file_length:2 <> 0 // if file is >=64K
+        heapfull()
+    fin
+    rdlen = file_length:0
+    addr = xheapalloc(rdlen)
+    //
+    // Load the file
+    //
+    readfile(modcr, addr)
+    //
+    // Release the claim we just made; we really did it only to see if it
+    // would fail. The code immediately following will shift the loaded
+    // module down to avoid wasting space on the header and claim the
+    // required amount of space for the module's data and code.
+    //
+    heaprelease(addr)
+    //
+    // Alloc heap space for relocated module (data + bytecode).
+    //
+    moddep  = moddep  + 1 - @header + *heapptr
+    modfix  = moddep  - (*heapptr + 2) // Adjust to skip header
+    modsize = modsize - modfix
+    rdlen   = rdlen   - modfix - 2
+    modaddr = xheapalloc(modsize) // can't fail anyway
+    memcpy(modaddr, moddep, rdlen)
+    //
+    // Apply all fixups and symbol import/export.
+    //
+    modfix   = modaddr - modfix
+    bytecode = defofst + modfix - MODADDR
+    modend   = modaddr + modsize
+    rld      = modend  // Re-Locatable Directory
+    esd      = rld     // Extern+Entry Symbol Directory
+    while ^esd         // Scan to end of ESD (SF: actually, scan to start of ESD?)
+        esd = esd + 4
+    loop
+    esd = esd + 1
+#ifdef PLAS128
+    //
+    // Locate bytecode defs in appropriate bank.
+    //
+    defaddr = allocxheap(rld - bytecode)
+    // TODO: If there's only one caller of allocxheap(), might as well fold
+    // the following test into allocxheap() itself.
+    if defaddr == 0
+        heapfull()
+    fin
+    modend  = bytecode
+#endif
+    //
+    // Free up the end-of-module in main memory. This is premature
+    // as we are going to access that data, but we may allocate from the
+    // heap to expand the symbol table, so we must do this first. This is
+    // "risky", because any more heap allocations could allocate memory
+    // we will try to read. We get away with it because only addsym() is
+    // going to touch heap-allocated memory. Any one addsym() call can only touch
+    // len(symbol_name) + 2 (symbol address) + 1 (end-of-table marker) new bytes, and each ESD entry
+    // is len(symbol_name) + 3 bytes, so we're always OK even if there
+    // are no RLD entries. TODO: Double check this reasoning!
+    //
+    heaprelease(modend)    
+    //puts("SFTODOHR "); prword(modend); putln();
+    //
+    // Run through the Re-Location Dictionary.
+    //
+    while ^rld
+        if ^rld == $02
+            //
+            // This is a bytcode def entry - add it to the def directory.
+            //
+#ifdef PLAS128
+            adddef(rld=>1 - defofst + defaddr, @deflast)
+#else
+            adddef(rld=>1 - defofst + bytecode, @deflast)
+#endif
+        else
+            addr = rld=>1 + modfix
+            if isuge(addr, modaddr) // Skip fixups to header
+                if ^rld & $80 // WORD sized fixup.
+                    fixup = *addr
+                else	  // BYTE sized fixup.
+                    fixup = ^addr
+                fin
+                if ^rld & $10 // EXTERN reference.
+                    fixup = fixup + lookupextern(esd, rld->3)
+                else	  // INTERN fixup.
+                    fixup = fixup + modfix - MODADDR
+                    if isuge(fixup, bytecode)
+                        //
+                        // Bytecode address - replace with call def directory.
+                        //
+#ifdef PLAS128
+                        fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
+#else
+                        fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
+#endif
+                    fin
+                fin
+                if ^rld & $80 // WORD sized fixup.
+                    *addr = fixup
+                else	  // BYTE sized fixup.
+                    ^addr = fixup
+                fin
+            fin
+        fin
+        rld = rld + 4
+    loop
+#ifdef PLAS128
+    //
+    // Move bytecode to AUX bank.
+    //
+    memxcpy(defaddr, bytecode, modsize - (bytecode - modaddr))
+#endif
+    //
+    // Run through the External/Entry Symbol Directory.
+    //
+    while ^esd
+        sym = esd
+        esd = esd + dcitos(esd, @str)
+        if ^esd & $08
+            //
+            // EXPORT symbol - add it to the global symbol table.
+            //
+            addr = esd=>1 + modfix - MODADDR
+            if isuge(addr, bytecode)
+                //
+                // Use the def directory address for bytecode.
+                //
+#ifdef PLAS128
+                addr = lookupdef(addr - bytecode + defaddr, deftbl)
+#else
+                addr = lookupdef(addr - bytecode + bytecode, deftbl)
+#endif
+            fin
+            //puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
+            addsym(sym, addr)
+            //puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
+            // TODO: The following test could be removed eventually.
+            // Assert that the last byte written in the symbol table
+            // (lastsym) hasn't trampled over the next ESD entry
+            // (at esd + 3).
+            if isuge(lastsym, esd + 3)
+                oserror(0, "Symbol table clash")
+            fin
+        fin
+        esd = esd + 3
+    loop
     if perr
         return -perr
     fin
