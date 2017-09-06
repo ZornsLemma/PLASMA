@@ -72,6 +72,8 @@ const maxnamelen = 16
 const maxsymlen = maxnamelen + 1 // 1 for '#' prefix for module name
 const maxpathlen = 256
 #endif
+// TODO: I made these names up, they're not from Apple version, and
+// in hindsight the all-caps is ugly and non-standard. Change to all-lowercase?
 const FALSE = 0
 const TRUE = NOT FALSE
 // TODO: allocheap_fail_threshold should probably be a non-constant
@@ -1250,34 +1252,32 @@ export def heaprelease(newheap)#1
     return @newheap - *heapptr
 end
 #ifdef PLAS128
+// TODO: I've rewritten this - review it when fresh and test the various corner
+// cases (I've only run a few sample programs under it so far)
 def allocxheap(size)#1
-    word xaddr, start_bank, end_bank
-    if isugt(size, 16*1024-xheap_bank_start)
+    word xheapcopy, adjust, bankend, bankfree
+
+    if isugt(size, 16*1024 - xheap_bank_start)
 	return 0
     fin
-    // TODO: Would it perhaps be helpful to work with a 'localxheap' which
-    // starts off as 'xheap' and only right at the end assign 'localxheap' back
-    // to 'xheap' if we succeed?
-    repeat
-	xaddr = xheap
-	xheap = xheap + size
-	start_bank = xaddr & $C000
-	end_bank = (xheap - 1) & $C000
-	if start_bank <> end_bank
-	    xheap = (xheap & $C000) | xheap_bank_start
-	    if isult(xheap, xaddr) // if xheap has wrapped around
-                // TODO: We could restore the original xheap value here; it's
-                // not really fair to burn all the remaining memory.
-		xheap = $FFFF
-		return 0
-	    fin
-	fin
-    until start_bank == end_bank
-    if ^rambankcount < 4 and isuge(xheap, xheapsize)
-        // TODO: Again, we could restore the original xheap here
-	return 0
-    fin
-    return xaddr
+
+    xheapcopy = xheap
+    adjust = (4 - ^rambankcount) * 16*1024
+    while TRUE
+        bankend = (xheapcopy & $C000) + 16*1024
+        bankfree = bankend - xheapcopy
+        if size <= bankfree
+            if size == bankfree
+                size = size + xheap_bank_start
+            fin
+            xheap = xheapcopy + size
+            return xheapcopy
+        fin
+        if bankend + adjust == 0
+            return 0
+        fin
+        xheapcopy = bankend | xheap_bank_start
+    loop
 end
 #endif
 
