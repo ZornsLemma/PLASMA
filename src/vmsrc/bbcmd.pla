@@ -1192,11 +1192,6 @@ end
 //
 export def heapavail()#1
     byte fp
-    // TODO: Could this ever return a "negative" value and cause confusion?
-    // Probably not but it would be good if at least in theory we could rule
-    // this out. Think about it, just possibly put an 'unsigned min(x, 0)'
-    // equivalent in? (The return value is effectively unsigned, because on a
-    // second processor or probably some Apple versions there can be >32K free.)
     return @fp - *heapptr
 end
 def heapfull()#0
