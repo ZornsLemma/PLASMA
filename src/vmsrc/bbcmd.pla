@@ -1227,21 +1227,17 @@ export def xheapalloc(size)#1
     fin
     return addr
 end
-// TODO: This should probably respect allocheap_fail_threshold
-// TODO: Be nice if this coped with the new allocation causing heapptr to wrap
-// round
 export def heapallocalign(size, pow2, freeaddr) // TODO: ADD#? ALSO IN .plh
     word align, addr
     if freeaddr
         *freeaddr = *heapptr
     fin
-    // TODO: This is copied from upstream so it's probably correct but do have a
-    // think and check/see if upstream has made any changes.
     align = (1 << pow2) - 1
-    addr = (*heapptr | align) + 1
-    *heapptr = addr + size
-    if isuge(*heapptr, @addr)
-        // TODO: Does this need to reset *heapptr?
+    addr = *heapptr
+    if addr & align
+        addr = (addr | align) + 1
+    fin
+    if !heapalloc(size + (addr - *heapptr))
         return 0
     fin
     return addr
