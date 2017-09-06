@@ -72,10 +72,8 @@ const maxnamelen = 16
 const maxsymlen = maxnamelen + 1 // 1 for '#' prefix for module name
 const maxpathlen = 256
 #endif
-// TODO: I made these names up, they're not from Apple version, and
-// in hindsight the all-caps is ugly and non-standard. Change to all-lowercase?
-const FALSE = 0
-const TRUE = NOT FALSE
+const false = 0
+const true = not false
 // TODO: allocheap_fail_threshold should probably be a non-constant
 // and be modifiable under program control (if so, modexec() should
 // probably reset it to a default on successful or unsuccessful
@@ -1109,7 +1107,7 @@ end
 // TL;DR: Call mode() as early as possible and with as few nested function
 // calls in effect as possible and you'll probably be safe.
 //
-// Returns TRUE if the mode change was successful and FALSE if not (typically
+// Returns true if the mode change was successful and false if not (typically
 // caused by insufficient memory).
 export def mode(n)#1
     word new_himemh, himem, new_himem
@@ -1120,7 +1118,7 @@ export def mode(n)#1
     new_himemh = call(osbyte, osbyte_read_himem_for_mode, n, 0, 0).2
     if new_himemh == ^himemh or ^himemh > $80
         putc22(n)
-	return TRUE
+	return true
     fin
 
     himem = ^himemh << 8
@@ -1138,7 +1136,7 @@ export def mode(n)#1
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
     if isult(gm_new_frame_start - 512, *heapptr)
-	return FALSE
+	return false
     fin
 
     ^himemh = new_himemh
@@ -1175,7 +1173,7 @@ export def mode(n)#1
     	puts("foo")
     	oserror(255,"foo")
     fin	
-    return TRUE
+    return true
 end
 
 //
@@ -1263,7 +1261,7 @@ def allocxheap(size)#1
 
     xheapcopy = xheap
     adjust = (4 - ^rambankcount) * 16*1024
-    while TRUE
+    while true
         bankend = (xheapcopy & $C000) + 16*1024
         bankfree = bankend - xheapcopy
         if size <= bankfree
