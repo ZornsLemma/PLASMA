@@ -1072,6 +1072,12 @@ end
 #endif
 
 // TODO: export this?
+// TODO: as well/instead, could I provide a setjmp() wrapper which returns a
+// pair of values - the regular setjmp return code and the address of a
+// dynamically allocated jmp_buf automatically sized appropriately? I could
+// potentially use that function instead of setjmp() in the core VM code.
+// Perhaps even just call it 'setjmp2' - short name is valuable given it takes
+// space in symbol table, and it would help convey the '2 return value' nature.
 // dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
 def jmpbufsz(jb)#1
 	const esp_size = 1
@@ -1183,15 +1189,20 @@ end
 def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
 end
+def oserror_not_found()#0
+    oserror(214, "Not found")
+end
 def readfile(filename, buffer)#0
     byte block[osfile_block_size]
     block:0 = filename
     block:2 = buffer
     block:4 = high_order_address()
     block:6 = 0 // ignore file's load address, use our own
-    // TODO: Should I in fact check that the returned value *is* 1 (file found)?
-    if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 == 0
-        oserror(0, "Not found") // TODO: Different error/code? Share with other Not Found error?
+    // We check specifically for file found; a directory is no good to us. In
+    // reality we don't expect any problems as we already opened the file using
+    // OSFILE to read the header.
+    if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 <> osfile_file_found
+        oserror_not_found()
     fin
 end
 #endif
@@ -1503,7 +1514,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     handle = call(osfind, osfind_input, modcr, modcr >> 8, 0).0
     if handle == 0
-	oserror(0, "Not found")
+        oserror_not_found()
     fin
     modload_handle = handle
     block.0 = handle
@@ -1929,10 +1940,12 @@ def modechange(cmdptr)#0
 	i++
     loop
     if not mode(n)
-        // We use error code 0 to save a few bytes in the VM; note that this is
-        // for interactive use only - mode() returns a boolean success/failure
-        // indicator instead - so there is no need for a distinct error code.
-	oserror(0, "Bad mode")
+        // It doesn't really matter (the error is only shown to the user at the
+        // prompt, not seen by any code which might check it) but we use the
+        // same error number as BASIC here. (Code changes mode using mode()
+        // which returns a boolean success/failure indicator instead of raising
+        // an error.)
+	oserror(25, "Bad mode")
     fin
 end
 #endif

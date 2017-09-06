@@ -42,6 +42,8 @@ import cmdsys
 
     const osfile_block_size = $12
     const osfile_load_file  = $FF
+    const osfile_not_found  = $00
+    const osfile_file_found = $01
 
     const osword_read_time = $01
     const osword_sound     = $07
