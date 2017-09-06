@@ -3,8 +3,6 @@ from __future__ import print_function
 symtab = [
     ("#CMDSYS", "@version"),
     ("CALL", "@call"),
-    # TODO: I should probably get rid of syscall - but maybe that would break "pseudo-portable" programs like my Rogue port - think about it
-    # TODO ("SYSCALL", "@syscall"),
     ("PUTC", "@putc"),
     ("PUTLN", "@putln"),
     ("PUTS", "@puts"),
