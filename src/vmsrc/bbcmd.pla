@@ -1207,18 +1207,14 @@ end
 // except die even if it checks and notices that they failed).
 export def heapalloc(size)#1
     word addr
-    addr = *heapptr
-    *heapptr = *heapptr + size
-    // TODO: Perhaps a little bit pedantic, but it would be good here (and
-    // possibly in other heap allocation functions) to detect *heapptr 
-    // wrapping round at the top of memory.
-    if isuge(*heapptr, @addr)
-	*heapptr = addr
+    if isugt(size, heapavail())
 	if isule(size, allocheap_fail_threshold)
 	    heapfull()
 	fin
 	return 0
     fin
+    addr = *heapptr
+    *heapptr = *heapptr + size
     return addr
 end
 // Like heapalloc(), but *always* generates an error if the allocation
@@ -1232,6 +1228,8 @@ export def xheapalloc(size)#1
     return addr
 end
 // TODO: This should probably respect allocheap_fail_threshold
+// TODO: Be nice if this coped with the new allocation causing heapptr to wrap
+// round
 export def heapallocalign(size, pow2, freeaddr) // TODO: ADD#? ALSO IN .plh
     word align, addr
     if freeaddr
