@@ -115,6 +115,7 @@ const heapptr = $0089
     // to avoid the risk of the data accidentally looking like a valid
     // sideways ROM header.
     const xheap_bank_start = $09
+    const xheap_bank_size = 16 * 1024
     word xheap = xheap_bank_start
 #endif
 #ifndef STANDALONE
@@ -1255,14 +1256,14 @@ end
 def allocxheap(size)#1
     word xheapcopy, adjust, bankend, bankfree
 
-    if isugt(size, 16*1024 - xheap_bank_start)
+    if isugt(size, xheap_bank_size - xheap_bank_start)
 	return 0
     fin
 
     xheapcopy = xheap
-    adjust = (4 - ^rambankcount) * 16*1024
+    adjust = (4 - ^rambankcount) * xheap_bank_size
     while true
-        bankend = (xheapcopy & $C000) + 16*1024
+        bankend = (xheapcopy & $C000) + xheap_bank_size
         bankfree = bankend - xheapcopy
         if size <= bankfree
             if size == bankfree
@@ -1927,7 +1928,7 @@ end
 //
 *heapptr = *freemem
 #ifdef PLAS128
-    xheapsize = ^rambankcount * 16 * 1024
+    xheapsize = ^rambankcount * xheap_bank_size
 #endif
 #ifndef STANDALONE
 //
