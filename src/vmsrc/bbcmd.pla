@@ -996,10 +996,10 @@ asm putc22(n)#0
 	INX
 	JMP	OSWRCH
 end
-// TODO: Does getc() need to do anything about handling ESCAPE?
 export asm getc()#1
 	DEX
 	JSR	OSRDCH
+        BCS	ESCAPE
 	STA	ESTKL,X
 	LDA	#$00
 	STA	ESTKH,X
@@ -1014,21 +1014,21 @@ export asm gets(p)#1
 	LDA	#>INBUFF
 	STA	ESTKH,X
         LDA	#0
-        LDX	#<.osword_0_block
-        LDY	#>.osword_0_block
+        LDX	#<OSWORD0BLK
+        LDY	#>OSWORD0BLK
 	JSR	OSWORD
-	BCS	.escape
+	BCS	ESCAPE
 	STY	INBUFF
 	LDX	ESP
 	RTS
-.escape
+ESCAPE
 	LDA	#osbyte_acknowledge_escape
 	JSR	OSBYTE
 	BRK
 	!BYTE	17
 	!TEXT	"Escape"
 	BRK
-.osword_0_block
+OSWORD0BLK
 	!WORD	INBUFF+1
         !BYTE	INBUFFSZ-1
         !BYTE	32
