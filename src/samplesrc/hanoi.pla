@@ -274,7 +274,7 @@ def solve()
     tab(0, 24)
     puts("Press SPACE...")
     fx(osbyte_flush_buffer, buffer_keyboard)
-    repeat until call_osrdch() == ' '
+    repeat until getc() == ' '
     cursor(1)
 end
 
@@ -285,7 +285,7 @@ def main()
 	tab(0, 3) 
 	puts("How many discs (3-7) or Q to quit? ")
 	repeat
-	    discs = call_osrdch() // TODO: use getc()?
+	    discs = getc()
 	    if discs == 'Q' or discs == 'q'
 		return
 	    fin

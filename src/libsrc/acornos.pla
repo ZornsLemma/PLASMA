@@ -43,6 +43,8 @@ export def call_osfind_open(a, filename)#1
     return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
 end
 
+// TODO: Get rid of call_osrdch()? We have getc() and the call() line is not
+// exactly rocket science if getc() isn't good enough.
 export def call_osrdch()#1
     return call(osrdch, 0, 0, 0, 0).0
 end
