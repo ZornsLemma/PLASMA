@@ -1,6 +1,6 @@
 include "inc/cmdsys.plh"
 
-import roguemap
+import roguema // roguemap
   const xcentr     = 20
   const ycentr     = 12
   const scrnwidth  = 40
@@ -32,7 +32,7 @@ import roguemap
   predef loadmap, getmaptile, setmaptile, updtmaptile, lighttorches, drawmap, drawvisentity
 end
 
-import roguecombat
+import rogueco // roguecombat
   predef fight
   word entity, entities
 end

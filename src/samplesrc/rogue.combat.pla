@@ -1,6 +1,6 @@
 include "inc/cmdsys.plh"
 
-import ROGUEMAP
+import ROGUEMA // ROGUEMAP
   predef puti, toupper, moveplayer
   word rnd, getkb, home, gotoxy, tone
 end

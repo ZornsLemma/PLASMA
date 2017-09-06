@@ -1457,12 +1457,7 @@ def lookupdef(addr, deftbl)#1
     return 0
 end
 def modname_default(modcr)#0
-    // TODO: This implementation simply truncates module names at 7 characters.
-    // Not ideal but in practice acceptable, at least on DFS. This is done
-    // rather than using the module name directly as the filename simply to get
-    // ROGUE working; possibly we should just rename the modules to have 7
-    // character names and remove this hack.
-    ^(modcr + 7) = 13
+    // Default implementation does nothing
 end
 // Load the module whose name is 'moddci' (a DCI string) from the file 'modcr'
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to

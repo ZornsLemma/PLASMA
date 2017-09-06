@@ -6,11 +6,7 @@ include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 
 // There's no requirement to chain modname() functions, but let's demonstrate
-// that it's possible if desired. If we don't do this, installing this modname()
-// prevents ROGUE running, as we lose the truncate-to-7-characters behaviour of
-// the default modname(). By doing this, we can see the truncation happening. We
-// could simply implement such truncation directly ourselves instead if we
-// wished.
+// that it's possible if desired.
 word parent_modname
 
 def putcr(cr)#0
