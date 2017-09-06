@@ -1192,19 +1192,6 @@ end
 def oserror_not_found()#0
     oserror(214, "Not found")
 end
-def readfile(filename, buffer)#0
-    byte block[osfile_block_size]
-    block:0 = filename
-    block:2 = buffer
-    block:4 = high_order_address()
-    block:6 = 0 // ignore file's load address, use our own
-    // We check specifically for file found; a directory is no good to us. In
-    // reality we don't expect any problems as we already opened the file using
-    // OSFILE to read the header.
-    if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 <> osfile_file_found
-        oserror_not_found()
-    fin
-end
 #endif
 //
 // Heap routines.
@@ -1493,7 +1480,7 @@ def modloadcr_internal(moddci, modcr)#1
     const header_size = 128
     byte header[header_size]
     byte handle
-    byte block[osgbpb_block_size]
+    byte block[osfile_block_size] // osgbpb_block_size is smaller
     byte file_length[4]
 
     perr = 0
@@ -1599,7 +1586,16 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Load the file
     //
-    readfile(modcr, addr)
+    block:0 = modcr
+    block:2 = addr
+    block:4 = high_order_address()
+    block:6 = 0 // ignore file's load address, use our own
+    // We check specifically for file found; a directory is no good to us. In
+    // reality we don't expect any problems as we already opened the file using
+    // OSFILE to read the header.
+    if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 <> osfile_file_found
+        oserror_not_found()
+    fin
     //
     // Release the claim we just made; we really did it only to see if it
     // would fail. The code immediately following will shift the loaded
