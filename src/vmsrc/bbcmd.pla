@@ -1207,7 +1207,7 @@ export def heapavail()#1
 end
 def heapfull()#0
     puts("heapalloc failed\n") // TODO TEMP
-    oserror(0, "Heap full")
+    oserror(0, "Heap full") // TODO: Non-0 error code? (In the language range..)
 end
 // heapalloc() generates an OS error if the allocation fails and is
 // no larger than allocheap_fail_threshold; failures otherwise return
@@ -1554,7 +1554,7 @@ def modloadcr_internal(moddci, modcr)#1
         // inside the above modload() hasn't overflowed, but it should be
         // fairly reliable in practice.
         if (moddep - @header) >= rdlen
-            oserror(0, "Header too long") // TODO: shorter error? very rare... "Bad header"? "Bad module"? Perhaps just return 69 as above?
+            oserror(0, "Header too long") // TODO: shorter error? very rare... "Bad header"? "Bad module"? Perhaps just return 69 as above? Non-0 error number??
         fin
     loop
     //
@@ -1729,7 +1729,7 @@ def modloadcr_internal(moddci, modcr)#1
             // (lastsym) hasn't trampled over the next ESD entry
             // (at esd + 3).
             if isuge(lastsym, esd + 3)
-                oserror(0, "Symbol table clash")
+                oserror(0, "Symbol table clash") // TODO: non-0 error number if (probably won't) lives
             fin
         fin
         esd = esd + 3
@@ -1784,6 +1784,7 @@ end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
     if ^modpstr == 0 or ^modpstr > maxnamelen
+        // TODO: Non-0 error number
         oserror(0, "Bad name") // TODO: Share a common error with some other case?
     fin
     stodci(modpstr, @moddci)
