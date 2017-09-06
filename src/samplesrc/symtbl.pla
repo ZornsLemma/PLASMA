@@ -25,7 +25,7 @@ def prword(w)
     prbyte(w)
 end
 
-puts("chunk elem symbol           address\n")
+puts("chunk elem symbol            address\n")
 symbol = chunk
 while ^symbol
     if ^symbol == 1
