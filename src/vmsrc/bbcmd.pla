@@ -1262,7 +1262,7 @@ def allocxheap(size)#1
 
     xheapcopy = xheap
     adjust = (4 - ^rambankcount) * xheap_bank_size
-    while true
+    repeat
         bankend = (xheapcopy & $C000) + xheap_bank_size
         bankfree = bankend - xheapcopy
         if size <= bankfree
@@ -1272,11 +1272,9 @@ def allocxheap(size)#1
             xheap = xheapcopy + size
             return xheapcopy
         fin
-        if bankend + adjust == 0
-            return 0
-        fin
         xheapcopy = bankend | xheap_bank_start
-    loop
+    until bankend + adjust == 0
+    return 0
 end
 #endif
 
