@@ -238,7 +238,13 @@ COMP 	LDA	#$FF
 ;* OPCODE TABLE
 ;*
 ; TODO: This ALIGN wastes a big chunk of space; I need to shuffle some
-; opcodes before it to avoid that.
+; opcodes before it to avoid that. If I were to bite the bullet and take
+; advantage of the Acorn OS's ability to specify an execution address
+; on a binary, I could put this right at the start. If I don't do that,
+; I will almost always waste a few bytes. (If I don't use execution
+; address, I probably need to reshuffle code so no PLAS128/PLAS32 differences
+; come before this table, as that will just make the alignment issues
+; even more tricky.)
 	!ALIGN	255,0
 OPTBL 	!WORD	ZERO,ADD,SUB,MUL,DIV,MOD,INCR,DECR		; 00 02 04 06 08 0A 0C 0E
 	!WORD	NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW		; 10 12 14 16 18 1A 1C 1E
