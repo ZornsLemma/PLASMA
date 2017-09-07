@@ -1363,18 +1363,12 @@ def addsym(sym, addr)#0
 	    lastsym = symtblchunk
 	fin
     fin
-    // TODO: Could we save code by using stodci here? We did after all just copy
-    // the symbol into str[] in our call to dcitos() above. A bit roundabout but
-    // if it saves space it's not too bad; arguably clearer than writing this
-    // manual copy loop anyway.
-    while ^sym & $80
-        ^lastsym = ^sym
-        lastsym  = lastsym + 1
-        sym      = sym     + 1
-    loop
-    lastsym->0 = ^sym
-    lastsym=>1 = addr
-    lastsym    = lastsym + 3
+    // We don't have a 'copy DCI string' function, but since we copied the DCI
+    // string into str[] above using dcitos(), we can get the same effect by
+    // copying that using stodci() here.
+    lastsym = lastsym + stodci(@str, lastsym)
+    lastsym=>0 = addr
+    lastsym    = lastsym + 2
     ^lastsym   = 0 // end of table
 end
 //
