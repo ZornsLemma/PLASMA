@@ -244,6 +244,7 @@ _DIVEX	INX
 ;* effort than it's worth.)
 ;*
 ;* TODO: Check every now and again that this alignment is still "efficient"
+;* on all builds.
 ;*
 	!ALIGN	255,0
 OPTBL 	!WORD	ZERO,ADD,SUB,MUL,DIV,MOD,INCR,DECR		; 00 02 04 06 08 0A 0C 0E
