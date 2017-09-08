@@ -128,4 +128,4 @@ Include the git revision/label as a string at the end of the executable (after t
 
 I don't think the optimiser handles things like 'foo = bar() + 2 + 3'; the 2 + 3 can obviously be folded to a 5 but this doesn't seem to happen. (Similar thing happens with trailing '*'; I suspect it applies to other operators too.)
 
-Would it be quicker/shorter to turn "CB 1:SHL" into "DUP:ADD"?
+Would it be quicker/shorter to turn "CB 1:SHL" into "DUP:ADD"? Let's check timings. Dispatch overhead is the same either way as it's two opcodes. DUP is 2+4*4 not counting JMP NEXTOP, ADD is 2+6*4 so 44 cycles. CB 1 is 2+2+4+(2+3)+5+4 and SHL is 3+4+2+3+2+2+6+6+2+3 (and it ends JMP DROP, but so does ADD, so that's a wash) so we have 55 cycles. So DUP:ADD is a win both on space and time - the performance improvement is not likely to be gigantic, but it might help, I was mainly concerned not to make things worse.
