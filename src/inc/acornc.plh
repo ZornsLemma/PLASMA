@@ -50,7 +50,8 @@ import cmdsys
     const osword_sound_block_size = $08
 
     const osbyte_set_cursor_key_action   = $04
-    const osbyte_flush_buffer	     = $15
+    const osbyte_wait_vertical_retrace   = $13
+    const osbyte_flush_buffer            = $15
     const osbyte_read_high_order_address = $82
     const osbyte_read_himem              = $84
     const osbyte_read_himem_for_mode     = $85

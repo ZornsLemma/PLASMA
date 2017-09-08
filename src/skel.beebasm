@@ -11,6 +11,7 @@ putfile "MODE2#FE1000", "MODE2", &0000
 putfile "HANOI#FE1000", "HANOI", &0000
 putfile "BENCH1#FE1000", "BENCH1", &0000
 putfile "BENCH2#FE1000", "BENCH2", &0000
+putfile "samplesrc/bounce.mo", "BOUNCE", &0000
 putbasic "samplesrc/pcw.bas", "B.PCW"
 putfile "DWORD#FE1000", "DWORD", &0000
 putfile "samplesrc/modname.mo", "MODNAME", &0000
