@@ -1149,10 +1149,10 @@ ICALADR	JSR	JMPTMP	     ; PLAS128: may page in another bank
 	STA	$F4
 	STA	$FE30
 }
-;* TODO: We could do CHECKEXPRESSIONSTACK here, but ICAL isn't that common and
-;* the expression stack checking is never going to catch everything (that would
-;* require every DEX opcode to check) so it's probably not worth bloating the VM
-;* further.
+;* We could do CHECKEXPRESSIONSTACK here, but ICAL isn't that common and the
+;* expression stack checking is never going to catch everything (that would
+;* require every DEX opcode to check) so it's probably not worth bloating the
+;* VM further.
 	PLA
 	TAY
 	PLA
