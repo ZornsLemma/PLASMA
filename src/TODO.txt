@@ -125,8 +125,6 @@ Include the git revision/label as a string at the end of the executable (after t
 
 I think you can load-execute-and-discard modules from other modules using modexec() etc library functions. Have a play with them - perhaps right a three module (base, "sort", "display") silly example where the base heap allocates a small array of ints and fills it with random data, then repeatedly calls sort (which does a single pass of bubble sort) and display (which shows the current state of the array) until finished. This might also test/prompt the addition of some means of getting the return value from a module; the "sort" module could return number of swaps done so base can tell when the sort is finished.
 
-Possibly we could optimise foo = foo + 256 so it loads the high byte using LLB, INCR, then saves high byte using LLB - and similarly for foo = foo - 256. In fact, I guess as a general thing addition or subtracting of anything where the low byte is 0 can be turned into a high byte operation, and then probably other peephole optimisation would automatically take care of using INCR/DECR if we are just adding or subtracting 1.
-
 I don't think the optimiser handles things like 'foo = bar() + 2 + 3'; the 2 + 3 can obviously be folded to a 5 but this doesn't seem to happen. (Similar thing happens with trailing '*'; I suspect it applies to other operators too.)
 
 Probably way too specialised/fiddly, but FWIW: the peephole optimiser could maybe change things like "SLW [n]:LLW [m]:LLW [n]:ISLE" into "DLW [n]:LLW [m]:ISGT" (this optmisation would also be potentially useful even for ISEQ/ISNE which are their own 'inverse' in this context, not just LE/LT/GE/GT)
