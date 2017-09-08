@@ -1248,7 +1248,7 @@ export def xheapalloc(size)#1
     fin
     return addr
 end
-export def heapallocalign(size, pow2, freeaddr) // TODO: ADD#? ALSO IN .plh
+export def heapallocalign(size, pow2, freeaddr)#1
     word align, addr
     if freeaddr
         *freeaddr = *heapptr
