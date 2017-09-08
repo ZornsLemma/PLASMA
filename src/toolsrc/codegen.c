@@ -1056,6 +1056,70 @@ int try_high_only(int pass, t_opseq *op, int store_code, int byte_load_code, int
     return 1;
 }
 /*
+ * Change a sequence like "SLW [0]:LAB 1024:LLW [0]:ISGT" into "DLW [0]:LAB
+ * 1024:ISLE".
+ */
+int try_swap(t_opseq* op, int load_code, int dup_store_code)
+{
+    t_opseq *opnext = op->nextop;
+    t_opseq *opnextnext = opnext->nextop;
+    t_opseq *opnextnextnext;
+    int invertediscode;
+    if (!opnextnext)
+        return 0;
+    opnextnextnext = opnextnext->nextop;
+    if (!opnextnextnext)
+        return 0;
+    switch (opnext->code)
+    {
+        case LAB_CODE:
+        case LAW_CODE:
+        case LLB_CODE:
+        case LLW_CODE:
+        case CONST_CODE:
+            break;
+        default:
+            return 0;
+    }
+    if ((opnextnext->code != load_code) || (opnextnext->offsz != op->offsz))
+        return 0;
+    if ((load_code == LAB_CODE) || (load_code == LAW_CODE))
+    {
+        if (opnextnext->type != op->type)
+            return 0;
+        if (op->type && (opnextnext->tag != op->tag))
+            return 0;
+    }
+    switch (opnextnextnext->code)
+    {
+        case LT_CODE:
+            invertediscode = GE_CODE;
+            break;
+        case LE_CODE:
+            invertediscode = GT_CODE;
+            break;
+        case EQ_CODE:
+            invertediscode = EQ_CODE;
+            break;
+        case NE_CODE:
+            invertediscode = NE_CODE;
+            break;
+        case GT_CODE:
+            invertediscode = LE_CODE;
+            break;
+        case GE_CODE:
+            invertediscode = LT_CODE;
+            break;
+        default:
+            return 0;
+    }
+    op->code = dup_store_code;
+    opnext->nextop = opnextnextnext;
+    release_op(opnextnext);
+    opnextnextnext->code = invertediscode;
+    return 1;
+}
+/*
  * Indicate if an address is (or might be) memory-mapped hardware; used to avoid
  * optimising away accesses to such addresses.
  */
@@ -1398,7 +1462,7 @@ int crunch_seq(t_opseq **seq, int pass)
                 break; // GADDR_CODE
             case LLB_CODE:
                 if (pass > 1)
-                    crunched = try_dupify(op);
+                    crunched = crunched || try_dupify(op);
                 break; // LLB_CODE
             case LLW_CODE:
                 crunched = crunched || try_high_only(pass, op, SLW_CODE, LLB_CODE, SLB_CODE);
@@ -1421,7 +1485,7 @@ int crunch_seq(t_opseq **seq, int pass)
                 break; // LLW_CODE
             case LAB_CODE:
                 if ((pass > 1) && (op->type || !is_hardware_address(op->offsz)))
-                    crunched = try_dupify(op);
+                    crunched = crunched || try_dupify(op);
                 break; // LAB_CODE
             case LAW_CODE:
                 crunched = crunched || try_high_only(pass, op, SAW_CODE, LAB_CODE, SAB_CODE);
@@ -1441,7 +1505,7 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 if ((pass > 1) && (freeops == 0) &&
                     (op->type || !is_hardware_address(op->offsz)))
-                    crunched = try_dupify(op);
+                    crunched = crunched || try_dupify(op);
                 break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
@@ -1459,21 +1523,24 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // LOGIC_NOT_CODE
             case SLB_CODE:
-                if ((opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
+                crunched = crunched || try_swap(op, LLB_CODE, DLB_CODE);
+                if (!crunched && (opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLB_CODE;
                     freeops = 1;
                 }
                 break; // SLB_CODE
             case SLW_CODE:
-                if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
+                crunched = crunched || try_swap(op, LLW_CODE, DLW_CODE);
+                if (!crunched && (opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLW_CODE;
                     freeops = 1;
                 }
                 break; // SLW_CODE
             case SAB_CODE:
-                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) &&
+                crunched = crunched || try_swap(op, LAB_CODE, DAB_CODE);
+                if (!crunched && (opnext->code == LAB_CODE) && (op->tag == opnext->tag) &&
                     (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAB_CODE;
@@ -1481,7 +1548,8 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // SAB_CODE
             case SAW_CODE:
-                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) &&
+                crunched = crunched || try_swap(op, LAW_CODE, DAW_CODE);
+                if (!crunched && (opnext->code == LAW_CODE) && (op->tag == opnext->tag) &&
                     (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAW_CODE;
