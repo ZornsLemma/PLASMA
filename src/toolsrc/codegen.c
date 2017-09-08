@@ -1000,7 +1000,7 @@ void release_seq(t_opseq *seq)
     }
 }
 /*
- * Change a load-word+modify-using-constant+store-word sequence into an equivalent
+ * Change a load word+modify using constant+store word sequence into an equivalent
  * sequence operating only on the high byte of the word if possible; this can
  * save a byte on the representation of the constant and the byte load/stores
  * will be faster as well. It may also open up the possibility of using
