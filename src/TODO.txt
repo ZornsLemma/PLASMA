@@ -88,9 +88,14 @@ RAM" (high ram from &A800-ish to &C000), "OS RAM" (high ram from &C000 to
 detection would be easy to do in a modular fashion I think) and then that extra
 RAM would automatically be available for bytecodes. Obviously this isn't the
 most flexible as it doesn't allow data to be located in the new "OS RAM", but
-it's one easy-ish possibility.
+it's one easy-ish possibility. (Not necessarily the optimal approach, but we
+could potentially also use the B+'s private 12K here by detecting if we're
+running as a language ROM in that 12K and setting the upper RAM boundary to
+&8000+12K.)
 
-Can we optimise things like "ISGT:BRTRU XXX" to "BRGT XXX"? Check first to see that this doesn't happen already, but poking around the compiler I suspect it doesn't.
+Can we optimise things like "ISGT:BRTRU XXX" to "BRGT XXX"? Check first to see
+that this doesn't happen already, but poking around the compiler I suspect it
+doesn't.
 
 Might be worth trying to tweak the compiler to prefer to put constant
 multipliers on the "rhs", so that if we teach the peephole optimiser to do "CB
@@ -105,8 +110,6 @@ tree to allow it to reshuffle parts of the expression if that helps.
 Use new "specify number of parameters and return type" support on standard
 functions? At least on the Acorn-specific ones. Have done this for oserror() as
 an initial foray.
-
-Standalone version - *Possibly* we should cope if the main program returns, but arguably we shouldn't - the application is effectively a new language, so ther only sensible way to exit is to issue a * command and that's down to the app/its user. We should perhaps restart the program if this happens rather than hanging or crashing badly, but if it's difficult or it means keeping a lot of extra code around (e.g. a RET at the end of every _INIT, not that that's very expensive) then don't get too hung up about it.
 
 Standalone version - 32cmd.a contains some crap which just isn't needed and could probably be relatively trivially made conditionally compiled in a "productionised" version of this. Possibly not exhaustive list:
 - the symbol table with all its associated constants and symbol lookup/insertion code
