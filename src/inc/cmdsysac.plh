@@ -11,9 +11,11 @@ import cmdsys
     const errnum = $700
     const errstr = $701
     // The maximum size of a jmp_buf is actually two bytes less on PLAS32
-    // but we just use this value all the time.
+    // but we just use this value all the time. In practice applications should
+    // probably just use setjmp2() to allocate a suitably sized jmp_buf on the
+    // heap.
     const jbsz = 1 + 32 + 4 + 1 + 255
-    predef setjmp(b)#1, longjmp(b, val)#0
+    predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
     predef prbyte(v)#0
     predef oserror(n, msg)#0
     predef call_oscli(str)#0

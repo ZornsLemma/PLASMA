@@ -25,6 +25,7 @@ symtab = [
     ("MODADDR", "@modaddr"),
     ("MACHID", "@machid"),
     ("SETJMP", "@setjmp"),
+    ("SETJMP2", "@setjmp2"),
     ("LONGJMP", "@longjmp"),
     ("PRBYTE", "@prbyte"),
     ("OSERROR", "@oserror"),

@@ -96,7 +96,7 @@ predef heapmark()#1, heapalloc(size)#1, xheapalloc(size)#1, heapallocalign(size,
 predef memset(addr,value,size)#0, memcpy(dst,src,size)#0
 predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1
 predef modload(mod)#1, modexec(modfile)#1, modaddr(str)#1
-predef setjmp(b)#1, longjmp(b, val)#0
+predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
 predef prbyte(v)#0
 predef oserror(n, msg)#0
 predef call_oscli(str)#0
@@ -1067,13 +1067,7 @@ end
 #endif
 
 // TODO: export this?
-// TODO: as well/instead, could I provide a setjmp() wrapper which returns a
-// pair of values - the regular setjmp return code and the address of a
-// dynamically allocated jmp_buf automatically sized appropriately? I could
-// potentially use that function instead of setjmp() in the core VM code.
-// Perhaps even just call it 'setjmp2' - short name is valuable given it takes
-// space in symbol table, and it would help convey the '2 return value' nature.
-// dword jmpbufsz(const jmp_buf *jb) - returns actual size of *jb
+// TODO: get rid of this and inline it in setjmp2()?
 def jmpbufsz(jb)#1
 	const esp_size = 1
 	const esp_offset = 0
@@ -1093,7 +1087,20 @@ def jmpbufsz(jb)#1
 	size = size + stack_ptr_size + (255 - stack_ptr)
 	return size
 end
-
+// int setjmp2(jmp_buf **b) { *b = new jmp_buf; return setjmp(*b); }
+// setjmp() wrapper which dynamically allocates a jmp_buf of just the right size
+// to avoid wasting memory.
+export def setjmp2(bptr)#1
+    word b
+    word result
+    b = *heapptr
+    *bptr = b
+    result = setjmp(b)
+    if result == 0
+        xheapalloc(jmpbufsz(b))
+    fin
+    return result
+end
 // Change the screen mode
 //
 // Care must be taken when calling mode(). The parameter stack starts at the
@@ -1854,17 +1861,14 @@ def modexec(modfile)#1
     // saveflags = systemflags
     modload_handle = 0
     olderrjb = *errjb
-    // We allocate a jmp_buf on the heap; it will get trapped and
-    // leaked if the module being executed remains resident, but
-    // that can't really be helped (and it will be fairly small).
-    // We can't allocate a local jmp_buf because the address of
-    // it would change if the executed module changes mode and
-    // thereby alters HIMEM; mode() will relocate the frame
-    // stack but it won't patch up the address at *errjb.
-    jb = saveheap
-    error = setjmp(jb)
+    // We allocate a jmp_buf on the heap using setjmp2(); it will get trapped
+    // and leaked if the module being executed remains resident, but that can't
+    // really be helped (and it will be fairly small). We can't allocate a
+    // local jmp_buf because the address of it would change if the executed
+    // module changes mode and thereby alters HIMEM; mode() will relocate
+    // the frame stack but it won't patch up the address at *errjb.
+    error = setjmp2(@jb)
     if error == 0
-        xheapalloc(jmpbufsz(jb))
         *errjb = jb
         action = modloadpstr(modfile)
     fin
@@ -1939,9 +1943,7 @@ modname = @modname_default
 //
 // Set up error handler
 //
-*errjb = heapmark()
-if setjmp(*errjb) == 0
-  xheapalloc(jmpbufsz(*errjb))
+if setjmp2(errjb) == 0
   *errfp = @error_handler
 else
 #ifndef STANDALONE

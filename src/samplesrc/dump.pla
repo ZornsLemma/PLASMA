@@ -7,7 +7,7 @@ include "inc/acornc.plh"
 
 const bytes_per_line = 8
 
-word jb[jbsz]
+word jb
 word error
 word filename
 byte handle = 0
@@ -90,13 +90,11 @@ end
 
 puts("At the prompt, type either:\n- a filename to hex dump\n- a * command\n- nothing (to quit)\n")
 
-error = setjmp(@jb)
+error = setjmp2(@jb)
 if error == 0
-    *errjb = @jb
+    *errjb = jb
 else
-    SFTODO = "Error handler: "
-    prword(SFTODO)
-    puts(SFTODO)
+    puts("Error handler: ")
     puts(errstr)
     puts(" (code $")
     prbyte(^errnum)
