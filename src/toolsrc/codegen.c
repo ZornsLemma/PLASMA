@@ -1000,6 +1000,62 @@ void release_seq(t_opseq *seq)
     }
 }
 /*
+ * Change a load-word+modify-using-constant+store-word sequence into an equivalent
+ * sequence operating only on the high byte of the word if possible; this can
+ * save a byte on the representation of the constant and the byte load/stores
+ * will be faster as well. It may also open up the possibility of using
+ * INCR/DECR if we are incrementing or decrementing a word by 256.
+ */
+int try_high_only(int pass, t_opseq *op, int store_code, int byte_load_code, int byte_store_code)
+{
+    t_opseq *opnext = op->nextop;
+    t_opseq *opnextnext = opnext->nextop;
+    t_opseq *opnextnextnext;
+    int pass0permitted = 0;
+    if (opnext->code != CONST_CODE)
+        return 0;
+    if (!opnextnext)
+        return 0;
+    opnextnextnext = opnextnext->nextop;
+    if (!opnextnextnext)
+        return 0;
+    if (opnextnextnext->code != store_code)
+        return 0;
+    if (op->offsz != opnextnextnext->offsz)
+        return 0;
+    switch (opnextnext->code)
+    {
+        case ADD_CODE:
+        case SUB_CODE:
+            if (opnext->val == 0x100)
+                pass0permitted = 1;
+            // fall through
+        case OR_CODE:
+        case EOR_CODE:
+            if ((opnext->val & 0xff) != 0)
+                return 0;
+            break;
+        case AND_CODE:
+            if ((opnext->val & 0xff) != 0xff)
+                return 0;
+            break;
+        default:
+            return 0;
+    }
+    // This optimisation can interfere with the generally more valuable
+    // transformation of store+load into duplicate-and-store. We therefore avoid
+    // performing it on pass 0, with the exception that where we have scope to
+    // generate INCR or DECR instructions we do it even then.
+    if ((pass == 0) && !pass0permitted)
+        return 0;
+    op->code = byte_load_code;
+    op->offsz++;
+    opnext->val = (opnext->val >> 8) & 0xff;
+    opnextnextnext->code = byte_store_code;
+    opnextnextnext->offsz++;
+    return 1;
+}
+/*
  * Indicate if an address is (or might be) memory-mapped hardware; used to avoid
  * optimising away accesses to such addresses.
  */
@@ -1014,7 +1070,7 @@ int is_hardware_address(int addr)
 /*
  * Replace all but the first of a series of identical load opcodes by DUP. This
  * doesn't reduce the number of opcodes but does reduce their size in bytes.
- * This is only called on the second optimisation pass because the DUP opcodes
+ * This is only called on the last optimisation pass because the DUP opcodes
  * may inhibit other peephole optimisations which are more valuable.
  */
 int try_dupify(t_opseq *op)
@@ -1233,7 +1289,7 @@ int crunch_seq(t_opseq **seq, int pass)
                                     break;
                             }
                         // End of collapse constant operation
-                        if ((pass > 0) && (freeops == 0) && (op->val != 0))
+                        if ((pass > 1) && (freeops == 0) && (op->val != 0))
                             crunched = try_dupify(op);
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
@@ -1295,7 +1351,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // LADDR_CODE
             case GADDR_CODE:
@@ -1337,14 +1393,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // GADDR_CODE
             case LLB_CODE:
-                if (pass > 0)
+                if (pass > 1)
                     crunched = try_dupify(op);
                 break; // LLB_CODE
             case LLW_CODE:
+                crunched = crunched || try_high_only(pass, op, SLW_CODE, LLB_CODE, SLB_CODE);
                 // LLW [n]:CB 8:SHR -> LLB [n+1]
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
@@ -1359,14 +1416,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // LLW_CODE
             case LAB_CODE:
-                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
+                if ((pass > 1) && (op->type || !is_hardware_address(op->offsz)))
                     crunched = try_dupify(op);
                 break; // LAB_CODE
             case LAW_CODE:
+                crunched = crunched || try_high_only(pass, op, SAW_CODE, LAB_CODE, SAB_CODE);
                 // LAW x:CB 8:SHR -> LAB x+1
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
@@ -1381,7 +1439,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-                if ((pass > 0) && (freeops == 0) &&
+                if ((pass > 1) && (freeops == 0) &&
                     (op->type || !is_hardware_address(op->offsz)))
                     crunched = try_dupify(op);
                 break; // LAW_CODE
@@ -1656,7 +1714,7 @@ int emit_pending_seq()
     if (outflags & OPTIMIZE)
     {
         int pass;
-        for (pass = 0; pass < 2; pass++)
+        for (pass = 0; pass < 3; pass++)
         {
             while (crunch_seq(&local_pending_seq, pass));
             remove_writes(&local_pending_seq);
