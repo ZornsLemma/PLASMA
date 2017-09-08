@@ -659,27 +659,31 @@ export asm callalloca
 	LDA	ESTKH+1,X
 	STA	TMPH
 
+        ; We can't save IFP/PP directly in case mode() gets called by a child
+        ; function; instead we save the delta we're applying to IFP/PP so we can
+        ; reverse it when our child function returns.
+        LDA	ESTKH,X
+        PHA
+        LDA	ESTKL,X
+        PHA
+
 	SEC
 !IFNDEF PLAS128 {
 	LDA	IFPL
-	PHA
 	SBC	ESTKL,X
 	STA	IFPL
 	STA	ESTKL+1,X
 	LDA	IFPH
-	PHA
 	SBC	ESTKH,X
 	STA	IFPH
 	STA	ESTKH+1,X
 	+CHECKVSHEAP IFP
 } ELSE {
 	LDA	PPL
-	PHA
 	SBC	ESTKL,X
 	STA	PPL
 	STA	ESTKL+1,X
 	LDA	PPH
-	PHA
 	SBC	ESTKH,X
 	STA	PPH
 	STA	ESTKH+1,X
@@ -691,16 +695,21 @@ export asm callalloca
 
 	JSR	JMPTMP
 
+	CLC
 !IFNDEF PLAS128 {
 	PLA
-	STA	IFPH
-	PLA
+        ADC	IFPL
 	STA	IFPL
+	PLA
+        ADC	IFPH
+	STA	IFPH
 } ELSE {
 	PLA
-	STA	PPH
-	PLA
+        ADC	PPL
 	STA	PPL
+	PLA
+        ADC	PPH
+	STA	PPH
 }
 
 	RTS
@@ -1145,6 +1154,9 @@ export def mode(n)#1
     // it's nicer not to have to.)
 #else
     gm_new_frame_start = *ifp + gm_himem_delta
+    #ifndef STANDALONE
+    puts("SFTODO"); prword(himem); putc(' '); prword(new_himem); putc(' '); prword(gm_himem_delta); putc(' '); prword(gm_new_frame_start); putln(); getc()
+    #endif
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
@@ -1169,10 +1181,12 @@ export def mode(n)#1
     *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
     if gm_himem_delta >= 0
+        puts("SFTODOX1"); getc()
 	putc22(gm_new_mode)
     fin
     memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
     if gm_himem_delta < 0
+        puts("SFTODOX2"); getc()
 	putc22(gm_new_mode)
     fin
 #ifdef PLAS128
@@ -1208,6 +1222,9 @@ end
 //
 export def heapavail()#1
     byte fp
+    #ifndef STANDALONE
+    //puts("SFTODOX"); prword(@fp); putc(' '); prword(*heapptr); putln()
+    #endif
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
