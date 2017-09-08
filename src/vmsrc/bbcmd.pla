@@ -1489,9 +1489,6 @@ def modloadcr_internal(moddci, modcr)#1
     file_length:0 = scratch:0; file_length:2 = scratch:2
     modload_handle = 0; call(osfind, osfind_close, 0, handle, 0)
 
-    // TODO: Once finished reworking this, should test with a file which doesn't
-    // have $DA7F special stuff, if I can find or create one. (Just hack the
-    // $DA7F in a hex editor to change it to $0000 or something.)
     if rdlen <= 16 or header:2 <> $DA7F // DAVE+1 = magic number :-)
         oserror_bad_module()
     fin
