@@ -90,39 +90,28 @@ end
 def init_balls()#0
     word ball
     byte i
-    i = 0
-    while 1
+    for i = 0 to ball_count-1
         ball = @balls + i*t_ball
         ball->ball_x = i<<2
         ball->ball_y = i<<2
         ball->ball_dx = (i % 3) - 1
         ball->ball_dy = ((i / 3) % 3) - 1
-        if i == ball_count-1
-            break
-        fin
-        i = i + 1
-    loop
+    next
 end
         
 def draw_balls(ink)#0
     word ball
     byte i
-    i = 0
-    while 1
+    for i = 0 to ball_count-1
         ball = @balls + i*t_ball
         draw_ball(ball, ink)
-        if i == ball_count-1
-            break
-        fin
-        i = i + 1
-    loop
+    next
 end
 
 def move_balls()#0
     word ball
     byte i
-    i = 0
-    while 1
+    for i = 0 to ball_count-1
         ball = @balls + i*t_ball
         if ball->ball_x == 0
             ball->ball_dx = 1
@@ -137,12 +126,7 @@ def move_balls()#0
 
         ball->ball_x = ball->ball_x + ball->ball_dx
         ball->ball_y = ball->ball_y + ball->ball_dy
-
-        if i == ball_count-1
-            break
-        fin
-        i = i + 1
-    loop
+    next
 end
 
 mode(7)
