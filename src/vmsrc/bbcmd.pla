@@ -1154,9 +1154,6 @@ export def mode(n)#1
     // it's nicer not to have to.)
 #else
     gm_new_frame_start = *ifp + gm_himem_delta
-    #ifndef STANDALONE
-    puts("SFTODO"); prword(himem); putc(' '); prword(new_himem); putc(' '); prword(gm_himem_delta); putc(' '); prword(gm_new_frame_start); putln(); getc()
-    #endif
 #endif
     // Insist on 512 bytes free afterwards, so that an application has a
     // chance to not crash after a mode change when memory is tight.
@@ -1181,12 +1178,10 @@ export def mode(n)#1
     *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
     if gm_himem_delta >= 0
-        puts("SFTODOX1"); getc()
 	putc22(gm_new_mode)
     fin
     memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
     if gm_himem_delta < 0
-        puts("SFTODOX2"); getc()
 	putc22(gm_new_mode)
     fin
 #ifdef PLAS128
@@ -1222,9 +1217,6 @@ end
 //
 export def heapavail()#1
     byte fp
-    #ifndef STANDALONE
-    //puts("SFTODOX"); prword(@fp); putc(' '); prword(*heapptr); putln()
-    #endif
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -1346,7 +1338,6 @@ end
 def addsym(sym, addr)#0
     byte str[maxsymlen]
     word entrysz
-    word SFTODO // TODO: DELETE
     const addrsz = 2
     const nextchunkptrsz = 3 // end of chunk marker followed by two byte pointer
     
@@ -1358,22 +1349,9 @@ def addsym(sym, addr)#0
     // *touched* yet, which is important for the assumptions we make about
     // symbol table growth in modload().)
     entrysz = addrsz + nextchunkptrsz + dcitos(sym, @str)
-    if 0 // TODO: DELETE
-	    prword(addr); putc(' ')
-	    SFTODO = sym
-	    while ^SFTODO & $80
-		putc(^SFTODO & $7f)
-		SFTODO++
-	    loop
-	    putc(^SFTODO)
-	    putln()
-    fin
-    //puts("SFTODOX0 "); prword(lastsym); putc(' '); prword(symtblchunk); putc(' '); prword(symtbl_chunk_size); putln()
     if (symtblchunk <> lowsymtblchunk) or (lastsym - lowsymtblchunk + entrysz > lowsymtblchunksz)
     	symtblchunk = xheapalloc(entrysz)
-        //puts("SFTODOX1 "); prword(newsymtblchunk); putln()
 	if lastsym + nextchunkptrsz == symtblchunk
-            //puts("SFTODOX2\n")
 	    // This allocation is contiguous with the previous chunk; we
             // therefore don't need a chunk end marker and a symbol table
             // pointer. This is important when we're called in modload(), as
@@ -1385,7 +1363,6 @@ def addsym(sym, addr)#0
 	    symtblchunk = lastsym
             heaprelease(symtblchunk + entrysz)
 	else
-            //puts("SFTODOX3\n")
             lastsym->0 = 1 // end of chunk but not end of table
 	    lastsym=>1 = symtblchunk // next chunk
 	    lastsym = symtblchunk
@@ -1643,7 +1620,6 @@ def modloadcr_internal(moddci, modcr)#1
     // ESD entry before it's been consumed. TODO: Double check this reasoning!
     //
     heaprelease(modend)    
-    //puts("SFTODOHR "); prword(modend); putln();
     //
     // Run through the Re-Location Dictionary.
     //
@@ -1716,9 +1692,7 @@ def modloadcr_internal(moddci, modcr)#1
                 addr = lookupdef(addr - bytecode + bytecode, deftbl)
 #endif
             fin
-            //puts("SFTODO1 "); prword(lastsym); putc(' '); prword(esd); putln()
             addsym(sym, addr)
-            //puts("SFTODO2 "); prword(lastsym); putc(' '); prword(esd); putln()
             // TODO: The following test could be removed eventually.
             // Assert that the last byte written in the symbol table
             // (lastsym) hasn't trampled over the next ESD entry
