@@ -15,6 +15,11 @@
 
 include "inc/acornc.plh"
 
+// Where the VM generates errors which are PLASMA-specific, these should of
+// course be in the range 0-127 as they are language errors. I've decided to
+// informally allocate 0-15 to the low-level VM code in plvmbb*.s and 16-127 to
+// the code in this file.
+
 // TODO: Weird - *SPOOL Z then *PLAS128 *immediately* closes the *SPOOL file.
 // *PLASMA doesn't exhibit this. Note that there's no need to load a module,
 // the startup banner and prompt don't make it into the spool file. Oh no,
@@ -1176,11 +1181,6 @@ export def mode(n)#1
 #else
     *ifp = gm_new_frame_start
 #endif
-// TODO TEMP!
-    if call(osbyte, osbyte_read_himem, 0, 0, 0).2 <> ^himemh
-    	puts("foo")
-    	oserror(255,"foo")
-    fin	
     return true
 end
 
@@ -1190,6 +1190,14 @@ end
 #ifndef STANDALONE
 def high_order_address()#1
     return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
+end
+#endif
+def oserror_heap_full()#0
+    oserror(16, "Heap full")
+end
+#ifndef STANDALONE
+def oserror_bad_module()#0
+    oserror(17, "Bad module")
 end
 def oserror_not_found()#0
     oserror(214, "Not found")
@@ -1202,10 +1210,6 @@ export def heapavail()#1
     byte fp
     return @fp - *heapptr
 end
-def heapfull()#0
-    puts("heapalloc failed\n") // TODO TEMP
-    oserror(0, "Heap full") // TODO: Non-0 error code? (In the language range..)
-end
 // heapalloc() generates an OS error if the allocation fails and is
 // no larger than allocheap_fail_threshold; failures otherwise return
 // 0. The idea here is that as well as allowing "always" and "never"
@@ -1217,7 +1221,7 @@ export def heapalloc(size)#1
     word addr
     if isugt(size, heapavail())
 	if isule(size, allocheap_fail_threshold)
-	    heapfull()
+	    oserror_heap_full()
 	fin
 	return 0
     fin
@@ -1231,7 +1235,7 @@ export def xheapalloc(size)#1
     word addr
     addr = heapalloc(size)
     if addr == 0
-	heapfull()
+	oserror_heap_full()
     fin
     return addr
 end
@@ -1495,11 +1499,7 @@ def modloadcr_internal(moddci, modcr)#1
     // have $DA7F special stuff, if I can find or create one. (Just hack the
     // $DA7F in a hex editor to change it to $0000 or something.)
     if rdlen <= 16 or header:2 <> $DA7F // DAVE+1 = magic number :-)
-        // TODO: Generate an oserror instead of using perr? Arguably more
-        // friendly, perr's one advantage (where I should retain it) is in
-        // allowing showing all lookup failures when symbol lookup fails.
-        perr = 69
-        return -perr
+        oserror_bad_module()
     fin
 
     modsize = header:0
@@ -1530,7 +1530,7 @@ def modloadcr_internal(moddci, modcr)#1
         // inside the above modload() hasn't overflowed, but it should be
         // fairly reliable in practice.
         if (moddep - @header) >= rdlen
-            oserror(0, "Header too long") // TODO: shorter error? very rare... "Bad header"? "Bad module"? Perhaps just return 69 as above? Non-0 error number??
+            oserror_bad_module()
         fin
     loop
     //
@@ -1555,7 +1555,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     addr = 0
     if file_length:2 <> 0 // if file is >=64K
-        heapfull()
+        oserror_heap_full()
     fin
     rdlen = file_length:0
     addr = xheapalloc(rdlen)
@@ -1608,7 +1608,7 @@ def modloadcr_internal(moddci, modcr)#1
     // TODO: If there's only one caller of allocxheap(), might as well fold
     // the following test into allocxheap() itself.
     if defaddr == 0
-        heapfull()
+        oserror_heap_full()
     fin
     modend  = bytecode
 #endif
@@ -1762,8 +1762,7 @@ end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
     if ^modpstr == 0 or ^modpstr > maxnamelen
-        // TODO: Non-0 error number
-        oserror(0, "Bad name") // TODO: Share a common error with some other case?
+        oserror(204, "Bad name")
     fin
     stodci(modpstr, @moddci)
     stocr(modpstr, modcr)
