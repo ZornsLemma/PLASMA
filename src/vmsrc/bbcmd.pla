@@ -1488,6 +1488,9 @@ def modloadcr_internal(moddci, modcr)#1
     // have $DA7F special stuff, if I can find or create one. (Just hack the
     // $DA7F in a hex editor to change it to $0000 or something.)
     if rdlen <= 16 or header:2 <> $DA7F // DAVE+1 = magic number :-)
+        // TODO: Generate an oserror instead of using perr? Arguably more
+        // friendly, perr's one advantage (where I should retain it) is in
+        // allowing showing all lookup failures when symbol lookup fails.
         perr = 69
         return -perr
     fin
@@ -1603,15 +1606,17 @@ def modloadcr_internal(moddci, modcr)#1
     modend  = bytecode
 #endif
     //
-    // Free up the end-of-module in main memory. This is premature
-    // as we are going to access that data, but we may allocate from the
-    // heap to expand the symbol table, so we must do this first. This is
-    // "risky", because any more heap allocations could allocate memory
-    // we will try to read. We get away with it because only addsym() is
-    // going to touch heap-allocated memory. Any one addsym() call can only touch
-    // len(symbol_name) + 2 (symbol address) + 1 (end-of-table marker) new bytes, and each ESD entry
-    // is len(symbol_name) + 3 bytes, so we're always OK even if there
-    // are no RLD entries. TODO: Double check this reasoning!
+    // Free up the end-of-module data in main memory. We have to do this now
+    // as otherwise any symbol table allocations which claim memory from the
+    // heap would trap the end-of-module data. However, we still want to use
+    // that end-of-module data (the RLD/ESD) below, even after we've freed
+    // it. We get away with this because only addsym() is going to allocate
+    // from the heap. Any one addsym() call can only touch len(symbol_name) +
+    // 2 (symbol address) + 1 (end-of-symbol-table marker) new bytes (it may
+    // allocate an extra 2 bytes, to allow for an end-of-symbol-table-chunk
+    // marker, but it won't touch them), and each ESD entry is len(symbol_name)
+    // + 3 bytes, so even if there are no RLD entries we will not overwrite an
+    // ESD entry before it's been consumed. TODO: Double check this reasoning!
     //
     heaprelease(modend)    
     //puts("SFTODOHR "); prword(modend); putln();
