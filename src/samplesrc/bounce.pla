@@ -29,6 +29,8 @@
 include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
+include "inc/dword.plh"
+include "inc/testlib.plh"
 
 const screen = $7C00
 const ball_count = 10
@@ -39,6 +41,9 @@ struc t_ball
     byte ball_dx
     byte ball_dy
 end
+
+byte start[5]
+byte finish[5]
 
 byte balls[ball_count * t_ball]
 word rowtable[25]
@@ -135,16 +140,117 @@ def move_balls()#0
     next
 end
 
+def time_delta(start, finish)#1
+    // We can get away with ignoring the fifth byte; the result will be
+    // correct unless there's a difference of more than one in the fifth
+    // byte, and that's just not going to happen.
+    byte delta_dword[4]
+    dword_sub(@delta_dword, finish, start)
+    if dword_isuword(@delta_dword)
+	return dword_touword(@delta_dword)
+    fin
+    return 0
+end
+
+def time(t)#0
+    call(osword, osword_read_time, t, t >> 8, 0)
+end
+
 mode(7)
 vsync()
 setup_screen()
 init_balls()
 
-while 1
+time(@start)
+
+// while 1
+//     draw_balls($00)
+//     move_balls()
+//     draw_balls($FF)
+//     vsync()
+// loop
+
     draw_balls($00)
     move_balls()
     draw_balls($FF)
-    vsync()
-loop
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    time(@finish)
+    puti(time_delta(@start, @finish))
 
 done
