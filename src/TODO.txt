@@ -6,13 +6,7 @@ relocation of the memory free output from the startup banner to the prompt as a
 permanent feature; this perhaps makes more sense on the BBC, where changing
 mode and so forth can have a big impact on the free memory)
 
-I started from the Apple I version; maybe port over features from the Apple II VM
-and/or "redo" the port using the Apple II version to start with
-
-Ability to build a standalone executable which runs from main RAM or sideways
-ROM, so a PLASMA-implemented program can be used by a user without them knowing
-or caring it's running on the PLASMA VM - though possibly the auto-start
-facility is sufficient for main RAM use (this doesn't address the ROM case)
+Ability to build a standalone sideways language ROM
 
 A language ROM version would have some value; this would free up more main RAM
 for data and/or non-shadow screen on machines without a second processor
@@ -60,15 +54,6 @@ and possibly offer a separate non-safe option for code to use if it wants".)
 
 It might be possible to do something with the B+ special private 12K
 
-On a 6502 second processor, we could relocate ourselves down to &500 (say)
-instead of OSHWM=&800 if we aren't using all of the language workspace from
-&400-&800 - though if we can productively use that space for something else it
-would be best, since otherwise we are "wasting" that space on non-2P machines,
-or we say "it's available for user code" and then that code is no longer
-compatible with PLASMA-on-2P. Perhaps the best bet would be a deque-style
-symbol table and we put the first block of the symbol table in the 2-3 pages of
-this space we aren't using for other things.
-
 A vim syntax highlighting mode for PLASMA code might be nice
 
 It would probably be possible to produce a Matchbox co-pro specific version
@@ -93,10 +78,6 @@ could potentially also use the B+'s private 12K here by detecting if we're
 running as a language ROM in that 12K and setting the upper RAM boundary to
 &8000+12K.)
 
-Can we optimise things like "ISGT:BRTRU XXX" to "BRGT XXX"? Check first to see
-that this doesn't happen already, but poking around the compiler I suspect it
-doesn't.
-
 Might be worth trying to tweak the compiler to prefer to put constant
 multipliers on the "rhs", so that if we teach the peephole optimiser to do "CB
 2:MUL:ADD"->"IDXW" there's more chance of it being triggers. Not sure if it's
@@ -106,21 +87,6 @@ remaining optimisation (in practice) of those implementated in optimise.py that
 I am dubious about being able to implement in the compiler's non-hacky peephole
 optimiser - optimise.py is quite sophisticated here and forms an expression
 tree to allow it to reshuffle parts of the expression if that helps.
-
-Use new "specify number of parameters and return type" support on standard
-functions? At least on the Acorn-specific ones. Have done this for oserror() as
-an initial foray.
-
-Standalone version - 32cmd.a contains some crap which just isn't needed and could probably be relatively trivially made conditionally compiled in a "productionised" version of this. Possibly not exhaustive list:
-- the symbol table with all its associated constants and symbol lookup/insertion code
-- the string constants to support the (manually deleted) "init" code which handles the prompt loop
-- loadmod()/execmod()
-- dcitos() is probably redundant
-- syscall()?
-- prbyte()/prword()
-- readfile()/high_order_address()
-- strip*()
-- modechange()
 
 Standalone version - A "productionised" version would ideally do a topological sort on the dependencies of the modules being "linked" to make sure it links them in an acceptable order (this matters as the _INIT code must be executed in a suitable order). I think this is doable if we output a machine-readable comment in the compiler output in lieu of the equivalent "I am module X" and "I depend on module Y" binary data in a module.
 
