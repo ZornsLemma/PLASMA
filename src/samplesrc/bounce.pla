@@ -41,6 +41,7 @@ struc t_ball
 end
 
 byte balls[ball_count * t_ball]
+word rowtable[25]
 
 def setup_screen()#0
     word ptr
@@ -48,6 +49,7 @@ def setup_screen()#0
     ptr = screen
     for line = 0 to 24
         ^ptr = 147
+        rowtable[line] = ptr + 1
         ptr = ptr + 40
     next
 end
@@ -57,15 +59,19 @@ def vsync()#0
 end
 
 def putpixel(x, y, ink)#0
-    word xx, yy, ptr
-    byte p
-    xx = x / 2
-    yy = y / 3
-    ptr = screen + 1 + (yy*40) + xx
-    x = x & 1
-    y = y % 3
-    p = 1 << ((y*2) + x)
-    p = (p | ((p & 32)<<1)) & ~32
+    word xq, xr
+    word yq, yr
+    word ptr
+    word p
+    xq = x >> 1
+    xr = x & 1
+    yq = y / 3
+    yr = y % 3
+    ptr = rowtable[yq] + xq
+    p = 1<<((yr*2) + xr)
+    if (p & 32) <> 0
+        p = p | 64
+    fin
     ^ptr = ^ptr & ~p | (p & ink) | 160
 end
 
