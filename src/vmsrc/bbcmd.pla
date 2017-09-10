@@ -108,6 +108,7 @@ predef call_oscli(str)#0
 predef stocr(str, cr)#0
 predef mode(n)#1
 predef callalloca
+predef divmod(dividend, divisor)#2
 //
 // System variables.
 //
@@ -343,6 +344,24 @@ REVCPYLP LDA	(SRC),Y
 	DEC	ESTKH-3,X
 	BNE	REVCPYLP
 CPYMEX	RTS
+end
+//
+// result, remainder = divmod(dividend, divisor)
+//
+asm divmod(dividend, divisor)#2
+	JSR	_DIV
+        LSR	DVSIGN
+        BCC	DIVMODNONEG1
+        JSR	_NEG
+DIVMODNONEG1
+        DEX
+        LDA	TMPL		; REMNDRL
+        STA	ESTKL,X
+        LDA	TMPH		; REMNDRH
+        STA	ESTKH,X
+        ASL	DVSIGN
+        BPL	CPYMEX
+        JMP	_NEG
 end
 //
 // Unsigned word comparisons.
