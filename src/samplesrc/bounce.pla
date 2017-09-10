@@ -70,8 +70,7 @@ def putpixel(x, y, ink)#0
     word p
     xq = x >> 1
     xr = x & 1
-    yq = y / 3
-    yr = y % 3
+    yq, yr = divmod(y, 3)
     ptr = rowtable[yq] + xq
     p = 1<<((yr*2) + xr)
     if (p & 32) <> 0
