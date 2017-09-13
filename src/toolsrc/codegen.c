@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "plasm.h"
@@ -1191,6 +1192,9 @@ int crunch_seq(t_opseq **seq, int pass)
     {
         switch (op->code)
         {
+            case NOP_CODE:
+                freeops = -1;
+                break;
             case CONST_CODE:
                 if (op->val == 1)
                 {
@@ -1606,98 +1610,144 @@ int crunch_seq(t_opseq **seq, int pass)
     return (crunched);
 }
 /*
+ * Helper function for remove_writes(); records a store to a frame offset.
+ */
+void record_store(t_opseq *frame_store_op[], t_opseq *op, int offsz)
+{
+    t_opseq *previous_store_op;
+
+    if ((previous_store_op = frame_store_op[offsz]) != 0)
+    {
+        if (previous_store_op->count != 999)
+        {
+            // assert(previous_store_op->count > 0);
+            previous_store_op->count--;
+            if (previous_store_op->count == 0)
+            {
+                switch (previous_store_op->code)
+                {
+                    case SLB_CODE:
+                    case SLW_CODE:
+                        previous_store_op->code = DROP_CODE;
+                        break;
+
+                    case DLB_CODE:
+                    case DLW_CODE:
+                        previous_store_op->code = NOP_CODE;
+                        break;
+
+                    case LADDR_CODE:
+                        break;
+
+                    default:
+                        abort();
+                        break;
+                }
+            }
+        }
+    }
+
+    frame_store_op[offsz] = op;
+    op->count++;
+}
+/*
+ * Helper function for remove_writes(); records a load from a frame offset.
+ */
+void record_load(t_opseq *frame_store_op[], int offsz)
+{
+    t_opseq *previous_store_op;
+
+    if ((previous_store_op = frame_store_op[offsz]) != 0)
+    {
+        frame_store_op[offsz] = 0;
+        previous_store_op->count = 999;
+    }
+}
+/*
  * Remove provably-redundant writes to local variables in a sequence
  */
 void remove_writes(t_opseq **seq)
 {
-    t_opseq *opprev;
+    enum { frame_size = 257 };
     t_opseq *op = *seq;
+    int i;
+    // frame_store_op[i] points to the opcode (if any) which last stored to
+    // offset i in the local frame without any load from offset i having
+    // been seen since.
+    t_opseq *frame_store_op[frame_size] = {0};
 
-    // We want to walk through the sequence backwards, so we copy it into an
-    // array.
-    t_opseq *seq_array[2560];
-    int ops = 0;
     for (; op; op = op->nextop)
     {
-        seq_array[ops] = op;
-        ops++;
-        if (ops >= (sizeof(seq_array) / sizeof(seq_array[0]))) {
-            fprintf(stderr, "Compiler out of space in remove_writes()!\n");
-            return;
-        }
-    }
+        // op->count indicates the number of bytes stored by an opcode
+        // which have not been overwritten by another store opcode; it may
+        // be 999 to indicate that a load has occurred of one or more bytes
+        // stored by the opcode (in which case the store cannot be optimised
+        // away). op->count is used to decide when all of a store's effects
+        // have become invisible due to later stores with no intervening loads;
+        // we need this complexity because we may do something like "SLW
+        // [0]:...:SLB [0]"; the first store is *not* redundant when the second
+        // occurs because the first populated the byte at [1], but a subsequent
+        // "SLB [1]" or "SLW [1]" does make the first store redundant.
+        // (Assuming, of course, that the "..." series of opcodes does not load
+        // bytes [0] or [1].)
+        op->count = 0;
 
-    // We can only prove writes to be redundant if there is a LEAVE instruction
-    // at the end of the sequence.
-    if ((ops == 0) || (seq_array[ops - 1]->code != LEAVE_CODE))
-        return;
-
-    // Keep track of whether a frame address has been read from
-    int frame[255] = {0};
-
-    // Consider all the instructions in the sequence, working backwards from the
-    // LEAVE.
-    for (int i = ops - 1; i >= 0; i--)
-    {
-        int freeop = 0;
-        op = seq_array[i];
         switch (op->code)
         {
-            // Record which frame addresses have been read from.
-            case LLB_CODE:
-                frame[op->offsz] = 1;
-                break;
-            case LLW_CODE:
-                frame[op->offsz] = 1;
-                frame[op->offsz + 1] = 1;
-                break;
-
-            // Stores to addresses which aren't read from afterwards are
-            // redundant; we just need to reproduce the effect of dropping the
-            // value from the stack.
-            case SLB_CODE:
-                if (!frame[op->offsz])
-                    op->code = DROP_CODE;
-                break;
-            case SLW_CODE:
-                if (!frame[op->offsz] && !frame[op->offsz + 1])
-                    op->code = DROP_CODE;
-                break;
-
-            // Copies to addresses which aren't read from afterwards are
-            // redundant and can simply be deleted.
             case DLB_CODE:
-                if (!frame[op->offsz])
-                    freeop = 1;
+            case SLB_CODE:
+                record_store(frame_store_op, op, op->offsz);
                 break;
             case DLW_CODE:
-                if (!frame[op->offsz] && !frame[op->offsz + 1])
-                    freeop = 1;
+            case SLW_CODE:
+                record_store(frame_store_op, op, op->offsz    );
+                record_store(frame_store_op, op, op->offsz + 1);
                 break;
 
-            // Any kind of branch terminates these optimisation opportunities.
-            // LADDR_CODE does as well, because it effectively makes frame bytes
-            // accessible via a pointer. (TODO: If we could know the size of the
-            // object, we could instead simply mark those bytes as read.)
+            case LLB_CODE:
+                record_load(frame_store_op, op->offsz);
+                break;
+            case LLW_CODE:
+                record_load(frame_store_op, op->offsz    );
+                record_load(frame_store_op, op->offsz + 1);
+                break;
+
             case LADDR_CODE:
+                // We assume that code is not allowed to take the address of one
+                // local variable and assume that another local variable is
+                // immediately adjacent (by using a negative or too-large index
+                // with the result of a LLA opcode), and therefore we only need
+                // to treat the LLA as though it implies loads from all the
+                // variable's bytes. However, we don't actually know the size of
+                // this local variable, so we have to assume it occupies the
+                // entire frame stack upwards from its base address.
+                for (i = op->offsz; i < frame_size; ++i)
+                {
+                    record_load(frame_store_op, i);
+                }
+                break;
+
             case BRNCH_CODE:
             case BRFALSE_CODE:
             case BRTRUE_CODE:
-                return;
-        }
+                // We have to assume that code reached via a branch can load
+                // anything from the frame.
+                for (i = 0; i < frame_size; ++i)
+                {
+                    record_load(frame_store_op, i);
+                }
+                break;
 
-        if (freeop)
-        {
-            if (i > 0)
-            {
-                opprev = seq_array[i - 1];
-                opprev->nextop = op->nextop;
-            }
-            else
-            {
-                *seq = op->nextop;
-            }
-            release_op(op);
+            case LEAVE_CODE:
+                // LEAVE means we are exiting the function and its frame is
+                // going to be destroyed; we model this by storing to every
+                // byte of the frame, which will cause any older stores
+                // which haven't yet had a corresponding load to be discarded.
+                for (i = 0; i < frame_size; ++i)
+                {
+                    record_store(frame_store_op, op, i);
+                }
+                break;
         }
     }
 }
@@ -1928,6 +1978,8 @@ int emit_pending_seq()
                 break;
             case RET_CODE:
                 emit_ret_internal();
+                break;
+            case NOP_CODE:
                 break;
             default:
                 return (0);

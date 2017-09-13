@@ -4,6 +4,7 @@ typedef struct _opseq {
     int tag;
     int offsz;
     int type;
+    int count;
     struct _opseq *nextop;
 } t_opseq;
 #define UNARY_CODE(tkn)  ((tkn)|0x0100)
@@ -66,6 +67,7 @@ typedef struct _opseq {
 #define BRTRUE_CODE 0x031E
 #define LEAVE_CODE  0x031F
 #define RET_CODE    0x0320
+#define NOP_CODE    0x0321
 
 #define gen_uop(seq,op)     gen_seq(seq,UNARY_CODE(op),0,0,0,0)
 #define gen_op(seq,op)      gen_seq(seq,BINARY_CODE(op),0,0,0,0)
