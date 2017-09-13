@@ -93,3 +93,5 @@ Standalone version - A "productionised" version would ideally do a topological s
 Include the git revision/label as a string at the end of the executable (after the relocation data, if any) - that way it wouldn't take any memory up at runtime but would be visible on disc
 
 I don't think the optimiser handles things like 'foo = bar() + 2 + 3'; the 2 + 3 can obviously be folded to a 5 but this doesn't seem to happen. (Similar thing happens with trailing '*'; I suspect it applies to other operators too.)
+
+It may be that the NOP_CODE I introduced in the optimiser to support remove_writes() could be used to good effect to simplify other existing bits of the optimiser code, allowing the fiddly 'delete opcode' logic to occur in just one place.
