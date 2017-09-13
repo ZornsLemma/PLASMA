@@ -1220,6 +1220,9 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 switch (opnext->code)
                 {
+                    case DROP_CODE:
+                        freeops = -2;
+                        break;
                     case NEG_CODE:
                         op->val = -(op->val);
                         freeops = 1;
