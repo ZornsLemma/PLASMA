@@ -1613,7 +1613,7 @@ int crunch_seq(t_opseq **seq, int pass)
     return (crunched);
 }
 /*
- * Helper function for remove_writes(); records a store to a frame offset.
+ * Helper function for remove_stores(); records a store to a frame offset.
  */
 void record_store(t_opseq *frame_store_op[], t_opseq *op, int offsz)
 {
@@ -1654,7 +1654,7 @@ void record_store(t_opseq *frame_store_op[], t_opseq *op, int offsz)
     op->count++;
 }
 /*
- * Helper function for remove_writes(); records a load from a frame offset.
+ * Helper function for remove_stores(); records a load from a frame offset.
  */
 void record_load(t_opseq *frame_store_op[], int offsz)
 {
@@ -1669,7 +1669,7 @@ void record_load(t_opseq *frame_store_op[], int offsz)
 /*
  * Remove provably-redundant writes to local variables in a sequence
  */
-void remove_writes(t_opseq **seq)
+void remove_stores(t_opseq **seq)
 {
     enum { frame_size = 257 };
     t_opseq *op = *seq;
@@ -1715,26 +1715,24 @@ void remove_writes(t_opseq **seq)
                 record_load(frame_store_op, op->offsz + 1);
                 break;
 
-            case LADDR_CODE:
-                // We assume that code is not allowed to take the address of one
-                // local variable and assume that another local variable is
-                // immediately adjacent (by using a negative or too-large index
-                // with the result of a LLA opcode), and therefore we only need
-                // to treat the LLA as though it implies loads from all the
-                // variable's bytes. However, we don't actually know the size of
-                // this local variable, so we have to assume it occupies the
-                // entire frame stack upwards from its base address.
-                for (i = op->offsz; i < frame_size; ++i)
-                {
-                    record_load(frame_store_op, i);
-                }
-                break;
-
             case BRNCH_CODE:
             case BRFALSE_CODE:
             case BRTRUE_CODE:
                 // We have to assume that code reached via a branch can load
                 // anything from the frame.
+            case LB_CODE:
+            case LW_CODE:
+            case CALL_CODE:
+            case ICAL_CODE:
+                // We have to assume that there is an LLA taking the address of
+                // every local variable, so any LB or LW opcode could be loading
+                // from a local variable, and any CALL or ICAL could be calling
+                // a function which does this. (We can't simply check for LLA in
+                // this opcode sequence as it may occur elsewhere in the
+                // function; we'd need to be able to know whether it appears
+                // anywhere in the function body, but we don't have that global
+                // information here.)
+
                 for (i = 0; i < frame_size; ++i)
                 {
                     record_load(frame_store_op, i);
@@ -1845,7 +1843,7 @@ int emit_pending_seq()
         for (pass = 0; pass < 3; pass++)
         {
             while (crunch_seq(&local_pending_seq, pass));
-            remove_writes(&local_pending_seq);
+            remove_stores(&local_pending_seq);
         }
     }
     while (local_pending_seq)
