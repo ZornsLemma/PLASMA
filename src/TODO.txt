@@ -95,3 +95,8 @@ Include the git revision/label as a string at the end of the executable (after t
 I don't think the optimiser handles things like 'foo = bar() + 2 + 3'; the 2 + 3 can obviously be folded to a 5 but this doesn't seem to happen. (Similar thing happens with trailing '*'; I suspect it applies to other operators too.)
 
 It may be that the NOP_CODE I introduced in the optimiser to support remove_writes() could be used to good effect to simplify other existing bits of the optimiser code, allowing the fiddly 'delete opcode' logic to occur in just one place.
+
+A 'reverse subtraction' opcode just might be useful; the thing to do would be
+to try to add support to the peephole optimiser to try it out (it effectively
+makes subtraction a commutative operation for the purposes of switching opcodes
+round to possibly allow more use of DLB/DLW, for example)
