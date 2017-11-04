@@ -1,0 +1,72 @@
+// Demonstration of mode changes - this doesn't show good practice as it
+// changes mode with a lot of state on the parameter stack, but it's a
+// good test.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/testlib.plh"
+include "inc/acornos.plh"
+include "inc/acornc.plh"
+
+byte do_mode_change
+byte jb[jbsz]
+
+def bar(i)
+    word j, k
+    k = 0
+    j = setjmp(@jb)
+    if j <> 0
+	return k + j
+    fin
+    for j = 1 to 100
+	k = k + i
+	if do_mode_change
+	    mode(j)
+	fin
+	if j == 99
+	    longjmp(@jb, 42)
+	fin
+    next
+    oserror(0, "Didn't longjmp!")
+end
+
+def foo
+    word i, j, k
+    i = 10
+    j = -3
+    for k = 1 to 100
+	i = i - 199
+	if do_mode_change
+	    mode(j)
+	fin
+	j = j * 2
+	j = j + bar(i)
+    next
+    return j
+end
+
+def main
+    word result1, result2
+
+    mode(7)
+    puts("This program changes mode rapidly and\nrepeatedly. This may damage your monitorif run on real hardware.\n\nPress SPACE to start...")
+    call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
+    repeat until call_osrdch() == ' '
+
+    mode(7)
+    do_mode_change = 0
+    result1 = foo()
+    do_mode_change = 1
+    result2 = foo()
+    mode(7)
+    puts("Final result is ")
+    puti(result2)
+    puts(", should be ")
+    puti(result1)
+    puts(".\n")
+end
+
+main()
+done
+
+// vi: sw=4 sts=4

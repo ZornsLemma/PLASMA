@@ -1,0 +1,125 @@
+// Demonstration of making calls to Acorn OS and handling OS errors
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/acornos.plh"
+include "inc/acornc.plh"
+
+const bytes_per_line = 8
+
+word jb
+word error
+word filename
+byte handle = 0
+word SFTODO
+
+// SFTODO TEMP
+def prword(v)
+    prbyte(v >> 8)
+    return prbyte(v)
+end
+
+def dump_line(addr, line, count)
+    word i, c
+
+    prbyte(addr.1)
+    prbyte(addr.0)
+    putc(' ')
+
+    for i = 0 to count - 1
+	prbyte((line).[i])
+	putc(' ')
+    next
+    if count < bytes_per_line 
+	for i = count + 1 to bytes_per_line
+	    puts("   ")
+	next
+    fin
+
+    for i = 0 to count - 1
+        c = (line).[i]
+	if c >= 32 and c <= 126
+	    putc(c)
+	else
+	    putc('.')
+	fin
+    next
+    if count < bytes_per_line
+	for i = count + 1 to bytes_per_line
+	    putc(' ')
+	next
+    fin
+
+    putln
+end
+
+def dump(handle)
+    byte line[bytes_per_line]
+    byte count
+    word c, addr
+    count = 0
+    addr = 0
+    while 1
+	c = call_osbget(handle)
+	if c == eof
+	    break
+	fin
+	line[count] = c
+	count++
+	if count == bytes_per_line
+	    dump_line(addr, @line, count)
+	    count = 0
+	    addr = addr + bytes_per_line
+	fin
+    loop
+    if count > 0
+	dump_line(addr, @line, count)
+    fin
+end
+
+def close_handle()
+    byte handle_copy
+    if handle <> 0
+	handle_copy = handle
+	handle = 0
+	call(osfind, osfind_close, 0, handle_copy, 0)
+    fin
+end
+
+// Main program starts here
+
+puts("At the prompt, type either:\n- a filename to hex dump\n- a * command\n- nothing (to quit)\n")
+
+error = setjmp2(@jb)
+if error == 0
+    *errjb = jb
+else
+    puts("Error handler: ")
+    puts(errstr)
+    puts(" (code $")
+    prbyte(^errnum)
+    puts(")\n")
+    close_handle()
+fin
+
+while 1
+    putln
+    filename = gets('?')
+    if not ^filename
+	break
+    elsif ^filename and (filename).1 == '*'
+	call_oscli(filename + 1)
+    else
+	handle = call_osfind_open(osfind_input, filename)
+	if handle <> 0
+	    dump(handle)
+	    close_handle()
+	else
+	    puts("Can't open file\n")
+	fin
+    fin
+loop
+
+done
+
+// vi: sts=4 sw=4

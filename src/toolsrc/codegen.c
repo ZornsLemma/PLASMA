@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "plasm.h"
@@ -406,23 +407,43 @@ void emit_esd(void)
 {
     int i;
 
-    printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
-    for (i = 0; i < globals; i++)
+    if (outflags & MODULE)
     {
-        if (idglobal_type[i] & EXTERN_TYPE)
+        printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
+        for (i = 0; i < globals; i++)
         {
-            emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
-            printf("\t%s\t$10\t\t\t; EXTERNAL SYMBOL FLAG\n", DB);
-            printf("\t%s\t%d\t\t\t; ESD INDEX\n", DW, idglobal_tag[i]);
+            if (idglobal_type[i] & EXTERN_TYPE)
+            {
+                emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
+                printf("\t%s\t$10\t\t\t; EXTERNAL SYMBOL FLAG\n", DB);
+                printf("\t%s\t%d\t\t\t; ESD INDEX\n", DW, idglobal_tag[i]);
+            }
+            else if  (idglobal_type[i] & EXPORT_TYPE)
+            {
+                emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
+                printf("\t%s\t$08\t\t\t; ENTRY SYMBOL FLAG\n", DB);
+                printf("\t%s\t%s\t\t\n", DW, tag_string(idglobal_tag[i], idglobal_type[i]));
+            }
         }
-        else if  (idglobal_type[i] & EXPORT_TYPE)
-        {
-            emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
-            printf("\t%s\t$08\t\t\t; ENTRY SYMBOL FLAG\n", DB);
-            printf("\t%s\t%s\t\t\n", DW, tag_string(idglobal_tag[i], idglobal_type[i]));
-        }
+        printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
     }
-    printf("\t%s\t$00\t\t\t; END OF ESD\n", DB);
+    else
+    {
+        printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
+
+        for (i = 0; i < globals; i++)
+        {
+            if (idglobal_type[i] & EXTERN_TYPE)
+            {
+                printf("%s = _Y_%s\n", tag_string(idglobal_tag[i], idglobal_type[i]), supper(&idglobal_name[i][1]));
+            }
+            else if  (idglobal_type[i] & EXPORT_TYPE)
+            {
+                printf("_Y_%s = %s\n", supper(&idglobal_name[i][1]), tag_string(idglobal_tag[i], idglobal_type[i]));
+            }
+        }
+        printf("\t\t\t\t\t; END OF ESD\n");
+    }
 }
 void emit_trailer(void)
 {
@@ -437,8 +458,8 @@ void emit_trailer(void)
         printf("_DEFCNT\t=\t%d\n", defs);
         printf("_SEGEND%c\n", LBL);
         emit_rld();
-        emit_esd();
     }
+    emit_esd();
 }
 void emit_moddep(char *name, int len)
 {
@@ -448,6 +469,11 @@ void emit_moddep(char *name, int len)
             emit_dci(name, len);
         else
             printf("\t%s\t$00\t\t\t; END OF MODULE DEPENDENCIES\n", DB);
+    }
+    else
+    {
+        if (name)
+            printf("\t; IMPORT: %s\n", supper(name));
     }
 }
 void emit_sysflags(int val)
@@ -541,7 +567,7 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
         {
             int fixup = fixup_new(constval, consttype, FIXUP_WORD);
             datasize = 2;
-            if (consttype & EXTERN_TYPE)
+            if ((outflags & MODULE) && (consttype & EXTERN_TYPE))
                 printf("_F%03d%c\t%s\t0\t\t\t; %s\n", fixup, LBL, DW, tag_string(constval, consttype));
             else
                 printf("_F%03d%c\t%s\t%s\n", fixup, LBL, DW, tag_string(constval, consttype));
@@ -550,7 +576,7 @@ int emit_data(int vartype, int consttype, long constval, int constsize)
         {
             int fixup = fixup_new(constval, consttype, FIXUP_BYTE);
             datasize = 1;
-            if (consttype & EXTERN_TYPE)
+            if ((outflags & MODULE) && (consttype & EXTERN_TYPE))
                 printf("_F%03d%c\t%s\t0\t\t\t; %s\n", fixup, LBL, DB, tag_string(constval, consttype));
             else
                 printf("_F%03d%c\t%s\t%s\n", fixup, LBL, DB, tag_string(constval, consttype));
@@ -616,7 +642,7 @@ void emit_lab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$68\t\t\t; LAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -630,7 +656,7 @@ void emit_law(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$6A\t\t\t; LAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -668,7 +694,7 @@ void emit_sab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$78\t\t\t; SAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -682,7 +708,7 @@ void emit_saw(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7A\t\t\t; SAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
     {
@@ -696,7 +722,7 @@ void emit_dab(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7C\t\t\t; DAB\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
         printf("\t%s\t$7C,$%02X,$%02X\t\t; DAB\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
@@ -708,7 +734,7 @@ void emit_daw(int tag, int offset, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$7E\t\t\t; DAW\t%s+%d\n", DB, taglbl, offset);
-        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+        printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
     }
     else
         printf("\t%s\t$7E,$%02X,$%02X\t\t; DAW\t%d\n", DB, offset&0xFF,(offset>>8)&0xFF, offset);
@@ -722,7 +748,7 @@ void emit_globaladdr(int tag, int offset, int type)
     int fixup = fixup_new(tag, type, FIXUP_WORD);
     char *taglbl = tag_string(tag, type);
     printf("\t%s\t$26\t\t\t; LA\t%s+%d\n", DB, taglbl, offset);
-    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl, offset);
+    printf("_F%03d%c\t%s\t%s+%d\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl, offset);
 }
 void emit_indexbyte(void)
 {
@@ -783,7 +809,7 @@ void emit_call(int tag, int type)
         int fixup = fixup_new(tag, type, FIXUP_WORD);
         char *taglbl = tag_string(tag, type);
         printf("\t%s\t$54\t\t\t; CALL\t%s\n", DB, taglbl);
-        printf("_F%03d%c\t%s\t%s\t\t\n", fixup, LBL, DW, type & EXTERN_TYPE ? "0" : taglbl);
+        printf("_F%03d%c\t%s\t%s\t\t\n", fixup, LBL, DW, ((outflags & MODULE) && (type & EXTERN_TYPE)) ? "0" : taglbl);
     }
 }
 void emit_ical(void)
@@ -792,11 +818,19 @@ void emit_ical(void)
 }
 void emit_leave(void)
 {
-    emit_pending_seq();
     if (localsize)
-        printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+        pending_seq = gen_leave(pending_seq);
     else
-        printf("\t%s\t$5C\t\t\t; RET\n", DB);
+        pending_seq = gen_ret(pending_seq);
+    emit_pending_seq();
+}
+void emit_leave_internal(void)
+{
+    printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+}
+void emit_ret_internal(void)
+{
+    printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
 void emit_ret(void)
 {
@@ -967,6 +1001,126 @@ void release_seq(t_opseq *seq)
     }
 }
 /*
+ * Change a load word+modify using constant+store word sequence into an equivalent
+ * sequence operating only on the high byte of the word if possible; this can
+ * save a byte on the representation of the constant and the byte load/stores
+ * will be faster as well. It may also open up the possibility of using
+ * INCR/DECR if we are incrementing or decrementing a word by 256.
+ */
+int try_high_only(int pass, t_opseq *op, int store_code, int byte_load_code, int byte_store_code)
+{
+    t_opseq *opnext = op->nextop;
+    t_opseq *opnextnext = opnext->nextop;
+    t_opseq *opnextnextnext;
+    int pass0permitted = 0;
+    if (opnext->code != CONST_CODE)
+        return 0;
+    if (!opnextnext)
+        return 0;
+    opnextnextnext = opnextnext->nextop;
+    if (!opnextnextnext)
+        return 0;
+    if (opnextnextnext->code != store_code)
+        return 0;
+    if (op->offsz != opnextnextnext->offsz)
+        return 0;
+    switch (opnextnext->code)
+    {
+        case ADD_CODE:
+        case SUB_CODE:
+            if (opnext->val == 0x100)
+                pass0permitted = 1;
+            // fall through
+        case OR_CODE:
+        case EOR_CODE:
+            if ((opnext->val & 0xff) != 0)
+                return 0;
+            break;
+        case AND_CODE:
+            if ((opnext->val & 0xff) != 0xff)
+                return 0;
+            break;
+        default:
+            return 0;
+    }
+    // This optimisation can interfere with the generally more valuable
+    // transformation of store+load into duplicate-and-store. We therefore avoid
+    // performing it on pass 0, with the exception that where we have scope to
+    // generate INCR or DECR instructions we do it even then.
+    if ((pass == 0) && !pass0permitted)
+        return 0;
+    op->code = byte_load_code;
+    op->offsz++;
+    opnext->val = (opnext->val >> 8) & 0xff;
+    opnextnextnext->code = byte_store_code;
+    opnextnextnext->offsz++;
+    return 1;
+}
+/*
+ * Change a sequence like "SLW [0]:LAB 1024:LLW [0]:ISGT" into "DLW [0]:LAB
+ * 1024:ISLE".
+ */
+int try_swap(t_opseq* op, int load_code, int dup_store_code)
+{
+    t_opseq *opnext = op->nextop;
+    t_opseq *opnextnext = opnext->nextop;
+    t_opseq *opnextnextnext;
+    int invertediscode;
+    if (!opnextnext)
+        return 0;
+    opnextnextnext = opnextnext->nextop;
+    if (!opnextnextnext)
+        return 0;
+    switch (opnext->code)
+    {
+        case LAB_CODE:
+        case LAW_CODE:
+        case LLB_CODE:
+        case LLW_CODE:
+        case CONST_CODE:
+            break;
+        default:
+            return 0;
+    }
+    if ((opnextnext->code != load_code) || (opnextnext->offsz != op->offsz))
+        return 0;
+    if ((load_code == LAB_CODE) || (load_code == LAW_CODE))
+    {
+        if (opnextnext->type != op->type)
+            return 0;
+        if (op->type && (opnextnext->tag != op->tag))
+            return 0;
+    }
+    switch (opnextnextnext->code)
+    {
+        case LT_CODE:
+            invertediscode = GE_CODE;
+            break;
+        case LE_CODE:
+            invertediscode = GT_CODE;
+            break;
+        case EQ_CODE:
+            invertediscode = EQ_CODE;
+            break;
+        case NE_CODE:
+            invertediscode = NE_CODE;
+            break;
+        case GT_CODE:
+            invertediscode = LE_CODE;
+            break;
+        case GE_CODE:
+            invertediscode = LT_CODE;
+            break;
+        default:
+            return 0;
+    }
+    op->code = dup_store_code;
+    opnext->nextop = opnextnextnext;
+    release_op(opnextnext);
+    opnextnextnext->code = invertediscode;
+    return 1;
+}
+/*
  * Indicate if an address is (or might be) memory-mapped hardware; used to avoid
  * optimising away accesses to such addresses.
  */
@@ -981,7 +1135,7 @@ int is_hardware_address(int addr)
 /*
  * Replace all but the first of a series of identical load opcodes by DUP. This
  * doesn't reduce the number of opcodes but does reduce their size in bytes.
- * This is only called on the second optimisation pass because the DUP opcodes
+ * This is only called on the last optimisation pass because the DUP opcodes
  * may inhibit other peephole optimisations which are more valuable.
  */
 int try_dupify(t_opseq *op)
@@ -1038,6 +1192,9 @@ int crunch_seq(t_opseq **seq, int pass)
     {
         switch (op->code)
         {
+            case NOP_CODE:
+                freeops = -1;
+                break;
             case CONST_CODE:
                 if (op->val == 1)
                 {
@@ -1063,6 +1220,9 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 switch (opnext->code)
                 {
+                    case DROP_CODE:
+                        freeops = -2;
+                        break;
                     case NEG_CODE:
                         op->val = -(op->val);
                         freeops = 1;
@@ -1207,7 +1367,7 @@ int crunch_seq(t_opseq **seq, int pass)
                                     break;
                             }
                         // End of collapse constant operation
-                        if ((pass > 0) && (freeops == 0) && (op->val != 0))
+                        if ((pass > 1) && (freeops == 0) && (op->val != 0))
                             crunched = try_dupify(op);
                         break; // CONST_CODE
                     case BINARY_CODE(MUL_TOKEN):
@@ -1269,7 +1429,7 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // LADDR_CODE
             case GADDR_CODE:
@@ -1311,14 +1471,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         freeops   = 1;
                         break;
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // GADDR_CODE
             case LLB_CODE:
-                if (pass > 0)
-                    crunched = try_dupify(op);
+                if (pass > 1)
+                    crunched = crunched || try_dupify(op);
                 break; // LLB_CODE
             case LLW_CODE:
+                crunched = crunched || try_high_only(pass, op, SLW_CODE, LLB_CODE, SLB_CODE);
                 // LLW [n]:CB 8:SHR -> LLB [n+1]
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
@@ -1333,14 +1494,15 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-                if ((pass > 0) && (freeops == 0))
+                if ((pass > 1) && (freeops == 0))
                     crunched = try_dupify(op);
                 break; // LLW_CODE
             case LAB_CODE:
-                if ((pass > 0) && (op->type || !is_hardware_address(op->offsz)))
-                    crunched = try_dupify(op);
+                if ((pass > 1) && (op->type || !is_hardware_address(op->offsz)))
+                    crunched = crunched || try_dupify(op);
                 break; // LAB_CODE
             case LAW_CODE:
+                crunched = crunched || try_high_only(pass, op, SAW_CODE, LAB_CODE, SAB_CODE);
                 // LAW x:CB 8:SHR -> LAB x+1
                 if ((opnext->code == CONST_CODE) && (opnext->val == 8))
                 {
@@ -1355,9 +1517,9 @@ int crunch_seq(t_opseq **seq, int pass)
                         }
                     }
                 }
-                if ((pass > 0) && (freeops == 0) &&
+                if ((pass > 1) && (freeops == 0) &&
                     (op->type || !is_hardware_address(op->offsz)))
-                    crunched = try_dupify(op);
+                    crunched = crunched || try_dupify(op);
                 break; // LAW_CODE
             case LOGIC_NOT_CODE:
                 switch (opnext->code)
@@ -1375,21 +1537,24 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // LOGIC_NOT_CODE
             case SLB_CODE:
-                if ((opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
+                crunched = crunched || try_swap(op, LLB_CODE, DLB_CODE);
+                if (!crunched && (opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLB_CODE;
                     freeops = 1;
                 }
                 break; // SLB_CODE
             case SLW_CODE:
-                if ((opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
+                crunched = crunched || try_swap(op, LLW_CODE, DLW_CODE);
+                if (!crunched && (opnext->code == LLW_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLW_CODE;
                     freeops = 1;
                 }
                 break; // SLW_CODE
             case SAB_CODE:
-                if ((opnext->code == LAB_CODE) && (op->tag == opnext->tag) &&
+                crunched = crunched || try_swap(op, LAB_CODE, DAB_CODE);
+                if (!crunched && (opnext->code == LAB_CODE) && (op->tag == opnext->tag) &&
                     (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAB_CODE;
@@ -1397,7 +1562,8 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // SAB_CODE
             case SAW_CODE:
-                if ((opnext->code == LAW_CODE) && (op->tag == opnext->tag) &&
+                crunched = crunched || try_swap(op, LAW_CODE, DAW_CODE);
+                if (!crunched && (opnext->code == LAW_CODE) && (op->tag == opnext->tag) &&
                     (op->offsz == opnext->offsz) && (op->type == opnext->type))
                 {
                     op->code = DAW_CODE;
@@ -1445,6 +1611,146 @@ int crunch_seq(t_opseq **seq, int pass)
         op = opnext;
     }
     return (crunched);
+}
+/*
+ * Helper function for remove_stores(); records a store to a frame offset.
+ */
+void record_store(t_opseq *frame_store_op[], t_opseq *op, int offsz)
+{
+    t_opseq *previous_store_op;
+
+    if ((previous_store_op = frame_store_op[offsz]) != 0)
+    {
+        if (previous_store_op->count != 999)
+        {
+            // assert(previous_store_op->count > 0);
+            previous_store_op->count--;
+            if (previous_store_op->count == 0)
+            {
+                switch (previous_store_op->code)
+                {
+                    case SLB_CODE:
+                    case SLW_CODE:
+                        previous_store_op->code = DROP_CODE;
+                        break;
+
+                    case DLB_CODE:
+                    case DLW_CODE:
+                        previous_store_op->code = NOP_CODE;
+                        break;
+
+                    case LADDR_CODE:
+                        break;
+
+                    default:
+                        abort();
+                        break;
+                }
+            }
+        }
+    }
+
+    frame_store_op[offsz] = op;
+    op->count++;
+}
+/*
+ * Helper function for remove_stores(); records a load from a frame offset.
+ */
+void record_load(t_opseq *frame_store_op[], int offsz)
+{
+    t_opseq *previous_store_op;
+
+    if ((previous_store_op = frame_store_op[offsz]) != 0)
+    {
+        frame_store_op[offsz] = 0;
+        previous_store_op->count = 999;
+    }
+}
+/*
+ * Remove provably-redundant writes to local variables in a sequence
+ */
+void remove_stores(t_opseq **seq)
+{
+    enum { frame_size = 257 };
+    t_opseq *op = *seq;
+    int i;
+    // frame_store_op[i] points to the opcode (if any) which last stored to
+    // offset i in the local frame without any load from offset i having
+    // been seen since.
+    t_opseq *frame_store_op[frame_size] = {0};
+
+    for (; op; op = op->nextop)
+    {
+        // op->count indicates the number of bytes stored by an opcode
+        // which have not been overwritten by another store opcode; it may
+        // be 999 to indicate that a load has occurred of one or more bytes
+        // stored by the opcode (in which case the store cannot be optimised
+        // away). op->count is used to decide when all of a store's effects
+        // have become invisible due to later stores with no intervening loads;
+        // we need this complexity because we may do something like "SLW
+        // [0]:...:SLB [0]"; the first store is *not* redundant when the second
+        // occurs because the first populated the byte at [1], but a subsequent
+        // "SLB [1]" or "SLW [1]" does make the first store redundant.
+        // (Assuming, of course, that the "..." series of opcodes does not load
+        // bytes [0] or [1].)
+        op->count = 0;
+
+        switch (op->code)
+        {
+            case DLB_CODE:
+            case SLB_CODE:
+                record_store(frame_store_op, op, op->offsz);
+                break;
+            case DLW_CODE:
+            case SLW_CODE:
+                record_store(frame_store_op, op, op->offsz    );
+                record_store(frame_store_op, op, op->offsz + 1);
+                break;
+
+            case LLB_CODE:
+                record_load(frame_store_op, op->offsz);
+                break;
+            case LLW_CODE:
+                record_load(frame_store_op, op->offsz    );
+                record_load(frame_store_op, op->offsz + 1);
+                break;
+
+            case BRNCH_CODE:
+            case BRFALSE_CODE:
+            case BRTRUE_CODE:
+                // We have to assume that code reached via a branch can load
+                // anything from the frame.
+            case LB_CODE:
+            case LW_CODE:
+            case CALL_CODE:
+            case ICAL_CODE:
+                // We have to assume that there is an LLA taking the address of
+                // every local variable, so any LB or LW opcode could be loading
+                // from a local variable, and any CALL or ICAL could be calling
+                // a function which does this. (We can't simply check for LLA in
+                // this opcode sequence as it may occur elsewhere in the
+                // function; we'd need to be able to know whether it appears
+                // anywhere in the function body, but we don't have that global
+                // information here.)
+
+                for (i = 0; i < frame_size; ++i)
+                {
+                    record_load(frame_store_op, i);
+                }
+                break;
+
+            case LEAVE_CODE:
+                // LEAVE means we are exiting the function and its frame is
+                // going to be destroyed; we model this by storing to every
+                // byte of the frame, which will cause any older stores
+                // which haven't yet had a corresponding load to be discarded.
+                for (i = 0; i < frame_size; ++i)
+                {
+                    record_store(frame_store_op, op, i);
+                }
+                break;
+        }
+    }
 }
 /*
  * Generate a sequence of code
@@ -1534,8 +1840,11 @@ int emit_pending_seq()
     if (outflags & OPTIMIZE)
     {
         int pass;
-        for (pass = 0; pass < 2; pass++)
+        for (pass = 0; pass < 3; pass++)
+        {
             while (crunch_seq(&local_pending_seq, pass));
+            remove_stores(&local_pending_seq);
+        }
     }
     while (local_pending_seq)
     {
@@ -1664,6 +1973,14 @@ int emit_pending_seq()
                 break;
             case BRTRUE_CODE:
                 emit_brtru(op->tag);
+                break;
+            case LEAVE_CODE:
+                emit_leave_internal();
+                break;
+            case RET_CODE:
+                emit_ret_internal();
+                break;
+            case NOP_CODE:
                 break;
             default:
                 return (0);

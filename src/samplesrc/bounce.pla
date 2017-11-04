@@ -1,0 +1,255 @@
+// This is a manual translation of David Given's COWGOL bounce.cow program.
+// (https://github.com/davidgiven/cowgol/blob/592433a07ca03d8235b1364da2286e9b097e7e79/demo/bounce.cow)
+// 
+// Copyright (c) 2015 David Given
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 
+// 1. Redistributions of source code must retain the above copyright notice,
+//    this list of conditions and the following disclaimer.
+// 
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+//    
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+include "inc/acornc.plh"
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/dword.plh"
+include "inc/testlib.plh"
+
+const screen = $7C00
+const ball_count = 10
+
+struc t_ball
+    byte ball_x
+    byte ball_y
+    byte ball_dx
+    byte ball_dy
+end
+
+byte start[5]
+byte finish[5]
+
+byte balls[ball_count * t_ball]
+word rowtable[25]
+
+def setup_screen()#0
+    word ptr
+    byte line
+    ptr = screen
+    for line = 0 to 24
+        ^ptr = 147
+        rowtable[line] = ptr + 1
+        ptr = ptr + 40
+    next
+end
+
+def vsync()#0
+    call(osbyte, osbyte_wait_vertical_retrace, 0, 0, 0)
+end
+
+def putpixel(x, y, ink)#0
+    word xq, xr
+    word yq, yr
+    word ptr
+    word p
+    xq = x >> 1
+    xr = x & 1
+    yq, yr = divmod(y, 3)
+    ptr = rowtable[yq] + xq
+    p = 1<<((yr*2) + xr)
+    if (p & 32) <> 0
+        p = p | 64
+    fin
+    ^ptr = ^ptr & ~p | (p & ink) | 160
+end
+
+def draw_ball(ball, ink)#0
+    byte x, x1, x3
+    byte y, y1, y3
+    byte z
+    x = ball->ball_x
+    x1 = x+1
+    x3 = x+3
+    y = ball->ball_y
+    y1 = y+1
+    y3 = y+3
+    for z = 1 to 2
+        putpixel(x+z, y, ink)
+        putpixel(x+z, y3, ink)
+        putpixel(x, y+z, ink)
+        putpixel(x3, y+z, ink)
+    next
+end
+
+def init_balls()#0
+    word ball
+    byte i
+    for i = 0 to ball_count-1
+        ball = @balls + i*t_ball
+        ball->ball_x = i<<2
+        ball->ball_y = i<<2
+        ball->ball_dx = (i % 3) - 1
+        ball->ball_dy = ((i / 3) % 3) - 1
+    next
+end
+        
+def draw_balls(ink)#0
+    word ball
+    byte i
+    for i = 0 to ball_count-1
+        ball = @balls + i*t_ball
+        draw_ball(ball, ink)
+    next
+end
+
+def move_balls()#0
+    word ball
+    byte i
+    for i = 0 to ball_count-1
+        ball = @balls + i*t_ball
+        if ball->ball_x == 0
+            ball->ball_dx = 1
+        elsif ball->ball_x == 73
+            ball->ball_dx = -1
+        fin
+        if ball->ball_y == 0
+            ball->ball_dy = 1
+        elsif ball->ball_y == 70
+            ball->ball_dy = -1
+        fin
+
+        ball->ball_x = ball->ball_x + ball->ball_dx
+        ball->ball_y = ball->ball_y + ball->ball_dy
+    next
+end
+
+def time_delta(start, finish)#1
+    // We can get away with ignoring the fifth byte; the result will be
+    // correct unless there's a difference of more than one in the fifth
+    // byte, and that's just not going to happen.
+    byte delta_dword[4]
+    dword_sub(@delta_dword, finish, start)
+    if dword_isuword(@delta_dword)
+	return dword_touword(@delta_dword)
+    fin
+    return 0
+end
+
+def time(t)#0
+    call(osword, osword_read_time, t, t >> 8, 0)
+end
+
+mode(7)
+vsync()
+setup_screen()
+init_balls()
+
+time(@start)
+
+// while 1
+//     draw_balls($00)
+//     move_balls()
+//     draw_balls($FF)
+//     vsync()
+// loop
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    draw_balls($00)
+    move_balls()
+    draw_balls($FF)
+
+    time(@finish)
+    puti(time_delta(@start, @finish))
+
+done
