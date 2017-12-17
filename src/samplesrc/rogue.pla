@@ -1,6 +1,6 @@
 include "inc/cmdsys.plh"
 
-import roguemap
+import roguema // roguemap
   const xcentr     = 20
   const ycentr     = 12
   const scrnwidth  = 40
@@ -35,7 +35,7 @@ import roguemap
   predef drawvisentity(xofst, yofst, tile)#0
 end
 
-import roguecombat
+import rogueco // roguecombat
   predef fight(player, enemy)
   word entity, entities
 end
@@ -52,6 +52,8 @@ const maxview  = 19
 
 word xdir =  0,  1,  1,  1,  0, -1, -1, -1
 word ydir = -1, -1,  0,  1,  1,  1,  0, -1
+// TODO: *If* we ultimately end up wanting to use mode 6, we could use
+// eight UDGs with proper arrows instead of these ASCII makeshifts.
 byte vplayer = '^', '\\', '>', '/', 'v', '\\', '<', '/'
 byte totaldarkness = 0
 byte level = 0
@@ -226,7 +228,11 @@ def status#0
 end
 
 def clearstatus#0
-  memset($07D0, $A0A0, 40)
+  word i
+  gotoxy(0, statusline)
+  for i = 0 to 39
+    putc(' ')
+  next
 end
 
 //
@@ -625,7 +631,7 @@ end
 //
 
 puts(@namestr)
-instr = gets($BA)
+instr = gets(':')
 if ^instr > 15
   ^instr = 15
 fin

@@ -1,0 +1,21 @@
+// Part of multi-module program example; see sort.pla
+
+include "inc/cmdsys.plh"
+include "inc/testlib.plh"
+include "sort.plh"
+
+word i
+
+for i = 0 to size - 1
+    // Perform a pointless heap allocation just to prove that the heap
+    // allocated by this module is freed every time it returns.
+    heapalloc(1)
+
+    if ((array):[i] < 10)
+	putc(' ')
+    fin
+    puti((array):[i])
+    putc(' ')
+next
+
+done

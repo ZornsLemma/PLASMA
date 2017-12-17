@@ -1,0 +1,18 @@
+// TODO: Declare number of arguments and return values for these functions
+import stdio
+    const EOF = -1
+    const SEEK_SET = 0
+    const stdout = 0
+    predef fopen_prealloc(file, filename, mode)#1
+    predef fopen_heap(buffer_size, filename, mode)#1
+    predef fclose(file)#1
+    predef fflush(file)#1
+    predef fgetc(file)#1
+    predef fputc(c, file)#1
+    predef fputs(s, file)#1
+    predef fread(ptr, size, count, file)#1
+    predef fseek32(file, offset, origin)#1
+    predef fseek(file, offset, origin)#1
+end
+
+// vi: sts=4 sw=4

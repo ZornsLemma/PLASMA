@@ -1,0 +1,52 @@
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/acornc.plh"
+
+const eof = -1 // TODO: keep this? not sure
+
+asm equates
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+    !SOURCE "vmsrc/acornc.inc"
+end
+
+// void call_osbput(byte c, int handle)
+export asm call_osbput(c, handle)#0
+    LDA ESTKL+1,X
+    LDY ESTKL,X
+    INX
+    INX
+    JMP OSBPUT
+end
+
+// int call_osbget(int handle) - returns byte read or eof (-1)
+export asm call_osbget(handle)#1
+    LDY ESTKL,X
+    JSR OSBGET
+    LDY #0
+    BCC NOTEOF
+    DEY
+    TYA
+NOTEOF
+    STA ESTKL,X
+    STY	ESTKH,X
+    RTS
+end
+
+
+def call_osfind_open_internal(a, filename, filename_cr)#1
+    stocr(filename, filename_cr)
+    return call(osfind, a, filename_cr, filename_cr >> 8, 0).0
+end
+
+export def call_osfind_open(a, filename)#1
+    return 0 // SFTODO TEMP HACK return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
+end
+
+// TODO: Get rid of call_osrdch()? We have getc() and the call() line is not
+// exactly rocket science if getc() isn't good enough.
+export def call_osrdch()#1
+    return call(osrdch, 0, 0, 0, 0).0
+end
+
+// vi: sts=4 sw=4

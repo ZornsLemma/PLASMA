@@ -140,18 +140,57 @@ const scrnheight = 22
 // Buffer to void checks in octant caster
 //
 
+byte[scrnwidth*(scrnheight+1)] emscreen
 byte[scrnwidth] linebuffer
 
-word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
-word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
-
-word[] screen
-word = $400, $480, $500, $580, $600, $680, $700, $780
-word = $428, $4A8, $528, $5A8, $628, $6A8, $728, $7A8
-word = $450, $4D0, $550, $5D0, $650, $6D0, $750, @linebuffer // $7D0
+// I think these @linebuffer elements before and after the 'real' lines
+// in screen are to allow writes "off screen" without it actually corrupting
+// any significant memory.
 
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
+
+word[34] screen
+
+// TODO: There might be a performance improvement to be had by not writing
+// spaces via OSWRCH - we clear the screen at the start so no need to do
+// anything to write a space. We'd need to do something like count up how
+// many spaces we've skipped and move the cursor to the right place when
+// we see the next non-space. Or perhaps we could get rid of the clear 
+// screen if we continue to write spaces (but my suspicion is that wouldn't
+// be such an improvement).
+asm drawscreen(scrn)#1 // SFTODO: CAN POSSIBLY MAKE THIS #0
+	BBC=1
+	!SOURCE "vmsrc/plvmzp.inc"
+	LDA #12
+	JSR $FFEE
+	LDA ESTKL,X
+	STA TMPL
+	LDA ESTKH,X
+	STA TMPH
+	STX ESP
+	LDX #22
+-	LDY #0
+--	LDA (TMP),Y
+	AND #$7F
+	CMP #32
+	BCS ++
+	LDA #32
+++	JSR $FFEE
+	INY
+	CPY #40
+	BNE --
+	CLC
+	LDA TMPL
+	ADC #40
+	STA TMPL
+	BCC +
+	INC TMPH
++	DEX
+	BPL -
+	LDX ESP
+	RTS
+end
 
 //
 // Load map - levels 0 to 9
@@ -748,6 +787,7 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
         break
     wend
   next
+  drawscreen(@emscreen)
   return darkness
 end
 
@@ -756,9 +796,27 @@ end
 //
 
 export def drawvisentity(xofst, yofst, tile)#0
-  if screen.[ycentr+yofst, xcentr+xofst] < $80
-    screen.[ycentr+yofst, xcentr+xofst] = tile
+  word x, y
+  x = xcentr+xofst
+  y = ycentr+yofst
+  if screen.[y, x] < $80
+    screen.[y, x] = tile
+    if x >= 0 and x < scrnwidth and y >= 0 and y <= scrnheight
+      putc(31)
+      putc(x)
+      putc(y)
+      putc(tile)
+    fin
   fin
 end
 
+// We use map as a temporary working variable here
+for map = 0 to 22
+  screen[map] = @emscreen + map*40
+next
+for map = 23 to 33
+  screen[map] = @linebuffer
+next
+// We must reset map to 0 afterwards
+map = 0
 done

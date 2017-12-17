@@ -4,6 +4,7 @@ typedef struct _opseq {
     int tag;
     int offsz;
     int type;
+    int count;
     struct _opseq *nextop;
 } t_opseq;
 #define UNARY_CODE(tkn)  ((tkn)|0x0100)
@@ -66,6 +67,8 @@ typedef struct _opseq {
 #define BRTRUE_CODE 0x031E
 #define CODETAG_CODE 0x031F
 #define NOP_CODE    0x0320
+#define LEAVE_CODE  0x0321
+#define RET_CODE    0x0322
 
 #define gen_uop(seq,op)     gen_seq(seq,UNARY_CODE(op),0,0,0,0)
 #define gen_op(seq,op)      gen_seq(seq,BINARY_CODE(op),0,0,0,0)
@@ -88,6 +91,8 @@ typedef struct _opseq {
 #define gen_brnch(seq,tag)  gen_seq(seq,BRNCH_CODE,0,tag,0,0)
 #define gen_codetag(seq,tag) gen_seq(seq, CODETAG_CODE,0,tag,0,0)
 #define gen_nop(seq)        gen_seq(seq,NOP_CODE,0,0,0,0)
+#define gen_leave(seq)      gen_seq(seq,LEAVE_CODE,0,0,0,0)
+#define gen_ret(seq)        gen_seq(seq,RET_CODE,0,0,0,0)
 
 void emit_flags(int flags);
 void emit_header(void);

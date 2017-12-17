@@ -1,0 +1,151 @@
+// Personal Computer World benchmarks (from December 1986 issue)
+
+// TODO: this uses puti() for output but that treats its argument as
+// signed, which isn't strictly correct and gives invalid results if
+// the times are very high.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/dword.plh"
+include "inc/acornc.plh"
+
+byte textscrnstr[] = "textscrn"
+byte grafscrnstr[] = "grafscrn"
+
+// Benchmark start/finish times
+byte start[5]
+byte finish[5]
+
+struc t_result
+    word r_next
+    word r_name
+    word r_time
+end
+
+word results_head = 0
+word results_tail_ptr = @results_head
+
+// plot(x, y)
+// TODO: Obviously it's slightly out of order to be using assembler in
+// this benchmark, but this could be trivially "promoted" into a standard
+// library, so I don't think it's terribly unreasonable.
+// TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
+asm plot(x, y)#0
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+    LDA #25
+    JSR $FFEE
+    LDA #69
+    JSR $FFEE
+    LDA ESTKL+1,X
+    JSR $FFEE
+    LDA ESTKH+1,X
+    JSR $FFEE
+    LDA ESTKL,X
+    JSR $FFEE
+    LDA ESTKH,X
+    INX
+    INX
+    JMP $FFEE
+end
+
+def puti(i)#0
+  if i < 0; putc('-'); i = -i; fin
+  if i < 10
+    putc(i + '0')
+  else
+    puti(i / 10)
+    putc(i % 10 + '0')
+  fin
+end
+
+def time_delta(start, finish)#1
+    // We can get away with ignoring the fifth byte; the result will be
+    // correct unless there's a difference of more than one in the fifth
+    // byte, and that's just not going to happen.
+    byte delta_dword[4]
+    dword_sub(@delta_dword, finish, start)
+    if dword_isuword(@delta_dword)
+	return dword_touword(@delta_dword)
+    fin
+    return 0
+end
+
+def log_time(name)#0
+    word result
+
+    result = heapalloc(t_result)
+    result=>r_next = 0
+    result=>r_name = name
+    result=>r_time = time_delta(@start, @finish)
+    *results_tail_ptr = result
+    results_tail_ptr = result+r_next
+end
+
+def show_times()#0
+    word p, i
+    p = results_head
+    while p <> 0
+	puts(p=>r_name)
+	for i = 1 to 10 - ^(p=>r_name)
+	    putc(' ')
+	next
+	// TODO: Would be nice to align the decimal points
+	puti(p=>r_time / 100)
+	putc('.')
+	puti(p=>r_time % 100)
+	putc('s')
+	putln()
+	p = p=>r_next
+    loop
+end
+
+def time(t)#0
+    call(osword, osword_read_time, t, t >> 8, 0)
+end
+
+// Actual benchmarks
+
+def textscrn()#0
+    word i
+    if not mode(3)
+	oserror(0, "Bad mode")
+    fin
+    time(@start)
+    puts("Start\n")
+    for i = 1 to 1000
+	puts("1234567890qwertyuiop ")
+	puti(i)
+	putln()
+    next
+    puts("Finish\n")
+    time(@finish)
+    log_time(@textscrnstr)
+end
+
+def grafscrn()#0
+    word x, y
+    const x_scale = 8
+    const y_scale = 4
+    if not mode(5)
+	oserror(0, "Bad mode")
+    fin
+    time(@start)
+    puts("Start\n")
+    for x = 1*x_scale to 100*x_scale step x_scale
+	for y = 1*y_scale to 100*y_scale step y_scale
+	    plot(x, y)
+	next
+    next
+    puts("Finish\n")
+    time(@finish)
+    log_time(@grafscrnstr)
+end
+
+textscrn()
+grafscrn()
+mode(7)
+show_times()
+done
+
+// vi: sts=4 sw=4

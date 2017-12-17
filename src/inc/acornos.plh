@@ -1,0 +1,16 @@
+// Functions to access the Acorn OS
+//
+// Most of the time it's easiest just to use the call() function with
+// the constants in acornc.plh, but there are some cases where
+// convenience or performance make a special wrapper worthwhile.
+//
+// See also call_oscli() and oserror() in inc/cmdsysac.plh; those are part of
+// the core VM and using them doesn't create an extra dependency or pull in
+// extra code at runtime.
+
+import acornos
+  predef call_osfind_open(a, filename)#1
+  predef call_osbput(c, handle)#0, call_osbget(handle)#1
+  predef call_osrdch()#1
+  const eof = -1 // TODO: delete if not needed eventually
+end

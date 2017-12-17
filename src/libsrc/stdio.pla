@@ -1,0 +1,642 @@
+// Experimental C-style stdio
+
+// TODO: possibly more functions should "support" a stdio FILE to the
+// extent of checking for it and returning a failure indicator. But
+// I'm not sure I want the overhead.
+
+// TODO: stdin support?
+
+// TODO: ungetc(), fwrite() are completely untested
+
+// TODO: ftell()/ftell32()
+
+// TODO: rewind()?
+
+// TODO: feof()
+
+// TODO: ferror()?
+
+// TODO: careful I haven't been too tight with the sizes of the
+// control blocks for my OS calls - need to be sure on second processor
+// it won't copy a larger control block back than I'm expecting and
+// smash some other data
+
+// TODO: could produce an alternate stdio implementation which is a thin
+// wrapper around the OS calls. If do that, compare performance with this
+// one and if this is slower then either ditch it or fix the problem!
+
+// TODONOW: fwrite()
+
+// TODO: If we allow BRK errors to escape, we need to be sure that the
+// FILE object is left in a valid state afterwards ("exception safety")
+
+// TODO: Error handling - notes:
+//
+// There are two possibilities:
+//
+// "native" API - we can allow OS errors to escape and expect the caller to
+// install an error handler via *errjb (or accept that an error will cause
+// termination of the program to the prompt) at a suitable point.
+//
+// "portable" API - we can install an error handler via *errjb inside these
+// functions and indicate errors via the appropriate return codes.
+//
+// Pros and cons:
+//
+// A native API is likely to be faster and simpler, as it doesn't need to faff
+// with setjmp() or pay the associated performance penalty.
+//
+// A portable API could be re-implemented on a non-Acorn platform and a program
+// written to use it would work on that other platform with hopefully no
+// changes required.
+//
+// A portable API could not have a "naive" implementation which is just a thin
+// wrapper around the Acorn OS calls (e.g. fgetc() wraps OSBGET), as the
+// overhead of setjmp() on each fgetc() would be unreasonably high. The
+// internal buffer on this implementation means "most" API functions don't need
+// to make OS calls most of the time, which reduces the setjmp() overhead. A
+// "naive" implementation would either need to be a loose implementation (e.g.
+// fseek() might cause the file to grow, since it would just be a naive OSARGS
+// call to move PTR#) or it would need to contain internal logic anyway, which
+// might mean it's just not worth it anyway.
+//
+// A portable API might be preferable for use with a hypothetical C compiler
+// targetting the PLASMA VM, as existing C code compiled with it would expect
+// the stdio functions to return error codes and wouldn't handle BRK-style
+// errors. But the stdio code could be tweaked or rewritten for that use case.
+
+include "inc/acornos.plh"
+include "inc/cmdsys.plh"
+include "inc/dword.plh"
+include "inc/testlib.plh"
+include "inc/acornc.plh"
+
+const TRUE = -1
+const FALSE = 0
+
+// TODO: These are duplicated in stdio.plh, is this avoidable?
+const stdout = 0
+const EOF = -1
+const SEEK_SET = 0
+
+// This should normally be $0000, but it's handy for testing to be able
+// to alter it.
+const empty_fill = $2B2B // TODO: Change back!
+
+const scratch = $79
+
+// Note that the buffer size is a word; this means that an application can
+// choose to allocate virtually the entire heap as a buffer for a single file
+// if it wishes. TODO: However, I wonder if this has much value - if you're do
+// serial access it's probably not important, and if you're doing random access
+// the benefits from a larger buffer are probably outweighed by the fact that
+// "buffer misses" then need to read/write a much larger chunk of data. I think
+// some kind of block-based caching layer (perhaps with the ability for stdio
+// to use it instead of talking directly to OSGBPB) would be the answer for
+// random access, and that complexity should be separate from stdio. It may
+// therefore be best to restrict the buffer to 256 bytes, and perhaps even to
+// make it always exactly 256 bytes.
+struc t_FILE
+    byte r_handle
+    byte r_eof // TODO: possibly 'flags' not just 'eof'? note that currently this means EOF *for OSGBPB* but not that we've returned all bytes via fgetc()
+    byte r_dirty // TODO: possibly 'flags' byte?
+    byte r_append // TODO: move into flags byte?
+    word r_pushback // TODO: word so we can set EOF for no pushback - could make this a byte if we have a 'pushback valid' bit in a flags byte
+    word r_buffer_used
+    word r_buffer_size
+    byte r_length[4] // conceptual length; OS length may be shorter if we've extended and not yet flushed
+    byte r_buffer_file_ptr[4]
+    byte r_file_ptr[4]
+    byte r_buffer // buffer_size bytes
+end
+
+#ifdef DEBUG
+
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+def debug_dump_file(prefix, file)
+    puts(prefix)
+    puts(": "); prbyte(file->r_handle)
+    putc('/'); prword(file + r_buffer)
+    puts(", f/bptr/l "); prword(file=>r_file_ptr:2); prword(file=>r_file_ptr:0)
+    putc('/'); prword(file=>r_buffer_file_ptr:2); prword(file=>r_buffer_file_ptr:0)
+    putc('/'); prword(file=>r_length:2); prword(file=>r_length:0)
+    puts(", bs/u "); prword(file=>r_buffer_size)
+    putc('/'); prword(file=>r_buffer_used)
+    puts(", f: ")
+    if file->r_eof
+	putc('E')
+    fin
+    if file->r_dirty
+	putc('D')
+    fin
+    putln()
+end
+
+// TODO: COMMENT OUT IN FINAL VSN
+def debug_dump_osgbpb(a, block)
+    puts("OSGBPB "); prbyte(a)
+    puts(": "); prbyte(block->0)
+    puts(", addr "); prword(block=>3); prword(block=>1)
+    puts(", size "); prword(block=>7); prword(block=>5)
+    puts(", fptr "); prword(block=>11); prword(block=>9)
+    putln()
+end
+
+#endif
+
+// TODO: MAKE THIS A STD LIBRARY FUNCTION? IF DO SO THINK ABOUT THE NAME, SHOULD IT BE UMIN??
+def minu(lhs, rhs)
+    if isult(lhs, rhs)
+	return lhs
+    else
+	return rhs
+    fin
+end
+
+// void get_length(dword *length, int handle)
+def get_length(length, handle)
+    // The AUG says "the control block always resides in the I/O processor's
+    // memory, regardless of the existence of a Tube processor", but I don't
+    // think this is true, as a) a look at the source code of the tube host
+    // code and the 6502 tube client code shows the four bytes being copied
+    // across the tube (and the host always using &00 in zero page for the
+    // control block) b) this code does seem to work on a second processor.
+    // I suspect the AUG means that if you use OSARGS with A=1 to read the
+    // address of the command line, the command line address returned in the
+    // zero page control block is in the I/O processor.
+    call(osargs, osargs_read_ext, scratch, handle, 0)
+    // It's tempting to do "memcpy(length, scratch, 4)" here but BeebEm has
+    // a bug (it doesn't wrap (zp),Y addressing at the top of memory) which
+    // stops memcpy to zero page working, so we just do this.
+    length=>0 = scratch:0
+    length=>2 = scratch:2
+end
+
+// TODO BENCHMARK IT, BUT MAY WANT TO WRITE THE 'IN MEMORY' BRANCH OF FGETC AND
+// FPUTC IN ASSEMBLER - BUT DON'T GO NUTS, BECAUSE ASSEMBLER ALWAYS BURNS
+// MAIN RAM, WHEREAS BYTECODE CAN BE IN SWR ON PLAS128 - PROBABLY A GOOD IDEA
+// TO LET THE CODE "BED IN" BEFORE DOING THIS, AS I WILL PROBABLY STUMBLE
+// ACROSS BUGS AS I USE IT, AND LOOKING AT IT WITH FRESH EYES MAY MAKE SOME
+// ERRORS GLARINGLY OBVIOUS
+
+// FILE *fopen_prealloc(FILE *file, const char *filename, const char *mode)
+// Expects 'file' to point to a large enough block of memory with the
+// r_buffer_size element filled in (to represent the size of the buffer,
+// not the size of the whole memory block). Returns 'file' on success or
+// 0 on error.
+export def fopen_prealloc(file, filename, mode)#1
+    byte base_mode, update, i, c, osfind_mode, handle
+    // TODO: error handling
+    base_mode = 'r'
+    update = FALSE
+    for i = 1 to ^mode
+	c = (mode).[i]
+	if c == 'r' or c == 'w' or c == 'a'
+	    base_mode = c
+	elsif c == '+'
+	    update = TRUE
+	fin
+	// We ignore anything else, including 'b' - PLASMA's '\n' is
+	// ASCII CR (13) which is exactly what we want so text and
+	// binary modes are equivalent.
+    next
+    file->r_append = (base_mode == 'a')
+    when base_mode
+	is 'r'
+	    if update
+		osfind_mode = osfind_update
+	    else
+		osfind_mode = osfind_input
+	    fin
+	    break
+	is 'w'
+	    osfind_mode = osfind_output
+	    break
+	is 'a'
+	    osfind_mode = osfind_update
+	    break
+    wend
+    handle = call_osfind_open(osfind_mode, filename)
+    if base_mode == 'w' and update and handle <> 0
+	// "w+" must truncate the file if it exists; we opened it in write
+	// mode to get this behaviour, we now need to re-open it in update
+	// mode.
+	call(osfind, osfind_close, 0, handle, 0)
+	handle = call_osfind_open(osfind_update, filename)
+    elsif file->r_append and handle == 0
+	// "a" must create the file if it doesn't exist but OSFIND's update
+	// mode doesn't ever create the file, so we do it explicitly if the
+	// open failed.
+	handle = call_osfind_open(osfind_output, filename)
+	if handle == 0
+	    return 0
+	fin
+	call(osfind, osfind_close, 0, handle, 0)
+	handle = call_osfind_open(osfind_update, filename)
+    fin
+    if handle == 0
+	return 0
+    fin
+
+    file->r_handle = handle
+    file->r_eof = FALSE
+    file->r_dirty = FALSE
+    file=>r_pushback = EOF
+    file=>r_buffer_used = 0
+    get_length(file + r_length, handle)
+    dword_fromuword(file + r_file_ptr, 0)
+    dword_fromuword(file + r_buffer_file_ptr, 0)
+#ifdef DEBUG
+    debug_dump_file("fopen->", file)
+#endif
+    return file
+end
+
+// FILE *fopen_heap(size_t buffer_size, const char *filename, const char *mode)
+// Returns a pointer to a heap-allocated FILE or 0 on error
+export def fopen_heap(buffer_size, filename, mode)#1
+    word file
+    file = heapalloc(t_FILE - 1 + buffer_size)
+    if file == 0
+	// TODO: do we need to save the reason for failure so it can be queried?
+	return file
+    fin
+    file=>r_buffer_size = buffer_size
+    return fopen_prealloc(file, filename, mode)
+end
+
+// word fflush(FILE *file) - returns 0 on success, EOF on error
+// TODO: CURRENTLY THIS NEVER RETURNS EOF
+export def fflush(file)#1
+    byte block[13], length[4], size_delta[4]
+    const zero_size = 128
+    byte zero[zero_size]
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fflush-<", file)
+#endif
+    if file->r_dirty
+	// If the first byte in the buffer comes after the current end of the file,
+	// specifying the appropriate file pointer in the OSGBPB 1 call would cause
+	// the filing system to extend the file with undefined contents. So we have
+	// to emit zeros to grow the file to the appropriate length first. We can't
+	// use r_length here as we need the length of the file on disc.
+	get_length(@length, file->r_handle)
+	if dword_isugt(file + r_buffer_file_ptr, @length)
+	    memset(@zero, empty_fill, zero_size)
+	    while dword_isugt(file + r_buffer_file_ptr, @length)
+		dword_sub(@size_delta, file + r_buffer_file_ptr, @length)
+		block.0 = file->r_handle
+		block:1 = @zero
+		block:3 = 0 // TODO: Probably want machine high order address
+		if not dword_isuword(@size_delta)
+		    block:5 = zero_size
+		else
+		    block:5 = minu(zero_size, dword_touword(@size_delta))
+		fin
+		block:7 = 0
+		block:9 = length:0
+		block:11 = length:2
+		dword_adduword(@length, @length, block:5)
+#ifdef DEBUG
+		debug_dump_osgbpb(1, @block)
+#endif
+		call(osgbpb, osgbpb_write_using_new_ptr, @block, @block >> 8, 0) // TODO: BRK on error or can it return something?
+	    loop
+	fin
+
+	// Now we can actually write the buffer out
+	block.0 = file->r_handle
+	block:1 = file + r_buffer
+	block:3 = 0 // TODO: Probably want machine high order address
+	block:5 = file=>r_buffer_used
+	block:7 = 0
+	block:9 = file=>r_buffer_file_ptr:0
+	block:11 = file=>r_buffer_file_ptr:2
+#ifdef DEBUG
+	debug_dump_osgbpb(1, @block)
+#endif
+	call(osgbpb, osgbpb_write_using_new_ptr, @block, @block >> 8, 0) // TODO: BRK on error or can it return something?
+
+	file->r_dirty = FALSE
+#ifdef DEBUG
+	debug_dump_file("fflush->", file)
+#endif
+    fin
+    return 0
+end
+
+// TODO: PROTOTYPE
+def fill_buffer(file)
+    byte block[13]
+    byte length[4]
+
+    // TODO: This doesn't check for the case where r_file_ptr is >= r_length
+    // but would fit within the buffer; in that case we could choose to grow
+    // the buffer as fputc() does and not flush the buffer. It works as it is,
+    // but it means the buffer will be flushed unnecessarily sometimes.
+    if fflush(file) == EOF
+	return EOF
+    fin
+
+    // TODO: create a dword_assign rather than using these :0 and :2 pairs in various places?
+    // If we specify a file pointer past the end of the file, OSGBPB 3 will (at
+    // least on Acorn DFS 2.24) grow the file; this may not be defined behaviour, and
+    // even if it is presumably the gap is allowed to be filled with arbitrary
+    // data. In any case, we don't *want* to grow the file here (only seek+write should
+    // do so), so we don't call OSGBPB 3 if this is the case. We need the length of the
+    // file on disc, not the conceptual length, but since we just called fflush() the
+    // two are the same.
+    block:5 = file=>r_buffer_size
+    if not dword_isuge(file + r_file_ptr, file + r_length)
+	block.0 = file->r_handle
+	block:1 = file + r_buffer
+	block:3 = 0 // TODO: Probably want machine high order address
+	block:7 = 0
+	block:9 = file=>r_file_ptr:0
+	block:11 = file=>r_file_ptr:2
+	// We ignore the carry returned by OSGBPB; BeebWiki says it's not
+	// returned consistently, so we just use the updated number of bytes.
+#ifdef DEBUG
+	debug_dump_osgbpb(3, @block)
+#endif
+	call(osgbpb, osgbpb_read_using_new_ptr, @block, @block >> 8, 0)
+    fin
+    file=>r_buffer_file_ptr:0 = file=>r_file_ptr:0
+    file=>r_buffer_file_ptr:2 = file=>r_file_ptr:2
+    file=>r_buffer_used = file=>r_buffer_size - block:5
+    if block:5 <> 0
+	file->r_eof = TRUE
+    fin
+    return 0
+end
+
+def file_ptr_in_buffer(file)
+    byte buffer_used_ptr[4]
+    dword_adduword(@buffer_used_ptr, file + r_buffer_file_ptr, file=>r_buffer_used)
+    // TODO: next line doesn't short-circuit evaluate, could rewrite to get that behaviour
+    return dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_used_ptr))
+end
+
+// word fgetc(FILE *file)
+// TODO ERROR HANDLING (NOT JUST EOF)
+// TODO: magic constants everywhere
+export def fgetc(file)#1
+    byte c
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fgetc-<", file)
+#endif
+
+    if file=>r_pushback <> EOF
+	c = file=>r_pushback
+	file=>r_pushback = EOF
+	dword_inc(file + r_file_ptr)
+	return c
+    fin
+
+    if file_ptr_in_buffer(file)
+	c = ^(file + r_buffer + file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0)
+	dword_inc(file + r_file_ptr)
+#ifdef DEBUG
+	debug_dump_file("fgetc->", file)
+#endif
+	return c
+    else
+	if file->r_eof
+	    return EOF
+	fin
+
+	// The relevant byte isn't in the buffer, so we try to read it in. It
+	// may not exist if r_file_ptr is past EOF.
+	// TODO: Not specific to stdio, but some sort of utility function which
+	// allows assembler to call back into a PLASMA compile function (ideally
+	// looked up at module load time once) would be handy for allowing an
+	// assembler version of this to call fill_buffer() [file_ptr_in_buffer()
+	// would be written inline as assembler]
+	if fill_buffer(file) == EOF
+	    return EOF
+	fin
+#ifdef DEBUG
+	debug_dump_file("fgetc-!", file)
+#endif
+	// TODO: This code is now sufficiently simple it may be easiest to call
+	// fill_buffer if necessary early on and then just do the simple fgetc()
+	// case without calling back into itself.
+	return fgetc(file)
+    fin
+end
+
+// word fputc(char c, FILE *file) - returns c on success, EOF on error
+export def fputc(c, file)#1
+    byte buffer_end_ptr[4]
+    word index
+    if file == stdout
+	putc(c)
+	if c == '\n' // TODO: use OSASCI, ideally via assembly
+	    putc('\r')
+	fin
+	return c
+    fin
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fputc-<", file)
+#endif
+
+    // Discard any pushback character; this conceptually exists at the
+    // current file pointer and we're going to overwrite it.
+    // TODO: should we defer this until we know we aren't going to
+    // experience an error?
+    file=>r_pushback = EOF
+
+    if file->r_append
+	file=>r_file_ptr:0 = file=>r_length:0
+	file=>r_file_ptr:2 = file=>r_length:2
+	// TODO: THIS IS SEEK-LIKE, FACTOR OUT COMMON CODE?
+	// TODO: DOES THIS NEED TO DO ANYTHING WITH EOF FLAG? - I THINK IT CAN LEAVE IT ALONE, WHICH IS NOT SEEK LIKE, SO BE CAREFUL IF FACTORING OUT
+    fin
+
+    dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, file=>r_buffer_size)
+    if dword_isuge(file + r_file_ptr, file + r_buffer_file_ptr) and dword_isult(file + r_file_ptr, @buffer_end_ptr)
+	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
+	^(file + r_buffer + index) = c
+	dword_inc(file + r_file_ptr)
+	index++
+	file->r_dirty = TRUE
+
+	// If a seek means we've grown the buffer, we need to clear any gap 
+	// created.
+	if isugt(index, file=>r_buffer_used)
+	    memset(file + r_buffer + file=>r_buffer_used, empty_fill, index - file=>r_buffer_used - 1)
+	    file=>r_buffer_used = index
+	    // This may also have increased the conceptual length of the file.
+	    dword_adduword(@buffer_end_ptr, file + r_buffer_file_ptr, index)
+	    if dword_isugt(@buffer_end_ptr, file + r_length)
+		file=>r_length:0 = buffer_end_ptr:0
+		file=>r_length:2 = buffer_end_ptr:2
+	    fin
+	fin
+
+#ifdef DEBUG
+	debug_dump_file("fputc->", file)
+#endif
+	return c
+    else
+	if fill_buffer(file) == EOF
+	    return EOF
+	fin
+#ifdef DEBUG
+	debug_dump_file("fputc-!", file)
+#endif
+	return fputc(c, file)
+    fin
+end
+
+// TODO: DOCUMENT/PROTOTYPE
+// TODO: I THINK IT'S ACCEPTABLE TO DO UNGETC() WITHOUT READING ANY BYTES - THIS CURRENT IMPLEMENTATION WOULD DECREMENT FILE_PTR BACK PAST 0 IN THIS CASE - NOT SURE EXACTLY HOW TO HANDLE THIS
+export def ungetc(c, file)
+    // TODO
+    if c == EOF or file=>r_pushback <> EOF
+	return EOF
+    fin
+    file->r_eof = FALSE
+    file=>r_pushback = c
+    dword_dec(file + r_file_ptr)
+    // TODO: Should probably explicitly return something...
+end
+
+// TODO: write this in assembler?
+// int fputs(const char *s, FILE *file) - returns nonnegative on success, EOF on error
+export def fputs(s, file)#1
+    word i, len
+    len = ^s
+    while len > 0
+	s++
+	len--
+	if fputc(^s, file) == EOF
+	    return EOF
+	fin
+    loop
+    return 1
+end
+
+// int fread(void *ptr, size_t size, size_t count, FILE *file)
+// Returns number of records of 'size'-bytes; error or EOF
+// indicated by returning a number less than count. TODO: make that so!
+export def fread(ptr, size, count, file)#1
+    byte bytes_available[4]
+    word bytes_to_read, index, bytes_from_buffer
+
+#if defined(DEBUG) && DEBUG > 1
+    debug_dump_file("fread-<", file)
+#endif
+
+    // This must be a no-op if size or count is 0. We could nearly just let
+    // this go through the normal control flow, but that might set the EOF 
+    // flag if the file pointer is at or past the length.
+    if size == 0 or count == 0
+	return 0
+    fin
+
+    // We can assume count * size fits in a 16-bit unsigned word, as the
+    // returned data could be that large and the address space is only 16-bit.
+
+    // If the file pointer is at or past the length, signal EOF.
+    if dword_isuge(file + r_file_ptr, file + r_length)
+	file->r_eof = TRUE
+	return 0
+    fin
+
+    // Adjust 'count' if necessary to reflect the amount of data left; we will
+    // only try to read this many records, so we can't encounter EOF in the
+    // rest of this function.
+    dword_sub(@bytes_available, file + r_length, file + r_file_ptr)
+    if dword_isuword(@bytes_available)
+	// TODO: Will this work if @bytes_available has b15 set? We need unsigned
+	// division rounding down.
+	count = minu(count, dword_touword(@bytes_available) / size)
+    else
+	// More than 64K available to read, so we can return the full 'count'
+	// records requested.
+    fin
+
+    bytes_to_read = count * size
+
+    // Handle any pushed back character
+    if file=>r_pushback <> EOF and bytes_to_read <> 0
+	^ptr = file=>r_pushback
+	ptr++
+	bytes_to_read--
+	file=>r_pushback = EOF
+	dword_inc(file + r_file_ptr)
+    fin
+	
+    // Do we have any bytes in the buffer to start with?
+    if file_ptr_in_buffer(file)
+	index = file=>r_file_ptr:0 - file=>r_buffer_file_ptr:0
+    else
+	index = file=>r_buffer_used // no bytes in buffer
+    fin
+
+    // We know we're reading at least one record if we get this far.
+    while TRUE
+	bytes_from_buffer = minu(file=>r_buffer_used - index, bytes_to_read)
+	memcpy(ptr, file + r_buffer + index, bytes_from_buffer)
+	ptr = ptr + bytes_from_buffer
+	bytes_to_read = bytes_to_read - bytes_from_buffer
+	dword_adduword(file + r_file_ptr, file + r_file_ptr, bytes_from_buffer)
+
+	if bytes_to_read == 0
+	    break
+	fin
+
+	if fill_buffer(file) == EOF
+	    // TODO: As above, is this division safe? We want unsigned division.
+	    return ((count * size) - bytes_to_read) / size // records actually read
+	fin
+	index = 0
+    loop
+
+#ifdef DEBUG
+	debug_dump_file("fread->", file)
+#endif
+    return count
+end
+
+// word fseek32(FILE *file, const dword *offset, word origin) - returns 0 on success, non-0 on error
+export def fseek32(file, offset, origin)#1
+    *(file + r_file_ptr) = *offset
+    *(file + r_file_ptr + 2) = *(offset + 2)
+    file->r_eof = FALSE
+    file=>r_pushback = EOF
+#ifdef DEBUG
+    debug_dump_file("fseek->", file)
+#endif
+    return 0 // TODO: CURRENTLY CAN'T RETURN ANYTHING ELSE
+end
+
+// word fseek(FILE *file, word offset, word origin) - returns 0 on success, non-0 on error
+// TODO: CURRENTLY NO SUPPORT FOR origin - ASSUMED TO BE SEEK_SET - REMEMBER THAT WITH SEEK_CUR AND SEEK_END THE OFFSET CAN BE NEGATIVE, SO WE NEED TO TREAT IT AS SIGNED IN BOTH 16 AND 32 BIT VERSIONS
+export def fseek(file, offset, origin)#1
+    byte offset32[4]
+    // TODO: This should be a no-op if file opened as "a" (but not "a+")
+    dword_fromuword(@offset32, offset)
+    return fseek32(file, @offset32, origin)
+end
+
+// word fclose(FILE *file) - returns 0 on success, EOF on error
+// TODO: can this return errors or will we always get an OS error?
+export def fclose(file)#1
+    word result
+#ifdef DEBUG
+    debug_dump_file("fclose-<", file)
+#endif
+    if fflush(file) == EOF
+	return EOF
+    fin
+    call(osfind, osfind_close, 0, file->r_handle, 0)
+    return 0
+end
+
+// vi: sts=4 sw=4

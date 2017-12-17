@@ -449,8 +449,10 @@ t_opseq *parse_value(t_opseq *codeseq, int rvalue, int *stackdepth)
                 /*
                  * Set function pointer return vals count - can't do this to regular function call
                  */
+#if 0 // SFTODO TEMP HACK
                 if (type & FUNC_TYPE)
                     parse_error("Overriding function return count");
+#endif
                 if (!parse_const(&cfnvals))
                     parse_error("Invalid def return value count");
             }
@@ -954,6 +956,9 @@ int parse_stmnt(void)
             if (infunc)
             {
                 int i;
+                // TODO: If we were to put these DROPs into the pending sequence
+                // of opcodes, we may be able to peephole optimise them away in
+                // some cases.
                 for (i = 0; i < stack_loop; i++)
                     emit_drop();
                 cfnvals = 0;

@@ -1,0 +1,74 @@
+// Demonstration of how a large program can be split into separate parts which
+// share common data while allowing only part of the program to be in memory at
+// any time.
+//
+// This top-level module can be executed (+SORT). It will populate an array
+// with a random set of numbers, then perform a very slow bubble sort by
+// repeatedly invoking SORT1 to display the array and SORT2 to perform a single
+// bubble sort pass over the array, stopping when SORT2 indicates that no swaps
+// were performed (and the array is therefore sorted).
+//
+// While this example is silly, note that:
+// - data owned by this top-level module is available to all the modules
+// - only one of SORT1 and SORT2 is resident in memory at any one time
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/testlib.plh"
+include "inc/acornc.plh"
+
+export word size = 20
+export word array
+export word result
+
+const vdu_cls = 12
+
+word acrndnum = 12345
+
+word i
+
+def acrnd()
+  byte block[5]
+  call(osword, osword_read_time, @block, @block >> 8, 0)
+  acrndnum = acrndnum ^ block:0
+  acrndnum = acrndnum * 31421 + 6927
+  return acrndnum & $7FFF
+end
+
+def shuffle()
+    word j, k
+    for i = 0 to size * 10
+	j = acrnd() % size
+	k = acrnd() % size
+	(array):[j], (array):[k] = (array):[k], (array):[j]
+    next
+end
+
+array = heapalloc(size * 2)
+
+// We don't check the return value of mode(); if it fails we just continue and
+// accept the output may be unreadable.
+mode(131)
+
+for i = 0 to size - 1
+    (array):[i] = i
+next
+shuffle()
+
+// TODO: Would be good to check for a failure in modexec() return code
+result = 0
+while not result
+    // Uncommenting this heapalloc() shows that this top-level module can
+    // allocate heap space and have it retained; the heapmark value printed
+    // increases by 100 each time.
+    // heapalloc(100)
+
+    modexec("SORT1")
+    // Print heapmark() to show it doesn't change, i.e. each modexec()
+    // frees the memory it used before it returns.
+    puts("| ")
+    puti(heapmark())
+    putln()
+    modexec("SORT2")
+loop
+done

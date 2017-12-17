@@ -1,0 +1,74 @@
+// This program dumps out the symbol table for debugging purposes; normal
+// programs shouldn't need to do this and would break if the symbol table
+// format changed.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+
+// We don't want to use these, but they make the symbol table more
+// interesting...
+include "inc/testlib.plh"
+include "inc/acornos.plh"
+
+// The first chunk of the symbol table is in the VM code at an address we can't
+// know; we just ignore it here. This is only a test/demonstration anyway, it's
+// not something a real application should be doing.
+const initialsymtbl = $0409
+const max_symbol_length = 17 // module names can be 16 chars plus # prefix
+
+word chunk = initialsymtbl
+word symbol
+word pad
+
+def prword(w)
+    prbyte(w >> 8)
+    prbyte(w)
+end
+
+puts("chunk elem symbol            address\n")
+symbol = chunk
+while ^symbol
+    if ^symbol == 1
+        chunk = symbol=>1
+        symbol = chunk
+        continue
+    fin
+        
+    if symbol == chunk
+        prword(symbol)
+        puts("  ")
+    else
+        puts("      ")
+    fin
+
+    prword(symbol)
+    putc(' ')
+
+    pad = max_symbol_length + 1
+    while ^symbol & $80
+        putc(^symbol & $7F)
+        symbol++
+        pad--
+    loop
+    putc(^symbol)
+    symbol++
+    pad--
+    while pad > 0
+        putc(' ')
+        pad--
+    loop
+
+    prword(*symbol)
+    symbol = symbol + 2
+
+    putln()
+loop
+
+putln()
+puts("heapavail: $")
+prword(heapavail())
+putln()
+
+done
+
+// vi: sw=4 sts=4

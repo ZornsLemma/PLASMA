@@ -5,6 +5,10 @@ PLVM01  = A1PLASMA\#060280
 PLVM02	= PLASMA.SYSTEM\#FF2000
 PLVM802	= PLASMA16.SYSTEM\#FF2000
 PLVM03	= SOS.INTERP\#050000
+PLVM32  = BBPLASMA\#FF2000
+PLVM32X = BBPLASMA\#FF3000
+PLVM128 = BBPLAS128\#FF2000
+PLVM128X= BBPLAS128\#FF3000
 CMD     = CMD\#FF2000
 ED      = ED\#FF2000
 SB      = SB\#FF2000
@@ -50,6 +54,8 @@ PROFILE = PROFILE\#FE1000
 MEMMGR  = MEMMGR\#FE1000
 MEMTEST = MEMTEST\#FE1000
 FIBER   = FIBER\#FE1000
+ACORNOS = ACORNOS\#FE1000
+BBSSD   = plasma.ssd
 PLASM   = plasm
 INCS    = toolsrc/plasm.h toolsrc/tokens.h toolsrc/symbols.h toolsrc/lex.h toolsrc/parse.h toolsrc/codegen.h
 OBJS	= toolsrc/plasm.c toolsrc/parse.c toolsrc/lex.c toolsrc/codegen.c
@@ -69,19 +75,21 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC)
+all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(BBSSD)
 
 clean:
-	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03)
+	-rm *FE1000 *FF2000 *FF3000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
 	-rm toolsrc/*.o toolsrc/*~ toolsrc/*.a
-	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
+	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym vmsrc/32cmd.* vmsrc/128cmd.*
 	-rm samplesrc/*.o samplesrc/*~ samplesrc/*.a
+	-rm plasma.ssd
 
 #
 # PLASMA compiler: plasm
 #
 $(PLASM): $(OBJS) $(INCS)
-	cc $(OBJS) -o $(PLASM)
+	# SFTODO: -g is mine temp
+	cc -g $(OBJS) -o $(PLASM)
 
 #
 # PLASMA VMs
@@ -94,6 +102,32 @@ vmsrc/a1cmd.a: vmsrc/a1cmd.pla $(PLASM)
 
 $(PLVM01): vmsrc/plvm01.s vmsrc/a1cmd.a
 	acme -o $(PLVM01) -l vmsrc/plvm01.sym vmsrc/plvm01.s
+
+vmsrc/symtab.pla: vmsrc/makesymtab.py
+	python vmsrc/makesymtab.py > vmsrc/symtab.pla
+
+vmsrc/32cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
+	cc -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmd.pla
+	./$(PLASM) -AO < vmsrc/32cmd.pla > vmsrc/32cmd.a
+	# TODO: optimise.py temporarily disabled
+	#mv vmsrc/32cmd.a vmsrc/32cmd.a.orig; python optimise.py vmsrc/32cmd.a.orig > vmsrc/32cmd.a
+	# TODO: Building this here is a bit hacky
+	cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
+	./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
+
+vmsrc/128cmd.a: vmsrc/bbcmd.pla $(PLASM) vmsrc/symtab.pla
+	cc -DPLAS128 -E -P - < vmsrc/bbcmd.pla > vmsrc/128cmd.pla
+	./$(PLASM) -AOW < vmsrc/128cmd.pla > vmsrc/128cmd.a
+
+$(PLVM32): vmsrc/plvmzp.inc vmsrc/plvmbb-pre.s vmsrc/plvmbb-post.s vmsrc/32cmd.a add-relocations.py
+	acme '-DSTART=$$2000' -o $(PLVM32) -l vmsrc/plvm32.sym --report vmsrc/plvm32.lst vmsrc/plvmbb-pre.s vmsrc/32cmd.a vmsrc/plvmbb-post.s
+	acme '-DSTART=$$3000' -o $(PLVM32X) -l vmsrc/plvm32x.sym vmsrc/plvmbb-pre.s vmsrc/32cmd.a vmsrc/plvmbb-post.s
+	python add-relocations.py $(PLVM32) $(PLVM32X)
+
+$(PLVM128): vmsrc/plvmzp.inc vmsrc/plvmbb-pre.s vmsrc/plvmbb-post.s vmsrc/128cmd.a add-relocations.py
+	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVM128) -l vmsrc/plvm128.sym --report vmsrc/plvm128.lst vmsrc/plvmbb-pre.s vmsrc/128cmd.a vmsrc/plvmbb-post.s
+	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVM128X) vmsrc/plvmbb-pre.s vmsrc/128cmd.a vmsrc/plvmbb-post.s
+	python add-relocations.py $(PLVM128) $(PLVM128X)
 
 $(CMD): vmsrc/cmd.pla vmsrc/cmdstub.s $(PLVM02) $(PLASM)
 	./$(PLASM) -AOW < vmsrc/cmd.pla > vmsrc/cmd.a
@@ -275,7 +309,75 @@ $(HGR1):	samplesrc/hgr1.pla samplesrc/hgr1test.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/hgr1.pla > samplesrc/hgr1.a
 	acme --setpc 4094 -o $(HGR1) samplesrc/hgr1.a
 
+$(ACORNOS): libsrc/acornos.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < libsrc/acornos.pla > libsrc/acornos.a
+	acme --setpc 4094 -o $(ACORNOS) libsrc/acornos.a
+
+dword: libsrc/dword.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMOW < libsrc/dword.pla > libsrc/dword.a
+	acme --setpc 4094 -o DWORD\#FE1000 libsrc/dword.a
+
 hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/hello.pla > samplesrc/hello.a
 	acme --setpc 4094 -o $(HELLO) samplesrc/hello.a
 	./$(PLVM) HELLO
+
+# TODO: Start using new (?)-O option on the following
+# TODO: Investigate using new (?) -W option on the following
+
+dump: samplesrc/dump.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/dump.pla > samplesrc/dump.a
+	acme --setpc 4094 -o DUMP\#FE1000 samplesrc/dump.a
+
+mode: samplesrc/mode.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/mode.pla > samplesrc/mode.a
+	acme --setpc 4094 -o MODE\#FE1000 samplesrc/mode.a
+
+mode2: samplesrc/mode2.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/mode2.pla > samplesrc/mode2.a
+	acme --setpc 4094 -o MODE2\#FE1000 samplesrc/mode2.a
+
+hanoi: samplesrc/hanoi.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/hanoi.pla > samplesrc/hanoi.a
+	acme --setpc 4094 -o HANOI\#FE1000 samplesrc/hanoi.a
+
+bench1: samplesrc/bench1.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/bench1.pla > samplesrc/bench1.a
+	acme --setpc 4094 -o BENCH1\#FE1000 samplesrc/bench1.a
+
+bench2: samplesrc/bench2.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/bench2.pla > samplesrc/bench2.a
+	acme --setpc 4094 -o BENCH2\#FE1000 samplesrc/bench2.a
+
+bounce: samplesrc/bounce.pla $(PLVM) $(PLASM)
+	# TODO: save-temp is temp
+	./plasmac.py --save-temp -OW -Isamplesrc samplesrc/bounce.pla
+
+modname: samplesrc/modname.pla $(PLVM) $(PLASM)
+	./plasmac.py -OW samplesrc/modname.pla
+
+stdio: libsrc/stdio.pla $(PLVM) $(PLASM)
+	cc -E -P - < libsrc/stdio.pla | ./$(PLASM) -AMO > libsrc/stdio.a
+	acme --setpc 4094 -o STDIO\#FE1000 libsrc/stdio.a
+
+stdiots: samplesrc/stdiots.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/stdiots.pla > samplesrc/stdiots.a
+	acme --setpc 4094 -o STDIOTS\#FE1000 samplesrc/stdiots.a
+
+strpool: samplesrc/strpool.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/strpool.pla > samplesrc/strpool.a
+	acme --setpc 4094 -o STRPOOL\#FE1000 samplesrc/strpool.a
+
+symtbl: samplesrc/symtbl.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/symtbl.pla > samplesrc/symtbl.a
+	acme --setpc 4094 -o SYMTBL\#FE1000 samplesrc/symtbl.a
+
+setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/setjmp.pla > samplesrc/setjmp.a
+	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
+
+sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.pla $(PLVM) $(PLASM)
+	./plasmac.py -O -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
+
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort $(ACORNOS) samplesrc/pcw.bas
+	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA

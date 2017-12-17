@@ -1,0 +1,51 @@
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/testlib.plh"
+
+byte jb[jbsz]
+word i, j
+
+def foo(i)
+    byte data[253]
+    memset(@data, $2A2A, 253)
+    if i == 0
+	return
+    else
+	return foo(i - 1)
+    fin
+end
+
+i = 5 + setjmp(@jb)
+if i == 5
+    puts("setjmp() returned for first time\n")
+    longjmp(@jb, 42)
+elsif i == 42+5
+    puts("setjmp() returned for second time\n")
+else
+    puts("error: i=")
+    puti(i)
+    putln()
+fin
+
+for i = 1 to 5
+    j = setjmp(@jb)
+    if j == 0
+	// PLAS128: Here we use a CS opcode which will allocate a string in
+	// this function's string pool, *below* the PP saved by setjmp().
+	// If longjmp() doesn't take action to adjust PP accordingly, the
+	// call to foo() would corrupt the string pool and subsequent passes
+	// around the loop would see a corrupted string returned by this CS
+	// opcode.
+	puts("Hello world! ")
+	foo(5)
+	longjmp(@jb, i)
+    else
+	puti(j)
+	putln()
+    fin
+
+next
+
+done
+
+// vi: sw=4 sts=4
