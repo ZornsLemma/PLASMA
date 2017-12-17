@@ -100,3 +100,5 @@ A 'reverse subtraction' opcode just might be useful; the thing to do would be
 to try to add support to the peephole optimiser to try it out (it effectively
 makes subtraction a commutative operation for the purposes of switching opcodes
 round to possibly allow more use of DLB/DLW, for example)
+
+Write a test program to check divmod() gives the right result in all cases

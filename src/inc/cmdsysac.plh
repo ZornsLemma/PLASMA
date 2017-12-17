@@ -23,6 +23,5 @@ import cmdsys
     predef mode(n)#1
     predef callalloca
     predef xheapalloc(size)#1
-    predef divmod(dividend, divisor)#2
     word modname
 end
