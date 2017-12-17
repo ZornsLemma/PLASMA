@@ -109,6 +109,8 @@ predef stocr(str, cr)#0
 predef mode(n)#1
 predef callalloca
 predef divmod(dividend, divisor)#2
+predef puti(i)#0
+predef toupper(c)#1
 //
 // System variables.
 //
@@ -194,7 +196,7 @@ include "vmsrc/symtab.pla"
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
 //
-export asm call(addr,areg,xreg,yreg,sstatus)#1
+export asm call(addr,areg,xreg,yreg,status)#1
 REGVALS =   SRC
         PHP
         LDA     ESTKL+4,X
@@ -506,7 +508,8 @@ asm stodci(str,dci)#1
 	STY	ESTKH,X
 	RTS
 end
-asm toupper(c)#1
+#endif
+export asm toupper(c)#1
 	LDA     ESTKL,X
 TOUPR	AND     #$7F
 	CMP     #'a'
@@ -517,6 +520,7 @@ TOUPR	AND     #$7F
 +	STA     ESTKL,X
 	RTS
 end
+#ifndef STANDALONE
 // Convert a DCI string to an Acorn OS-style string terminated by CR
 // int dcitocr(dci, cr) - returns length (of DCI string/excluding CR)
 asm dcitocr(dci, cr)#1
@@ -1087,6 +1091,14 @@ export asm puts(s)#0
 +	LDX	ESP
 	INX
 	RTS
+end
+//
+// Cheap and dirty print integer SFTODO: USE THIS INSTEAD OF TESTLIB VERSION WHERE IT'S SUITABLE
+//
+export def puti(i)#0
+    if i < 0; putc('-'); i = -i; fin
+    if i >= 10; puti(i / 10); fin
+    putc(i % 10 + '0')
 end
 export def prbyte(v)#0
     putc(hexchar[(v >> 4) & $0F])
