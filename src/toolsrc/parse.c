@@ -449,10 +449,8 @@ t_opseq *parse_value(t_opseq *codeseq, int rvalue, int *stackdepth)
                 /*
                  * Set function pointer return vals count - can't do this to regular function call
                  */
-#if 0 // SFTODO TEMP HACK
                 if (type & FUNC_TYPE)
                     parse_error("Overriding function return count");
-#endif
                 if (!parse_const(&cfnvals))
                     parse_error("Invalid def return value count");
             }

@@ -664,7 +664,7 @@ end
 // This is effectively a varargs function; given a function foo:
 // 	def foo(a, b, c)
 // if you execute:
-//	x = callalloca(5, 25, @foo, 512)
+//	x = (@callalloca)(5, 25, @foo, 512)
 // it behaves 'as if' you wrote:
 //	byte tmp[512]
 //	x = foo(5, 25, @tmp)
@@ -676,6 +676,13 @@ end
 // the same #n must be appended to the call to callalloca(), otherwise things
 // will go wrong - callalloca() actually leaves the expression stack alone after
 // calling the specified function.
+//
+// Note also that to avoid the compiler's validation of function call arguments,
+// callalloca must be called via a function pointer as in the example above.
+// (callalloca is declared with no arguments and one return value, but it
+// actually has as many arguments and return values as the function it calls.)
+// The optimiser turns this into a standard function call so there is no space
+// or time penalty to doing this.
 export asm callalloca
 	LDA	ESTKL+1,X
 	STA	TMPL
@@ -1340,7 +1347,7 @@ end
 
 // call_oscli(str)
 export def call_oscli(str)#0
-    // SFTODO TEMP COMMENTED OUT HACK callalloca(str, @call_oscli_internal, ^str + 1)#0
+    (@callalloca)(str, @call_oscli_internal, ^str + 1)#0
 end
 
 #ifndef STANDALONE
@@ -1794,7 +1801,7 @@ end
 // user input is just a module name. We can therefore validate modpstr and
 // convert it to a DCI module name quite naively.
 def modloadpstr(modpstr)#1
-    return 0 // SFTODO TEMP COMMENTED OUT HACK return callalloca(modpstr, @modloadpstr_internal, maxpathlen)#1
+    return (@callalloca)(modpstr, @modloadpstr_internal, maxpathlen)#1
 end
 def modload_internal(moddci, modcr)#1
     dcitocr(moddci, modcr)
@@ -1804,7 +1811,7 @@ end
 // reference in another module and therefore should be valid (e.g. not
 // arbitrarily long).
 export def modload(moddci)#1
-    return 0 // SFTODO TEMP COMMENTED OUT HACK return callalloca(moddci, @modload_internal, maxpathlen)#1
+    return (@callalloca)(moddci, @modload_internal, maxpathlen)#1
 end
 #endif
 #ifndef STANDALONE

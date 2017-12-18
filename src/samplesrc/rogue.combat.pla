@@ -3,7 +3,7 @@ include "inc/cmdsys.plh"
 import rogueio
   word rnd, getkb, home, gotoxy, tone
 end
-import roguemap
+import roguema // roguemap
   predef moveplayer
 end
 

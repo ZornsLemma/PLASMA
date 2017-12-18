@@ -40,7 +40,7 @@ def call_osfind_open_internal(a, filename, filename_cr)#1
 end
 
 export def call_osfind_open(a, filename)#1
-    return 0 // SFTODO TEMP HACK return callalloca(a, filename, @call_osfind_open_internal, ^filename + 1)
+    return (@callalloca)(a, filename, @call_osfind_open_internal, ^filename + 1)
 end
 
 // TODO: Get rid of call_osrdch()? We have getc() and the call() line is not
