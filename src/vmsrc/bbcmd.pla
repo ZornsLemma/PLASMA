@@ -350,7 +350,7 @@ end
 //
 // result, remainder = divmod(dividend, divisor)
 //
-asm divmod(dividend, divisor)#2
+export asm divmod(dividend, divisor)#2
 	JSR	_DIV
         LSR	DVSIGN
         BCC	DIVMODNONEG1
@@ -460,17 +460,6 @@ asm dcitos(dci, str)#1
 	STA	ESTKL,X
 	STY	ESTKH,X
 	RTS
-INITDSTSRCY
-	LDA	ESTKL,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	DSTH
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
-	LDY	#$00
-        RTS
 end
 //def stodci(str, dci)
 //    byte len, c
@@ -560,6 +549,17 @@ export asm stocr(str, cr)#0
 	STA	(DST),Y
 	LDX	ESP
 	RTS
+INITDSTSRCY
+	LDA	ESTKL,X
+	STA	DSTL
+	LDA	ESTKH,X
+	STA	DSTH
+	LDA	ESTKL+1,X
+	STA	SRCL
+	LDA	ESTKH+1,X
+	STA	SRCH
+	LDY	#$00
+        RTS
 end
 
 #ifndef STANDALONE
