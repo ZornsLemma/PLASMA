@@ -1,0 +1,39 @@
+include "inc/cmdsys.plh"
+
+word i
+word j
+word a
+word b
+
+def error()#0
+    puts("Error: i=")
+    puti(i)
+    puts(", j=")
+    puti(j)
+    puts(", a=")
+    puti(a)
+    puts(", b=")
+    puti(b)
+    putln()
+    getc()
+end
+
+i = 0
+repeat
+    puts("i=")
+    puti(i)
+    putln()
+    j = 1
+    while j <> 0
+        a, b = divmod(i, j)
+        if (i / j) <> a
+            error()
+        fin
+        if (i % j) <> b
+            error()
+        fin
+        j = j + 1
+    loop
+    i = i + 1
+until i == 0
+done

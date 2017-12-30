@@ -379,5 +379,8 @@ setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
 sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.pla $(PLVM) $(PLASM)
 	./plasmac.py -O -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort $(ACORNOS) samplesrc/pcw.bas
+divmod: samplesrc/divmod.pla $(PLVM) $(PLASM)
+	./plasmac.py -OW samplesrc/divmod.pla
+
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort divmod $(ACORNOS) samplesrc/pcw.bas
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA
