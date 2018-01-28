@@ -115,3 +115,5 @@ of the code in this port.
 I think there were some invalid optimisations removed by upstream between merge5 and merge6; it would be good to look at what those were and if they were potentially desirable optimisations, look at allowing them to be reinstated.
 
 Looks like there is now a self-hosted PLASMA compiler, I should take a look at porting that.
+
+Looking at the Youtube video of PLASMA, the lighted area in ROGUE should be shown in reverse video. This doesn't happen in this port - not sure if this is a new feature or something which I lost in my port.
