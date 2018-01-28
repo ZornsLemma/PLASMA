@@ -8,6 +8,11 @@
 ;* TODO: I haven't got *all* self-modifying code covered by SELFMODIFY; I
 ;* haven't ported one or two SELFMODIFY references across from the Apple II
 ;* code. Probably just review code myself if/when a ROM build is supported.
+;* SFTODO: With the new "lazy Y wrapping" code, *if* I retain some of the
+;* SELFMODIFY code, I should probably port that lazy Y wrapping into the
+;* self-modifying versions - otherwise I run the risk of Y failing to be
+;* wrapped properly as some opcodes which upstream *does* wrap Y inside won't
+;* wrap in my port.
 SELFMODIFY = 1
 
 ;* If this is 1, code is included when lowering IFP/PP to ensure they don't
