@@ -113,3 +113,5 @@ into porting conio and using that. For now I have just left the older version
 of the code in this port.
 
 I think there were some invalid optimisations removed by upstream between merge5 and merge6; it would be good to look at what those were and if they were potentially desirable optimisations, look at allowing them to be reinstated.
+
+Looks like there is now a self-hosted PLASMA compiler, I should take a look at porting that.
