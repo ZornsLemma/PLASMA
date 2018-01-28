@@ -94,6 +94,8 @@ def acread(handle, buff, len)
   const carry_flag = 1
   // We use eofflag to record EOF; this is a bit of a hack, but it works for
   // the limited I/O this program performs.
+  // TODO: Does it actually work? Superficially I suspect the second level
+  // will fail to load as we never reset eofflag. Test it.
   if eofflag
     return 0
   fin
@@ -166,7 +168,7 @@ wend
 // Print title page
 //
 
-home()
+achome()
 while ^titlestr
   puts(titlestr)
   titlestr = titlestr + ^titlestr + 1

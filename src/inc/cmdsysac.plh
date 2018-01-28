@@ -3,10 +3,10 @@
 //
 // These have been pulled out into their own header; programs may include
 // this and cmdsys.plh, which will cause them to declare two separate
-// dependencies on the cmdsys module, but this isn't a problem.
+// dependencies on the cmdsys module, but this isn't a problem. SFTODO: This is in flux now
 //
 
-import cmdsys
+import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack in compiler
     const errjb = $407
     const errnum = $700
     const errstr = $701
@@ -16,7 +16,7 @@ import cmdsys
     // heap.
     const jbsz = 1 + 32 + 4 + 1 + 255
     predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
-    predef prbyte(v)#0
+    predef prbyte(v)#0 // SFTODO: CAN PROB GET RID OF THIS NOW, THINK IT'S IN CMDSYS.PLH (UNDER ANOTHER NAME)
     predef oserror(n, msg)#0
     predef call_oscli(str)#0
     predef stocr(str, cr)#0

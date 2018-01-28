@@ -102,3 +102,12 @@ makes subtraction a commutative operation for the purposes of switching opcodes
 round to possibly allow more use of DLB/DLW, for example)
 
 Write a test program to check divmod() gives the right result in all cases
+
+Can the peephole optimiser replace 'CALL divmod' with a DIVMOD opcode?
+
+Can/should I replace my longjmp()/setjmp() with the new upstream
+throw()/except() in libsrc/longjmp.pla?
+
+rogue.io.pla is now somewhat out of sync with upstream; I should probably look
+into porting conio and using that. For now I have just left the older version
+of the code in this port.

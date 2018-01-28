@@ -18,6 +18,7 @@ static int  defs      = 0;
 static int  asmdefs   = 0;
 static int  codetags  = 1; // Fix check for break_tag and cont_tag
 static int  fixups    = 0;
+static int  lastglobalsize = 0;
 static char idconst_name[1024][ID_LEN+1];
 static int  idconst_value[1024];
 static char idglobal_name[1024][ID_LEN+1];
@@ -46,7 +47,7 @@ int id_match(char *name, int len, char *id)
         if (len > 16) len = 16;
         while (len--)
         {
-            if (name[len] != id[1 + len])
+            if (toupper(name[len]) != id[1 + len])
                 return (0);
         }
         return (1);
@@ -74,7 +75,11 @@ int idglobal_lookup(char *name, int len)
     int i;
     for (i = 0; i < globals; i++)
         if (id_match(name, len, &(idglobal_name[i][0])))
+        {
+            if (idglobal_type[i] & EXTERN_TYPE)
+                idglobal_type[i] |= ACCESSED_TYPE;
             return (i);
+        }
     return (-1);
 }
 int idconst_add(char *name, int len, int value)
@@ -91,7 +96,7 @@ int idconst_add(char *name, int len, int value)
     idconst_name[consts][0] = len;
     if (len > ID_LEN) len = ID_LEN;
     while (len--)
-        idconst_name[consts][1 + len] = name[len];
+        idconst_name[consts][1 + len] = toupper(name[len]);
     idconst_value[consts] = value;
     consts++;
     return (1);
@@ -120,7 +125,7 @@ int idlocal_add(char *name, int len, int type, int size)
     idlocal_name[locals][0] = len;
     if (len > ID_LEN) len = ID_LEN;
     while (len--)
-        idlocal_name[locals][1 + len] = name[len];
+        idlocal_name[locals][1 + len] = toupper(name[len]);
     idlocal_type[locals]   = type | LOCAL_TYPE;
     idlocal_offset[locals] = localsize;
     localsize += size;
@@ -150,7 +155,7 @@ int idglobal_add(char *name, int len, int type, int size)
     idglobal_name[globals][0] = len;
     if (len > ID_LEN) len = ID_LEN;
     while (len--)
-        idglobal_name[globals][1 + len] = name[len];
+        idglobal_name[globals][1 + len] = toupper(name[len]);
     idglobal_type[globals] = type;
     if (!(type & EXTERN_TYPE))
     {
@@ -202,7 +207,7 @@ int idfunc_add(char *name, int len, int type, int tag)
     idglobal_name[globals][0] = len;
     if (len > ID_LEN) len = ID_LEN;
     while (len--)
-        idglobal_name[globals][1 + len] = name[len];
+        idglobal_name[globals][1 + len] = toupper(name[len]);
     idglobal_type[globals]  = type;
     idglobal_tag[globals++] = tag;
     if (type & EXTERN_TYPE)
@@ -351,7 +356,7 @@ void emit_header(void)
     {
         printf("\t%s\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT\n", DW);
         printf("_SEGBEGIN%c\n", LBL);
-        printf("\t%s\t$DA7F\t\t\t; MAGIC #\n", DW);
+        printf("\t%s\t$6502\t\t\t; MAGIC #\n", DW);
         printf("\t%s\t_SYSFLAGS\t\t\t; SYSTEM FLAGS\n", DW);
         printf("\t%s\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT\n", DW);
         printf("\t%s\t_DEFCNT\t\t\t; BYTECODE DEF COUNT\n", DW);
@@ -412,7 +417,7 @@ void emit_esd(void)
         printf(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;\n");
         for (i = 0; i < globals; i++)
         {
-            if (idglobal_type[i] & EXTERN_TYPE)
+            if (idglobal_type[i] & ACCESSED_TYPE) // Only refer to accessed externals
             {
                 emit_dci(&idglobal_name[i][1], idglobal_name[i][0]);
                 printf("\t%s\t$10\t\t\t; EXTERNAL SYMBOL FLAG\n", DB);
@@ -433,7 +438,7 @@ void emit_esd(void)
 
         for (i = 0; i < globals; i++)
         {
-            if (idglobal_type[i] & EXTERN_TYPE)
+            if (idglobal_type[i] & ACCESSED_TYPE) // Only refer to accessed externals
             {
                 printf("%s = _Y_%s\n", tag_string(idglobal_tag[i], idglobal_type[i]), supper(&idglobal_name[i][1]));
             }
@@ -466,7 +471,10 @@ void emit_moddep(char *name, int len)
     if (outflags & MODULE)
     {
         if (name)
+        {
             emit_dci(name, len);
+            idglobal_add(name, len, EXTERN_TYPE | WORD_TYPE, 2); // Add to symbol table
+        }
         else
             printf("\t%s\t$00\t\t\t; END OF MODULE DEPENDENCIES\n", DB);
     }
@@ -484,7 +492,11 @@ void emit_sysflags(int val)
 void emit_bytecode_seg(void)
 {
     if ((outflags & MODULE) && !(outflags & BYTECODE_SEG))
+    {
+        if (lastglobalsize == 0) // Pad a byte if last label is at end of data segment
+            printf("\t%s\t$00\t\t\t; PAD BYTE\n", DB);
         printf("_SUBSEG%c\t\t\t\t; BYTECODE STARTS\n", LBL);
+    }
     outflags |= BYTECODE_SEG;
 }
 void emit_comment(char *s)
@@ -501,6 +513,7 @@ void emit_idlocal(char *name, int value)
 }
 void emit_idglobal(int tag, int size, char *name)
 {
+    lastglobalsize = size;
     if (size == 0)
         printf("_D%03d%c\t\t\t\t\t; %s\n", tag, LBL, name);
     else
@@ -525,7 +538,7 @@ void emit_lambdafunc(int tag, char *name, int cparams, t_opseq *lambda_seq)
     emit_seq(lambda_seq);
     emit_pending_seq();
     if (cparams)
-        printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+        printf("\t%s\t$5A,$%02X\t\t\t; LEAVE\t%d\n", DB, cparams*2, cparams*2);
     else
         printf("\t%s\t$5C\t\t\t; RET\n", DB);
 }
@@ -776,6 +789,7 @@ void emit_brnch(int tag)
 }
 void emit_breq(int tag)
 {
+    emit_pending_seq();
     printf("\t%s\t$3C\t\t\t; BREQ\t_B%03d\n", DB, tag);
     printf("\t%s\t_B%03d-*\n", DW, tag);
 }
@@ -819,14 +833,14 @@ void emit_ical(void)
 void emit_leave(void)
 {
     if (localsize)
-        pending_seq = gen_leave(pending_seq);
+        pending_seq = gen_leave(pending_seq, localsize);
     else
         pending_seq = gen_ret(pending_seq);
     emit_pending_seq();
 }
-void emit_leave_internal(void)
+void emit_leave_internal(int localsize)
 {
-    printf("\t%s\t$5A\t\t\t; LEAVE\n", DB);
+    printf("\t%s\t$5A,$%02X\t\t\t; LEAVE\t%d\n", DB, localsize, localsize);
 }
 void emit_ret_internal(void)
 {
@@ -847,14 +861,6 @@ void emit_start(void)
     printf("_INIT%c\n", LBL);
     outflags |= INIT;
     defs++;
-}
-void emit_push_exp(void)
-{
-    printf("\t%s\t$34\t\t\t; PUSH EXP\n", DB);
-}
-void emit_pull_exp(void)
-{
-    printf("\t%s\t$36\t\t\t; PULL EXP\n", DB);
 }
 void emit_drop(void)
 {
@@ -1146,7 +1152,6 @@ int try_dupify(t_opseq *op)
     {
         if (op->code != opn->code)
             return crunched;
-
         switch (op->code)
         {
             case CONST_CODE:
@@ -1162,19 +1167,16 @@ int try_dupify(t_opseq *op)
             case GADDR_CODE:
             case LAB_CODE:
             case LAW_CODE:
-                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) ||
-                    (op->type != opn->type))
+                if ((op->tag != opn->tag) || (op->offsz != opn->offsz) /*|| (op->type != opn->type)*/)
                     return crunched;
                 break;
 
             default:
                 return crunched;
         }
-
         opn->code = DUP_CODE;
-        crunched = 1;
+        crunched  = 1;
     }
-
     return crunched;
 }
 /*
@@ -1958,13 +1960,6 @@ int emit_pending_seq()
             case DUP_CODE:
                 emit_dup();
                 break;
-                break;
-            case PUSH_EXP_CODE:
-                emit_push_exp();
-                break;
-            case PULL_EXP_CODE:
-                emit_pull_exp();
-                break;
             case BRNCH_CODE:
                 emit_brnch(op->tag);
                 break;
@@ -1978,7 +1973,7 @@ int emit_pending_seq()
                 printf("_B%03d%c\n", op->tag, LBL);
                 break;
             case LEAVE_CODE:
-                emit_leave_internal();
+                emit_leave_internal(op->val);
                 break;
             case RET_CODE:
                 emit_ret_internal();

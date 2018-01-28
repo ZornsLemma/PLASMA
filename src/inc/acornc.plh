@@ -13,7 +13,7 @@
 // (Without this import block, this header would have to be included
 // last.) We therefore declare a dependency on the special cmdsys module
 // which is built into the VM.
-import cmdsys
+import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const osfind = $FFCE
     const osgbpb = $FFD1
     const osbput = $FFD4

@@ -9,8 +9,8 @@ PLVM32  = BBPLASMA\#FF2000
 PLVM32X = BBPLASMA\#FF3000
 PLVM128 = BBPLAS128\#FF2000
 PLVM128X= BBPLAS128\#FF3000
-CMD     = CMD\#FF2000
-ED      = ED\#FF2000
+CMD     = CMD\#061000
+ED      = ED\#FE1000
 SB      = SB\#FF2000
 ROD     = ROD\#FE1000
 SIEVE   = SIEVE\#FE1000
@@ -27,6 +27,8 @@ CONIO   = CONIO\#FE1000
 SANE    = SANE\#FE1000
 FPSTR   = FPSTR\#FE1000
 FPU     = FPU\#FE1000
+SNDSEQ  = SNDSEQ\#FE1000
+PLAYSEQ = PLAYSEQ\#FE1000
 SANITY  = SANITY\#FE1000
 RPNCALC = RPNCALC\#FE1000
 WIZNET  = WIZNET\#FE1000
@@ -45,18 +47,20 @@ ROGUEMAP= ROGUEMAP\#FE1000
 ROGUECOMBAT= ROGUECOMBAT\#FE1000
 HELLO   = HELLO\#FE1000
 MON     = MON\#FE1000
-HGR1    = HGR1\#FE1000
-HGR1TEST= HGR1TEST\#FE1000
 DGRTEST = DGRTEST\#FE1000
 TEST    = TEST\#FE1000
 TESTLIB = TESTLIB\#FE1000
 PROFILE = PROFILE\#FE1000
 MEMMGR  = MEMMGR\#FE1000
 MEMTEST = MEMTEST\#FE1000
+FIBERTEST = FIBERTEST\#FE1000
 FIBER   = FIBER\#FE1000
 ACORNOS = ACORNOS\#FE1000
 BBSSD   = plasma.ssd
+LONGJMP = LONGJMP\#FE1000
 PLASM   = plasm
+PLASMAPLASM = PLASM\#FE1000
+CODEOPT = CODEOPT\#FE1000
 INCS    = toolsrc/plasm.h toolsrc/tokens.h toolsrc/symbols.h toolsrc/lex.h toolsrc/parse.h toolsrc/codegen.h
 OBJS	= toolsrc/plasm.c toolsrc/parse.c toolsrc/lex.c toolsrc/codegen.c
 #
@@ -75,7 +79,7 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(SB) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(HGR1) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(BBSSD)
+all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(BBSSD)
 
 clean:
 	-rm *FE1000 *FF2000 *FF3000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
@@ -90,6 +94,14 @@ clean:
 $(PLASM): $(OBJS) $(INCS)
 	# SFTODO: -g is mine temp
 	cc -g $(OBJS) -o $(PLASM)
+
+$(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh
+	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
+	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
+
+$(CODEOPT): toolsrc/codeopt.pla toolsrc/codeseq.plh
+	./$(PLASM) -AMOW < toolsrc/codeopt.pla > toolsrc/codeopt.a
+	acme --setpc 4094 -o $(CODEOPT) toolsrc/codeopt.a
 
 #
 # PLASMA VMs
@@ -156,8 +168,8 @@ test:	samplesrc/test.pla samplesrc/testlib.pla $(PLVM) $(PLASM)
 	./$(PLVM) TEST
 
 $(ED): toolsrc/ed.pla $(PLVM02) $(PLASM) toolsrc/ed.pla
-	./$(PLASM) -AOW < toolsrc/ed.pla > toolsrc/ed.a
-	acme --setpc 8192 -o $(ED) toolsrc/ed.a
+	./$(PLASM) -AMOW < toolsrc/ed.pla > toolsrc/ed.a
+	acme --setpc 4094 -o $(ED) toolsrc/ed.a
 
 $(SB): toolsrc/sb.pla $(PLVM02) $(PLASM) toolsrc/sb.pla
 	./$(PLASM) -AOW < toolsrc/sb.pla > toolsrc/sb.a
@@ -179,16 +191,32 @@ $(FIBER): libsrc/fiber.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/fiber.pla > libsrc/fiber.a
 	acme --setpc 4094 -o $(FIBER) libsrc/fiber.a
 
+$(FIBERTEST): samplesrc/fibertest.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/fibertest.pla > samplesrc/fibertest.a
+	acme --setpc 4094 -o $(FIBERTEST) samplesrc/fibertest.a
+
+$(SNDSEQ): libsrc/sndseq.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMOW < libsrc/sndseq.pla > libsrc/sndseq.a
+	acme --setpc 4094 -o $(SNDSEQ) libsrc/sndseq.a
+
+$(PLAYSEQ): samplesrc/playseq.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/playseq.pla > samplesrc/playseq.a
+	acme --setpc 4094 -o $(PLAYSEQ) samplesrc/playseq.a
+
+$(LONGJMP): libsrc/longjmp.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMOW < libsrc/longjmp.pla > libsrc/longjmp.a
+	acme --setpc 4094 -o $(LONGJMP) libsrc/longjmp.a
+
 $(MON): samplesrc/mon.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/mon.pla > samplesrc/mon.a
 	acme --setpc 4094 -o $(MON) samplesrc/mon.a
 
 $(ROD): samplesrc/rod.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMOW < samplesrc/rod.pla > samplesrc/rod.a
+	./$(PLASM) -AMO < samplesrc/rod.pla > samplesrc/rod.a
 	acme --setpc 4094 -o $(ROD) samplesrc/rod.a
 
 $(SIEVE): samplesrc/sieve.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMOW < samplesrc/sieve.pla > samplesrc/sieve.a
+	./$(PLASM) -AMW < samplesrc/sieve.pla > samplesrc/sieve.a
 	acme --setpc 4094 -o $(SIEVE) samplesrc/sieve.a
 
 $(UTHERNET): libsrc/uthernet.pla $(PLVM02) $(PLASM)
@@ -302,12 +330,6 @@ $(ROGUECOMBAT): samplesrc/rogue.combat.pla $(PLVM02) $(PLASM)
 $(ROGUEMAP): samplesrc/rogue.map.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/rogue.map.pla > samplesrc/rogue.map.a
 	acme --setpc 4094 -o $(ROGUEMAP) samplesrc/rogue.map.a
-
-$(HGR1):	samplesrc/hgr1.pla samplesrc/hgr1test.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMOW < samplesrc/hgr1test.pla > samplesrc/hgr1test.a
-	acme --setpc 4094 -o $(HGR1TEST) samplesrc/hgr1test.a
-	./$(PLASM) -AMOW < samplesrc/hgr1.pla > samplesrc/hgr1.a
-	acme --setpc 4094 -o $(HGR1) samplesrc/hgr1.a
 
 $(ACORNOS): libsrc/acornos.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMO < libsrc/acornos.pla > libsrc/acornos.a

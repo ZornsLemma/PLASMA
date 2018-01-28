@@ -39,7 +39,7 @@ include "inc/acornc.plh"
 // deal - the alternatives are "if there is a second processor, do we refuse to
 // run PLAS128 or run it but refuse to accept any commands via *EXEC"
 
-const MODADDR      = $1000
+const RELADDR      = $1000
 
 // The following constants must be kept in sync with vmsrc/plvmzp.inc and
 // vmsrc/acornc.inc.
@@ -71,9 +71,12 @@ const errjb	   = $0407	// 2 bytes
 // table, but this can probably be expanded later as the memory use
 // is tided up
 const lowsymtblchunk = $0409
-const lowsymtblchunksz = $50 // $150 // TODO $02f7
+const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR)
 
 const maxnamelen = 16
+// SFTODO: Now module names are no longer prefixed with # in the symbol table, we can
+// probably set maxsymlen = maxnamelen - it would then probably make sense to get rid
+// of one of those names (not sure which)
 const maxsymlen = maxnamelen + 1 // 1 for '#' prefix for module name
 const maxpathlen = 256
 #endif
@@ -99,10 +102,11 @@ predef syscall(cmd,params)#1, call(addr,areg,xreg,yreg,status)#1
 predef putln()#0, putc(c)#0, puts(s)#0, getc()#1, gets(p)#1
 predef heapmark()#1, heapalloc(size)#1, xheapalloc(size)#1, heapallocalign(size, pow2, freeaddr), heaprelease(newheap)#1, heapavail()#1
 predef memset(addr,value,size)#0, memcpy(dst,src,size)#0
-predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1
-predef modload(mod)#1, modexec(modfile)#1, modaddr(str)#1
+predef strcpy(dst,src)#1, strcat(dst,src)#1
+predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1, sext(a)#1
+predef modload(mod)#1, modexec(modfile)#1
 predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
-predef prbyte(v)#0
+predef prbyte(b)#0, prword(w)#0
 predef oserror(n, msg)#0
 predef call_oscli(str)#0
 predef stocr(str, cr)#0
@@ -114,7 +118,7 @@ predef toupper(c)#1
 //
 // System variables.
 //
-word version     = $0099 // 00.99
+word version     = $0100 // 01.00
 // word systemflags = 0 TODO: delete this? commented out for now
 const heapptr = $0089
 #ifdef PLAS128
@@ -141,7 +145,7 @@ byte perr
 // RAM), so we stick with it. TODO: We could in principle conditionally
 // compile this, but it's awfully fiddly.
 //
-byte verstr[]     = "PLASMA "
+byte verstr[]     = "PLASMA Pre3 "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
     byte xfreestr[]	  = ", AUX FREE:$"
@@ -192,6 +196,7 @@ byte gm_new_mode
 //
 include "vmsrc/symtab.pla"
 #endif
+// TODO: DO I NEED saveX/restoreX AS IN CMD.PLA?
 //
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
@@ -205,8 +210,7 @@ REGVALS =   SRC
         STA     TMPH
         LDA     ESTKL,X
         PHA
-        LDA     ESTKL+1,X
-        TAY
+        LDY     ESTKL+1,X
         LDA     ESTKL+3,X
         PHA
         LDA     ESTKL+2,X
@@ -350,6 +354,7 @@ end
 //
 // result, remainder = divmod(dividend, divisor)
 //
+// SFTODO: THIS NEEDS TO BE REWRITTEN TO USE THE NEW DIVMOD OPCODE - PROBABLY TRIVIAL, BUT BE CAREFUL TO MAKE SURE THIS WORKS ON PLAS32 AND PLAS128 - ALSO KEEPING THIS CODE AROUND TEMPORARILY FOR EASE OF MOVING IT INTO THE VM IF I NEED TO INSTEAD OF USING UPSTREAM DIVMOD IMPL
 export asm divmod(dividend, divisor)#2
 	JSR	_DIV
         LSR	DVSIGN
@@ -364,6 +369,14 @@ DIVMODNONEG1
         ASL	DVSIGN
         BPL	CPYMEX
         JMP	_NEG
+end
+export asm sext(a)#1
+        LDY     #$00
+        LDA     ESTKL,X
+        BPL     +
+        DEY
++       STY     ESTKH,X
+        RTS
 end
 //
 // Unsigned word comparisons.
@@ -579,6 +592,7 @@ end
 //    until !(c & $80)
 //    return dci
 //end
+// SFTODO: THIS MAY HAVE BEEN REMOVED FROM APPLE 2 PORT, NOT SURE YET
 asm modtosym(mod,dci)#1
 	LDA	ESTKL+1,X
 	STA	SRCL
@@ -657,6 +671,7 @@ asm lookuptbl(dci, tbl)#1
 	BNE	.NEXT
 end
 #endif
+// SFTODO: THERE IS A NEW LOOKUPIDX() FUNCTION IN THE APPLE 2 PORT - NEEDED HERE?
 
 //
 // Large frame allocation API
@@ -771,6 +786,7 @@ end
 //
 // NONLOCAL GOTO
 //
+// SFTODO: Need to think carefully about whether setjmp()/longjmp() need to be updated to reflect the new style of ENTER/LEAVE/INTERP in the latest version
 
 // setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
 export asm setjmp(b)#1
@@ -1107,16 +1123,14 @@ export def puti(i)#0
     if i >= 10; puti(i / 10); fin
     putc(i % 10 + '0')
 end
-export def prbyte(v)#0
-    putc(hexchar[(v >> 4) & $0F])
-    putc(hexchar[v & $0F])
+export def prbyte(b)#0
+    putc(hexchar[(b >> 4) & $0F])
+    putc(hexchar[b & $0F])
 end
-#ifndef STANDALONE
-def prword(v)#0
-    prbyte(v >> 8)
-    prbyte(v)
+def prword(w)#0 // SFTODO: PROBABLY NEEDS TO BE EXPORTED NOW
+    prbyte(w >> 8)
+    prbyte(w)
 end
-#endif
 
 // TODO: export this?
 // TODO: get rid of this and inline it in setjmp2()?
@@ -1286,6 +1300,7 @@ export def xheapalloc(size)#1
     fin
     return addr
 end
+// SFTODO: A2 IMPL OF THIS IS A BIT DIFFERENT, QUITE POSSIBLY MINE IS FINE BUT IF THERE'S OPTIMISATION POTENTIAL GO WITH IT - JUST DON'T WANT TO GET INTO THESE TINY DETAILS WHILE TRYING TO MERGE ALL SORTS OF BIGGER STUFF
 export def heapallocalign(size, pow2, freeaddr)#1
     word align, addr
     if freeaddr
@@ -1414,26 +1429,23 @@ def addsym(sym, addr)#0
     lastsym    = lastsym + 2
     ^lastsym   = 0 // end of table
 end
-//
-// Module routines.
-//
-def lookupmod(mod)#1
-    byte dci[maxsymlen]
-    return lookuptbl(modtosym(mod, @dci), @symtbl)
-end
-export def modaddr(str)#1
-    byte mod[maxsymlen]
-    stodci(str, @mod)
-    return lookupmod(@mod)
-end
 #endif
+//
+// String routines.
+//
+def strcpy(dst, src)#1 // SFTODO: EXPORT?
+    memcpy(dst+1, src+1, ^src)
+    ^dst = ^src
+    return dst
+end
+def strcat(dst, src)#1 // SFTODO: EXPORT?
+    memcpy(dst + ^dst + 1, src + 1, ^src)
+    ^dst = ^dst + ^src
+    return dst
+end
 #ifndef STANDALONE
 // TODO: If this has only one caller we might be as well to inline it - but
 // maybe that's over-optimisation.
-def addmod(mod, addr)#0
-    byte dci[maxsymlen]
-    addsym(modtosym(mod, @dci), addr)
-end
 def lookupextern(esd, index)#1
     word sym, addr
     byte str[maxnamelen]
@@ -1464,6 +1476,7 @@ def adddef(addr, deflast)#1
     defentry->5 = 0 // null out next entry
     return defentry
 end
+// SFTODO: THERE IS AN ASM VERSION OF THIS IN APPLE 2 PORT WHICH WE MAY WANT/NEED HERE
 def lookupdef(addr, deftbl)#1
     while deftbl->0 == $20
         if deftbl=>3 == addr
@@ -1473,6 +1486,7 @@ def lookupdef(addr, deftbl)#1
     loop
     return 0
 end
+// SFTODO: THERE IS A NEW ASM RELOC() FUNCTION IN A2 PORT - DO WE WANT THAT?
 def modname_default(modcr)#0
     // Default implementation does nothing
 end
@@ -1480,12 +1494,16 @@ end
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
 // allow modname() to generate a long filename in place if it wants to.
 def modloadcr_internal(moddci, modcr)#1
+    // SFTODO: TIDY THE VARIABLES UP HERE (FOR BOTH PLAS128 AND PLAS32) ONCE I HAVE THINGS OTHERWISE WORKING - PROBABLY A BIT OF A MESS FOLLOWING PORTING ACROSS OF LATEST A2 CHANGES
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
+#if 0 //SFTODO
 #ifdef PLAS128
     word defaddr
 #endif
+#endif
     word modaddr, modfix, modend
+    word modofst, defbank, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
     byte str[maxsymlen]
@@ -1513,6 +1531,8 @@ def modloadcr_internal(moddci, modcr)#1
     //
     handle = call(osfind, osfind_input, modcr, modcr >> 8, 0).0
     if handle == 0
+    	// SFTODO: A2 IMPL NOW ATTEMPTS TO OPEN USING A 'SYSTEM PATH' - IS THIS
+	// SOMETHING I SHOULD CONSIDER PORTING?
         oserror_not_found()
     fin
     modload_handle = handle
@@ -1527,7 +1547,7 @@ def modloadcr_internal(moddci, modcr)#1
     file_length:0 = scratch:0; file_length:2 = scratch:2
     modload_handle = 0; call(osfind, osfind_close, 0, handle, 0)
 
-    if rdlen <= 16 or header:2 <> $DA7F // DAVE+1 = magic number :-)
+    if rdlen <= 16 or header:2 <> $6502 // magic number
         oserror_bad_module()
     fin
 
@@ -1544,7 +1564,7 @@ def modloadcr_internal(moddci, modcr)#1
     // Load module dependencies.
     //
     while ^moddep
-        if !lookupmod(moddep)
+        if !lookuptbl(moddep, @symtbl)
             if modload(moddep) < 0
                 return -perr
             fin
@@ -1574,7 +1594,7 @@ def modloadcr_internal(moddci, modcr)#1
     // have modaddr available here (unlike the Apple code), so we just
     // use a non-zero constant.
     //
-    addmod(moddci, $0001)
+    addsym(moddci, $0001)
     //
     // Check there's room for the entire file onto the heap now any
     // dependencies have been loaded.
@@ -1618,8 +1638,9 @@ def modloadcr_internal(moddci, modcr)#1
     // Apply all fixups and symbol import/export.
     //
     modfix   = modaddr - modfix
-    bytecode = defofst + modfix - MODADDR
+    modofst  = modfix  - RELADDR
     modend   = modaddr + modsize
+    bytecode = defofst + modofst
     rld      = modend  // Re-Locatable Directory
     esd      = rld     // Extern+Entry Symbol Directory
     while ^esd         // Scan to start of ESD
@@ -1637,7 +1658,12 @@ def modloadcr_internal(moddci, modcr)#1
         oserror_heap_full()
     fin
     modend  = bytecode
+#else
+    // SFTODO: MAY BE POSSIBLE TO HAND-OPTIMISE AWAY SOME VARIABLES IN THIS CASE, BUT LET'S JUST DO THIS FOR NOW TO BE LIKE A2 CODE WHILE I GET THE LATEST PORT GOING
+    defaddr = bytecode
 #endif
+    codefix = defaddr - bytecode
+    defofst = defaddr - defofst
     //
     // Free up the end-of-module data in main memory. We have to do this now
     // as otherwise any symbol table allocations which claim memory from the
@@ -1653,48 +1679,48 @@ def modloadcr_internal(moddci, modcr)#1
     //
     heaprelease(modend)    
     //
+    // Run through the DeFinition Dictionary.
+    //
+    while ^rld == $02
+	//
+	// This is a bytecode def entry - add it to the def directory.
+	//
+	adddef(rld=>1 + defofst, @deflast)
+	rld = rld + 4
+    loop
+    //
     // Run through the Re-Location Dictionary.
     //
     while ^rld
-        if ^rld == $02
-            //
-            // This is a bytcode def entry - add it to the def directory.
-            //
+    	// SFTODO: I HOPE THIS CODE IS GOING TO WORK AS-IS - HOWEVER, THE A2 PORT IS NOW DIFFERENT AND USES RELOC() FN, I THINK THIS IS 'JUST' A SPEEDUP WHICH I WILL PROBABLY PORT BUT NOT WORRYING ABOUT RIGHT AT THIS POINT - BUT THIS CODE HAS BEEN RESTRUCTURE A BIT AND SO IT MAY NOT WORK
+	addr = rld=>1 + modfix
+	if isuge(addr, modaddr) // Skip fixups to header
+	    if ^rld & $80 // WORD sized fixup.
+		fixup = *addr
+	    else	  // BYTE sized fixup.
+		fixup = ^addr
+	    fin
+	    if ^rld & $10 // EXTERN reference.
+		fixup = fixup + lookupextern(esd, rld->3)
+	    else	  // INTERN fixup.
+		fixup = fixup + modfix - MODADDR
+		if isuge(fixup, bytecode)
+		    //
+		    // Bytecode address - replace with call def directory.
+		    //
 #ifdef PLAS128
-            adddef(rld=>1 - defofst + defaddr, @deflast)
+		    fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
 #else
-            adddef(rld=>1 - defofst + bytecode, @deflast)
+		    fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
 #endif
-        else
-            addr = rld=>1 + modfix
-            if isuge(addr, modaddr) // Skip fixups to header
-                if ^rld & $80 // WORD sized fixup.
-                    fixup = *addr
-                else	  // BYTE sized fixup.
-                    fixup = ^addr
-                fin
-                if ^rld & $10 // EXTERN reference.
-                    fixup = fixup + lookupextern(esd, rld->3)
-                else	  // INTERN fixup.
-                    fixup = fixup + modfix - MODADDR
-                    if isuge(fixup, bytecode)
-                        //
-                        // Bytecode address - replace with call def directory.
-                        //
-#ifdef PLAS128
-                        fixup = lookupdef(fixup - bytecode + defaddr, deftbl)
-#else
-                        fixup = lookupdef(fixup - bytecode + bytecode, deftbl)
-#endif
-                    fin
-                fin
-                if ^rld & $80 // WORD sized fixup.
-                    *addr = fixup
-                else	  // BYTE sized fixup.
-                    ^addr = fixup
-                fin
-            fin
-        fin
+		fin
+	    fin
+	    if ^rld & $80 // WORD sized fixup.
+		*addr = fixup
+	    else	  // BYTE sized fixup.
+		^addr = fixup
+	    fin
+	fin
         rld = rld + 4
     loop
 #ifdef PLAS128
@@ -1713,16 +1739,12 @@ def modloadcr_internal(moddci, modcr)#1
             //
             // EXPORT symbol - add it to the global symbol table.
             //
-            addr = esd=>1 + modfix - MODADDR
+            addr = esd=>1 + modofst
             if isuge(addr, bytecode)
                 //
                 // Use the def directory address for bytecode.
                 //
-#ifdef PLAS128
-                addr = lookupdef(addr - bytecode + defaddr, deftbl)
-#else
-                addr = lookupdef(addr - bytecode + bytecode, deftbl)
-#endif
+                addr = lookupdef(addr + codefix, deftbl)
             fin
             addsym(sym, addr)
             // TODO: The following test could be removed eventually.
@@ -1743,11 +1765,8 @@ def modloadcr_internal(moddci, modcr)#1
     //
     fixup = 0
     if init
-#ifdef PLAS128
-	fixup = adddef(init - defofst + defaddr, @deflast)()
-#else
-	fixup = adddef(init - defofst + bytecode, @deflast)()
-#endif
+        init  = init + defofst
+	fixup = adddef(init, @deflast)()
 	if fixup < modinitkeep
 	    //
 	    // Free init routine unless initkeep. Because we grow our symbol
@@ -1761,11 +1780,10 @@ def modloadcr_internal(moddci, modcr)#1
 	    // haven't dynamically allocated a new symbol table chunk).
 	    //
 #ifdef PLAS128
-            xheap = init - defofst + defaddr
+            xheap = init
 #else
-            modend = init - defofst + bytecode
             if symtblchunk == lowsymtblchunk
-                heaprelease(modend)
+                heaprelease(init)
             fin
 #endif
 	    if fixup < 0
@@ -1820,11 +1838,11 @@ end
 //
 def stripspaces(strptr)#0
     while ^strptr and ^(strptr + ^strptr) <= ' '
-        ^strptr = ^strptr - 1
+        ^strptr--
     loop
     while ^strptr and ^(strptr + 1) <= ' '
         memcpy(strptr + 1, strptr + 2, ^strptr)
-        ^strptr = ^strptr - 1
+        ^strptr--
     loop
 end
 def striptrail(strptr)#1
@@ -1833,7 +1851,7 @@ def striptrail(strptr)#1
     for i = 1 to ^strptr
         if ^(strptr + i) <= ' '
 	    ^strptr = i - 1
-	    return strptr
+	    break
 	fin
     next
     return strptr
@@ -1846,7 +1864,7 @@ def parsecmd(strptr)#1
     if ^strptr
         cmd = ^(strptr + 1)
         memcpy(strptr + 1, strptr + 2, ^strptr)
-        ^strptr = ^strptr - 1
+        ^strptr--
     fin
     stripspaces(strptr)
     return cmd
@@ -2013,7 +2031,9 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
+	    	// SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
 	        modexec(striptrail(cmdptr))
+		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
 		break
 	    is '*'
 	    	call_oscli(cmdptr)

@@ -250,7 +250,7 @@ def get_module_imports(full_filename):
         s += chr(byterel(i))
         return s
 
-    if wordrel(2) != 0xda7e+1:
+    if wordrel(2) != 0x6502:
         die("Unrecognised module format: " + full_filename)
 
     import_list = []

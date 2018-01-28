@@ -18,7 +18,7 @@ ERRCPD	DEY
 	;* ERRNUM now holds the error number
 	;* ERRSTR now holds the error message as a standard PLASMA string
 	
-	LDX	#$FF
+	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
 	TXS
 	;* We reset X (ESP) so the error handler has the full expression
 	;* stack available - at the point the error occurred, it might
@@ -66,7 +66,7 @@ SEGEND	=	*
 VMINIT
 }
 VMINITPOSTRELOC
-	LDX	#$FF
+	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
 	TXS
 
 !IFDEF PLAS128 {
@@ -204,12 +204,9 @@ PAGE0	=	*
 ;*
 	INX			; DROP
 	INY			; NEXTOP
-	BEQ	NEXTOPH
 	LDA	$FFFF,Y		; FETCHOP @ $F3, IP MAPS OVER $FFFF @ $F4
 	STA	OPIDX
 	JMP	(OPTBL)
-NEXTOPH	INC	IPH
-	BNE	FETCHOP
 }
 
 TUBEHEAP
