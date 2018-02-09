@@ -1523,7 +1523,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Perform any transformations on the filename we are going to load from.
     //
-    modname(modcr)#0
+    // SFTODO TEMP COMMENTED OUT modname(modcr)#0
 
     //
     // Read the RELocatable module header (first header_size bytes); we also
@@ -1817,7 +1817,10 @@ end
 // (including potentially locating the module in a directory other than the
 // current one and therefore returning a filename with path components), but the
 // user input is just a module name. We can therefore validate modpstr and
-// convert it to a DCI module name quite naively.
+// convert it to a DCI module name quite naively. It's tempting to replace
+// modname() with a function which returns an open file handle, but that isn't
+// compatible with our desire to be able to use both OSGBPB and OSFILE to load
+// the module.
 def modloadpstr(modpstr)#1
     return (@callalloca)(modpstr, @modloadpstr_internal, maxpathlen)#1
 end

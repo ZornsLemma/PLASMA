@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 symtab = [
-    ("#CMDSYS", "@version"),
+    ("CMDSYS", "@version"),
     ("CALL", "@call"),
     ("PUTC", "@putc"),
     ("PUTLN", "@putln"),
