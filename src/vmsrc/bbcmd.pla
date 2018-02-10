@@ -1703,7 +1703,7 @@ def modloadcr_internal(moddci, modcr)#1
 	    if ^rld & $10 // EXTERN reference.
 		fixup = fixup + lookupextern(esd, rld->3)
 	    else	  // INTERN fixup.
-		fixup = fixup + modfix - MODADDR
+		fixup = fixup + modfix - RELADDR
 		if isuge(fixup, bytecode)
 		    //
 		    // Bytecode address - replace with call def directory.
