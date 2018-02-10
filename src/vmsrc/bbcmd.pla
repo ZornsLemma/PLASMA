@@ -355,20 +355,9 @@ end
 // result, remainder = divmod(dividend, divisor)
 //
 // SFTODO: THIS NEEDS TO BE REWRITTEN TO USE THE NEW DIVMOD OPCODE - PROBABLY TRIVIAL, BUT BE CAREFUL TO MAKE SURE THIS WORKS ON PLAS32 AND PLAS128 - ALSO KEEPING THIS CODE AROUND TEMPORARILY FOR EASE OF MOVING IT INTO THE VM IF I NEED TO INSTEAD OF USING UPSTREAM DIVMOD IMPL
-export asm divmod(dividend, divisor)#2
-	JSR	_DIV
-        LSR	DVSIGN
-        BCC	DIVMODNONEG1
-        JSR	_NEG
-DIVMODNONEG1
-        DEX
-        LDA	TMPL		; REMNDRL
-        STA	ESTKL,X
-        LDA	TMPH		; REMNDRH
-        STA	ESTKH,X
-        ASL	DVSIGN
-        BPL	CPYMEX
-        JMP	_NEG
+export asm divmod(a,b)#2
+        JSR     INTERP          ; CALL INTERP
+        !BYTE   $36, $5C        ; DIVMOD, RET
 end
 export asm sext(a)#1
         LDY     #$00
