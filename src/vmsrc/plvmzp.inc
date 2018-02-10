@@ -43,7 +43,6 @@ DSTL	=	DST
 DSTH	=	DST+1
 ESTKSZ	=	$20
 ESTK	=	$50
-;* TODO: ESGUARD?
 ; Some VM opcodes (e.g. LB) use ESTKH-1,X as temporary workspace (to allow the use of (ESTKH-1,X)
 ; addressing). If ESTK is full (X=0), this will access one byte below ESTKH - we set this aside as
 ; PAD. It is available for temporary use if necessary in other code.
@@ -63,8 +62,6 @@ IPY	=	PP+2
 TMP	=	IPY+1
 TMPL	=	TMP
 TMPH	=	TMP+1
-NPARMS	=	TMPL ; TODO: not used?!
-FRMSZ	=	TMPH ; TODO: not used?!
 HIMEMH  =       TMP+2 ; TODO: doesn't need to be in zp
 SCRATCH =	TMP+3 ; 16 bytes
 HEAPL   =       SCRATCH+16
