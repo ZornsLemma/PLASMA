@@ -124,6 +124,9 @@ word syscmdln // SFTODO? NEED THIS ANY WAY FOR INC/CMDSYS.PLH
 word            = @modexec
 byte refcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 byte devcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
+//
+// Globals
+//
 // word systemflags = 0 TODO: delete this? commented out for now
 const heapptr = $0089
 #ifdef PLAS128
