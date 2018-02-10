@@ -25,9 +25,9 @@ symtab = [
     ("ISUGE", "@isuge"),
     ("ISULT", "@isult"),
     ("ISULE", "@isule"),
-    ("MODLOAD", "@modload"),
-    ("MODEXEC", "@modexec"),
-    ("MACHID", "@machid"),
+    ("MODLOAD", "@modload"), # SFTODO: DELETE??
+    # SFTODO: DELETE? ("MODEXEC", "@modexec"),
+    ("MACHID", "@machid"), # SFTODO: BE GOOD TO TEST THIS STILL WORKS...
     ("SETJMP", "@setjmp"),
     ("SETJMP2", "@setjmp2"),
     ("LONGJMP", "@longjmp"),

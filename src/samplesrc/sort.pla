@@ -63,12 +63,12 @@ while not result
     // increases by 100 each time.
     // heapalloc(100)
 
-    modexec("SORT1")
+    cmdsys:modexec("SORT1")
     // Print heapmark() to show it doesn't change, i.e. each modexec()
     // frees the memory it used before it returns.
     puts("| ")
     puti(heapmark())
     putln()
-    modexec("SORT2")
+    cmdsys:modexec("SORT2")
 loop
 done

@@ -83,7 +83,7 @@ const maxpathlen = 256
 const false = 0
 const true = not false
 // TODO: allocheap_fail_threshold should probably be a non-constant
-// and be modifiable under program control (if so, modexec() should
+// and be modifiable under program control (if so, '+foo' should
 // probably reset it to a default on successful or unsuccessful
 // execution). While we're developing, we just stick with this.
 const allocheap_fail_threshold = $FFFF
@@ -116,9 +116,14 @@ predef divmod(dividend, divisor)#2
 predef puti(i)#0
 predef toupper(c)#1
 //
-// System variables.
+// Exported CMDSYS table
 //
 word version     = $0100 // 01.00
+word syspath // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
+word syscmdln // SFTODO? NEED THIS ANY WAY FOR INC/CMDSYS.PLH
+word            = @modexec
+byte refcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
+byte devcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 // word systemflags = 0 TODO: delete this? commented out for now
 const heapptr = $0089
 #ifdef PLAS128
@@ -1580,9 +1585,18 @@ def modloadcr_internal(moddci, modcr)#1
     // not zero, otherwise lookupmod() will indicate the module isn't
     // loaded when it is) and due to the symbol table changes we don't
     // have modaddr available here (unlike the Apple code), so we just
-    // use a non-zero constant.
+    // use a non-zero constant. SFTODO: THIS IS NO LONGER WORKABLE, THE LATEST
+    // CODE USES THE MODULE ADDRESS TO ACCESS A TABLE OF EXPORTED FUNCTIONS
     //
     addsym(moddci, $0001)
+    // SFTODO: SEMI TEMP HACK - WE KNOW modaddr WILL BE *heapptr, SO WE CAN NOW
+    // PATCH UP THE JUST-INSERTED SYMBOL ADDRESS. WE CAN'T JUST PASS *HEAPPTR
+    // TO ADDSYM AS THAT WOULD BE THE VALUE BEFORE ADDSYM() DOES ANY
+    // ALLOCATIONS. VARIOUS ALTERNATIVES HERE - E.G. WE COULD DO THIS PATCH VIA
+    // LASTSYM LATER ONCE WE HAVE MODADDR, IT'S EQUIVALENT, JUST A TRADE OFF IN
+    // CLARITY. WE COULD HAVE ADDSYM RETURN A POINTER TO THE NEW ADDRESS IN THE
+    // SYMTAB. ALL SORTS OF THINGS...
+    *(lastsym - 2) = *heapptr
     //
     // Check there's room for the entire file onto the heap now any
     // dependencies have been loaded.
@@ -1819,7 +1833,7 @@ end
 // Load the module named by the DCI string moddci; this is taken from a module
 // reference in another module and therefore should be valid (e.g. not
 // arbitrarily long).
-export def modload(moddci)#1
+export def modload(moddci)#1 // SFTODO: IS THIS NO LONGER EXPORTED ON APPLE?
     return (@callalloca)(moddci, @modload_internal, maxpathlen)#1
 end
 #endif
