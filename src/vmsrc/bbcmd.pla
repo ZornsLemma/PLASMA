@@ -74,10 +74,6 @@ const lowsymtblchunk = $0409
 const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR)
 
 const maxnamelen = 16
-// SFTODO: Now module names are no longer prefixed with # in the symbol table, we can
-// probably set maxsymlen = maxnamelen - it would then probably make sense to get rid
-// of one of those names (not sure which)
-const maxsymlen = maxnamelen + 1 // 1 for '#' prefix for module name
 const maxpathlen = 256
 #endif
 const false = 0
@@ -1385,7 +1381,7 @@ def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
 def addsym(sym, addr)#0
-    byte str[maxsymlen]
+    byte str[maxnamelen]
     word entrysz
     const addrsz = 2
     const nextchunkptrsz = 3 // end of chunk marker followed by two byte pointer
@@ -1502,7 +1498,7 @@ def modloadcr_internal(moddci, modcr)#1
     word modofst, defbank, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
-    byte str[maxsymlen]
+    byte str[maxnamelen]
     const header_size = 128
     byte header[header_size]
     byte handle
