@@ -82,18 +82,18 @@ HITHEAP
 ;* INCREMENT TOS
 ;*
 INCR    INC     ESTKL,X
-        BEQ     INCR1
+        BEQ     +
         JMP     NEXTOP
-INCR1   INC     ESTKH,X
++	INC     ESTKH,X
         JMP     NEXTOP
 ;*
 ;* DECREMENT TOS
 ;*
 DECR    LDA     ESTKL,X
-        BEQ     DECR1
+        BEQ     +
         DEC     ESTKL,X
         JMP     NEXTOP
-DECR1   DEC     ESTKL,X
++	DEC     ESTKL,X
         DEC     ESTKH,X
         JMP     NEXTOP
 ;*
@@ -140,7 +140,6 @@ MULLP 	LSR	TMPH		; MULTPLRH
 ;* DIV TOS-1 BY TOS
 ;*
 DIV 	JSR	_DIV
-	INX
 	LSR	DVSIGN		; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
 	BCS	NEG
 	JMP	NEXTOP
@@ -148,7 +147,6 @@ DIV 	JSR	_DIV
 ;* MOD TOS-1 BY TOS
 ;*
 MOD	JSR	_DIV
-	INX
 	LDA	TMPL		; REMNDRL
 	STA	ESTKL,X
 	LDA	TMPH		; REMNDRH
@@ -162,11 +160,10 @@ MOD	JSR	_DIV
 DIVMOD  JSR     _DIV
         LSR     DVSIGN          ; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
         BCC     +
-        INX
         JSR     _NEG
 	;* SFTODO: FOLLOWING CHUNK OF CODE LOOKS RATHER LIKE PART OF 'MOD', CAN WE FACTOR IT OUT? I DON'T THINK PERFORMANCE IS CRITICAL HERE, A BRANCH/JUMP IS NEGLIGIBLE COMPARED TO THE OVERHEAD OF DOING A DIVISION...
-        DEX
-+       LDA     TMPL            ; REMNDRL
++       DEX
+        LDA     TMPL            ; REMNDRL
         STA     ESTKL,X
         LDA     TMPH            ; REMNDRH
         STA     ESTKH,X
@@ -235,7 +232,8 @@ _DIVLP 	ROL	TMPL		; REMNDRL
 	ROL	ESTKH+1,X	; DVDNDH
 	DEY
 	BNE	_DIVLP
-_DIVEX	LDY	IPY
+_DIVEX	INX
+	LDY	IPY
 	RTS
 
 ;*
@@ -403,21 +401,21 @@ XOR 	LDA	ESTKL+1,X
 SHL     STY     IPY
         LDA     ESTKL,X
         CMP     #$08
-        BCC     SHL1
+        BCC     +
         LDY     ESTKL+1,X
         STY     ESTKH+1,X
         LDY     #$00
         STY     ESTKL+1,X
         SBC     #$08
-SHL1    TAY
-        BEQ     SHL3
++	TAY
+        BEQ     +
         LDA     ESTKL+1,X
-SHL2    ASL
+-	ASL
         ROL     ESTKH+1,X
         DEY
-        BNE     SHL2
+        BNE     -
         STA     ESTKL+1,X
-SHL3    LDY     IPY
++	LDY     IPY
         JMP     DROP
 ;*
 ;* SHIFT TOS-1 RIGHT BY TOS
@@ -425,40 +423,40 @@ SHL3    LDY     IPY
 SHR	STY	IPY
 	LDA	ESTKL,X
 	CMP	#$08
-	BCC	SHR2
+	BCC	++
 	LDY	ESTKH+1,X
 	STY	ESTKL+1,X
 	CPY	#$80
 	LDY	#$00
-	BCC	SHR1
+	BCC	+
 	DEY
-SHR1 	STY	ESTKH+1,X
++	STY	ESTKH+1,X
 	SEC
 	SBC	#$08
-SHR2 	TAY
-	BEQ	SHR4
+++	TAY
+	BEQ	+
 	LDA	ESTKH+1,X
-SHR3 	CMP	#$80
+-	CMP	#$80
 	ROR
 	ROR	ESTKL+1,X
 	DEY
-	BNE	SHR3
+	BNE	-
 	STA	ESTKH+1,X
-SHR4	LDY	IPY
++	LDY	IPY
 	JMP	DROP
 ;*
 ;* LOGICAL AND
 ;*
 LAND 	LDA	ESTKL+1,X
 	ORA	ESTKH+1,X
-	BEQ	LAND2
+	BEQ	++
 	LDA	ESTKL,X
 	ORA	ESTKH,X
-	BEQ	LAND1
+	BEQ	+
 	LDA	#$FF
-LAND1 	STA	ESTKL+1,X
++	STA	ESTKL+1,X
 	STA	ESTKH+1,X
-LAND2	JMP	DROP
+++	JMP	DROP
 ;*
 ;* LOGICAL OR
 ;*
@@ -466,11 +464,11 @@ LOR 	LDA	ESTKL,X
 	ORA	ESTKH,X
 	ORA	ESTKL+1,X
 	ORA	ESTKH+1,X
-	BEQ	LOR1
+	BEQ	+
 	LDA	#$FF
  	STA	ESTKL+1,X
 	STA	ESTKH+1,X
-LOR1	JMP	DROP
++	JMP	DROP
 ;*
 ;* DUPLICATE TOS
 ;*
@@ -498,12 +496,17 @@ ZERO 	DEX
 	STA	ESTKL,X
 	STA	ESTKH,X
 	JMP	NEXTOP
-CFFB	LDA	#$FF
-	!BYTE	$2C	; BIT $00A9 - effectively skips LDA #$00, no harm in reading this address
-CB	LDA	#$00
-	DEX
+CFFB	DEX
+	LDA	#$FF
 	STA	ESTKH,X
-	INY
+        INY                     ;+INC_IP
+	LDA	(IP),Y
+	STA	ESTKL,X
+	JMP	NEXTOP
+CB	DEX
+	LDA	#$00
+	STA	ESTKH,X
+        INY                     ;+INC_IP
 	LDA	(IP),Y
 	STA	ESTKL,X
 	JMP	NEXTOP
@@ -538,9 +541,9 @@ CW      DEX
 ;* CONSTANT STRING
 ;*
 CS	DEX
-        INY                     ;+INC_IP
-	TYA			; NORMALIZE IP
-	CLC
+        ;INY                     ;+INC_IP
+	TYA			; NORMALIZE IP AND SAVE STRING ADDR ON ESTK
+	SEC
 	ADC	IPL
 	STA	IPL
 !IFNDEF PLAS128 {
@@ -853,8 +856,9 @@ SAW     INY                     ;+INC_IP
         LDA     ESTKH,X
         STA     (TMP),Y
         LDY     IPY
-        BMI     FIXDROP
+        BMI     +
         JMP     DROP
++	JMP	FIXDROP ; SFTODO: A2 CODE DOESN'T SEEM TO HAVE LEADING '+', IS THIS A BUG? IF SO REPORT UPSTREAM
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS WITHOUT POPPING STACK
 ;*
@@ -1226,9 +1230,9 @@ RET
 }
 !IFNDEF PLAS128 {
 	STA	IFPL
-	BCS	LIFPH
+	BCS	+
 	RTS
-LIFPH	INC	IFPH
++	INC	IFPH
 RET	RTS
 }
 ; Compiled PLASMA code
