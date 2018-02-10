@@ -43,13 +43,16 @@ DSTL	=	DST
 DSTH	=	DST+1
 ESTKSZ	=	$20
 ESTK	=	$50
-;* TODO: PORT APPLE TWEAKS TO ESTKL/ESTKH?
 ;* TODO: ESGUARD?
-ESTKL	=	ESTK
-ESTKH	=	ESTK+ESTKSZ/2
+; Some VM opcodes (e.g. LB) use ESTKH-1,X as temporary workspace (to allow the use of (ESTKH-1,X)
+; addressing). If ESTK is full (X=0), this will access one byte below ESTKH - we set this aside as
+; PAD. It is available for temporary use if necessary in other code.
+PAD 	=	ESTK-1
+ESTKH	=	ESTK
+ESTKL	=	ESTK+ESTKSZ/2
 VMZP	=	ESTK+ESTKSZ
 ESP     =       VMZP
-DVSIGN	=	VMZP ;* TODO: BEEN REMOVED FROM APPLE PORT, REMOVE FROM BBC?
+DVSIGN	=	VMZP ;* SFTODO: MOVED INTO PLVM IN APPLE PORT, DO THE SAME HERE?
 IFP	=	ESP+1
 IFPL	=	IFP
 IFPH	=	IFP+1
