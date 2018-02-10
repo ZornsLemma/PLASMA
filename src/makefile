@@ -12,6 +12,7 @@ PLVM128X= BBPLAS128\#FF3000
 CMD     = CMD\#061000
 ED      = ED\#FE1000
 SB      = SB\#FF2000
+SOS     = SOS\#FE1000
 ROD     = ROD\#FE1000
 SIEVE   = SIEVE\#FE1000
 ARGS    = ARGS\#FE1000
@@ -42,7 +43,6 @@ DGR     = DGR\#FE1000
 TONE    = TONE\#FE1000
 PORTIO  = PORTIO\#FE1000
 ROGUE   = ROGUE\#FE1000
-ROGUEIO = ROGUEIO\#FE1000
 ROGUEMAP= ROGUEMAP\#FE1000
 ROGUECOMBAT= ROGUECOMBAT\#FE1000
 HELLO   = HELLO\#FE1000
@@ -79,7 +79,7 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(ROGUEIO) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(BBSSD)
+all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(BBSSD)
 
 clean:
 	-rm *FE1000 *FF2000 *FF3000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
@@ -211,6 +211,10 @@ $(MON): samplesrc/mon.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/mon.pla > samplesrc/mon.a
 	acme --setpc 4094 -o $(MON) samplesrc/mon.a
 
+$(SOS): libsrc/sos.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMO < libsrc/sos.pla > libsrc/sos.a
+	acme --setpc 4094 -o $(SOS) libsrc/sos.a
+
 $(ROD): samplesrc/rod.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/rod.pla > samplesrc/rod.a
 	acme --setpc 4094 -o $(ROD) samplesrc/rod.a
@@ -318,10 +322,6 @@ $(DGRTEST): samplesrc/dgrtest.pla $(PLVM02) $(PLASM)
 $(ROGUE): samplesrc/rogue.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/rogue.pla > samplesrc/rogue.a
 	acme --setpc 4094 -o $(ROGUE) samplesrc/rogue.a
-
-$(ROGUEIO): samplesrc/rogue.io.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMOW < samplesrc/rogue.io.pla > samplesrc/rogue.io.a
-	acme --setpc 4094 -o $(ROGUEIO) samplesrc/rogue.io.a
 
 $(ROGUECOMBAT): samplesrc/rogue.combat.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/rogue.combat.pla > samplesrc/rogue.combat.a

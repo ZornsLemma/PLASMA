@@ -5,13 +5,24 @@ include "inc/cmdsys.plh"
 include "inc/conio.plh"
 include "inc/fileio.plh"
 
-import rogueio
-  const O_READ       = 1
-  const O_WRITE      = 2
-  const O_READ_WRITE = 3
+//
+// Title page
+//
 
-  word rnd, getkb, tone
-end
+byte[] initstr
+byte = " (        )\n"
+byte = " )\\ )  ( /(  (\n"
+byte = "(()/(  )\\()) )\\ )       (   (\n"
+byte = " /(_))((_)\\ (()/(       )\\  )\\\n"
+byte = "(_))    ((_) /(_))_  _ ((_)((_)\n"
+byte = "| _ \\  / _ \\(_)) __|| | | || __|\n"
+byte = "|   / | (_) | | (_ || |_| || _|\n"
+byte = "|_|_\\  \\___/   \\___| \\___/ |___|\n"
+byte = "\n"
+byte = "       By Resman\n"
+byte = "       Artwork by Seth Sternberger\n"
+byte = ""
+word titlestr = @initstr
 
 //
 // Octant beam parameters
@@ -809,13 +820,14 @@ export def drawvisentity(xofst, yofst, tile)#0
   fin
 end
 
-// We use map as a temporary working variable here
-for map = 0 to 22
-  screen[map] = @emscreen + map*40
-next
-for map = 23 to 33
-  screen[map] = @linebuffer
-next
-// We must reset map to 0 afterwards
-map = 0
+//
+// Print title page
+//
+
+conio:home()
+while ^titlestr
+  puts(titlestr)
+  titlestr = titlestr + ^titlestr + 1
+loop
+
 done
