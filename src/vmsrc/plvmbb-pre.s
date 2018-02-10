@@ -8,11 +8,6 @@
 ;* TODO: I haven't got *all* self-modifying code covered by SELFMODIFY; I
 ;* haven't ported one or two SELFMODIFY references across from the Apple II
 ;* code. Probably just review code myself if/when a ROM build is supported.
-;* SFTODO: With the new "lazy Y wrapping" code, *if* I retain some of the
-;* SELFMODIFY code, I should probably port that lazy Y wrapping into the
-;* self-modifying versions - otherwise I run the risk of Y failing to be
-;* wrapped properly as some opcodes which upstream *does* wrap Y inside won't
-;* wrap in my port.
 SELFMODIFY = 1
 
 ;* If this is 1, code is included when lowering IFP/PP to ensure they don't
@@ -621,17 +616,6 @@ _CEXSX	LDA	(IP),Y		; SKIP TO NEXT OP ADDR AFTER STRING
 ;*
 ;* LOAD VALUE FROM ADDRESS TAG
 ;*
-!IF SELFMODIFY { ;* SFTODO: A2 NO LONGER HAS SELFMODIFY CODE, IS THE NEW NON-SM CASE FASTER THAN THIS SM CODE?
-LB	LDA	ESTKL,X
-	STA	LBLDA+1
-	LDA	ESTKH,X
-	STA	LBLDA+2
-LBLDA	LDA	$FFFF
-	STA	ESTKL,X
-	LDA	#$00
-	STA	ESTKH,X
-	JMP 	NEXTOP
-} ELSE {
 LB      LDA     ESTKL,X
         STA     ESTKH-1,X
         LDA     (ESTKH-1,X)
@@ -639,7 +623,6 @@ LB      LDA     ESTKL,X
         LDA     #$00
         STA     ESTKH,X
         JMP     NEXTOP
-}
 LW      LDA     ESTKL,X
         STA     ESTKH-1,X
         LDA     (ESTKH-1,X)
@@ -703,7 +686,7 @@ LLW     INY                     ;+INC_IP
 ;*
 ;* LOAD VALUE FROM ABSOLUTE ADDRESS
 ;*
-!IF SELFMODIFY { ;* SFTODO: ANY VALUE IN THIS ANY MORE?
+!IF SELFMODIFY {
 LAB     INY                     ;+INC_IP
 	LDA	(IP),Y
 	STA	LABLDA+1
@@ -749,23 +732,12 @@ LAW     INY                     ;+INC_IP
 ;*
 ;* STORE VALUE TO ADDRESS
 ;*
-!IF SELFMODIFY { ;* SFTODO: ANY VALUE IN THIS ANY MORE?
-SB	LDA	ESTKL,X
-	STA	SBSTA+1
-	LDA	ESTKH,X
-	STA	SBSTA+2
-	LDA	ESTKL+1,X
-SBSTA	STA	$FFFF
-	INX
-	JMP	DROP
-} ELSE {
 SB      LDA     ESTKL,X
         STA     ESTKH-1,X
         LDA     ESTKL+1,X
         STA     (ESTKH-1,X)
         INX
         JMP     DROP
-}
 SW      LDA     ESTKL,X
         STA     ESTKH-1,X
         LDA     ESTKL+1,X
@@ -837,8 +809,16 @@ DLW     INY                     ;+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS
 ;*
-!IF SELFMODIFY { ;* SFTODO: ANY VALUE ANY MORE?
+-       TYA                     ; RENORMALIZE IP
+        CLC
+        ADC     IPL
+        STA     IPL
+        BCC     +
+        INC     IPH
++       LDY     #$FF
+!IF SELFMODIFY {
 SAB     INY                     ;+INC_IP
+	BMI	-
 	LDA	(IP),Y
 	STA	SABSTA+1
         INY                     ;+INC_IP
@@ -848,13 +828,6 @@ SAB     INY                     ;+INC_IP
 SABSTA	STA	$FFFF
 	JMP	DROP
 } ELSE {
--       TYA                     ; RENORMALIZE IP
-        CLC
-        ADC     IPL
-        STA     IPL
-        BCC     +
-        INC     IPH
-+       LDY     #$FF
 SAB     INY                     ;+INC_IP
         BMI     -
         LDA     (IP),Y
@@ -885,7 +858,7 @@ SAW     INY                     ;+INC_IP
 ;*
 ;* STORE VALUE TO ABSOLUTE ADDRESS WITHOUT POPPING STACK
 ;*
-!IF SELFMODIFY { ;* SFTODO: ANY VALUE ANY MORE?
+!IF SELFMODIFY {
 DAB     INY                     ;+INC_IP
 	LDA	(IP),Y
 	STA	DABSTA+1
