@@ -133,7 +133,7 @@ def acviewport(left, top, width, height)
 end
 def actexttype(type)
     // SFTODO: Would this be shorter in assembler?
-    // SFTODO: This could possibly be shorted by factoring out putc(vdu_tcol);
+    // SFTODO: This could possibly be shortened by factoring out putc(vdu_tcol);
     // putc(x) or some other trick.
     // We don't support FLASH; we just treat it as NORMAL. (We could support
     // FLASH if we used mode 1/129 and defined the palette accordingly, but it
