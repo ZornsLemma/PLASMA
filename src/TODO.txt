@@ -119,3 +119,5 @@ Looks like there is now a self-hosted PLASMA compiler, I should take a look at p
 Looking at the Youtube video of PLASMA, the lighted area in ROGUE should be shown in reverse video. This doesn't happen in this port - not sure if this is a new feature or something which I lost in my port.
 
 Apple II version auto-patches in support for 65C02 instructions - I should look at enabling that for the Acorn port
+
+Should I stop printing "PLASMA 01.00" (or whatever) every time an error occurs at the prompt? It wasn't really deliberate and doesn't add much, and makes stuff scroll off the screen unnecessarily.
