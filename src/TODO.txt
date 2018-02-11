@@ -121,3 +121,5 @@ Looking at the Youtube video of PLASMA, the lighted area in ROGUE should be show
 Apple II version auto-patches in support for 65C02 instructions - I should look at enabling that for the Acorn port
 
 Should I stop printing "PLASMA 01.00" (or whatever) every time an error occurs at the prompt? It wasn't really deliberate and doesn't add much, and makes stuff scroll off the screen unnecessarily.
+
+We probably eventually want to build multiple SSDs rather than tweaking skel.beebasm manually to put the stuff of current interest onto the SSD
