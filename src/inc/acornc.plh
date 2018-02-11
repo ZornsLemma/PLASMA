@@ -46,6 +46,7 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const osfile_file_found = $01
 
     const osword_read_time = $01
+    const osword_read_time_block_size = $05
     const osword_sound     = $07
     const osword_sound_block_size = $08
 
@@ -58,4 +59,12 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const osbyte_rw_escape_status        = $E5
 
     const buffer_keyboard = 0
+    const buffer_sound_1 = 5
+
+    // SFTODO: Keep?
+    const vdu_tcol = 17
+    const vdu_gcol = 18
+    const vdu_restore_default_windows = 26
+    const vdu_define_text_window = 28
+    const vdu_home = 30
 end

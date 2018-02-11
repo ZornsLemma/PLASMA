@@ -1,0 +1,204 @@
+// Acorn implementation of console I/O library.
+//
+// The Apple II lores graphics mode maps very poorly onto the Acorn graphics
+// modes. The resolution is approximately 40x40 with approximately 16 colours.
+// We could make a stab at the graphics using mode 2 but we'd still only have
+// half the colours and we couldn't emulate the text resolution of approximately
+// 40x4 without a special font. We could try using mode 1 and dithering but that
+// would require quite a lot of code. I don't think it's a good idea to bloat
+// this library with code of little use given it's potentially going to be used
+// in many programs. TODO: A decent attempt to emulate lores graphics might be
+// interesting, but it should probably be done in a separate module. Could we
+// handle it by loading a resident module from this module only if grmode(TRUE)
+// is called?
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/acornc.plh"
+//
+// External interface.
+//
+struc t_conio
+    word keypressed
+    word getkey
+    word echo
+    word home
+    word gotoxy
+    word viewport
+    word texttype
+    word textmode
+    word grmode
+    word grcolor
+    word grplot
+    word tone
+    word rnd
+end
+const INVERSE  = $3F
+//
+// Predefined functions.
+//
+predef ackeypressed,achome,acgotoxy(x,y),acviewport(left, top, width, height),actexttype(type)
+predef actextmode(cols),acunsupported1(mix),acgrplot(x,y),actone(duration, delay),acrnd
+//
+// Exported function table.
+//
+word conio[]
+//
+// Function pointers.
+//
+word = @ackeypressed
+word = @getc
+word = @acunsupported1 // echo
+word = @achome
+word = @acgotoxy
+word = @acviewport
+word = @actexttype
+word = @actextmode
+word = @acunsupported1 // grmode
+word = @acunsupported1 // grcolor
+word = @acgrplot
+word = @actone
+word = @acrnd
+//
+// Random number seed
+//
+word acrndnum = 12345
+//
+// Native routines.
+//
+asm equates
+    BBC = 1
+    !SOURCE "vmsrc/plvmzp.inc"
+    !SOURCE "vmsrc/acornc.inc"
+end
+//
+// def keypressed()
+//
+asm ackeypressed
+    ; Because this works together with getc(), we check for the presence of a
+    ; character in the input buffer. SFTODO: What, if anything, do we need to
+    ; do about Escape being pressed here?
+    STX ESP
+    STY IPY
+    LDA #osbyte_get_buffer_status
+    LDX #buffer_keyboard
+    JSR OSBYTE
+    TXA
+    LDY IPY
+    LDX ESP
+    DEX
+    STA ESTKL,X ; return number of characters in buffer; works fine as a boolean
+    LDA #0
+    STA ESTKH,X
+    RTS
+end
+//
+// def gotoxy(x, y)
+//
+asm acgotoxy(x, y)
+    LDA #vdu_goto_xy
+    JSR OSWRCH
+    LDA ESTKL+1,X
+    JSR OSWRCH
+    INX
+    LDA ESTKL-1,X
+    JMP OSWRCH
+end
+//
+// def grplot(x, y)
+//
+asm acgrplot(x, y)
+    ; not implemented
+    INX
+    RTS
+end
+def achome
+    // SFTODO: Is this supposed to clear the screen?
+    // SFTODO: Would this be shorter written in assembler?
+    putc(vdu_home)
+    return 0
+end
+def acviewport(left, top, width, height)
+    // SFTODO: Would this be shorter in assembler?
+    if !width or !height
+        putc(vdu_restore_default_windows)
+    else
+        putc(vdu_define_text_window)
+        putc(left)
+        putc(top+height-1)
+        putc(left+width-1)
+        putc(top)
+        putc(vdu_home)
+    fin
+    return 0
+end
+def actexttype(type)
+    // SFTODO: Would this be shorter in assembler?
+    // SFTODO: This could possibly be shorted by factoring out putc(vdu_tcol);
+    // putc(x) or some other trick.
+    // We don't support FLASH; we just treat it as NORMAL. (We could support
+    // FLASH if we used mode 1/129 and defined the palette accordingly, but it
+    // seems overkill. That also has 32 rows rather than the 25 we prefer for
+    // greater Apple compatibility.)
+    putc(vdu_tcol)
+    if type == INVERSE
+        putc(135)
+        putc(vdu_tcol)
+        putc(0)
+    else
+        putc(128)
+        putc(vdu_tcol)
+        putc(7)
+    fin
+    return 0
+end
+def actextmode(columns)
+    // SFTODO: This should probably select mode 134 for 40 columns, although
+    // that might be unnecessarily wasteful of memory on machines with no shadow
+    // RAM. It's probably best to go for consistency rather than try to be
+    // clever and sometimes select mode 7 instead of mode 6 though.
+    mode(columns > 40 ?? 131 :: 135)
+    // I don't think the return value is used, so we can't indicate failure if
+    // we tried to select 80-column mode and couldn't.
+    return 0
+end
+def acunsupported1(mix)
+    return 0 // not supported
+end
+def actone(duration, delay)
+    // We're never going to get this 'right' compared to the Apple II
+    // implementation. We very crudely infer that lower values of delay
+    // give a higher frequency tone, and we use a similar timing loop to
+    // the Apple II implementation to determine the duration. We double
+    // 'duration' to roughly compensate for our 2MHz CPU compared to 1MHz on
+    // the Apple. (This will be off if we're running on a second processor,
+    // but it's all very approximate anyway. SFTODO: It would be nice to
+    // calculate an absolute duration, but it's not as simple as just using
+    // 'duration * delay * scale factor'.)
+    byte i
+    word block[osword_sound_block_size]
+    block:0 = 1
+    block:2 = -15
+    if delay > 64
+        block:4 = 0
+    else
+        block:4 = (64 - delay) * 3
+    fin
+    block:6 = 255
+    call(osword, osword_sound, @block, @block >> 8, 0)
+    duration = duration * 2
+    while duration
+        ^$FFFF // toggle speaker; has no effect on Acorn but uses same cycles
+        for i = delay downto 0; next
+        duration--
+    loop
+    call(osbyte, osbyte_flush_buffer, buffer_sound_1, 0, 0)
+    return 0
+end
+def acrnd
+  byte block[osword_read_time_block_size]
+  call(osword, osword_read_time, @block, @block >> 8, 0)
+  acrndnum = acrndnum ^ block:0
+  acrndnum = acrndnum * 31421 + 6927
+  return acrndnum & $7FFF
+end
+done

@@ -26,12 +26,20 @@ EVNTV = $0220
 tube_presence_flag = $027A
 
 osbyte_acknowledge_escape      = $7E
+osbyte_get_buffer_status       = $80
+osbyte_read_key                = $81
 osbyte_read_high_order_address = $82
 osbyte_read_oshwm              = $83
 osbyte_read_himem              = $84
 osbyte_issue_service_call      = $8F
 
 service_call_select_filing_system = $12
+
+buffer_keyboard = $FF
+
+; SFTODO: Keep?
+vdu_gcol = 18
+vdu_goto_xy = 31
 
 ;**********************************************************
 ;*
