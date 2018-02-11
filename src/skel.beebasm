@@ -33,3 +33,4 @@ putfile "samplesrc/sort2.mo", "SORT2", &0000
 ;putfile "TubeSwitch", "TS", &0000
 ;putfile "ROD#FE1000", "ROD", &0000
 putfile "CONIOAC#FE1000", "CONIO", &0000
+putfile "FILEIOAC#FE1000", "FILEIO", &0000

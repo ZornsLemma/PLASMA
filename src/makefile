@@ -24,6 +24,7 @@ FATPUT  = FATPUT\#FE1000
 FATWDSK = FATWRITEDSK\#FE1000
 FATRDSK = FATREADDSK\#FE1000
 FILEIO  = FILEIO\#FE1000
+FILEIOAC = FILEIOAC\#FE1000
 CONIO   = CONIO\#FE1000
 CONIOAC = CONIOAC\#FE1000
 SANE    = SANE\#FE1000
@@ -80,7 +81,7 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(CONIO) $(CONIOAC) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(BBSSD)
+all: $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(PLVM32) $(PLVM128) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(TONE) $(DGR) $(DGRTEST) $(FILEIO) $(FILEIOAC) $(CONIO) $(CONIOAC) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(BBSSD)
 
 clean:
 	-rm *FE1000 *FF2000 *FF3000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03) $(PLVM32) $(PLVM128)
@@ -252,6 +253,10 @@ $(FILEIO): libsrc/fileio.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/fileio.pla > libsrc/fileio.a
 	acme --setpc 4094 -o $(FILEIO) libsrc/fileio.a
 
+$(FILEIOAC): libsrc/fileioac.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMOW < libsrc/fileioac.pla > libsrc/fileioac.a
+	acme --setpc 4094 -o $(FILEIOAC) libsrc/fileioac.a
+
 $(CONIO): libsrc/conio.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/conio.pla > libsrc/conio.a
 	acme --setpc 4094 -o $(CONIO) libsrc/conio.a
@@ -409,5 +414,5 @@ sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.
 divmod: samplesrc/divmod.pla $(PLVM) $(PLASM)
 	./plasmac.py -OW samplesrc/divmod.pla
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort divmod $(ACORNOS) samplesrc/pcw.bas $(CONIOAC)
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort divmod $(ACORNOS) samplesrc/pcw.bas $(CONIOAC) $(FILEIOAC)
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA
