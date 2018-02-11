@@ -149,7 +149,7 @@ byte perr
 // RAM), so we stick with it. TODO: We could in principle conditionally
 // compile this, but it's awfully fiddly.
 //
-byte verstr[]     = "PLASMA Pre3 "
+byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
 #ifdef PLAS128
     byte xfreestr[]	  = ", AUX FREE:$"
@@ -2010,11 +2010,7 @@ perr = 0
 // Print some startup info.
 //
 if not ^cmdptr
-    puts(@verstr)
-    prbyte(version.1)
-    putc('.')
-    prbyte(version.0)
-    putln
+    puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
     //puts(@freestr)
