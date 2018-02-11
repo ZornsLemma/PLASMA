@@ -9,7 +9,7 @@
 // Acorn OS where these constants alone aren't efficient or convenient.
 
 // These constants don't actually have any runtime dependency on a module,
-// but for syntatic reasons it's convenient to wrap them in an import block.
+// but for syntactic reasons it's convenient to wrap them in an import block.
 // (Without this import block, this header would have to be included
 // last.) We therefore declare a dependency on the special cmdsys module
 // which is built into the VM.
