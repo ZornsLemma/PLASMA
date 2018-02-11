@@ -112,9 +112,8 @@ asm acgrplot(x, y)
     RTS
 end
 def achome
-    // SFTODO: Is this supposed to clear the screen?
     // SFTODO: Would this be shorter written in assembler?
-    putc(vdu_home)
+    putc(vdu_cls)
     return 0
 end
 def acviewport(left, top, width, height)

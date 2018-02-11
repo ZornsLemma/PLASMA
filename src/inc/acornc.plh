@@ -62,6 +62,7 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const buffer_sound_1 = 5
 
     // SFTODO: Keep?
+    const vdu_cls = 12
     const vdu_tcol = 17
     const vdu_gcol = 18
     const vdu_restore_default_windows = 26
