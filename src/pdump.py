@@ -86,7 +86,8 @@ class Module:
         defofst = modsize
         init = 0
 
-        if self.wordrel(2) == 0xda7e or self.wordrel(2) == 0xda7e+1:
+        if self.wordrel(2) == 0x6502:
+            print('SFTODO')
             self.annotate_point(modsize+2, "segend")
             self.annotate(4, 5, "system flags")
             defofst = self.wordrel(6)
@@ -99,6 +100,7 @@ class Module:
             # Load module dependencies
             while self.byterel(moddep):
                 s = self.dcistrrel(moddep)
+                print('SFTODO2', s)
                 self.annotate(moddep, moddep + len(s) - 1, "dependency: " + s)
                 moddep += len(s)
             self.annotate(moddep, moddep, "dependency end marker")
@@ -182,6 +184,7 @@ class Module:
                         s = "byte"
                     if rld_type & 0x10: # EXTERN reference
                         index = self.byterel(rld+3)
+                        print('SFTODO1', index, len(esd_list))
                         extern_name = esd_list[index]
                         self.annotate(addr, addr+1, "%s (extern)+%d (fixed up by RLD entry at %04x)" % (extern_name, fixup, hexdump_offset + rld))
                         self.annotate(rld+1, rld+2, "EXTERN fix up at %04x" % (hexdump_offset + addr))
