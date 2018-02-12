@@ -1530,6 +1530,10 @@ def modloadcr_internal(moddci, modcr)#1
     modload_handle = handle
     block.0 = handle
     block:1 = @header
+    // SFTODO: Can we just use 0 instead of high_order_address()? I may be
+    // getting confused, but if we don't have a second processor 0 will
+    // obviously load into the host, and if we do have a second processor, 0
+    // will load into it.
     block:3 = high_order_address()
     block:5 = header_size
     block:7 = 0

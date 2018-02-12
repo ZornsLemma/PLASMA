@@ -1,0 +1,202 @@
+// Acorn implementation of fileio API
+
+// http://www.easy68k.com/paulrsm/6502/PDOS8TRM.HTM looks like a good reference
+// for Apple ProDOS.
+
+// SFTODO: When we make OS calls, we probably need to wrap them in code which
+// uses setjmp() on *errjb (saving the previous value) so we can return an error
+// code to the caller instead of allowing any OS errors to escape. This may also
+// require considering if we can continue to share the same page for the command
+// line and errors - I think the plasm compiler will support this (it copies the
+// command line arguments away before it uses them, so any error wouldn't
+// trample on them) but perhaps this is error prone.
+
+include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
+include "inc/acornc.plh"
+
+// SFTODO: This is a hack, it needs to be 255 or 256 bytes and that means we
+// need to use callalloca to allocate a temporary buffer. But for now let's just
+// go with this until things are otherwise working.
+const maxpathlen = 128
+
+//
+// External interface
+//
+struc t_fileio
+    word getpfx
+    word setpfx
+    word getfileinfo
+    word geteof
+    word iobufalloc
+    word open
+    word close
+    word read
+    word write
+    word create
+    word destroy
+    word newline
+    word readblock
+    word writeblock
+end
+
+//
+// Predefined functions
+//
+predef acgetpfx(path), acsetpfx(path), acgetfileinfo(path, fileinfo), acgeteof(refnum), aciobufs(iobufs), acopen(path), acclose(refnum)
+predef acread(refnum, buf, len), acwrite(refnum, buf, len), accreate(path, type, aux), acdestroy(path)
+predef acnewline(refnum, emask, nlchar), acblock(unit, buf, block)
+
+//
+// Exported function table.
+//
+word fileio[]
+word = @acgetpfx, @acsetpfx, @acgetfileinfo, @acgeteof, @aciobufs, @acopen, @acclose
+word = @acread, @acwrite, @accreate, @acdestroy
+word = @acnewline
+word = @acblock // readblock
+word = @acblock // writeblock
+
+//
+// Globally accessible error code
+//
+export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
+
+def acgetpfx(path)
+    // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
+    // I am not sure. For now let's just not support this and investigate later; we need to do
+    // something that works with hierarchical and non-hierarchical file systems. It may be that
+    // we can get away without supporting this and leave the Acorn filesystem to manage its
+    // own concept of current directory.
+    ^path = 0
+    return path
+end
+
+def acsetpfx(path)
+    // SFTODO: See acgetpfx()
+    return path
+end
+
+def acgetfileinfo(path, fileinfo)
+    // SFTODO: We can almost certainly implement this but we can get away
+    // without it for now.
+    perr = $01
+    return perr
+end
+
+def acgeteof(refnum)
+    // SFTODO: We can almost certainly implement this but we can get away
+    // without it for now.
+    return 0
+end
+
+def aciobufs(iobufs)
+    // SFTODO: Implement this?
+    return 0
+end
+
+def acopen(path)
+    byte pathcr[maxpathlen]
+
+    stocr(path, @pathcr)
+
+    // We use osfind_update; this allows both read and write access but won't
+    // create a file which doesn't already exist. fileio::create() is provided
+    // to create new files prior to opening them.
+    return call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
+end
+
+def acclose(refnum)
+    call(osfind, osfind_close, 0, refnum, 0)
+    perr = 0 // SFTODO?
+    return perr
+end
+
+def acread(refnum, buf, len)
+    byte block[osgbpb_block_size]
+
+    block.0 = refnum
+    block:1 = buf
+    block:3 = 0 // SFTODO?!
+    block:5 = len
+    call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
+    // SFTODO: eof[refnum] = (block:5 <> 0) - unless we will query this via some
+    // other OS interface
+    perr = 0 // SFTODO!?
+    return len - block:5 // return number of bytes read
+end
+
+def acwrite(refnum, buf, len)
+    byte block[osgbpb_block_size]
+
+    // SFTODO: VERY SIMILAR TO ACREAD() - CAN WE FACTOR OUT COMMON CODE AND JUST
+    // PASS THE OSBPB A VALUE INTO IT?
+    block.0 = refnum
+    block:1 = buf
+    block:3 = 0 // SFTODO?!
+    block:5 = len
+    call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
+    perr = 0 // SFTODO!?
+    return len - block:5 // return number of bytes written
+end
+
+def accreate(path, type, aux)
+    byte pathcr[maxpathlen]
+    byte refnum
+
+    stocr(path, @pathcr)
+
+    // SFTODO: I am not sure if this should truncate a file which doesn't exist;
+    // currently it will, because that's what osfind_output does. I don't know
+    // what the Apple implementation will do in this case.
+    refnum = call(osfind, osfind_output, @pathcr, @pathcr >> 8, 0).0
+    if refnum == 0
+        // SFTODO: Can this happen? Let's assume it can for now. We failed to
+        // create the file.
+        perr = 1 // SFTODO!?
+    else
+        // We successfully created the file; now close the handle.
+        // SFTODO: This is a bit inefficient and might add to the sluggishness
+        // of file I/O, especially on a real disc. Not sure we can do much about
+        // it, but just possibly we could keep the file open in anticipation of
+        // a subsequent fileio:open() with the same path.
+        call(osfind, osfind_close, 0, refnum, 0)
+        perr = 0 // SFTODO!?
+    fin
+    return perr
+end
+
+def acdestroy(path)
+    byte block[osfile_block_size]
+    byte pathcr[maxpathlen]
+
+    stocr(path, @pathcr)
+    block:0 = @pathcr
+    // SFTODO: This will return with A=0 if the object does not exist - do we
+    // want to treat that as an error or not?
+    call(osfile, osfile_delete_object, @block, @block >> 8, 0)
+    perr = 0 // SFTODO!?
+    return perr
+end
+
+def acnewline(refnum, emask, nlchar)
+    // SFTODO: This is a big deal. The easy68k website has good documentation on
+    // this. We will have to track these settings on a per-handle basis (perhaps
+    // we should switch to returning refnums from our own array, a bit like the
+    // Apple II implementation, with the OS handle as one of the members of that
+    // structure) and if this mode is enabled, acread() would have to read using
+    // a series of OSBGET calls *or* (definitely not in the first cut) we'd have
+    // to switch to using an internal buffer.
+    oserror(0, "SFTODO!")
+    perr = 0 // SFTODO!?
+    return perr
+end
+
+// This function looks potentially lethal and the Apple I and ///
+// implementations don't support it either. It would also probably require
+// different code for DFS and ADFS. Let's hold off on this until a pressing
+// use case comes up.
+def acblock(unit, buf, block)
+    perr = $27  // IOERR
+    return perr
+end

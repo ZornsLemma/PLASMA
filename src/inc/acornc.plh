@@ -41,6 +41,7 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const osargs_read_ext = $02
 
     const osfile_block_size = $12
+    const osfile_delete_object = $06
     const osfile_load_file  = $FF
     const osfile_not_found  = $00
     const osfile_file_found = $01
