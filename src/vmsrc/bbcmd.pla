@@ -2063,6 +2063,7 @@ while 1
     putln
     puts(@prompt)
     cmdptr = gets(':')
+    syscmdln = cmdptr // SFTODO: bit of a hack, be better to set this once but should work for now
 loop
 #endif
 done

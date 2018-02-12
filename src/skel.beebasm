@@ -34,3 +34,5 @@ putfile "samplesrc/sort2.mo", "SORT2", &0000
 ;putfile "ROD#FE1000", "ROD", &0000
 putfile "CONIOAC#FE1000", "CONIO", &0000
 putfile "FILEIOAC#FE1000", "FILEIO", &0000
+putfile "PLASM#FE1000", "PLASM", &0000
+putfile "ARGS#FE1000", "ARGS", &0000
