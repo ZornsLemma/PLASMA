@@ -62,6 +62,10 @@ word = @acblock // writeblock
 //
 export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
 
+// SFTODO: MASSIVE HACK - VERY WASTEFUL OF RAM IF NOTHING ELSE
+byte newline_emask[256]
+byte newline_nlchar[256]
+
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
     // I am not sure. For now let's just not support this and investigate later; we need to do
@@ -97,13 +101,16 @@ end
 
 def acopen(path)
     byte pathcr[maxpathlen]
+    byte refnum
 
     stocr(path, @pathcr)
 
     // We use osfind_update; this allows both read and write access but won't
     // create a file which doesn't already exist. fileio::create() is provided
     // to create new files prior to opening them.
-    return call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
+    refnum = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
+    newline_emask[refnum] = 0
+    return refnum
 end
 
 def acclose(refnum)
@@ -114,16 +121,48 @@ end
 
 def acread(refnum, buf, len)
     byte block[osgbpb_block_size]
+    byte emask
+    byte nlchar
+    word linelen
+    word result
+    byte c
 
-    block.0 = refnum
-    block:1 = buf
-    block:3 = 0 // SFTODO?!
-    block:5 = len
-    call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
-    // SFTODO: eof[refnum] = (block:5 <> 0) - unless we will query this via some
-    // other OS interface
-    perr = 0 // SFTODO!?
-    return len - block:5 // return number of bytes read
+    // SFTODO: This implementation is ridiculous, but it should work - can look
+    // into optimising speed and space later on. (Note that the fileio API
+    // doesn't seem to offer any seek options, which should simplify buffering
+    // internally when using newline mode to read a file line by line.)
+    emask = newline_emask[refnum]
+    if emask <> 0
+        nlchar = newline_nlchar[refnum]
+        linelen = 0
+        while linelen < len
+            // SFTODO: At the very least we should be using machine code to call
+            // OSBGET.
+            result = call(osbget, 0, 0, refnum, 0)
+            if result->3 & 1 // SFTODO: MAGIC NUMBER - WE ARE TESTING C - BUT IF THIS LIVES WE WILL USE ASSEMBLER ANYWAY
+                break
+            fin
+            c = result->0
+            ^buf = c
+            buf++
+            linelen++
+            if (c & emask) == nlchar
+                break
+            fin
+        loop
+        perr = 0 // SFTODO!?
+        return linelen
+    else
+        block.0 = refnum
+        block:1 = buf
+        block:3 = 0 // SFTODO?!
+        block:5 = len
+        call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
+        // SFTODO: eof[refnum] = (block:5 <> 0) - unless we will query this via some
+        // other OS interface
+        perr = 0 // SFTODO!?
+        return len - block:5 // return number of bytes read
+    fin
 end
 
 def acwrite(refnum, buf, len)
@@ -180,14 +219,8 @@ def acdestroy(path)
 end
 
 def acnewline(refnum, emask, nlchar)
-    // SFTODO: This is a big deal. The easy68k website has good documentation on
-    // this. We will have to track these settings on a per-handle basis (perhaps
-    // we should switch to returning refnums from our own array, a bit like the
-    // Apple II implementation, with the OS handle as one of the members of that
-    // structure) and if this mode is enabled, acread() would have to read using
-    // a series of OSBGET calls *or* (definitely not in the first cut) we'd have
-    // to switch to using an internal buffer.
-    oserror(0, "SFTODO!")
+    newline_emask[refnum] = emask
+    newline_nlchar[refnum] = nlchar
     perr = 0 // SFTODO!?
     return perr
 end
