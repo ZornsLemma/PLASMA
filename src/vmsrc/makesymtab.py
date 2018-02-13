@@ -31,6 +31,8 @@ symtab = [
     ("SETJMP", "@setjmp"),
     ("SETJMP2", "@setjmp2"),
     ("LONGJMP", "@longjmp"),
+    ("THROW", "@longjmp"), # SFTODO TEMP HACK
+    ("EXCEPT", "@setjmp"),
     ("PRBYTE", "@prbyte"),
     ("OSERROR", "@oserror"),
     ("CALL_OSCLI", "@call_oscli"),

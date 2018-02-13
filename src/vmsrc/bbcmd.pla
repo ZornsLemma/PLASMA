@@ -2030,12 +2030,14 @@ fin
 //
 while 1
     if ^cmdptr
+        putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
         when toupper(parsecmd(cmdptr))
 	    is 'M'
 		modechange(cmdptr)
 		break
 	    is '+'
 	    	// SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
+                ^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
 	        modexec(striptrail(cmdptr))
 		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
 		break

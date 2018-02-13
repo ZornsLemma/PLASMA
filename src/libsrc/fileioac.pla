@@ -157,6 +157,7 @@ def acread(refnum, buf, len)
         block:1 = buf
         block:3 = 0 // SFTODO?!
         block:5 = len
+        block:7 = 0
         call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
         // SFTODO: eof[refnum] = (block:5 <> 0) - unless we will query this via some
         // other OS interface
@@ -174,6 +175,7 @@ def acwrite(refnum, buf, len)
     block:1 = buf
     block:3 = 0 // SFTODO?!
     block:5 = len
+    block:7 = 0
     call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
     perr = 0 // SFTODO!?
     return len - block:5 // return number of bytes written

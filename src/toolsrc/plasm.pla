@@ -412,7 +412,15 @@ include "toolsrc/parse.pla"
 // Look at command line arguments and compile module
 //
 puts("PLASMA Compiler, Version 1.02\n")
+puts("SFTODO1")
+puts(cmdsys:cmdline)
+puts("SFTODO")
+putln()
 arg = argNext(argFirst)
+puts("SFTODO")
+puts(arg)
+puts("SFTODO")
+putln()
 if ^arg and ^(arg + 1) == '-'
     opt = arg + 2
     while TRUE
@@ -488,10 +496,15 @@ if srcfile and relfile
             //
             // Write REL file
             //
+            puts("SFTODOQ0\n")
             fileio:destroy(@relfile)
+            puts("SFTODOQ1\n")
             fileio:create(@relfile, $FE, $1000) // full access, REL file
+            puts("SFTODOQ2\n")
             srcref = fileio:open(@relfile)
+            puts("SFTODOQ3\n")
             if srcref
+                puts("SFTODOQ4\n")
                 writemodule(srcref)
                 fileio:close(srcref)
             else

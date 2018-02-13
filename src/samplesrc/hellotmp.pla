@@ -1,0 +1,7 @@
+// SFTODO: Temporary so I don't have to worry about include paths on the
+// self-hosted compiler. Remove this file later.
+import cmdsys
+   predef puts(s)#0
+end
+puts("Hello, world.\n")
+done

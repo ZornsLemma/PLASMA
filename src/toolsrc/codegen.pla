@@ -816,7 +816,9 @@ def writeheader(refnum)
     header:6  = len + RELADDR + datasize // Byte code offset
     header:8  = def_cnt                  // DEFinition count
     header:10 = entrypoint + modfix      // Init entrypoint
+    puts("SFTODOA0\n")
     fileio:write(refnum, @header, len + 2)
+    puts("SFTODOA1\n")
     return len
 end
 //
@@ -920,6 +922,7 @@ def writemodule(refnum)#0
     hdrlen  = writeheader(refnum)
     modfix  = hdrlen + RELADDR
     modofst = hdrlen - codebuff
+    puts("SFTODO0\n")
     //
     // Adjust internal fixups for header size
     //
@@ -932,18 +935,22 @@ def writemodule(refnum)#0
     //
     // Write data/code buffer
     //
+    puts("SFTODO1\n")
     fileio:write(refnum, codebuff, codeptr - codebuff)
     //
     // Write bytecode definition directory
     //
+    puts("SFTODO2\n")
     writeDFD(refnum, modfix)
     //
     // Build EXERN/ENTRY directory
     //
+    puts("SFTODO3\n")
     esd, esdlen = buildESD(modfix)
     //
     // Write relocation directory
     //
+    puts("SFTODO4\n")
     writeRLD(refnum, modofst)
     //
     // Write EXTERN/EBTRY directory
