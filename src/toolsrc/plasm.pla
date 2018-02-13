@@ -462,8 +462,6 @@ def mangleopen(path)
     next
 
     if prefix
-        // SFTODO: THIS ISN'T WORKING ANYWAY BUT IT ALSO NEEDS TO TRUNCATE THE
-        // FINAL 4 CHARACTERS (EASY, JUST ADJUST THE LENGTH)
         newpath = newpath - 2
         ^newpath = ^(newpath + 2) + 2 - 4 // add 'X.' prefix, remove '.YYY' suffix
         ^(newpath + 1) = prefix
