@@ -137,7 +137,9 @@ def acread(refnum, buf, len)
         linelen = 0
         while linelen < len
             // SFTODO: At the very least we should be using machine code to call
-            // OSBGET.
+            // OSBGET. There's an implementation in acornos.plh. But would
+            // probably write this whole fn in assembler, and/or use a different
+            // strategy.
             result = call(osbget, 0, 0, refnum, 0)
             if result->3 & 1 // SFTODO: MAGIC NUMBER - WE ARE TESTING C - BUT IF THIS LIVES WE WILL USE ASSEMBLER ANYWAY
                 break

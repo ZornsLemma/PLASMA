@@ -7,14 +7,15 @@ include "inc/cmdsysac.plh"
 include "inc/testlib.plh"
 include "inc/acornos.plh"
 include "inc/acornc.plh"
+include "inc/longjmp.plh"
 
 byte do_mode_change
-byte jb[jbsz]
+byte jb[t_except_acorn]
 
 def bar(i)
     word j, k
     k = 0
-    j = setjmp(@jb)
+    j = except(@jb)
     if j <> 0
 	return k + j
     fin
@@ -24,10 +25,10 @@ def bar(i)
 	    mode(j)
 	fin
 	if j == 99
-	    longjmp(@jb, 42)
+	    throw(@jb, 42)
 	fin
     next
-    oserror(0, "Didn't longjmp!")
+    oserror(0, "Didn't throw!")
 end
 
 def foo

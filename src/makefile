@@ -404,9 +404,9 @@ symtbl: samplesrc/symtbl.pla $(PLVM) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/symtbl.pla > samplesrc/symtbl.a
 	acme --setpc 4094 -o SYMTBL\#FE1000 samplesrc/symtbl.a
 
-setjmp: samplesrc/setjmp.pla $(PLVM) $(PLASM)
-	./$(PLASM) -AMO < samplesrc/setjmp.pla > samplesrc/setjmp.a
-	acme --setpc 4094 -o SETJMP\#FE1000 samplesrc/setjmp.a
+ljtest: samplesrc/ljtest.pla $(PLVM) $(PLASM)
+	./$(PLASM) -AMO < samplesrc/ljtest.pla > samplesrc/ljtest.a
+	acme --setpc 4094 -o LJTEST\#FE1000 samplesrc/ljtest.a
 
 sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.pla $(PLVM) $(PLASM)
 	./plasmac.py -O -Isamplesrc samplesrc/sort.pla samplesrc/sort1.pla samplesrc/sort2.pla
@@ -414,5 +414,5 @@ sort: samplesrc/sort.pla samplesrc/sort.plh samplesrc/sort1.pla samplesrc/sort2.
 divmod: samplesrc/divmod.pla $(PLVM) $(PLASM)
 	./plasmac.py -OW samplesrc/divmod.pla
 
-plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl setjmp sort divmod $(ACORNOS) samplesrc/pcw.bas $(CONIOAC) $(FILEIOAC)
+plasma.ssd: $(PLVM32) $(PLVM128) hello test dump mode mode2 hanoi bench1 bench2 bounce dword modname stdio stdiots strpool symtbl ljtest sort divmod $(ACORNOS) samplesrc/pcw.bas $(CONIOAC) $(FILEIOAC)
 	beebasm -i skel.beebasm -do plasma.ssd -title PLASMA

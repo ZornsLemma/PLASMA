@@ -10,12 +10,6 @@ import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack 
     const errjb = $407
     const errnum = $700
     const errstr = $701
-    // The maximum size of a jmp_buf is actually two bytes less on PLAS32
-    // but we just use this value all the time. In practice applications should
-    // probably just use setjmp2() to allocate a suitably sized jmp_buf on the
-    // heap.
-    const jbsz = 1 + 32 + 4 + 1 + 255
-    predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
     predef prbyte(v)#0 // SFTODO: CAN PROB GET RID OF THIS NOW, THINK IT'S IN CMDSYS.PLH (UNDER ANOTHER NAME)
     predef oserror(n, msg)#0
     predef call_oscli(str)#0
@@ -24,4 +18,22 @@ import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack 
     predef callalloca
     predef xheapalloc(size)#1
     word modname
+
+    // The standard except()/throw() interface in inc/longjmp.plh is supported
+    // by the Acorn port. However, the buffer used to store the environment does
+    // not need to be as large - the maximum size on this port is t_except_acorn
+    // (actually 2 bytes less on PLAS32) - so you can get away with allocating a
+    // buffer of size t_except_acorn instead of size t_except. Alternatively you
+    // can use except2(), which will allocate a buffer of exactly the right size
+    // from the heap (rather than assuming the worst case size):
+    //     word bufptr                       
+    //     if except2(@bufptr) == 0
+    //         // first time
+    //     else
+    //         // get here via throw()
+    //     fin
+    //     ...
+    //     throw(bufptr, 1)
+    const t_except_acorn = $0125 // 1 + 32 + 4 + 1 + 255
+    predef except2(bptr)#1
 end

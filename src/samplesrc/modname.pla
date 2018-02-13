@@ -32,7 +32,8 @@ end
 // TODO: Some means of preventing this being installed over and over again
 // (burning memory each time) might be nice, but as far as I can see upstream
 // PLASMA doesn't support this and I am not sure it's a good idea to make
-// Acorn-specific changes here.
+// Acorn-specific changes here. Now that modules have their address in the
+// symbol table, can we use that to help?
 parent_modname = modname
 modname = @my_modname
 puts("Installed my_modname()\n")

@@ -90,7 +90,7 @@ end
 
 puts("At the prompt, type either:\n- a filename to hex dump\n- a * command\n- nothing (to quit)\n")
 
-error = setjmp2(@jb)
+error = except2(@jb)
 if error == 0
     *errjb = jb
 else

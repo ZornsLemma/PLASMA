@@ -18,7 +18,7 @@ putfile "samplesrc/modname.mo", "MODNAME", &0000
 ;putfile "STDIO#FE1000", "STDIO", &0000
 ;putfile "STDIOTS#FE1000", "STDIOTS", &0000
 putfile "STRPOOL#FE1000", "STRPOOL", &0000
-putfile "SETJMP#FE1000", "SETJMP", &0000
+putfile "LJTEST#FE1000", "LJTEST", &0000
 putfile "samplesrc/sort.mo", "SORT", &0000
 putfile "samplesrc/sort1.mo", "SORT1", &0000
 putfile "samplesrc/sort2.mo", "SORT2", &0000

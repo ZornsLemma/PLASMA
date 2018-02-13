@@ -1,8 +1,8 @@
+// SFTODO: RENAME THIS FILE NOW FN IS NOT CALLED setjmp()?
 include "inc/cmdsys.plh"
-include "inc/cmdsysac.plh"
-include "inc/testlib.plh"
+include "inc/longjmp.plh"
 
-byte jb[jbsz]
+byte jb[t_except]
 word i, j
 
 def foo(i)
@@ -15,12 +15,12 @@ def foo(i)
     fin
 end
 
-i = 5 + setjmp(@jb)
+i = 5 + except(@jb)
 if i == 5
-    puts("setjmp() returned for first time\n")
-    longjmp(@jb, 42)
+    puts("except() returned for first time\n")
+    throw(@jb, 42)
 elsif i == 42+5
-    puts("setjmp() returned for second time\n")
+    puts("except() returned for second time\n")
 else
     puts("error: i=")
     puti(i)
@@ -28,17 +28,18 @@ else
 fin
 
 for i = 1 to 5
-    j = setjmp(@jb)
+    j = except(@jb)
     if j == 0
 	// PLAS128: Here we use a CS opcode which will allocate a string in
-	// this function's string pool, *below* the PP saved by setjmp().
-	// If longjmp() doesn't take action to adjust PP accordingly, the
+	// this function's string pool, *below* the PP saved by except().
+	// If throw() doesn't take action to adjust PP accordingly, the
 	// call to foo() would corrupt the string pool and subsequent passes
 	// around the loop would see a corrupted string returned by this CS
-	// opcode.
+	// opcode. SFTODO: THE FUNDAMENTAL ISSUE IS STILL THERE, BUT NOT SURE
+        // THIS WOULD MANIFEST QUITE THE SAME WITH THE LATEST POOL
 	puts("Hello world! ")
 	foo(5)
-	longjmp(@jb, i)
+	throw(@jb, i)
     else
 	puti(j)
 	putln()

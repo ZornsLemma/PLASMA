@@ -101,7 +101,7 @@ predef memset(addr,value,size)#0, memcpy(dst,src,size)#0
 predef strcpy(dst,src)#1, strcat(dst,src)#1
 predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1, sext(a)#1
 predef modload(mod)#1, modexec(modfile)#1
-predef setjmp(b)#1, setjmp2(bptr)#1, longjmp(b, val)#0
+predef except(b)#1, except2(bptr)#1, throw(b, val)#0
 predef prbyte(b)#0, prword(w)#0
 predef oserror(n, msg)#0
 predef call_oscli(str)#0
@@ -778,10 +778,10 @@ end
 //
 // NONLOCAL GOTO
 //
-// SFTODO: Need to think carefully about whether setjmp()/longjmp() need to be updated to reflect the new style of ENTER/LEAVE/INTERP in the latest version
+// SFTODO: Need to think carefully about whether except()/throw() need to be updated to reflect the new style of ENTER/LEAVE/INTERP in the latest version
 
-// setjmp(jmp_buf *b) -> 0 on save, longjmp val otherwise
-export asm setjmp(b)#1
+// except(jmp_buf *b) -> 0 on save, throw val otherwise
+export asm except(b)#1
 	STX	ESP
 
 	LDY	#0
@@ -810,7 +810,7 @@ export asm setjmp(b)#1
 	BNE	----
 
 	;* We store IFP and PP as a delta from HIMEM to avoid problems
-	;* where we do setjmp(); mode(); longjmp().
+	;* where we do except(); mode(); throw().
 +++	SEC
 	LDA	#0
 	SBC	IFPL
@@ -834,8 +834,8 @@ export asm setjmp(b)#1
 
 	;* We don't need to save IP, IPY or (for PLAS128) the current bank at 
 	;* $F4; CALL/ICAL save and restore these themselves. (Remember that
-	;* when longjmp() reaches its RTS, control returns to just after the
-	;* JSR inside the CALL/ICAL which called setjmp.)
+	;* when throw() reaches its RTS, control returns to just after the
+	;* JSR inside the CALL/ICAL which called except.)
 
 	TYA
 	CLC
@@ -863,10 +863,10 @@ export asm setjmp(b)#1
 	RTS
 end
 
-// longjmp(jmp_buf *b, word val)
+// throw(jmp_buf *b, word val)
 // Control never returns to caller; we declare this to return no values so the
 // caller doesn't waste space on a redundant DROP opcode after the CALL.
-export asm longjmp(b, val)#0
+export asm throw(b, val)#0
 	LDA	ESTKL+1,X
 	STA	TMPL
 	LDA	ESTKH+1,X
@@ -935,7 +935,7 @@ export asm longjmp(b, val)#0
 	TAX
 	TXS
 
-        ;* As in setjmp(), we can assume X is not $FF and so we know Y can't
+        ;* As in except(), we can assume X is not $FF and so we know Y can't
         ;* wrap round during this loop.
 --	INX
 	BEQ	+++
@@ -946,9 +946,9 @@ export asm longjmp(b, val)#0
 
 +++	
 
-	;* PLAS128: CS may have allocated some constant strings after setjmp()
-	;* was called, but when we restore the value of PP saved by setjmp()
-	;* we effectively just reset the pool back to the state at the setjmp()
+	;* PLAS128: CS may have allocated some constant strings after except()
+	;* was called, but when we restore the value of PP saved by except()
+	;* we effectively just reset the pool back to the state at the except()
 	;* point.
 
 	LDX	ESP
@@ -1125,7 +1125,7 @@ def prword(w)#0 // SFTODO: PROBABLY NEEDS TO BE EXPORTED NOW
 end
 
 // TODO: export this?
-// TODO: get rid of this and inline it in setjmp2()?
+// TODO: get rid of this and inline it in except2()?
 def jmpbufsz(jb)#1
 	const esp_size = 1
 	const esp_offset = 0
@@ -1145,15 +1145,15 @@ def jmpbufsz(jb)#1
 	size = size + stack_ptr_size + (255 - stack_ptr)
 	return size
 end
-// int setjmp2(jmp_buf **b) { *b = new jmp_buf; return setjmp(*b); }
-// setjmp() wrapper which dynamically allocates a jmp_buf of just the right size
+// int except2(jmp_buf **b) { *b = new jmp_buf; return except(*b); }
+// except() wrapper which dynamically allocates a jmp_buf of just the right size
 // to avoid wasting memory.
-export def setjmp2(bptr)#1
+export def except2(bptr)#1
     word b
     word result
     b = *heapptr
     *bptr = b
-    result = setjmp(b)
+    result = except(b)
     if result == 0
         xheapalloc(jmpbufsz(b))
     fin
@@ -1882,13 +1882,13 @@ end
 // it's probably not a good idea; most of the time user code should
 // restrict itself to manipulating *errjb.
 def error_handler()#0
-  // The error number is available to the target at ^errnum; longjmp() naturally
+  // The error number is available to the target at ^errnum; throw() naturally
   // passes along a value so it's tempting to pass the error number using it,
   // but it can't send a value of 0 (which is a valid error number) so we don't
   // do that as it just adds to the temptation to write not-quite-correct client
   // code. (Passing 0 saves a few bytes in the VM; this will be turned into 1
-  // by longjmp() internally, not that anything is likely to examine the value.)
-  longjmp(*errjb, 0)
+  // by throw() internally, not that anything is likely to examine the value.)
+  throw(*errjb, 0)
 end
 #ifndef STANDALONE
 def modexec(modfile)#1
@@ -1909,13 +1909,13 @@ def modexec(modfile)#1
     // saveflags = systemflags
     modload_handle = 0
     olderrjb = *errjb
-    // We allocate a jmp_buf on the heap using setjmp2(); it will get trapped
+    // We allocate a jmp_buf on the heap using except2(); it will get trapped
     // and leaked if the module being executed remains resident, but that can't
     // really be helped (and it will be fairly small). We can't allocate a
     // local jmp_buf because the address of it would change if the executed
     // module changes mode and thereby alters HIMEM; mode() will relocate
     // the frame stack but it won't patch up the address at *errjb.
-    error = setjmp2(@jb)
+    error = except2(@jb)
     if error == 0
         *errjb = jb
         action = modloadpstr(modfile)
@@ -1991,7 +1991,7 @@ modname = @modname_default
 //
 // Set up error handler
 //
-if setjmp2(errjb) == 0
+if except2(errjb) == 0
   *errfp = @error_handler
 else
 #ifndef STANDALONE
