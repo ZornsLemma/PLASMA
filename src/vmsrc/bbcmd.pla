@@ -73,7 +73,7 @@ const errjb	   = $0407	// 2 bytes
 const lowsymtblchunk = $0409
 const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR)
 
-const maxnamelen = 16
+const maxnamelen = 16 // characters; need +1 for PLASMA string
 const maxpathlen = 256
 #endif
 const false = 0
@@ -1381,7 +1381,7 @@ def lookupsym(sym)#1
     return lookuptbl(sym, @symtbl)
 end
 def addsym(sym, addr)#0
-    byte str[maxnamelen]
+    byte str[maxnamelen+1]
     word entrysz
     const addrsz = 2
     const nextchunkptrsz = 3 // end of chunk marker followed by two byte pointer
@@ -1440,7 +1440,7 @@ end
 // maybe that's over-optimisation.
 def lookupextern(esd, index)#1
     word sym, addr
-    byte str[maxnamelen]
+    byte str[maxnamelen+1]
     while ^esd
         sym = esd
         esd = esd + dcitos(esd, @str)
@@ -1498,7 +1498,7 @@ def modloadcr_internal(moddci, modcr)#1
     word modofst, defbank, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
-    byte str[maxnamelen]
+    byte str[maxnamelen+1]
     const header_size = 128
     byte header[header_size]
     byte handle
