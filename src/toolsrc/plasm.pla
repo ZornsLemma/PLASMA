@@ -317,6 +317,10 @@ word arg, opt
 //
 word exit
 //
+// Acorn filename mangling
+//
+word parentopen
+//
 // Error string flags
 //
 const ERR_DUP           = $0001
@@ -408,6 +412,69 @@ end
 include "toolsrc/codegen.pla"
 include "toolsrc/lex.pla"
 include "toolsrc/parse.pla"
+//
+// Acorn filename mangling
+//
+def mangleopen(path)
+    // SFTODO: For now this is DFS-oriented. On other filing systems we might
+    // want to mangle less or differently to allow hierarchical directories to
+    // be referenced. That might require some way to cause "inc/foo.plh" to be
+    // looked up in a special system include directory.
+
+    byte copy[34]
+    word newpath
+    byte len
+    byte i
+    byte prefix
+    word p
+
+    newpath = @copy + 2 // leave space at front for directory prefix e.g. "P."
+    strcpy(newpath, path)
+
+    puts("SFTODOW1: '"); puts(newpath); puts("'\n")
+    len = ^newpath
+    for i = len downto 1 // SFTODO: WHAT IF LEN==0?
+        if ^(newpath + i) == '/'
+            newpath = newpath + i
+            ^newpath = len - i
+            break
+        fin
+    next
+    puts("SFTODOW2: '"); puts(newpath); puts("'\n")
+
+    // If the first '.' is followed by '.pla' or '.plh', rewrite this as a 'P.'
+    // or 'H.' prefix respectively. Nothing else gets transformed; this should
+    // allow things like ':1.X.FOO' through unaltered.
+    prefix = 0
+    for i = 1 to ^newpath // SFTODO: WHAT IF ^NEWPATH==0?
+        if ^(newpath + i) == '.'
+            p = newpath + i + 1
+            puti(i+3); putc(' '); puti(^newpath); putln()
+            if i + 3 == ^newpath and toupper(^p) == 'P' and toupper(^(p + 1)) == 'L'
+                if toupper(^(p + 2)) == 'A'
+                    prefix = 'P'
+                elsif toupper(^(p + 2)) == 'H'
+                    prefix = 'H'
+                fin
+            fin
+            break // once we've seen the first '.' no more transforms are considered
+        fin
+    next
+
+    if prefix
+        // SFTODO: THIS ISN'T WORKING ANYWAY BUT IT ALSO NEEDS TO TRUNCATE THE
+        // FINAL 4 CHARACTERS (EASY, JUST ADJUST THE LENGTH)
+        newpath = newpath - 2
+        ^newpath = ^(newpath + 2) + 2 - 4 // add 'X.' prefix, remove '.YYY' suffix
+        ^(newpath + 1) = prefix
+        ^(newpath + 2) = '.'
+    fin
+
+    puts("Transformed '"); puts(path); puts("' into '"); puts(newpath); puts("'\n")
+    return (parentopen)(newpath)
+end
+parentopen = fileio:open
+fileio:open = @mangleopen
 //
 // Look at command line arguments and compile module
 //

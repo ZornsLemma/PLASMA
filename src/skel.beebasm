@@ -36,4 +36,6 @@ putfile "CONIOAC#FE1000", "CONIO", &0000
 putfile "FILEIOAC#FE1000", "FILEIO", &0000
 putfile "PLASM#FE1000", "PLASM", &0000
 putfile "ARGS#FE1000", "ARGS", &0000
-puttext "samplesrc/hellotmp.pla", "P.HELLO", &0000
+;puttext "samplesrc/hellotmp.pla", "P.HELLO", &0000
+puttext "samplesrc/hello.pla", "P.HELLO", &0000
+puttext "inc/cmdsys.plh", "H.CMDSYS", &0000
