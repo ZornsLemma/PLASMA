@@ -1790,6 +1790,7 @@ def modloadcr_internal(moddci, modcr)#1
     if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 <> osfile_file_found
         oserror_not_found()
     fin
+    // To test module loading I/O performance alone, do this here: return 0
     //
     // Release the claim we just made; we really did it only to see if it
     // would fail. The code immediately following will shift the loaded
