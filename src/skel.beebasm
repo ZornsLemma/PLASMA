@@ -1,8 +1,8 @@
 putfile "BBPLASMA#FF2000", "PLASMA", &2000
 putfile "BBPLAS128#FF2000", "PLAS128", &FF2000
 putfile "HELLO#FE1000", "HELLO", &0000
-putfile "TEST#FE1000", "TEST", &0000
-putfile "TESTLIB#FE1000", "TESTLIB", &0000
+;putfile "TEST#FE1000", "TEST", &0000
+;putfile "TESTLIB#FE1000", "TESTLIB", &0000
 putfile "SIEVE#FE1000", "SIEVE", &0000
 putfile "ACORNOS#FE1000", "ACORNOS", &0000
 putfile "DUMP#FE1000", "DUMP", &0000
@@ -18,7 +18,7 @@ putfile "samplesrc/modname.mo", "MODNAME", &0000
 ;putfile "STDIO#FE1000", "STDIO", &0000
 ;putfile "STDIOTS#FE1000", "STDIOTS", &0000
 putfile "STRPOOL#FE1000", "STRPOOL", &0000
-putfile "LJTEST#FE1000", "LJTEST", &0000
+;putfile "LJTEST#FE1000", "LJTEST", &0000
 putfile "samplesrc/sort.mo", "SORT", &0000
 putfile "samplesrc/sort1.mo", "SORT1", &0000
 putfile "samplesrc/sort2.mo", "SORT2", &0000
@@ -39,3 +39,6 @@ putfile "ARGS#FE1000", "ARGS", &0000
 ;puttext "samplesrc/hellotmp.pla", "P.HELLO", &0000
 puttext "samplesrc/hello.pla", "P.HELLO", &0000
 puttext "inc/cmdsys.plh", "H.CMDSYS", &0000
+puttext "samplesrc/test.pla", "P.TEST", &0000
+puttext "samplesrc/testlib.pla", "P.TESTLIB", &0000
+puttext "inc/testlib.plh", "H.TESTLIB", &0000

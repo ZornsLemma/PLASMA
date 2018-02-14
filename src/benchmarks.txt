@@ -29,3 +29,9 @@ bff360f76d82069c62ae7d4dbc604e5e50015806 702cs (no drive noises)/866cs (drive no
 Impressive!
 
 Temporarily added a 'return 0' just after the call to OSFILE to load the module - so recursive module loading occurs but no symbol fix up or code execution occurs. "+PLASM" takes 481cs (no drive noises)/647cs (drive noises, but this is a bit variable). So the rest of the load process and running the bit of code to produce the help message takes 220cs and my estimate of 5s for file I/O (no drive noises) is not far off. Anyway, we can roughly infer that it's mostly the symbol fix up stuff that takes the 220cs
+
+"+PLASM HELLO.PLA"
+bff360f76d82069c62ae7d4dbc604e5e50015806 1505cs (no drive noises)/1883cs (drive noises)
+
+"+PLASM TEST.PLA"
+bff360f76d82069c62ae7d4dbc604e5e50015806 7169s (no drive noises)/7750cs (drive noises)
