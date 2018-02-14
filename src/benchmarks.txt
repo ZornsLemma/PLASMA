@@ -20,3 +20,4 @@ grafscrn	19.00
 
 Times for executing "+PLASM", i.e. loading the self-hosted compiler, printing help message and exiting. BeebEm 4.14 for Windows under Wine in Master 128 mode with a (3MHz) second processor. Best of three runs, times reported by bbcmd.pla's TIME code.
 283e6529a7f374bb9d7b006ffed1ebda3d94f8a1 1320cs (no drive noises)/1492cs (drive noises)
+PLASM is 92% of the file size of files loaded, and as a point of comparison "*LOAD PLASM 1000" takes 418cs (no drive noises)/541cs (drive noises) - given the VM "has" to read the first 128 bytes via OSGBPB and it is loading extra files, that suggests a rough best possible time for this test of around 5 seconds, even if the code to handle loading a module was infinitely fast.
