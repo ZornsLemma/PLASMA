@@ -132,3 +132,5 @@ depends on 'seeing' the label A
 It might be a good idea to produce "crunched" (no comment) versions of the inc/*.plh files for use with the self-hosting compiler to save disc space and speed up compilation
 
 I think PLASM (the self-hosted compiler) doesn't work on PLAS128 because the main module is too large to fit into a 16K bank. Can I do something about this? I don't *think* it's easy to remove the 15.xK limitation on each module, but think about it. It may however be fairly easy to split a chunk of the compiler into a separate module. (Do pay attention to how much, if any, negative impact such a split has on compiler load time on second processor where the current PLASM module fits fine.)
+
+I should possibly add the name of the module which isn't found to the VM output when recursive module loading fails to find a file. You *can* work around it by loading the MODNAME example, but it's a bit clunky.
