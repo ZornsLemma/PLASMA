@@ -15,3 +15,8 @@ intmath32	 4.77
 textscrn	17.31
 grafscrn	19.00
 (So far this is based on one run in b-em only; I honestly wouldn't expect to see any significant difference here, given none of these make significant use of either CS opcode or function calls - well, intmath32 makes a lot of function calls, but they're all assembly so don't touch parameter stack)
+
+
+
+Times for executing "+PLASM", i.e. loading the self-hosted compiler, printing help message and exiting. BeebEm 4.14 for Windows under Wine in Master 128 mode with a (3MHz) second processor. Best of three runs, times reported by bbcmd.pla's TIME code.
+283e6529a7f374bb9d7b006ffed1ebda3d94f8a1 1320cs (no drive noises)/1492cs (drive noises)

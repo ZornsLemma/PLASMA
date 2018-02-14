@@ -13,6 +13,11 @@
     #define PLAS128 PLAS128
 #endif
 
+// If TIME is defined, additional code is included to print the time spend
+// executing a module. This is a development-only feature but it's useful
+// enough to leave the code around to be conditionally included as required.
+#define TIME // SFTODO COMMENT OUT 
+
 include "inc/acornc.plh"
 
 // Where the VM generates errors which are PLASMA-specific, these should of
@@ -161,6 +166,10 @@ byte huhstr[]     = "?\n"
 byte colonstr[]   = ": "
 #endif
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+#ifdef TIME
+byte start_time[osword_read_time_block_size]
+byte end_time[osword_read_time_block_size]
+#endif
 //
 // Exported Machine ID. We somewhat arbitrarily assign the apparently free code
 // $C8 for all Acorn machines; once you know you're on an Acorn machine you can
@@ -1969,6 +1978,11 @@ def modechange(cmdptr)#0
     fin
 end
 #endif
+#ifdef TIME
+def time(t)#0
+    call(osword, osword_read_time, t, t >> 8, 0)
+end
+#endif 
 //
 // Get heap start.
 //
@@ -2036,10 +2050,20 @@ while 1
 		modechange(cmdptr)
 		break
 	    is '+'
+#ifdef TIME
+		time(@start_time)
+#endif
 	    	// SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
                 ^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
 	        modexec(striptrail(cmdptr))
 		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
+#ifdef TIME
+		time(@end_time)
+		// We don't want to use the dword library here so we just accept we can
+		// only return small time deltas correctly using 16-bit arithmetic and
+		// signed output.
+		puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
+#endif
 		break
 	    is '*'
 	    	call_oscli(cmdptr)
