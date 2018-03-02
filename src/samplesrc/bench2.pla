@@ -14,7 +14,7 @@ include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/dword.plh"
 include "inc/testlib.plh"
-include "inc/stdio.plh"
+// TODO TEMP COMMENTED OUT include "inc/stdio.plh"
 include "inc/acornc.plh"
 
 byte intmath16str[] = "intmath16"
@@ -146,33 +146,35 @@ end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.
-def storestdio()#0
-    word i, file, oldheap
-    oldheap = heapmark()
-    time(@start)
-    puts("Start\n")
-    file = fopen_heap(256, "X.TEST", "w")
-    if file == 0
-	oserror(0, "Can't open test file")
-    fin
-    for i = 1 to 1000
-	// TODO: The benchmark specifies "record handling"; is this reasonable?
-	// I think I'd write it like this in C on any platform, but it's
-	// not the same as the BBC BASIC benchmark in pcw.bas...
-	if fputs(@storelinestr, file) == EOF
-	    fclose(file)
-	    oserror(0, "Error writing test file")
-	fin
-    next
-    if fclose(file) == EOF
-	oserror(0, "Can't close test file")
-    fin
-    call_oscli("DELETE X.TEST")
-    puts("Finish\n")
-    time(@finish)
-    heaprelease(oldheap)
-    log_time(@storestdiostr)
-end
+// TODO: TEMP COMMENTED OUT
+// TODO: I should probably rewrite this using the standard fileio module
+//def storestdio()#0
+//    word i, file, oldheap
+//    oldheap = heapmark()
+//    time(@start)
+//    puts("Start\n")
+//    file = fopen_heap(256, "X.TEST", "w")
+//    if file == 0
+//	oserror(0, "Can't open test file")
+//    fin
+//    for i = 1 to 1000
+//	// TODO: The benchmark specifies "record handling"; is this reasonable?
+//	// I think I'd write it like this in C on any platform, but it's
+//	// not the same as the BBC BASIC benchmark in pcw.bas...
+//	if fputs(@storelinestr, file) == EOF
+//	    fclose(file)
+//	    oserror(0, "Error writing test file")
+//	fin
+//    next
+//    if fclose(file) == EOF
+//	oserror(0, "Can't close test file")
+//    fin
+//    call_oscli("DELETE X.TEST")
+//    puts("Finish\n")
+//    time(@finish)
+//    heaprelease(oldheap)
+//    log_time(@storestdiostr)
+//end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
 // this is necessary to avoid problems with the string pool.

@@ -16,7 +16,7 @@
 // If TIME is defined, additional code is included to print the time spend
 // executing a module. This is a development-only feature but it's useful
 // enough to leave the code around to be conditionally included as required.
-#define TIME // SFTODO COMMENT OUT 
+// #define TIME
 
 include "inc/acornc.plh"
 
@@ -2203,7 +2203,7 @@ fin
 //
 while 1
     if ^cmdptr
-        putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
+        //putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
         when toupper(parsecmd(cmdptr))
 	    is 'M'
 		modechange(cmdptr)
