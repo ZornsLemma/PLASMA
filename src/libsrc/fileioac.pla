@@ -127,6 +127,10 @@ def acread(refnum, buf, len)
     word result
     byte c
 
+    // SFTODO: Do we need to check if we've already seen EOF and just return 0
+    // if so? I think otherwise a subsequent read could cause an OS EOF error.
+    // I don't know how the Apple implementation would behave in this case; in
+    // practice the self-hosted PLASMA compiler at least never tries to do this.
     // SFTODO: This implementation is ridiculous, but it should work - can look
     // into optimising speed and space later on. (Note that the fileio API
     // doesn't seem to offer any seek options, which should simplify buffering
