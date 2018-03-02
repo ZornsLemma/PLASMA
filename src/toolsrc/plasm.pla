@@ -431,7 +431,6 @@ def mangleopen(path)
     newpath = @copy + 2 // leave space at front for directory prefix e.g. "P."
     strcpy(newpath, path)
 
-    puts("SFTODOW1: '"); puts(newpath); puts("'\n")
     len = ^newpath
     for i = len downto 1 // SFTODO: WHAT IF LEN==0?
         if ^(newpath + i) == '/'
@@ -440,7 +439,6 @@ def mangleopen(path)
             break
         fin
     next
-    puts("SFTODOW2: '"); puts(newpath); puts("'\n")
 
     // If the first '.' is followed by '.pla' or '.plh', rewrite this as a 'P.'
     // or 'H.' prefix respectively. Nothing else gets transformed; this should
@@ -449,7 +447,7 @@ def mangleopen(path)
     for i = 1 to ^newpath // SFTODO: WHAT IF ^NEWPATH==0?
         if ^(newpath + i) == '.'
             p = newpath + i + 1
-            puti(i+3); putc(' '); puti(^newpath); putln()
+            // SFTODO: TEMP puti(i+3); putc(' '); puti(^newpath); putln()
             if i + 3 == ^newpath and toupper(^p) == 'P' and toupper(^(p + 1)) == 'L'
                 if toupper(^(p + 2)) == 'A'
                     prefix = 'P'
@@ -468,7 +466,7 @@ def mangleopen(path)
         ^(newpath + 2) = '.'
     fin
 
-    puts("Transformed '"); puts(path); puts("' into '"); puts(newpath); puts("'\n")
+    // SFTODO: TEMP FOR DEBUGGING: puts("Transformed '"); puts(path); puts("' into '"); puts(newpath); puts("'\n")
     return (parentopen)(newpath)
 end
 parentopen = fileio:open
@@ -477,15 +475,7 @@ fileio:open = @mangleopen
 // Look at command line arguments and compile module
 //
 puts("PLASMA Compiler, Version 1.02\n")
-puts("SFTODO1")
-puts(cmdsys:cmdline)
-puts("SFTODO")
-putln()
 arg = argNext(argFirst)
-puts("SFTODO")
-puts(arg)
-puts("SFTODO")
-putln()
 if ^arg and ^(arg + 1) == '-'
     opt = arg + 2
     while TRUE
@@ -561,15 +551,10 @@ if srcfile and relfile
             //
             // Write REL file
             //
-            puts("SFTODOQ0\n")
             fileio:destroy(@relfile)
-            puts("SFTODOQ1\n")
             fileio:create(@relfile, $FE, $1000) // full access, REL file
-            puts("SFTODOQ2\n")
             srcref = fileio:open(@relfile)
-            puts("SFTODOQ3\n")
             if srcref
-                puts("SFTODOQ4\n")
                 writemodule(srcref)
                 fileio:close(srcref)
             else

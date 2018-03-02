@@ -25,7 +25,7 @@ export def argNext(str)
 end
 
 export def argFirst
-    putc('Y'); puts(cmdsys:cmdline); putc('Y'); putln() // SFTODO TEMP
+    // SFTODO TEMP: putc('Y'); puts(cmdsys:cmdline); putc('Y'); putln()
     // SFTODO: I HAVE (PROBABLY) TEMPORARILY RELOCATED THIS CODE INTO BBCMD.PLA,
     // TO AVOID HAVING TO COPY THE CMDLINE - THERE ARE OTHER APPROACHES I CAN
     // USE, THIS WAS EXPEDIENT
