@@ -1231,7 +1231,15 @@ int crunch_seq(t_opseq **seq, int pass)
                 switch (opnext->code)
                 {
                     case DROP_CODE:
-                        freeops = -2;
+                        // SFTODO: I don't know if it could happen, but if we
+                        // ever ended up with e.g. ADD:NOP:DROP, this would
+                        // incorrectly turn it into ADD. We should probably 
+                        // guard against that. Are there any other opcodes
+                        // which have no effect on the stack? Is this in fact
+                        // buggy - will it turn "CB 4:CALL foo:DROP" into "CB
+                        // 4", thereby losing any side effects of the call? I'm
+                        // just going to disable this for now...
+                        // freeops = -2;
                         break;
                     case NEG_CODE:
                         op->val = -(op->val);
