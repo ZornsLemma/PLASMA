@@ -6,7 +6,7 @@ const eof = -1 // TODO: keep this? not sure
 
 asm equates
     !SOURCE "vmsrc/plvmzp.inc"
-    !SOURCE "vmsrc/acornc.inc"
+    !SOURCE "vmsrc/acorn/acornc.inc"
 end
 
 // void call_osbput(byte c, int handle)
