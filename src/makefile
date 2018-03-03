@@ -9,6 +9,9 @@ PLVM03	   = rel/apple/SOS.INTERP\#050000
 CMD        = rel/apple/CMD\#061000
 PLVMZP_C64 = vmsrc/c64/plvmzp.inc
 PLVMC64    = rel/c64/PLASMA
+PLVMZP_ACN = vmsrc/acorn/plvmzp.inc
+PLVMACN    = rel/acorn/PLASMA
+# SFTODO: PLAS128
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
@@ -81,23 +84,30 @@ apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
 	-rm vmsrc/plvmzp.inc
 
-all: apple c64
+acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN)
+	-rm vmsrc/plvmzp.inc
+
+all: apple c64 acorn
 
 clean:
 	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03)
 	-rm rel/*
 	-rm rel/apple/*
 	-rm rel/c64/*
+	-rm rel/acorn/*
 	-rm samplesrc/*.o samplesrc/*~ samplesrc/*.a
 	-rm toolsrc/*.o toolsrc/*~ toolsrc/*.a
 	-rm toolsrc/apple/*.o toolsrc/apple/*~ toolsrc/apple/*.a
 	-rm toolsrc/c64/*.o toolsrc/c64/*~ toolsrc/c64/*.a
+	-rm toolsrc/acorn/*.o toolsrc/acorn/*~ toolsrc/acorn/*.a
 	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
 	-rm vmsrc/apple/*.o vmsrc/apple/*~ vmsrc/apple/*.a vmsrc/apple/*.sym
 	-rm vmsrc/c64/*.o vmsrc/c64/*~ vmsrc/c64/*.a vmsrc/c64/*.sym
+	-rm vmsrc/acorn/*.o vmsrc/acorn/*~ vmsrc/acorn/*.a vmsrc/acorn/*.sym
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 	-rm libsrc/apple/*.o libsrc/apple/*~ libsrc/apple/*.a
 	-rm libsrc/c64/*.o libsrc/c64/*~ libsrc/c64/*.a
+	-rm libsrc/acorn/*.o libsrc/acorn/*~ libsrc/acorn/*.a
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 
 #
@@ -132,6 +142,12 @@ $(PLVMZP_C64): FORCE
 	-rm vmsrc/plvmzp.inc
 	-ln -s c64/plvmzp.inc vmsrc/plvmzp.inc
 
+$(PLVMZP_ACN): FORCE
+	-mkdir rel
+	-mkdir rel/acorn
+	-rm vmsrc/plvmzp.inc
+	-ln -s acorn/plvmzp.inc vmsrc/plvmzp.inc
+
 FORCE:
 
 vmsrc/c64/cmd.a: vmsrc/c64/cmd.pla $(PLASM)
@@ -139,6 +155,19 @@ vmsrc/c64/cmd.a: vmsrc/c64/cmd.pla $(PLASM)
 
 $(PLVMC64): vmsrc/c64/plvmc64.s vmsrc/c64/cmd.a
 	acme -f cbm -o $(PLVMC64) -l vmsrc/c64/plvmc64.sym vmsrc/c64/plvmc64.s
+
+vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM)
+	cc -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/32cmd.pla
+	./$(PLASM) -AOW < vmsrc/acorn/32cmd.pla > vmsrc/acorn/32cmd.a
+	# SFTODO: Building this here is a bit hacky
+	# SFTODO: TEMP FORGET STANDALONE cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
+	# SFTODO: ./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
+
+$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a
+	acme '-DSTART=$$2000' -o $(PLVMACN) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
+	acme '-DSTART=$$3000' -o $(PLVMACN).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
+	python vmsrc/acorn/add-relocations.py $(PLVMACN) $(PLVMACN).3000
+	rm $(PLVMACN).3000
 
 vmsrc/apple/a1cmd.a: vmsrc/apple/a1cmd.pla $(PLASM)
 	./$(PLASM) -AOW < vmsrc/apple/a1cmd.pla > vmsrc/apple/a1cmd.a
@@ -283,6 +312,8 @@ $(FILEIO_C64): libsrc/c64/fileio.pla $(PLVM02) $(PLASM)
 $(CONIO_C64): libsrc/c64/conio.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/c64/conio.pla > libsrc/c64/conio.a
 	acme --setpc 4094 -o $(CONIO_C64) libsrc/c64/conio.a
+
+# SFTODO: ACORN FILEIO/CONIO
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a
