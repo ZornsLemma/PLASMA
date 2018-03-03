@@ -14,6 +14,7 @@ PLVMACN    = rel/acorn/PLASMA
 PLVMACN128 = rel/acorn/PLAS128
 FILEIO_ACN = rel/acorn/FILEIO
 CONIO_ACN  = rel/acorn/CONIO
+DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
@@ -86,8 +87,13 @@ apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
 	-rm vmsrc/plvmzp.inc
 
-acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN)
+acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
 	-rm vmsrc/plvmzp.inc
+
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello
+	# SFTODO: Given I already rely on python for the build process, could I use the
+	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
+	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
 
 all: apple c64 acorn
 
