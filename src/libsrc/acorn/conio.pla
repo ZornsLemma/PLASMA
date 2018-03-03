@@ -67,7 +67,7 @@ word acrndnum = 12345
 //
 asm equates
     !SOURCE "vmsrc/plvmzp.inc"
-    !SOURCE "vmsrc/acornc.inc"
+    !SOURCE "vmsrc/acorn/acornc.inc"
 end
 //
 // def keypressed()

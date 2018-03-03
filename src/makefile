@@ -12,6 +12,8 @@ PLVMC64    = rel/c64/PLASMA
 PLVMZP_ACN = vmsrc/acorn/plvmzp.inc
 PLVMACN    = rel/acorn/PLASMA
 PLVMACN128 = rel/acorn/PLAS128
+FILEIO_ACN = rel/acorn/FILEIO
+CONIO_ACN  = rel/acorn/CONIO
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
@@ -84,7 +86,7 @@ apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
 	-rm vmsrc/plvmzp.inc
 
-acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN) $(PLVMACN128)
+acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN)
 	-rm vmsrc/plvmzp.inc
 
 all: apple c64 acorn
@@ -326,7 +328,13 @@ $(CONIO_C64): libsrc/c64/conio.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/c64/conio.pla > libsrc/c64/conio.a
 	acme --setpc 4094 -o $(CONIO_C64) libsrc/c64/conio.a
 
-# SFTODO: ACORN FILEIO/CONIO
+$(FILEIO_ACN): libsrc/acorn/fileio.pla $(PLASM)
+	./$(PLASM) -AMOW < libsrc/acorn/fileio.pla > libsrc/acorn/fileio.a
+	acme --setpc 4094 -o $(FILEIO_ACN) libsrc/acorn/fileio.a
+
+$(CONIO_ACN): libsrc/acorn/conio.pla $(PLASM)
+	./$(PLASM) -AMOW < libsrc/acorn/conio.pla > libsrc/acorn/conio.a
+	acme --setpc 4094 -o $(CONIO_ACN) libsrc/acorn/conio.a
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a
