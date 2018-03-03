@@ -5,7 +5,6 @@ include "inc/acornc.plh"
 const eof = -1 // TODO: keep this? not sure
 
 asm equates
-    BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
     !SOURCE "vmsrc/acornc.inc"
 end

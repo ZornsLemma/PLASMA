@@ -1,8 +1,8 @@
 ;**********************************************************
 ;*
-;*            BBC PLASMA INTERPETER
+;*          ACORN PLASMA INTERPETER
 ;*
-;*             SYSTEM ROUTINES AND LOCATIONS
+;*              SYSTEM ROUTINES AND LOCATIONS
 ;*
 ;**********************************************************
 ;* TODO: I haven't got *all* self-modifying code covered by SELFMODIFY; I
@@ -25,8 +25,6 @@ CHECKPARAMETERSTACK = 1
 ;* the number of return values for a function, as getting a mismatch between
 ;* caller and callee is possible.) This slows the fncall benchmark down by 1.4%.
 CHECKEXPRESSIONSTACK = 1
-
-BBC = 1
 
 ;*
 ;* VM ZERO PAGE LOCATIONS

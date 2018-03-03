@@ -170,7 +170,6 @@ word[34] screen
 // screen if we continue to write spaces (but my suspicion is that wouldn't
 // be such an improvement).
 asm drawscreen(scrn)#1 // SFTODO: CAN POSSIBLY MAKE THIS #0
-	BBC=1
 	!SOURCE "vmsrc/plvmzp.inc"
 	LDA #12
 	JSR $FFEE

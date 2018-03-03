@@ -163,7 +163,7 @@ vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM)
 	# SFTODO: TEMP FORGET STANDALONE cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
 	# SFTODO: ./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
-$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a
+$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc
 	acme '-DSTART=$$2000' -o $(PLVMACN) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -o $(PLVMACN).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACN) $(PLVMACN).3000

@@ -29,9 +29,7 @@ word results_tail_ptr = @results_head
 // TODO: Obviously it's slightly out of order to be using assembler in
 // this benchmark, but this could be trivially "promoted" into a standard
 // library, so I don't think it's terribly unreasonable.
-// TODO: Get rid of need for BBC=1 and just modify plvmzp.inc?
 asm plot(x, y)#0
-    BBC = 1
     !SOURCE "vmsrc/plvmzp.inc"
     LDA #25
     JSR $FFEE

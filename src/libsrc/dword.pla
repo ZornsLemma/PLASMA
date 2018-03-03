@@ -7,7 +7,6 @@
 
 // void dword_add(dword *result, const dword *lhs, const dword *rhs)
 export asm dword_add(result, lhs, rhs)#0
-    BBC=1
     !SOURCE "vmsrc/plvmzp.inc"
 
     LDA ESTKL+2,X
@@ -44,7 +43,7 @@ end
 // void dword_sub(dword *result, const dword *lhs, const dword *rhs)
 // TODO: This is almost identical to dword_add, should they share code?
 export asm dword_sub(result, lhs, rhs)#0
-    BBC=1
+    // SFTODO: Do we really need this !SOURCE to be repeated?
     !SOURCE "vmsrc/plvmzp.inc"
 
     LDA ESTKL+2,X
