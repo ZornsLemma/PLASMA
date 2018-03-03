@@ -11,7 +11,7 @@ PLVMZP_C64 = vmsrc/c64/plvmzp.inc
 PLVMC64    = rel/c64/PLASMA
 PLVMZP_ACN = vmsrc/acorn/plvmzp.inc
 PLVMACN    = rel/acorn/PLASMA
-# SFTODO: PLAS128
+PLVMACN128 = rel/acorn/PLAS128
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
@@ -84,7 +84,7 @@ apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
 	-rm vmsrc/plvmzp.inc
 
-acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN)
+acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(PLVMACN) $(PLVMACN128)
 	-rm vmsrc/plvmzp.inc
 
 all: apple c64 acorn
@@ -156,18 +156,31 @@ vmsrc/c64/cmd.a: vmsrc/c64/cmd.pla $(PLASM)
 $(PLVMC64): vmsrc/c64/plvmc64.s vmsrc/c64/cmd.a
 	acme -f cbm -o $(PLVMC64) -l vmsrc/c64/plvmc64.sym vmsrc/c64/plvmc64.s
 
-vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM)
+vmsrc/acorn/symtab.pla: vmsrc/acorn/makesymtab.py
+	python vmsrc/acorn/makesymtab.py > vmsrc/acorn/symtab.pla
+
+vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/32cmd.pla
 	./$(PLASM) -AOW < vmsrc/acorn/32cmd.pla > vmsrc/acorn/32cmd.a
 	# SFTODO: Building this here is a bit hacky
 	# SFTODO: TEMP FORGET STANDALONE cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
 	# SFTODO: ./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
-$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc
+vmsrc/acorn/128cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
+	cc -DPLAS128 -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/128cmd.pla
+	./$(PLASM) -AOW < vmsrc/acorn/128cmd.pla > vmsrc/acorn/128cmd.a
+
+$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
 	acme '-DSTART=$$2000' -o $(PLVMACN) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -o $(PLVMACN).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACN) $(PLVMACN).3000
 	rm $(PLVMACN).3000
+
+$(PLVMACN128): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVMACN128) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
+	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVMACN128).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
+	python vmsrc/acorn/add-relocations.py $(PLVMACN128) $(PLVMACN128).3000
+	rm $(PLVMACN128).3000
 
 vmsrc/apple/a1cmd.a: vmsrc/apple/a1cmd.pla $(PLASM)
 	./$(PLASM) -AOW < vmsrc/apple/a1cmd.pla > vmsrc/apple/a1cmd.a

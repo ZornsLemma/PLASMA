@@ -207,7 +207,7 @@ byte gm_new_mode
 //
 // Standard Library exported functions.
 //
-include "vmsrc/symtab.pla"
+include "vmsrc/acorn/symtab.pla"
 #endif
 // TODO: DO I NEED saveX/restoreX AS IN CMD.PLA?
 //
