@@ -22,6 +22,9 @@ HANOI      = rel/acorn/HANOI
 BENCH1     = rel/acorn/BENCH1
 BENCH2     = rel/acorn/BENCH2
 DWORD      = rel/acorn/DWORD
+BOUNCE     = rel/acorn/BOUNCE
+MODNAME    = rel/acorn/MODNAME
+STRPOOL    = rel/acorn/STRPOOL
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
@@ -101,7 +104,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -384,6 +387,18 @@ $(BENCH2): samplesrc/acorn/bench2.pla $(PLASM)
 $(DWORD): libsrc/acorn/dword.pla $(PLASM)
 	./$(PLASM) -AMOW < libsrc/acorn/dword.pla > libsrc/acorn/dword.a
 	acme --setpc 4094 -o $(DWORD) libsrc/acorn/dword.a
+
+$(BOUNCE): samplesrc/acorn/bounce.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/bounce.pla > samplesrc/acorn/bounce.a
+	acme --setpc 4094 -o $(BOUNCE) samplesrc/acorn/bounce.a
+
+$(MODNAME): samplesrc/acorn/modname.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/modname.pla > samplesrc/acorn/modname.a
+	acme --setpc 4094 -o $(MODNAME) samplesrc/acorn/modname.a
+
+$(STRPOOL): samplesrc/acorn/strpool.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/strpool.pla > samplesrc/acorn/strpool.a
+	acme --setpc 4094 -o $(STRPOOL) samplesrc/acorn/strpool.a
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a
