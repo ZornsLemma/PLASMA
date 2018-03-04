@@ -6,8 +6,8 @@ putfile "TESTLIB#FE1000", "TESTLIB", &0000
 putfile "rel/SIEVE#FE1000", "SIEVE", &0000
 putfile "rel/acorn/ACORNOS", "ACORNOS", &0000
 putfile "rel/acorn/DUMP", "DUMP", &0000
-;putfile "MODE#FE1000", "MODE", &0000
-;putfile "MODE2#FE1000", "MODE2", &0000
+putfile "rel/acorn/MODE", "MODE", &0000
+putfile "rel/acorn/MODE2", "MODE2", &0000
 ;putfile "HANOI#FE1000", "HANOI", &0000
 ;putfile "BENCH1#FE1000", "BENCH1", &0000
 ;putfile "BENCH2#FE1000", "BENCH2", &0000
