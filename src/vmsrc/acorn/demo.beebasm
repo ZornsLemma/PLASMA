@@ -19,9 +19,9 @@ putfile "rel/acorn/MODNAME", "MODNAME", &0000
 ;putfile "STDIOTS#FE1000", "STDIOTS", &0000
 putfile "rel/acorn/STRPOOL", "STRPOOL", &0000
 ;putfile "LJTEST#FE1000", "LJTEST", &0000
-;putfile "samplesrc/sort.mo", "SORT", &0000
-;putfile "samplesrc/sort1.mo", "SORT1", &0000
-;putfile "samplesrc/sort2.mo", "SORT2", &0000
+putfile "rel/acorn/SORT", "SORT", &0000
+putfile "rel/acorn/SORT1", "SORT1", &0000
+putfile "rel/acorn/SORT2", "SORT2", &0000
 ;putfile "SYMTBL#FE1000", "SYMTBL", &0000
 ;putfile "ROGUE#FE1000", "ROGUE", &0000
 ;putfile "ROGUEIO#FE1000", "ROGUEIO", &0000

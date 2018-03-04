@@ -25,6 +25,9 @@ DWORD      = rel/acorn/DWORD
 BOUNCE     = rel/acorn/BOUNCE
 MODNAME    = rel/acorn/MODNAME
 STRPOOL    = rel/acorn/STRPOOL
+SORT       = rel/acorn/SORT
+SORT1      = rel/acorn/SORT1
+SORT2      = rel/acorn/SORT2
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
@@ -104,7 +107,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -399,6 +402,18 @@ $(MODNAME): samplesrc/acorn/modname.pla $(PLASM)
 $(STRPOOL): samplesrc/acorn/strpool.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/strpool.pla > samplesrc/acorn/strpool.a
 	acme --setpc 4094 -o $(STRPOOL) samplesrc/acorn/strpool.a
+
+$(SORT): samplesrc/acorn/sort.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/sort.pla > samplesrc/acorn/sort.a
+	acme --setpc 4094 -o $(SORT) samplesrc/acorn/sort.a
+
+$(SORT1): samplesrc/acorn/sort1.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/sort1.pla > samplesrc/acorn/sort1.a
+	acme --setpc 4094 -o $(SORT1) samplesrc/acorn/sort1.a
+
+$(SORT2): samplesrc/acorn/sort2.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/sort2.pla > samplesrc/acorn/sort2.a
+	acme --setpc 4094 -o $(SORT2) samplesrc/acorn/sort2.a
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a

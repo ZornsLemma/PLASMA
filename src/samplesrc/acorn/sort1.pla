@@ -2,7 +2,7 @@
 
 include "inc/cmdsys.plh"
 include "inc/testlib.plh"
-include "sort.plh"
+include "samplesrc/acorn/sort.plh"
 
 word i
 
