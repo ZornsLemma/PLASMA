@@ -18,6 +18,10 @@ ACORNOS    = rel/acorn/ACORNOS
 DUMP       = rel/acorn/DUMP
 MODE       = rel/acorn/MODE
 MODE2      = rel/acorn/MODE2
+HANOI      = rel/acorn/HANOI
+BENCH1     = rel/acorn/BENCH1
+BENCH2     = rel/acorn/BENCH2
+DWORD      = rel/acorn/DWORD
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
@@ -97,7 +101,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -364,6 +368,22 @@ $(MODE): samplesrc/acorn/mode.pla $(PLASM)
 $(MODE2): samplesrc/acorn/mode2.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/mode2.pla > samplesrc/acorn/mode2.a
 	acme --setpc 4094 -o $(MODE2) samplesrc/acorn/mode2.a
+
+$(HANOI): samplesrc/acorn/hanoi.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/hanoi.pla > samplesrc/acorn/hanoi.a
+	acme --setpc 4094 -o $(HANOI) samplesrc/acorn/hanoi.a
+
+$(BENCH1): samplesrc/acorn/bench1.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/bench1.pla > samplesrc/acorn/bench1.a
+	acme --setpc 4094 -o $(BENCH1) samplesrc/acorn/bench1.a
+
+$(BENCH2): samplesrc/acorn/bench2.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/bench2.pla > samplesrc/acorn/bench2.a
+	acme --setpc 4094 -o $(BENCH2) samplesrc/acorn/bench2.a
+
+$(DWORD): libsrc/acorn/dword.pla $(PLASM)
+	./$(PLASM) -AMOW < libsrc/acorn/dword.pla > libsrc/acorn/dword.a
+	acme --setpc 4094 -o $(DWORD) libsrc/acorn/dword.a
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a
