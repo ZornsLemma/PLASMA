@@ -22,14 +22,14 @@ putfile "rel/acorn/STRPOOL", "STRPOOL", &0000
 putfile "rel/acorn/SORT", "SORT", &0000
 putfile "rel/acorn/SORT1", "SORT1", &0000
 putfile "rel/acorn/SORT2", "SORT2", &0000
-;putfile "SYMTBL#FE1000", "SYMTBL", &0000
+putfile "rel/acorn/SYMTBL", "SYMTBL", &0000
 ;putfile "ROGUE#FE1000", "ROGUE", &0000
 ;putfile "ROGUEIO#FE1000", "ROGUEIO", &0000
 ;putfile "ROGUEMAP#FE1000", "ROGUEMA", &0000
 ;putfile "ROGUECOMBAT#FE1000", "ROGUECO", &0000
 ;putfile "samplesrc/LEVEL0#040000", "LEVEL0", &0000
 ;putfile "samplesrc/LEVEL1#040000", "LEVEL1", &0000
-;putfile "samplesrc/divmod.mo", "DIVMOD", &0000
+putfile "rel/acorn/DIVMOD", "DIVMOD", &0000
 ;putfile "TubeSwitch", "TS", &0000
 ;putfile "ROD#FE1000", "ROD", &0000
 putfile "rel/acorn/CONIO", "CONIO", &0000

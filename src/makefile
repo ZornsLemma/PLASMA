@@ -28,6 +28,8 @@ STRPOOL    = rel/acorn/STRPOOL
 SORT       = rel/acorn/SORT
 SORT1      = rel/acorn/SORT1
 SORT2      = rel/acorn/SORT2
+SYMTBL     = rel/acorn/SYMTBL
+DIVMOD     = rel/acorn/DIVMOD
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 SOS        = rel/apple/SOS\#FE1000
@@ -107,7 +109,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -414,6 +416,14 @@ $(SORT1): samplesrc/acorn/sort1.pla $(PLASM)
 $(SORT2): samplesrc/acorn/sort2.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/sort2.pla > samplesrc/acorn/sort2.a
 	acme --setpc 4094 -o $(SORT2) samplesrc/acorn/sort2.a
+
+$(SYMTBL): samplesrc/acorn/symtbl.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/symtbl.pla > samplesrc/acorn/symtbl.a
+	acme --setpc 4094 -o $(SYMTBL) samplesrc/acorn/symtbl.a
+
+$(DIVMOD): samplesrc/acorn/divmod.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/divmod.pla > samplesrc/acorn/divmod.a
+	acme --setpc 4094 -o $(DIVMOD) samplesrc/acorn/divmod.a
 
 $(SNDSEQ): libsrc/apple/sndseq.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/sndseq.pla > libsrc/apple/sndseq.a
