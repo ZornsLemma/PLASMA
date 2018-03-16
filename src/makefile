@@ -172,7 +172,7 @@ $(PLVMZP_C64): FORCE
 $(PLVMZP_ACN): FORCE
 	-mkdir rel
 	-mkdir rel/acorn
-	-rm vmsrc/plvmzp.inc
+	-rm -f vmsrc/plvmzp.inc
 	-ln -s acorn/plvmzp.inc vmsrc/plvmzp.inc
 
 FORCE:

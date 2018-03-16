@@ -30,6 +30,7 @@ CHECKEXPRESSIONSTACK = 1
 ;* VM ZERO PAGE LOCATIONS
 ;*
 	!SOURCE	"vmsrc/plvmzp.inc"
+DVSIGN	=	ESP
 DROP    =       $1F
 NEXTOP  =       $20
 FETCHOP =       NEXTOP+1
@@ -165,7 +166,7 @@ DIVMOD  JSR     _DIV
         STA     ESTKL,X
         LDA     TMPH            ; REMNDRH
         STA     ESTKH,X
-        LDA     DVSIGN          ; REMAINDER IS SIGN OF DIVIDEND
+        ASL     DVSIGN          ; REMAINDER IS SIGN OF DIVIDEND
         BMI     NEG
         JMP     NEXTOP
 ;*
@@ -190,26 +191,25 @@ _NEG 	LDA	#$00
 	SBC	ESTKH,X
 	STA	ESTKH,X
 ANRTS	RTS			; TODO: GET RID OF ANRTS LABEL IF NOT USED
-_DIV	STY	IPY
- 	LDY	#$11		; #BITS+1
-	LDA	#$00
-	STA	TMPL		; REMNDRL
-	STA	TMPH		; REMNDRH
-	LDA	ESTKH,X
-	AND	#$80
-	STA	DVSIGN
-	BPL	+
-	JSR	_NEG
-	INC	DVSIGN
-+ 	LDA	ESTKH+1,X
-	BPL	+
-	INX
-	JSR	_NEG
-	DEX
-	INC	DVSIGN
-	BNE	_DIV1
-+ 	ORA	ESTKL+1,X	; DVDNDL
-	BEQ	_DIVEX
+_DIV    STY     IPY
+        LDY     #$11            ; #BITS+1
+        LDA     #$00
+        STA     TMPL            ; REMNDRL
+        STA     TMPH            ; REMNDRH
+        STA     DVSIGN
+        LDA     ESTKH+1,X
+        BPL     +
+        INX
+        JSR     _NEG
+        DEX
+        LDA     #$81
+        STA     DVSIGN
++       ORA     ESTKL+1,X         ; DVDNDL
+        BEQ     _DIVEX
+        LDA     ESTKH,X
+        BPL     _DIV1
+        JSR     _NEG
+        INC     DVSIGN
 _DIV1 	ASL	ESTKL+1,X	; DVDNDL
 	ROL	ESTKH+1,X	; DVDNDH
 	DEY

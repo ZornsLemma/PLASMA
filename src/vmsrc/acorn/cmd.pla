@@ -119,7 +119,7 @@ predef toupper(c)#1
 //
 // Exported CMDSYS table
 //
-word version     = $0100 // 01.00
+word version     = $0110 // 01.10
 word syspath // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 word syscmdln // SFTODO? NEED THIS ANY WAY FOR INC/CMDSYS.PLH
 word            = @modexec
