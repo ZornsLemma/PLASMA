@@ -1,27 +1,36 @@
 PLASM = ./plasm
+PLVMZP = vmsrc/plvmzp.inc
 PORT = acorn
-REL = rel/$(PORT)
-RELINT = $(REL)/int/ # intermediate
-SAMPLESRC = samplesrc/sieve.pla samplesrc/hello.pla
-#SAMPLEOBJ = $(patsubst %.pla,$(REL)/%.plm,$(SAMPLESRC))
-SAMPLEOBJ = $(subst samplesrc,rel/$(PORT)/sample,$(patsubst %.pla,%.plm,$(SAMPLESRC)))
-LIBSRC = libsrc/$(PORT)/conio.pla libsrc/$(PORT)/fileio.pla
-LIBOBJ = $(subst libsrc/$(PORT),rel/$(PORT)/lib,$(patsubst %.pla,%.plm,$(LIBSRC)))
+REL = rel/$(PORT)/
+RELINT = $(REL)int/ # intermediate
+
+# Assumption: we won't have two source files with the same name unless they are alternate
+# versions for different ports. The pay off for this is that we can use VPATH to locate
+# source files without any fuss, and we can just put all the compiled modules into a flat
+# directory structure.
+
+SAMPLESRC = sieve.pla hello.pla
+LIBSRC = conio.pla fileio.pla
+ALLSRC = $(SAMPLESRC) $(LIBSRC)
+ALLOBJ = $(addprefix $(REL),$(patsubst %.pla,%.plm,$(ALLSRC)))
+
+VPATH = libsrc/$(PORT):samplesrc/$(PORT):libsrc:samplesrc
 
 all: foo.ssd
 
-rel/$(PORT)/sample/%.plm: samplesrc/%.pla
-	$(eval INT := $(addsuffix $(basename $<),$(RELINT)))
+$(PLVMZP):
+	cd vmsrc && ln -sf $(PORT)/plvmzp.inc plvmzp.inc
+
+rel/$(PORT)/%.plm: %.pla $(PLVMZP)
+	$(eval INT := $(addsuffix .s,$(addsuffix $(basename $(notdir $<)),$(RELINT))))
 	$(PLASM) -AMOW < $< > $(INT)
 	acme --setpc 4094 -o $@ $(INT)
-
-rel/$(PORT)/lib/%.plm: libsrc/$(PORT)/%.pla
-	$(PLASM) -AMOW < $< > xxx
-	acme --setpc 4094 -o $@ xxx
 
 #rel/$(PORT)/samplesrc/sieve.plm: sieve.pla
 #	touch $@
 
-foo.ssd: $(SAMPLEOBJ) $(LIBOBJ)
-	echo sampleobj $(SAMPLEOBJ)
-	echo libobj $(LIBOBJ)
+#foo.ssd: $(SAMPLEOBJ) $(LIBOBJ)
+#foo.ssd: rel/acorn/sieve.plm
+foo.ssd: $(ALLOBJ)
+	echo sampleobj $(SAMPLEOBJS)
+	echo libobj $(LIBOBJS)
