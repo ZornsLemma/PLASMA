@@ -6,6 +6,4 @@ acorn: foo.ssd
 include makefile.common
 
 foo.ssd: $(ALLOBJ)
-	echo allobj $(ALLOBJ)
-	echo sampleobj $(SAMPLEOBJS)
-	echo libobj $(LIBOBJS)
+	tar cvf $@ $(ALLOBJ)
