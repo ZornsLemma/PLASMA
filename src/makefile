@@ -1,5 +1,5 @@
 # By specifying each sub-make as a separate command, make -j won't try to build
-# multipleports in parallel (which can fail as they try to build the plasm cross-
+# multiple ports in parallel (which can fail as they try to build the plasm cross-
 # compiler simultaneously).
 .PHONY: all
 all:
