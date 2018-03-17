@@ -1,6 +1,10 @@
 PLASM = ./plasm
 PLVMZP = vmsrc/plvmzp.inc
-PORT = acorn
+
+# Compiled PLASMA modules go into $(REL); the intermediate assembly files go into
+# $(RELINT). These are port-specific - even if the source is common to all ports,
+# it may contain assembly language which references zero page addresses that vary
+# between ports.
 REL = rel/$(PORT)/
 RELINT = $(REL)int/ # intermediate
 
@@ -11,26 +15,23 @@ RELINT = $(REL)int/ # intermediate
 
 SAMPLESRC = sieve.pla hello.pla
 LIBSRC = conio.pla fileio.pla
+
 ALLSRC = $(SAMPLESRC) $(LIBSRC)
 ALLOBJ = $(addprefix $(REL),$(patsubst %.pla,%.plm,$(ALLSRC)))
 
 VPATH = libsrc/$(PORT):samplesrc/$(PORT):libsrc:samplesrc
-
-all: foo.ssd
-
-$(PLVMZP):
-	cd vmsrc && ln -sf $(PORT)/plvmzp.inc plvmzp.inc
 
 rel/$(PORT)/%.plm: %.pla $(PLVMZP)
 	$(eval INT := $(addsuffix .s,$(addsuffix $(basename $(notdir $<)),$(RELINT))))
 	$(PLASM) -AMOW < $< > $(INT)
 	acme --setpc 4094 -o $@ $(INT)
 
-#rel/$(PORT)/samplesrc/sieve.plm: sieve.pla
-#	touch $@
+$(PLVMZP):
+	cd vmsrc && ln -sf $(PORT)/plvmzp.inc plvmzp.inc
 
-#foo.ssd: $(SAMPLEOBJ) $(LIBOBJ)
-#foo.ssd: rel/acorn/sieve.plm
-foo.ssd: $(ALLOBJ)
-	echo sampleobj $(SAMPLEOBJS)
-	echo libobj $(LIBOBJS)
+# This variable is assigned using ::= so it is simply expanded and the shell
+# command will be executed immediately. This will force removal of the
+# plvmzp.inc symlink before any rules are evaluated.
+FORCERMPLVMZP ::= $(shell rm -f $(PLVMZP))
+
+# TODO: WE NEED SOMETHING TO FORCE THE REL/$(PORT) AND REL/$(PORT)/INT DIRS TO EXIST
