@@ -1,10 +1,13 @@
 PORT = acorn
 
 .PHONY: acorn
-acorn: foo.ssd
+acorn: rel/acorn/foo.ssd
 
 PLVMACN    = rel/acorn/PLASMA
 PLVMACN128 = rel/acorn/PLAS128
+
+PLASMAPLASM = rel/acorn/plasm.plm
+CODEOPT = rel/acorn/codeopt.plm
 
 # SAMPLESRC and LIBSRC are defined on a per-port basis since not all will
 # be available on all ports.
@@ -39,11 +42,11 @@ $(PLVMACN128): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmd
 	python vmsrc/acorn/add-relocations.py $(PLVMACN128) $(PLVMACN128).3000
 	rm $(PLVMACN128).3000
 
-foo.ssd: $(ALLOBJ) $(PLVMACN) $(PLVMACN128)
+rel/acorn/foo.ssd: $(ALLOBJ) $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(CODEOPT)
 	# TODO: We use tar as a demo substitute for a platform specific 'make
 	# a disk image' command
-	tar cvf $@ $(ALLOBJ) $(PLVMACN) $(PLVMACN128)
+	tar cvf $@ $(ALLOBJ) $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(CODEOPT)
 
+# Any port-specific clean operations can be added here
 .PHONY: cleanport
 cleanport:
-	echo TODO

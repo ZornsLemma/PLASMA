@@ -1,10 +1,15 @@
 PORT = apple
 
 .PHONY: apple
-apple: foo.img
+apple: rel/apple/foo.img
 
 PLVM02	   = rel/apple/PLASMA.SYSTEM\#FF2000
 CMD        = rel/apple/CMD\#061000
+
+# TODO: If these don't end in .plm, the pattern rule won't match them - not sure if
+# this is going to be a showstopper or not.
+PLASMAPLASM = rel/apple/plasm.plm
+CODEOPT    = rel/apple/codeopt.plm
 
 # SAMPLESRC and LIBSRC are defined on a per-port basis since not all will
 # be available on all ports.
@@ -20,11 +25,10 @@ $(CMD): vmsrc/apple/cmd.pla vmsrc/apple/cmdstub.s $(PLVM02) $(PLASM) $(PLVMZP)
 $(PLVM02): vmsrc/apple/plvm02.s $(PLVMZP)
 	acme -o $(PLVM02) -l vmsrc/apple/plvm02.sym vmsrc/apple/plvm02.s
 
-foo.img: $(ALLOBJ) $(PLVM02) $(CMD)
+rel/apple/foo.img: $(ALLOBJ) $(PLVM02) $(CMD) $(PLASMAPLASM) $(CODEOPT)
 	# TODO: We use tar as a demo substitute for a platform specific 'make
 	# a disk image' command
-	tar cvf $@ $(ALLOBJ)
+	tar cvf $@ $(ALLOBJ) $(PLASMAPLASM) $(CODEOPT)
 
 .PHONY: cleanport
 cleanport:
-	rm -f $(PLVM02)

@@ -19,7 +19,7 @@ RELINT = $(REL)int/ # intermediate
 ALLSRC = $(SAMPLESRC) $(LIBSRC)
 ALLOBJ = $(addprefix $(REL),$(patsubst %.pla,%.plm,$(ALLSRC)))
 
-VPATH = libsrc/$(PORT):samplesrc/$(PORT):libsrc:samplesrc
+VPATH = toolsrc/$(PORT):toolsrc:libsrc/$(PORT):libsrc:samplesrc/$(PORT):samplesrc
 
 rel/$(PORT)/%.plm: %.pla $(PLVMZP) $(PLASM)
 	$(eval INT := $(addsuffix .s,$(addsuffix $(basename $(notdir $<)),$(RELINT))))
@@ -32,8 +32,14 @@ $(PLVMZP):
 #
 # PLASMA compiler: plasm
 #
+
 $(PLASM): $(PLASMOBJS) $(PLASMINCS)
 	cc $(PLASMOBJS) -o $(PLASM)
+
+$(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh $(PLVMZP) $(PLASM)
+
+$(CODEOPT): toolsrc/codeopt.pla toolsrc/codeseq.plh
+
 
 .PHONY: clean
 clean: cleanport
