@@ -1,12 +1,12 @@
-PORT = acorn
+PORT = apple
 
-.PHONY: acorn
-acorn: foo.ssd
+.PHONY: apple
+apple: foo.ssd
 
 # SAMPLESRC and LIBSRC are defined on a per-port basis since not all will
 # be available on all ports.
-SAMPLESRC = sieve.pla hello.pla
-LIBSRC = conio.pla fileio.pla
+SAMPLESRC = sieve.pla hello.pla rod.pla
+LIBSRC = conio.pla fileio.pla joybuzz.pla
 
 include makefile.common
 

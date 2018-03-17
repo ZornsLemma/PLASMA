@@ -1,6 +1,9 @@
 PLASM = ./plasm
 PLVMZP = vmsrc/plvmzp.inc
 
+PLASMOBJS = toolsrc/plasm.c toolsrc/parse.c toolsrc/lex.c toolsrc/codegen.c
+PLASMINCS = toolsrc/plasm.h toolsrc/tokens.h toolsrc/symbols.h toolsrc/lex.h toolsrc/parse.h toolsrc/codegen.h
+
 # Compiled PLASMA modules go into $(REL); the intermediate assembly files go into
 # $(RELINT). These are port-specific - even if the source is common to all ports,
 # it may contain assembly language which references zero page addresses that vary
@@ -13,21 +16,31 @@ RELINT = $(REL)int/ # intermediate
 # source files without any fuss, and we can just put all the compiled modules into a flat
 # directory structure.
 
-SAMPLESRC = sieve.pla hello.pla
-LIBSRC = conio.pla fileio.pla
-
 ALLSRC = $(SAMPLESRC) $(LIBSRC)
 ALLOBJ = $(addprefix $(REL),$(patsubst %.pla,%.plm,$(ALLSRC)))
 
 VPATH = libsrc/$(PORT):samplesrc/$(PORT):libsrc:samplesrc
 
-rel/$(PORT)/%.plm: %.pla $(PLVMZP)
+rel/$(PORT)/%.plm: %.pla $(PLVMZP) $(PLASM)
 	$(eval INT := $(addsuffix .s,$(addsuffix $(basename $(notdir $<)),$(RELINT))))
 	$(PLASM) -AMOW < $< > $(INT)
 	acme --setpc 4094 -o $@ $(INT)
 
 $(PLVMZP):
 	cd vmsrc && ln -sf $(PORT)/plvmzp.inc plvmzp.inc
+
+#
+# PLASMA compiler: plasm
+#
+$(PLASM): $(PLASMOBJS) $(PLASMINCS)
+	cc $(PLASMOBJS) -o $(PLASM)
+
+.PHONY: clean
+clean:
+	rm -rf $(PLASM)
+	rm -rf $(PLVMZP)
+	rm -rf rel
+
 
 # This variable is assigned using ::= so it is simply expanded and the shell
 # command will be executed immediately. This will force removal of the
