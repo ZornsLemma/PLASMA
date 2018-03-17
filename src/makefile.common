@@ -31,7 +31,9 @@ $(PLVMZP):
 
 # This variable is assigned using ::= so it is simply expanded and the shell
 # command will be executed immediately. This will force removal of the
-# plvmzp.inc symlink before any rules are evaluated.
+# plvmzp.inc symlink before any rules are evaluated. TODO: PLURALISE COMMENT
 FORCERMPLVMZP ::= $(shell rm -f $(PLVMZP))
+FORCEREL ::= $(shell mkdir -p $(REL))
+FORCERELINT ::= $(shell mkdir -p $(RELINT))
 
 # TODO: WE NEED SOMETHING TO FORCE THE REL/$(PORT) AND REL/$(PORT)/INT DIRS TO EXIST
