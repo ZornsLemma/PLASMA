@@ -3,6 +3,9 @@ PORT = acorn
 .PHONY: acorn
 acorn: foo.ssd
 
+PLVMACN    = rel/acorn/PLASMA
+PLVMACN128 = rel/acorn/PLAS128
+
 # SAMPLESRC and LIBSRC are defined on a per-port basis since not all will
 # be available on all ports.
 SAMPLESRC = sieve.pla hello.pla
@@ -10,7 +13,37 @@ LIBSRC = conio.pla fileio.pla
 
 include makefile.common
 
-foo.ssd: $(ALLOBJ)
+vmsrc/acorn/symtab.pla: vmsrc/acorn/makesymtab.py
+	python vmsrc/acorn/makesymtab.py > vmsrc/acorn/symtab.pla
+
+vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
+	cc -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/32cmd.pla
+	./$(PLASM) -AOW < vmsrc/acorn/32cmd.pla > vmsrc/acorn/32cmd.a
+	# SFTODO: Building this here is a bit hacky
+	# SFTODO: TEMP FORGET STANDALONE cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
+	# SFTODO: ./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
+
+vmsrc/acorn/128cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
+	cc -DPLAS128 -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/128cmd.pla
+	./$(PLASM) -AOW < vmsrc/acorn/128cmd.pla > vmsrc/acorn/128cmd.a
+
+$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+	acme '-DSTART=$$2000' -o $(PLVMACN) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
+	acme '-DSTART=$$3000' -o $(PLVMACN).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
+	python vmsrc/acorn/add-relocations.py $(PLVMACN) $(PLVMACN).3000
+	rm $(PLVMACN).3000
+
+$(PLVMACN128): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVMACN128) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
+	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVMACN128).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
+	python vmsrc/acorn/add-relocations.py $(PLVMACN128) $(PLVMACN128).3000
+	rm $(PLVMACN128).3000
+
+foo.ssd: $(ALLOBJ) $(PLVMACN) $(PLVMACN128)
 	# TODO: We use tar as a demo substitute for a platform specific 'make
 	# a disk image' command
-	tar cvf $@ $(ALLOBJ)
+	tar cvf $@ $(ALLOBJ) $(PLVMACN) $(PLVMACN128)
+
+.PHONY: cleanport
+cleanport:
+	echo TODO

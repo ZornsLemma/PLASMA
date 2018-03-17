@@ -1,7 +1,10 @@
 PORT = apple
 
 .PHONY: apple
-apple: foo.ssd
+apple: foo.img
+
+PLVM02	   = rel/apple/PLASMA.SYSTEM\#FF2000
+CMD        = rel/apple/CMD\#061000
 
 # SAMPLESRC and LIBSRC are defined on a per-port basis since not all will
 # be available on all ports.
@@ -10,7 +13,18 @@ LIBSRC = conio.pla fileio.pla joybuzz.pla
 
 include makefile.common
 
-foo.ssd: $(ALLOBJ)
+$(CMD): vmsrc/apple/cmd.pla vmsrc/apple/cmdstub.s $(PLVM02) $(PLASM) $(PLVMZP)
+	./$(PLASM) -AOW < vmsrc/apple/cmd.pla > vmsrc/apple/cmd.a
+	acme --setpc 8192 -o $(CMD) vmsrc/apple/cmdstub.s
+
+$(PLVM02): vmsrc/apple/plvm02.s $(PLVMZP)
+	acme -o $(PLVM02) -l vmsrc/apple/plvm02.sym vmsrc/apple/plvm02.s
+
+foo.img: $(ALLOBJ) $(PLVM02) $(CMD)
 	# TODO: We use tar as a demo substitute for a platform specific 'make
 	# a disk image' command
 	tar cvf $@ $(ALLOBJ)
+
+.PHONY: cleanport
+cleanport:
+	rm -f $(PLVM02)

@@ -36,9 +36,9 @@ $(PLASM): $(PLASMOBJS) $(PLASMINCS)
 	cc $(PLASMOBJS) -o $(PLASM)
 
 .PHONY: clean
-clean:
-	rm -rf $(PLASM)
-	rm -rf $(PLVMZP)
+clean: cleanport
+	rm -f $(PLASM)
+	rm -f $(PLVMZP)
 	rm -rf rel
 
 
