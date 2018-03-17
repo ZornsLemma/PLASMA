@@ -30,5 +30,6 @@ rel/apple/foo.img: $(ALLOBJ) $(PLVM02) $(CMD) $(PLASMAPLASM) $(CODEOPT)
 	# a disk image' command
 	tar cvf $@ $(ALLOBJ) $(PLASMAPLASM) $(CODEOPT)
 
+# Any port-specific clean operations can be added here
 .PHONY: cleanport
 cleanport:
