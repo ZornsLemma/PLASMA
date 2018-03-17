@@ -220,7 +220,7 @@ $(CMD): vmsrc/apple/cmd.pla vmsrc/apple/cmdstub.s $(PLVM02) $(PLASM)
 	acme --setpc 8192 -o $(CMD) vmsrc/apple/cmdstub.s
 
 $(PLVM02): vmsrc/apple/plvm02.s
-	acme -o $(PLVM02) -l vmsrc/apple/plvm02.sym vmsrc/apple/plvm02.s
+	# SFTODO VERY TEMP COMMENTED OUT acme -o $(PLVM02) -l vmsrc/apple/plvm02.sym vmsrc/apple/plvm02.s
 
 $(PLVM802): vmsrc/apple/plvm802.s
 	acme -o $(PLVM802) -l vmsrc/apple/plvm802.sym vmsrc/apple/plvm802.s

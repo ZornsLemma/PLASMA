@@ -1,0 +1,26 @@
+PLASM = ./plasm
+PORT = acorn
+REL = rel/$(PORT)
+RELINT = $(REL)/int # intermediate
+SAMPLESRC = samplesrc/sieve.pla samplesrc/hello.pla
+#SAMPLEOBJ = $(patsubst %.pla,$(REL)/%.plm,$(SAMPLESRC))
+SAMPLEOBJ = $(subst samplesrc,rel/acorn/sample,$(patsubst %.pla,%.plm,$(SAMPLESRC)))
+LIBSRC = libsrc/acorn/conio.pla libsrc/acorn/fileio.pla
+LIBOBJ = $(subst libsrc/acorn,rel/acorn/lib,$(patsubst %.pla,%.plm,$(LIBSRC)))
+
+all: foo.ssd
+
+rel/acorn/sample/%.plm: samplesrc/%.pla
+	$(PLASM) -AMOW < $< > xxx
+	acme --setpc 4094 -o $@ xxx
+
+rel/acorn/lib/%.plm: libsrc/acorn/%.pla
+	$(PLASM) -AMOW < $< > xxx
+	acme --setpc 4094 -o $@ xxx
+
+#rel/acorn/samplesrc/sieve.plm: sieve.pla
+#	touch $@
+
+foo.ssd: $(SAMPLEOBJ) $(LIBOBJ)
+	echo sampleobj $(SAMPLEOBJ)
+	echo libobj $(LIBOBJ)
