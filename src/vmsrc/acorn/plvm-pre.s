@@ -1073,7 +1073,7 @@ CALL    INY                     ;+INC_IP
 	LDA	$F4
 	PHA
 }
-	JSR	JMPTMP     ; PLAS128: may page in another bank
+	JSR	JMPTMPX     ; PLAS128: may page in another bank
 !IFDEF PLAS128 {
 	PLA
 	STA	$F4
@@ -1121,7 +1121,7 @@ ICAL 	LDA	ESTKL,X
 	LDA	$F4
 	PHA
 }
-ICALADR	JSR	JMPTMP	     ; PLAS128: may page in another bank
+ICALADR	JSR	JMPTMPX	     ; PLAS128: may page in another bank
 !IFDEF PLAS128 {
 	PLA
 	STA	$F4
@@ -1140,7 +1140,8 @@ ICALADR	JSR	JMPTMP	     ; PLAS128: may page in another bank
 ;*
 ;* JUMP INDIRECT THROUGH TMP
 ;*
-JMPTMP	JMP	(TMP)
+; SFTODO: Rename to JMPTMP once no longer need a fake JMPTMP in acorn/plvmzp.inc
+JMPTMPX	JMP	(TMP)
 ;*
 ;* ENTER FUNCTION WITH FRAME SIZE AND PARAM COUNT
 ;*

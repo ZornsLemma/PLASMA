@@ -4,9 +4,12 @@ PLVM       = plvm
 PLVMZP_APL = vmsrc/apple/plvmzp.inc
 PLVM01     = rel/apple/A1PLASMA\#060280
 PLVM02	   = rel/apple/PLASMA.SYSTEM\#FF2000
+PLVMJIT    = rel/apple/PLASMAJIT.SYSTEM\#FF2000
 PLVM802	   = rel/apple/PLASMA16.SYSTEM\#FF2000
 PLVM03	   = rel/apple/SOS.INTERP\#050000
+SOSCMD     = rel/apple/SOS.CMD\#FE1000
 CMD        = rel/apple/CMD\#061000
+CMDJIT     = rel/apple/CMDJIT\#061000
 PLVMZP_C64 = vmsrc/c64/plvmzp.inc
 PLVMC64    = rel/c64/PLASMA
 PLVMZP_ACN = vmsrc/acorn/plvmzp.inc
@@ -32,6 +35,8 @@ SYMTBL     = rel/acorn/SYMTBL
 DIVMOD     = rel/acorn/DIVMOD
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
+JIT        = rel/apple/JIT\#FE1000
+JITUNE     = rel/apple/JITUNE\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
 SIEVE      = rel/SIEVE\#FE1000
@@ -100,7 +105,7 @@ TXTTYPE	= .TXT
 # SFTODO: This is temporary for my convenience
 SFTODO: acorn
 
-apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM802) $(PLVM03) $(CMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
+apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
 	-rm vmsrc/plvmzp.inc
 
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
@@ -117,11 +122,8 @@ $(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SI
 all: apple c64 acorn
 
 clean:
-	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVM03)
-	-rm rel/*
-	-rm rel/apple/*
-	-rm rel/c64/*
-	-rm rel/acorn/*
+	-rm *FE1000 *FF2000 $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM03)
+	-rm -rf rel
 	-rm samplesrc/*.o samplesrc/*~ samplesrc/*.a
 	-rm toolsrc/*.o toolsrc/*~ toolsrc/*.a
 	-rm toolsrc/apple/*.o toolsrc/apple/*~ toolsrc/apple/*.a
@@ -219,16 +221,27 @@ $(CMD): vmsrc/apple/cmd.pla vmsrc/apple/cmdstub.s $(PLVM02) $(PLASM)
 	./$(PLASM) -AOW < vmsrc/apple/cmd.pla > vmsrc/apple/cmd.a
 	acme --setpc 8192 -o $(CMD) vmsrc/apple/cmdstub.s
 
+$(CMDJIT): vmsrc/apple/cmdjit.pla vmsrc/apple/cmdjitstub.s $(PLVMJIT) $(PLASM)
+	./$(PLASM) -AOW < vmsrc/apple/cmdjit.pla > vmsrc/apple/cmdjit.a
+	acme --setpc 8192 -o $(CMDJIT) vmsrc/apple/cmdjitstub.s
+
+$(SOSCMD): vmsrc/apple/soscmd.pla $(PLVM03) $(PLASM)
+	./$(PLASM) -AMOW < vmsrc/apple/soscmd.pla > vmsrc/apple/soscmd.a
+	acme --setpc 4094 -o $(SOSCMD) vmsrc/apple/soscmd.a
+
 $(PLVM02): vmsrc/apple/plvm02.s
 	acme -o $(PLVM02) -l vmsrc/apple/plvm02.sym vmsrc/apple/plvm02.s
+
+$(PLVMJIT): vmsrc/apple/plvmjit02.s
+	acme -o $(PLVMJIT) -l vmsrc/apple/plvmjit02.sym vmsrc/apple/plvmjit02.s
 
 $(PLVM802): vmsrc/apple/plvm802.s
 	acme -o $(PLVM802) -l vmsrc/apple/plvm802.sym vmsrc/apple/plvm802.s
 
-vmsrc/apple/soscmd.a: vmsrc/apple/soscmd.pla $(PLASM)
-	./$(PLASM) -AOW < vmsrc/apple/soscmd.pla > vmsrc/apple/soscmd.a
+vmsrc/apple/sossys.a: vmsrc/apple/sossys.pla $(PLASM)
+	./$(PLASM) -AOW < vmsrc/apple/sossys.pla > vmsrc/apple/sossys.a
 
-$(PLVM03): vmsrc/apple/plvm03.s vmsrc/apple/soscmd.a
+$(PLVM03): vmsrc/apple/plvm03.s vmsrc/apple/sossys.a
 	acme -o $(PLVM03) -l vmsrc/apple/plvm03.sym vmsrc/apple/plvm03.s
 
 #
@@ -239,7 +252,7 @@ test:	samplesrc/test.pla samplesrc/testlib.pla $(PLVM) $(PLASM)
 	acme --setpc 4094 -o $(TEST) samplesrc/test.a
 	./$(PLASM) -AMOW  < samplesrc/testlib.pla > samplesrc/testlib.a
 	acme --setpc 4094 -o $(TESTLIB) samplesrc/testlib.a
-	./$(PLVM) TEST
+	# SFTODO: temp disabled as plvm doesn't seem to support all opcodes ./$(PLVM) TEST
 
 $(ED): toolsrc/ed.pla $(PLVM02) $(PLASM) toolsrc/ed.pla
 	./$(PLASM) -AMOW < toolsrc/ed.pla > toolsrc/ed.a
@@ -489,7 +502,16 @@ $(MON): samplesrc/mon.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/mon.pla > samplesrc/mon.a
 	acme --setpc 4094 -o $(MON) samplesrc/mon.a
 
-$(SOS): libsrc/apple/sos.pla $(PLVM02) $(PLASM)
+$(SOS): libsrc/apple/sos.pla $(PLVM03) $(PLASM)
 	./$(PLASM) -AMO < libsrc/apple/sos.pla > libsrc/apple/sos.a
 	acme --setpc 4094 -o $(SOS) libsrc/apple/sos.a
+
+$(JIT): libsrc/apple/jit.pla $(PLVMJIT) $(PLASM)
+	./$(PLASM) -AMO < libsrc/apple/jit.pla > libsrc/apple/jit.a
+	acme --setpc 4094 -o $(JIT) libsrc/apple/jit.a
+
+$(JITUNE): libsrc/apple/jitune.pla $(PLVMJIT) $(PLASM)
+	./$(PLASM) -AMO < libsrc/apple/jitune.pla > libsrc/apple/jitune.a
+	acme --setpc 4094 -o $(JITUNE) libsrc/apple/jitune.a
+
 

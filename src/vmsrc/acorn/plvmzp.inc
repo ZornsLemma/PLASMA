@@ -36,3 +36,4 @@ HIMEMH  =       TMP+2 ; TODO: doesn't need to be in zp
 SCRATCH =	TMP+3 ; 16 bytes
 HEAPL   =       SCRATCH+16
 HEAPH   =  	HEAPL+1
+JMPTMP = $FFFF ; SFTODO: temp so the Apple VM will build using this file; hopefully won't be needed once makefile improved
