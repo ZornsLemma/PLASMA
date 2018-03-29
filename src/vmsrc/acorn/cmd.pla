@@ -119,10 +119,12 @@ predef toupper(c)#1
 //
 // Exported CMDSYS table
 //
-word version     = $0110 // 01.10
+word version     = $0200 // 02.00 Dev
 word syspath // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 word syscmdln // SFTODO? NEED THIS ANY WAY FOR INC/CMDSYS.PLH
 word            = @modexec
+// SFTODO: Apple II version now exports @open, @close, @read, @write, not sure
+// what to do about that.
 byte refcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 byte devcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 //
@@ -235,7 +237,7 @@ REGVALS =   SRC
         TAX
         PLA
         PLP
-        JSR     JMPTMP
+        JSR     JMPTMPX
         PHP
         STA     REGVALS+0
         STX     REGVALS+1
@@ -908,7 +910,7 @@ export asm callalloca
 }
 	INX
 
-	JSR	JMPTMP
+	JSR	JMPTMPX
 
 	CLC
 !IFNDEF PLAS128 {
@@ -2187,7 +2189,7 @@ perr = 0
 // Print some startup info.
 //
 if not ^cmdptr
-    puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
+    puts("PLASMA 2.0 Dev\n") //puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
     //puts(@freestr)

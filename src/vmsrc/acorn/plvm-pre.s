@@ -250,15 +250,18 @@ _DIVEX	INX
 ;* on all builds.
 ;*
 	!ALIGN	255,0
-OPTBL 	!WORD	ZERO,ADD,SUB,MUL,DIV,MOD,INCR,DECR		; 00 02 04 06 08 0A 0C 0E
-	!WORD	NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW		; 10 12 14 16 18 1A 1C 1E
-	!WORD	LNOT,LOR,LAND,LA,LLA,CB,CW,CS			; 20 22 24 26 28 2A 2C 2E
-	!WORD	DROP,DUP,NEXTOP,DIVMOD,BRGT,BRLT,BREQ,BRNE	; 30 32 34 36 38 3A 3C 3E
-	!WORD	ISEQ,ISNE,ISGT,ISLT,ISGE,ISLE,BRFLS,BRTRU	; 40 42 44 46 48 4A 4C 4E
-	!WORD	BRNCH,IBRNCH,CALL,ICAL,ENTER,LEAVE,RET,CFFB 	; 50 52 54 56 58 5A 5C 5E
-	!WORD	LB,LW,LLB,LLW,LAB,LAW,DLB,DLW			; 60 62 64 66 68 6A 6C 6E
-	!WORD	SB,SW,SLB,SLW,SAB,SAW,DAB,DAW			; 70 72 74 76 78 7A 7C 7E
-
+OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
+        !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 10 12 14 16 18 1A 1C 1E
+        !WORD   MINUS1,BREQ,BRNE,LA,LLA,CB,CW,CS                        ; 20 22 24 26 28 2A 2C 2E
+        !WORD   DROP,DROP2,DUP,DIVMOD,ADDI,SUBI,ANDI,ORI                ; 30 32 34 36 38 3A 3C 3E
+        !WORD   ISEQ,ISNE,ISGT,ISLT,ISGE,ISLE,BRFLS,BRTRU               ; 40 42 44 46 48 4A 4C 4E
+        !WORD   BRNCH,SEL,CALL,ICAL,ENTER,LEAVE,RET,CFFB                ; 50 52 54 56 58 5A 5C 5E
+        !WORD   LB,LW,LLB,LLW,LAB,LAW,DLB,DLW                           ; 60 62 64 66 68 6A 6C 6E
+        !WORD   SB,SW,SLB,SLW,SAB,SAW,DAB,DAW                           ; 70 72 74 76 78 7A 7C 7E
+        !WORD   LNOT,ADD,SUB,MUL,DIV,MOD,INCR,DECR                      ; 80 82 84 86 88 8A 8C 8E
+        !WORD   NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW                      ; 90 92 94 96 98 9A 9C 9E
+        !WORD   BRGT,BRLT,INCBRLE,ADDBRLE,DECBRGE,SUBBRGE,BRAND,BROR    ; A0 A2 A4 A6 A8 AA AC AE
+        !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;* (PLAS128: executes bytecode from main RAM)
@@ -443,31 +446,6 @@ SHR	STY	IPY
 +	LDY	IPY
 	JMP	DROP
 ;*
-;* LOGICAL AND
-;*
-LAND 	LDA	ESTKL+1,X
-	ORA	ESTKH+1,X
-	BEQ	++
-	LDA	ESTKL,X
-	ORA	ESTKH,X
-	BEQ	+
-	LDA	#$FF
-+	STA	ESTKL+1,X
-	STA	ESTKH+1,X
-++	JMP	DROP
-;*
-;* LOGICAL OR
-;*
-LOR 	LDA	ESTKL,X
-	ORA	ESTKH,X
-	ORA	ESTKL+1,X
-	ORA	ESTKH+1,X
-	BEQ	+
-	LDA	#$FF
- 	STA	ESTKL+1,X
-	STA	ESTKH+1,X
-+	JMP	DROP
-;*
 ;* DUPLICATE TOS
 ;*
 DUP 	DEX
@@ -477,37 +455,84 @@ DUP 	DEX
 	STA	ESTKH,X
 	JMP	NEXTOP
 ;*
+;* ADD IMMEDIATE TO TOS
+;*
+ADDI    INY                     ;+INC_IP
+        LDA     (IP),Y
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        BCC     +
+        INC     ESTKH,X
++       JMP     NEXTOP
+;*
+;* SUB IMMEDIATE FROM TOS
+;*
+SUBI    INY                     ;+INC_IP
+        LDA     ESTKL,X
+        SEC
+        SBC     (IP),Y
+        STA     ESTKL,X
+        BCS     +
+        DEC     ESTKH,X
++       JMP     NEXTOP
+;*
+;* AND IMMEDIATE TO TOS
+;*
+ANDI    INY                     ;+INC_IP
+        LDA     (IP),Y
+        AND     ESTKL,X
+        STA     ESTKL,X
+        LDA     #$00
+        STA     ESTKH,X
+        JMP     NEXTOP
+;*
+;* IOR IMMEDIATE TO TOS
+;*
+ORI     INY                     ;+INC_IP
+        LDA     (IP),Y
+        ORA     ESTKL,X
+        STA     ESTKL,X
+        JMP     NEXTOP
+;*
 ;* LOGICAL NOT
 ;*
 LNOT    LDA     ESTKL,X
         ORA     ESTKH,X
-        BNE     +
-        LDA     #$FF
+        BEQ     +
+        LDA     #$00
         STA     ESTKL,X
         STA     ESTKH,X
         JMP     NEXTOP
 ;*
-;* CONSTANT
+;* CONSTANT -1, NYBBLE, BYTE, $FF BYTE, WORD (BELOW)
 ;*
-ZERO 	DEX
-+	LDA	#$00
-	STA	ESTKL,X
-	STA	ESTKH,X
-	JMP	NEXTOP
-CFFB	DEX
-	LDA	#$FF
-	STA	ESTKH,X
+MINUS1  DEX
++       LDA     #$FF
+        STA     ESTKL,X
+        STA     ESTKH,X
+        JMP     NEXTOP
+CN      DEX
+        LSR                     ; A = CONST * 2
+        STA     ESTKL,X
+        LDA     #$00
+        STA     ESTKH,X
+        JMP     NEXTOP
+CB      DEX
+        LDA     #$00
+        STA     ESTKH,X
         INY                     ;+INC_IP
-	LDA	(IP),Y
-	STA	ESTKL,X
-	JMP	NEXTOP
-CB	DEX
-	LDA	#$00
-	STA	ESTKH,X
+        LDA     (IP),Y
+        STA     ESTKL,X
+        JMP     NEXTOP
+; SFTODO: Should I reintroduce my BIT abs hack so I can share code with CB at a small runtime cost?
+CFFB    DEX
+        LDA     #$FF
+        STA     ESTKH,X
         INY                     ;+INC_IP
-	LDA	(IP),Y
-	STA	ESTKL,X
-	JMP	NEXTOP
+        LDA     (IP),Y
+        STA     ESTKL,X
+        JMP     NEXTOP
 ;*
 ;* LOAD ADDRESS & LOAD CONSTANT WORD (SAME THING, WITH OR WITHOUT FIXUP)
 ;*
@@ -685,6 +710,75 @@ LLW     INY                     ;+INC_IP
 	LDY	IPY
 	JMP	NEXTOP
 ;*
+;* ADD VALUE FROM LOCAL FRAME OFFSET
+;*
+ADDLB   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STY     IPY
+        TAY
+        LDA     (IFP),Y
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        BCC     +
+        INC     ESTKH,X
++       LDY     IPY
+        JMP     NEXTOP
+ADDLW   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STY     IPY
+        TAY
+        LDA     (IFP),Y
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        INY
+        LDA     (IFP),Y
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+;*
+;* INDEX VALUE FROM LOCAL FRAME OFFSET
+;*
+IDXLB   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STY     IPY
+        TAY
+        LDA     (IFP),Y
+        LDY     #$00
+        ASL
+        BCC     +
+        INY
+        CLC
++       ADC     ESTKL,X
+        STA     ESTKL,X
+        TYA
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+IDXLW   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STY     IPY
+        TAY
+        LDA     (IFP),Y
+        ASL
+        STA     TMPL
+        INY
+        LDA     (IFP),Y
+        ROL
+        STA     TMPH
+        LDA     TMPL
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        LDA     TMPH
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+;*
 ;* LOAD VALUE FROM ABSOLUTE ADDRESS
 ;*
 !IF SELFMODIFY {
@@ -731,6 +825,87 @@ LAW     INY                     ;+INC_IP
         LDY     IPY
         JMP     NEXTOP
 ;*
+;* ADD VALUE FROM ABSOLUTE ADDRESS
+;*
+ADDAB   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-2,X ; SFTODO: DOES THIS REQUIRE MORE THAN ONE PAD BYTE? NOT THOUGHT ABOUT IT PROPERLY YET
+        INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-1,X
+        LDA     (ESTKH-2,X)
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        BCC     +
+        INC     ESTKH,X
++       JMP     NEXTOP
+ADDAW   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     SRCL
+        INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     SRCH
+        STY     IPY
+        LDY     #$00
+        LDA     (SRC),Y
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        INY
+        LDA     (SRC),Y
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+;*
+;* INDEX VALUE FROM ABSOLUTE ADDRESS
+;*
+IDXAB   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-2,X
+        INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-1,X
+        LDA     (ESTKH-2,X)
+        STY     IPY
+        LDY     #$00
+        ASL
+        BCC     +
+        INY
+        CLC
++       ADC     ESTKL,X
+        STA     ESTKL,X
+        TYA
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+IDXAW   INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     SRCL
+        INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     SRCH
+        STY     IPY
+        LDY     #$00
+        LDA     (SRC),Y
+        ASL
+        STA     TMPL
+        INY
+        LDA     (SRC),Y
+        ROL
+        STA     TMPH
+        LDA     TMPL
+        CLC
+        ADC     ESTKL,X
+        STA     ESTKL,X
+        LDA     TMPH
+        ADC     ESTKH,X
+        STA     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+;*
 ;* STORE VALUE TO ADDRESS
 ;*
 SB      LDA     ESTKL,X
@@ -751,7 +926,10 @@ SW      LDA     ESTKL,X
         JMP     DROP
 +       INC     ESTKH,X
         STA     (ESTKH-1,X)
-        INX
+;*
+;* DROP TOS, TOS-1
+;*
+DROP2   INX
         JMP     DROP
 ;*
 ;* STORE VALUE TO LOCAL FRAME OFFSET
@@ -920,7 +1098,6 @@ ISFLS 	LDA	#$00
 	STA	ESTKL+1,X
 	STA	ESTKH+1,X
 	JMP	DROP
-;
 ISGE    LDA     ESTKL+1,X
         CMP     ESTKL,X
         LDA     ESTKH+1,X
@@ -928,9 +1105,16 @@ ISGE    LDA     ESTKL+1,X
         BVS     +
         BPL     ISTRU
         BMI     ISFLS
-+       BPL     ISFLS
++
+-       BPL     ISFLS
         BMI     ISTRU
-;
+ISLE    LDA     ESTKL,X
+        CMP     ESTKL+1,X
+        LDA     ESTKH,X
+        SBC     ESTKH+1,X
+        BVS     -
+        BPL     ISTRU
+        BMI     ISFLS
 ISGT    LDA     ESTKL,X
         CMP     ESTKL+1,X
         LDA     ESTKH,X
@@ -938,31 +1122,115 @@ ISGT    LDA     ESTKL,X
         BVS     +
         BMI     ISTRU
         BPL     ISFLS
-+       BMI     ISFLS
++
+-       BMI     ISFLS
         BPL     ISTRU
-;
-ISLE    LDA     ESTKL,X
-        CMP     ESTKL+1,X
-        LDA     ESTKH,X
-        SBC     ESTKH+1,X
-        BVS     +
-        BPL     ISTRU
-        BMI     ISFLS
-+       BPL     ISFLS
-        BMI     ISTRU
-;
 ISLT    LDA     ESTKL+1,X
         CMP     ESTKL,X
         LDA     ESTKH+1,X
         SBC     ESTKH,X
-        BVS     +
+        BVS     -
         BMI     ISTRU
         BPL     ISFLS
-+       BMI     ISFLS
-        BPL     ISTRU
+;
 ;*
 ;* BRANCHES
 ;*
+SEL     INX
+        TYA                     ; FLATTEN IP
+        SEC
+        ADC     IPL
+        STA     TMPL
+        LDA     #$00
+        TAY
+        ADC     IPH
+        STA     TMPH            ; ADD BRANCH OFFSET
+        LDA     (TMP),Y
+        ;CLC                    ; BETTER NOT CARRY OUT OF IP+Y
+        ADC     TMPL
+        STA     IPL
+        INY
+        LDA     (TMP),Y
+        ADC     TMPH
+        STA     IPH
+        DEY
+        LDA     (IP),Y
+        STA     TMPL            ; CASE COUNT
+        INC     IPL
+        BNE     CASELP
+        INC     IPH
+CASELP  LDA     ESTKL-1,X
+        CMP     (IP),Y
+        BEQ     +
+        LDA     ESTKH-1,X
+        INY
+        SBC     (IP),Y
+        BMI     CASEEND
+-       INY
+        INY
+        DEC     TMPL
+        BEQ     FIXNEXT
+        INY
+        BNE     CASELP
+        INC     IPH
+        BNE     CASELP
++       LDA     ESTKH-1,X
+        INY
+        SBC     (IP),Y
+        BEQ     BRNCH
+        BPL     -
+CASEEND LDA     #$00
+        STA     TMPH
+        DEC     TMPL
+        LDA     TMPL
+        ASL                 ; SKIP REMAINING CASES
+        ROL     TMPH
+        ASL
+        ROL     TMPH
+;       CLC
+        ADC     IPL
+        STA     IPL
+        LDA     TMPH
+        ADC     IPH
+        STA     IPH
+        INY
+        INY
+FIXNEXT TYA
+        LDY     #$00
+        SEC
+        ADC     IPL
+        STA     IPL
+        BCC     +
+        INC     IPH
++       JMP     FETCHOP
+BRAND   LDA     ESTKL,X
+        ORA     ESTKH,X
+        BEQ     BRNCH
+        INX                     ; DROP LEFT HALF OF AND
+        BNE     NOBRNCH
+BROR    LDA     ESTKL,X
+        ORA     ESTKH,X
+        BNE     BRNCH
+        INX                     ; DROP LEFT HALF OF OR
+        BNE     NOBRNCH
+BREQ    INX
+        INX
+        LDA     ESTKL-2,X
+        CMP     ESTKL-1,X
+        BNE     NOBRNCH
+        LDA     ESTKH-2,X
+        CMP     ESTKH-1,X
+        BEQ     BRNCH
+        BNE     NOBRNCH
+BRNE    INX
+        INX
+        LDA     ESTKL-2,X
+        CMP     ESTKL-1,X
+        BNE     BRNCH
+        LDA     ESTKH-2,X
+        CMP     ESTKH-1,X
+        BNE     BRNCH
+        BEQ     NOBRNCH
 BRTRU   INX
         LDA     ESTKH-1,X
         ORA     ESTKL-1,X
@@ -971,14 +1239,6 @@ NOBRNCH INY                     ;+INC_IP
         INY
         BMI     FIXNEXT
         JMP     NEXTOP
-FIXNEXT TYA
-        LDY     #$00
-        CLC
-        ADC     IPL
-        STA     IPL
-        BCC     +
-        INC     IPH
-+       JMP     NEXTOP
 BRFLS   INX
         LDA     ESTKH-1,X
         ORA     ESTKL-1,X
@@ -1001,58 +1261,75 @@ BRNCH   TYA                     ; FLATTEN IP
         STA     IPH
         DEY
         JMP     FETCHOP
-BREQ    INX
-        LDA     ESTKL-1,X
+;*
+;* FOR LOOPS PUT TERMINAL VALUE AT ESTK+1 AND CURRENT COUNT ON ESTK
+;*
+BRGT    LDA     ESTKL+1,X
         CMP     ESTKL,X
-        BNE     NOBRNCH
-        LDA     ESTKH-1,X
-        CMP     ESTKH,X
-        BEQ     BRNCH
-        BNE     NOBRNCH
-BRNE    INX
-        LDA     ESTKL-1,X
-        CMP     ESTKL,X
-        BNE     BRNCH
-        LDA     ESTKH-1,X
-        CMP     ESTKH,X
-        BEQ     NOBRNCH
-        BNE     BRNCH
-BRGT    INX
-        LDA     ESTKL-1,X
-        CMP     ESTKL,X
-        LDA     ESTKH-1,X
+        LDA     ESTKH+1,X
         SBC     ESTKH,X
         BVS     +
         BPL     NOBRNCH
-        BMI     BRNCH
-+       BPL     BRNCH
-        BMI     NOBRNCH
-BRLT    INX
-        LDA     ESTKL,X
-        CMP     ESTKL-1,X
+-       INX                     ; DROP FOR VALUES
+        INX
+        BNE     BRNCH           ; BMI     BRNCH
+BRLT    LDA     ESTKL,X
+        CMP     ESTKL+1,X
         LDA     ESTKH,X
-        SBC     ESTKH-1,X
+        SBC     ESTKH+1,X
         BVS     +
         BPL     NOBRNCH
-        BMI     BRNCH
-+       BPL     BRNCH
-        BMI     NOBRNCH
-IBRNCH  TYA                     ; FLATTEN IP
+        INX                     ; DROP FOR VALUES
+        INX
+        BNE     BRNCH           ; BMI     BRNCH
++       BMI     NOBRNCH
+        BPL     -
+DECBRGE DEC     ESTKL,X
+        LDA     ESTKL,X
+        CMP     #$FF
+        BNE     +
+        DEC     ESTKH,X
+_BRGE   LDA     ESTKL,X
++       CMP     ESTKL+1,X
+        LDA     ESTKH,X
+        SBC     ESTKH+1,X
+        BVS     +
+        BPL     BRNCH
+-       INX                     ; DROP FOR VALUES
+        INX
+        BNE     NOBRNCH         ; BMI     NOBRNCH
+INCBRLE INC     ESTKL,X
+        BNE     _BRLE
+        INC     ESTKH,X
+_BRLE   LDA     ESTKL+1,X
+        CMP     ESTKL,X
+        LDA     ESTKH+1,X
+        SBC     ESTKH,X
+        BVS     +
+        BPL     BRNCH
+        INX                     ; DROP FOR VALUES
+        INX
+        BNE     NOBRNCH         ; BMI     NOBRNCH
++       BMI     BRNCH
+        BPL     -
+SUBBRGE LDA     ESTKL+1,X
+        SEC
+        SBC     ESTKL,X
+        STA     ESTKL+1,X
+        LDA     ESTKH+1,X
+        SBC     ESTKH,X
+        STA     ESTKH+1,X
+        INX
+        BNE     _BRGE
+ADDBRLE LDA     ESTKL,X
         CLC
-        ADC     IPL
-        STA     TMPL
-        LDA     #$00
-        TAY
-        ADC     IPH
-        STA     TMPH            ; ADD BRANCH OFFSET
-        LDA     TMPL
-        ;CLC                    ; BETTER NOT CARRY OUT OF IP+Y
-        ADC     ESTKL,X
-        STA     IPL
-        LDA     TMPH
-        ADC     ESTKH,X
-        STA     IPH
-        JMP     DROP
+        ADC     ESTKL+1,X
+        STA     ESTKL+1,X
+        LDA     ESTKH,X
+        ADC     ESTKH+1,X
+        STA     ESTKH+1,X
+        INX
+        BNE     _BRLE
 ;*
 ;* CALL INTO ABSOLUTE ADDRESS (NATIVE CODE)
 ;*
@@ -1063,7 +1340,7 @@ CALL    INY                     ;+INC_IP
 	LDA	(IP),Y
 	STA	TMPH
 	TYA
-	CLC
+	SEC
 	ADC	IPL
 	PHA
 	LDA	IPH
@@ -1087,7 +1364,7 @@ CALL    INY                     ;+INC_IP
 	STA	IPH
 	PLA
 	STA	IPL
-	LDY	#$01
+	LDY	#$00
 	JMP	FETCHOP
 !IF CHECKEXPRESSIONSTACK {
 ESTKERR
@@ -1111,7 +1388,7 @@ ICAL 	LDA	ESTKL,X
 	STA	TMPH
 	INX
 	TYA
-	CLC
+	SEC
 	ADC	IPL
 	PHA
 	LDA	IPH
@@ -1135,7 +1412,7 @@ ICALADR	JSR	JMPTMPX	     ; PLAS128: may page in another bank
 	STA	IPH
 	PLA
 	STA	IPL
-	LDY	#$01
+	LDY	#$00
 	JMP	FETCHOP
 ;*
 ;* JUMP INDIRECT THROUGH TMP
