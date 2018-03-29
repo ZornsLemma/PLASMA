@@ -34,6 +34,7 @@ SORT2      = rel/acorn/SORT2
 SYMTBL     = rel/acorn/SYMTBL
 DIVMOD     = rel/acorn/DIVMOD
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
+COMP_ACN   = rel/acorn/compiler.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 JIT        = rel/apple/JIT\#FE1000
 JITUNE     = rel/apple/JITUNE\#FE1000
@@ -111,13 +112,18 @@ apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) 
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
 	-rm vmsrc/plvmzp.inc
 
-acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN)
+acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN) $(COMP_ACN)
 	-rm vmsrc/plvmzp.inc
 
 $(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
+
+$(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CONIO_ACN) 
+	# SFTODO: Given I already rely on python for the build process, could I use the
+	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
+	beebasm -i vmsrc/acorn/compiler.beebasm -do rel/acorn/compiler.ssd -title "PLASMA COMP"
 
 all: apple c64 acorn
 
