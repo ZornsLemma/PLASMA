@@ -2007,9 +2007,13 @@ void remove_stores(t_opseq **seq)
                 break;
 
             case LLB_CODE:
+            case ADDLB_CODE:
+            case IDXLB_CODE:
                 record_load(frame_store_op, op->offsz);
                 break;
             case LLW_CODE:
+            case ADDLW_CODE:
+            case IDXLW_CODE:
                 record_load(frame_store_op, op->offsz    );
                 record_load(frame_store_op, op->offsz + 1);
                 break;
@@ -2017,6 +2021,14 @@ void remove_stores(t_opseq **seq)
             case BRNCH_CODE:
             case BRFALSE_CODE:
             case BRTRUE_CODE:
+            case BRGT_CODE:
+            case BRLT_CODE:
+            //case INCBRLE_CODE:
+            //case ADDBRLE_CODE:
+            //case DECBRGE_CODE:
+            //case SUBBRGE_CODE:
+            case BRAND_CODE:
+            case BROR_CODE:
                 // We have to assume that code reached via a branch can load
                 // anything from the frame.
             case LB_CODE:
