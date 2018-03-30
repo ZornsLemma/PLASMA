@@ -164,14 +164,17 @@ def acopen(path)
             // waste the 0th element; think about it when code settles down
             // anyway. (We'd waste memory there, but save on code to adjust the
             // index between 1-based and 0-based here and in other functions.)
+            // SFTODO: WE SHOULD QUITE POSSIBLY FILL THE BUFFER WITH AN INITIAL
+            // READ HERE - THE DRIVE MOTOR IS RUNNING AND IT'S A REASONABLE
+            // GUESS WE INTEND TO READ FROM THE FILE GIVEN WE JUST OPENED IT,
+            // AND THIS WOULD ALSO AVOID THE NEED FOR A WAY TO RECORD 'WE DO NOT
+            // YET HAVE ANYTHING READ INTO THE BUFFER'
         fin
     next
     return 0
 end
 
 def acclose(refnum)
-    byte i
-
     --refnum
     if iobuf_ref[refnum]
         // SFTODO: This probably needs to flush the buffer if there are any
@@ -313,12 +316,12 @@ def acread(refnum, buf, len)
     fin
 end
 
+// SFTODO: NEEDS TO USE A BUFFER BUT THIS SHOULD WORK IN MEANTIME SO I CAN
+// CONCENTRATE ON GETTING READ WORKING
 def acwrite(refnum, buf, len)
     byte block[osgbpb_block_size]
 
-    // SFTODO: VERY SIMILAR TO ACREAD() - CAN WE FACTOR OUT COMMON CODE AND JUST
-    // PASS THE OSBPB A VALUE INTO IT?
-    block.0 = refnum
+    block.0 = iobuf_ref[refnum - 1]
     block:1 = buf
     block:3 = 0 // SFTODO?!
     block:5 = len
