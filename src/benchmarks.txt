@@ -35,3 +35,14 @@ bff360f76d82069c62ae7d4dbc604e5e50015806 1505cs (no drive noises)/1883cs (drive 
 
 "+PLASM TEST.PLA"
 bff360f76d82069c62ae7d4dbc604e5e50015806 7169s (no drive noises)/7750cs (drive noises)
+
+
+
+Using different emulator, PLASMA 2.0 etc so not comparable.
++PLASM TEST.PLA takes 40 seconds (timed with *TIME) with my new read() code
+With old OSBGET naive read() code, takes 41 seconds
+turning drive noises on, naive takes 49 seconds/50 seconds/51 seconds
+new read() code takes 47/50/50 seconds
+- this is disappointing
+- in some sense it's logical, as the test is just not reading that much (7001 bytes across 3 files)
+- I guess a lot of the slowness was perhaps other things which Dave has now optimised
