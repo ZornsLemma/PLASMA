@@ -62,7 +62,26 @@ word = @acblock // writeblock
 //
 export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
 
-// SFTODO: MASSIVE HACK - VERY WASTEFUL OF RAM IF NOTHING ELSE
+//
+// I/O buffers
+//
+// We always support at least one I/O buffer without needing to call
+// iobufalloc(); this is consistent with the Apple implementation. 
+// SFTODO: WE MAY WANT TO HAVE AN ARRAY OF STRUCTS HERE, RATHER THAN SEPARATE
+// ARRAYS FOR EACH - THIS IS ARGUABLY CLEANER, AND I ALSO SUSPECT IT WOULD BE
+// MORE CONVENIENT WHEN CONVERTING TO ASSEMBLER AS WE'D JUST PASS THE SINGLE
+// STRUCT ADDRESS POINTER IN
+const MAX_IOBUFS = 4
+const IOBUF_SIZE = 256
+byte iobuf0[IOBUF_SIZE]
+byte iobuf_ref[MAX_IOBUFS]
+byte iobuf_emask[MAX_IOBUFS]
+byte iobuf_nlchar[MAX_IOBUFS]
+word iobuf_addr[MAX_IOBUFS] = @iobuf0
+word iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
+
+// SFTODO: MASSIVE HACK - VERY WASTEFUL OF RAM IF NOTHING ELSE - DELETE ONCE
+// FINISHED REWRITING CODE AS WE NOW HOAVE IOBUF_{REF,EMASK}
 byte newline_emask[256]
 byte newline_nlchar[256]
 
@@ -95,31 +114,153 @@ def acgeteof(refnum)
 end
 
 def aciobufs(iobufs)
-    // SFTODO: Implement this?
+    byte i
+    word freebuf
+
+    freebuf = heapmark()
+
+    if iobufs > MAX_IOBUFS
+        iobufs = MAX_IOBUFS
+    fin
+    if iobufs
+        iobufs-- // Subtract off always-allocated I/O buffer (iobuf0)
+        if iobufs
+            for i = 1 to MAX_IOBUFS-1
+                if not iobuf_addr[i]
+                    iobuf_addr[i] = heapalloc(IOBUF_SIZE)
+                    iobufs--
+                    if not iobufs
+                        return freebuf
+                    fin
+                fin
+            next
+            return freebuf
+        fin
+    else
+        for i = 1 to MAX_IOBUFS-1
+            iobuf_addr[i] = 0 // Free I/O buffers if 0 passed in
+        next
+    fin
     return 0
 end
 
 def acopen(path)
     byte pathcr[maxpathlen]
-    byte refnum
-
-    stocr(path, @pathcr)
-
-    // We use osfind_update; this allows both read and write access but won't
-    // create a file which doesn't already exist. fileio::create() is provided
-    // to create new files prior to opening them.
-    refnum = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
-    newline_emask[refnum] = 0
-    return refnum
+    byte i, refnum
+    
+    for i = 0 to MAX_IOBUFS-1
+        if iobuf_addr[i] and not iobuf_ref[i]            
+            stocr(path, @pathcr)
+            // We use osfind_update; this allows both read and write access but won't
+            // create a file which doesn't already exist. fileio::create() is provided
+            // to create new files prior to opening them.
+            refnum = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
+            iobuf_ref[i] = refnum
+            iobuf_emask[i] = 0
+            iobuf_index[i] = 0
+            iobuf_size[i] = -1
+            return i + 1 // 0 indicates failure, so have to add 1
+            // SFTODO: It just may be cheaper to makes the arrays 1 bigger and
+            // waste the 0th element; think about it when code settles down
+            // anyway. (We'd waste memory there, but save on code to adjust the
+            // index between 1-based and 0-based here and in other functions.)
+        fin
+    next
+    return 0
 end
 
 def acclose(refnum)
-    call(osfind, osfind_close, 0, refnum, 0)
-    perr = 0 // SFTODO?
+    byte i
+
+    --refnum
+    if iobuf_ref[refnum]
+        // SFTODO: This probably needs to flush the buffer if there are any
+        // writes which we haven't yet sent to the file!
+        call(osfind, osfind_close, 0, iobuf_ref[refnum], 0)
+        iobuf_ref[refnum] = 0
+        perr = 0 // SFTODO?
+        return perr
+    fin
+    perr = $45
     return perr
 end
 
+// SFTODO: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
+// LATER ON, OF COURSE (AND SAME FOR acwrite())
+// SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
 def acread(refnum, buf, len)
+    --refnum
+
+    count = 0
+    buffer = iobuf_addr[refnum]
+    index = iobuf_index[refnum] // SFTODO: MAKE SURE TO WRITE BACK TO iobuf_index LATER
+    size = iobuf_size[refnum]
+    emask = iobuf_emask[refnum]
+    nlchar = iobuf_nlchar[refnum]
+
+    // SFTODO: IT WOULD BE GOOD IF INDEX AND SIZE COULD BE BYTES NOT WORDS (ESP
+    // WITH A VIEW TO CONVERTING TO ASSEMBLER) - WE CAN PROBABLY INDICATE THE
+    // TWO SPECIAL CASES OF "NO READ YET" AND "EOF" BY HAVING INDEX > SIZE AND
+    // MAYBE HAVING THE VALUE OF INDEX INDICATE WHICH OF THE TWO CASES IT IS. WE
+    // WOULD ALSO PROBABLY WANT TO FUDGE THINGS SO A SIZE OF 0 INDICATES 256
+    // BYTES, WHICH MIGHT BE A BIT AWKWARD IN TERMS OF COMPARISONS (AT LEAST IN
+    // PLASMA; IT MAY BE NATURALISH IN ASSEMBLER)
+
+    while len > 0
+        while len > 0 and index < size // SFTODO NOTE SPECIAL CASE index < size OF 0 < -1 IF/WHEN CONVERT TO
+        // ASSEMBLER - THIS OCCURS WHEN FILE HAS JUST BEEN OPENED
+            c = buffer[index]
+            ^buf = c
+            buf++
+            // SFTODO: POSSIBLY WE DON'T NEED COUNT - WE CAN RECORD THE ORIGINAL
+            // LEN AND *MAYBE* (IF WE DON'T FORCE IT TO 0 TO BREAK OUT OF THE
+            // NESTED LOOPS) COUNT = ORIGLEN-FINALLEN - THAT WAY WE SAVE ON WORK
+            // INSIDE THIS INNER LOOP
+            count++
+            len--
+            index++
+
+            if emask != 0 and ((c & emask) == nlchar)
+                len = 0
+                break // SFTODO: ACTUALLY REDUNDANT?
+            fin
+        loop
+
+        if len == 0
+            perr = 0 // SFTODO!?
+            return count
+        fin
+
+        // SFTODO: This way of recording EOF is probably fine, but think about
+        // it later - we don't want to make another call to OSGBPB as it will
+        // (probably; I haven't checked) provoke an OS "EOF" error. Actually,
+        // this might not work - if we try to read 40 bytes and there are only
+        // 30 bytes, that *might* be supposed to notify us of EOF and a
+        // subsequent OSGBPB will generate EOF OS error instead of returning 0
+        // bytes read. Even if that works reliably, ideally we wouldn't make a
+        // second OSGBPB call in that case anyway - but by using size == -1 to
+        // track this we can't record it. Maybe size < IOBUF_SIZE should
+        // indicate EOF? OK, am trying that - but we need to have a way to
+        // indicate buffer is empty because we haven't read yet, so I am using
+        // -1 for that.
+        if size < IOBUF_SIZE and size != -1
+            perr = 0 // SFTODO?
+            return 0
+        fin
+
+        // SFTODO REFILL THE BUFFER - TRY TO READ IOBUF_SIZE BYTES
+        index = 0
+        size = SFTODO
+    loop
+
+    perr = 0 // SFTODO!?
+    return count
+
+
+
+
+
+// SFTODO OLD BELOW HERE
     byte block[osgbpb_block_size]
     byte emask
     byte nlchar
