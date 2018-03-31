@@ -1836,13 +1836,14 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // NE_CODE
             case SLB_CODE:
-                SFTODO;
+#if 0 // SFTODO: semi-temp disabled, waiting for Dave's feedback on issue #43
                 crunched = crunched || try_swap(op, LLB_CODE, DLB_CODE);
                 if (!crunched && (opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLB_CODE;
                     freeops = 1;
                 }
+#endif
                 break; // SLB_CODE
             case SLW_CODE:
                 crunched = crunched || try_swap(op, LLW_CODE, DLW_CODE);
