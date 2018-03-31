@@ -67,7 +67,7 @@ export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE
 //
 // We always support at least one I/O buffer without needing to call
 // iobufalloc(); this is consistent with the Apple implementation. 
-// SFTODO: WE MAY WANT TO HAVE AN ARRAY OF STRUCTS HERE, RATHER THAN SEPARATE
+// SFTODONOW: WE MAY WANT TO HAVE AN ARRAY OF STRUCTS HERE, RATHER THAN SEPARATE
 // ARRAYS FOR EACH - THIS IS ARGUABLY CLEANER, AND I ALSO SUSPECT IT WOULD BE
 // MORE CONVENIENT WHEN CONVERTING TO ASSEMBLER AS WE'D JUST PASS THE SINGLE
 // STRUCT ADDRESS POINTER IN
@@ -79,7 +79,7 @@ byte iobuf_emask[MAX_IOBUFS]
 byte iobuf_nlchar[MAX_IOBUFS]
 word iobuf_addr[MAX_IOBUFS] = @iobuf0
 byte iobuf_size[MAX_IOBUFS]
-byte iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
+byte iobuf_index[MAX_IOBUFS]
 byte iobuf_dirty[MAX_IOBUFS]
 
 def acgetpfx(path)
@@ -141,7 +141,7 @@ def aciobufs(iobufs)
     return 0
 end
 
-// SFTODO: THIS WILL NEED TO RETURN SOME KIND OF ERROR INDICATION AND WE MUST BE
+// SFTODONOW: THIS WILL NEED TO RETURN SOME KIND OF ERROR INDICATION AND WE MUST BE
 // SURE TO CHECK IT - IT WILL PROBABLY NEED TO USE throw()/except()
 // SFTODO: NOTE THE ARGUMENT IS A 0-BASED INDEX
 // SFTODO: THIS HAS ONLY ONE CALLER, *BUT* SINCE THE FINAL VERSION WILL PROBABLY
@@ -152,14 +152,11 @@ def fillbuf(i)#2
 
     block.0 = iobuf_ref[i]
     block:1 = iobuf_addr[i]
-    block:3 = 0 // SFTODO?!
+    block:3 = 0 // SFTODO: almost certainly fine/correct
     block:5 = IOBUF_MAX_SIZE
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
-    perr = 0 // SFTODO!?
-    // SFTODO: MAYBE THIS DOESN'T NEED TO SET IOBUF_{INDEX,SIZE}, THE CALLER MAY
-    // ALWAYS BE ABLE TO JUST SET ITS LOCAL INDEX/SIZE VARAIBLES USING OUR
-    // RETURN VALUES
+    perr = 0 // SFTODO: maybe this doesn't need to set perr itself
     if block:5 == IOBUF_MAX_SIZE // EOF
         return 3, 1
     fin
@@ -167,19 +164,18 @@ def fillbuf(i)#2
 end
 
 // SFTODO: ARG IS 0-BASED
-// SFTODO: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
+// SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
 // MUST CHECK
 def flushbuf(i, size)#0
-    // SFTODO
     byte block[osgbpb_block_size]
 
     block.0 = iobuf_ref[i]
     block:1 = iobuf_addr[i]
-    block:3 = 0 // SFTODO?!
+    block:3 = 0 // SFTODO?! almost certainly fine/correct
     block:5 = size
     block:7 = 0
     call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
-    perr = 0 // SFTODO!?
+    perr = 0 // SFTODO!? MAYBE THIS DOESN'T NEED TO SET PERR ITSELF
 end
 
 def acopen(path)
@@ -194,17 +190,12 @@ def acopen(path)
             // to create new files prior to opening them.
             iobuf_ref[i] = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
             iobuf_emask[i] = 0
-            // SFTODO: IT DOESN'T REALLY MAKE SENSE TO CALL FILLBUF() HERE,
-            // SINCE WE MAY BE GOING TO WRITE() TO THE FILE - WE PROBABLY GET
-            // AWAY WITH IT MOST OF TIME IN PRACTICE AS WE WILL BE WRITING TO AN
-            // EMPTY FILE, BUT IT'S NOT REALLY RIGHT
-            // SFTODO fillbuf(i) // SFTODO: error handling
             // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
-            // 'need to fill buffer' by setting index > size
+            // 'need to fill buffer' by setting index > size and index == 2
             iobuf_index[i] = 2; iobuf_size[i] = 1
             iobuf_dirty[i] = FALSE
             return i + 1 // 0 indicates failure, so have to add 1
-            // SFTODO: It just may be cheaper to makes the arrays 1 bigger and
+            // SFTODONOW: It just may be cheaper to makes the arrays 1 bigger and
             // waste the 0th element; think about it when code settles down
             // anyway. (We'd waste memory there, but save on code to adjust the
             // index between 1-based and 0-based here and in other functions.)
@@ -225,14 +216,14 @@ def acclose(refnum)
         fin
         call(osfind, osfind_close, 0, iobuf_ref[refnum], 0)
         iobuf_ref[refnum] = 0
-        perr = 0 // SFTODO?
+        perr = 0
         return perr
     fin
     perr = $45
     return perr
 end
 
-// SFTODO: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
+// SFTODONOW: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
 // LATER ON, OF COURSE (AND SAME FOR acwrite())
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
 def acread(refnum, buf, len)
@@ -244,24 +235,13 @@ def acread(refnum, buf, len)
     origlen = len
 
     buffer = iobuf_addr[refnum]
-    index = iobuf_index[refnum] // SFTODO: MAKE SURE TO WRITE BACK TO iobuf_index LATER
+    index = iobuf_index[refnum]
     size = iobuf_size[refnum]
     emask = iobuf_emask[refnum]
     nlchar = iobuf_nlchar[refnum]
 
-    // SFTODO: IT WOULD BE GOOD IF INDEX AND SIZE COULD BE BYTES NOT WORDS (ESP
-    // WITH A VIEW TO CONVERTING TO ASSEMBLER) - WE CAN PROBABLY INDICATE THE
-    // TWO SPECIAL CASES OF "NO READ YET" AND "EOF" BY HAVING INDEX > SIZE AND
-    // MAYBE HAVING THE VALUE OF INDEX INDICATE WHICH OF THE TWO CASES IT IS. WE
-    // WOULD ALSO PROBABLY WANT TO FUDGE THINGS SO A SIZE OF 0 INDICATES 256
-    // BYTES, WHICH MIGHT BE A BIT AWKWARD IN TERMS OF COMPARISONS (AT LEAST IN
-    // PLASMA; IT MAY BE NATURALISH IN ASSEMBLER)
-
-    // SFTODO: so maybe we say that except temporarily within this function, we
-    // SFTODO
-
     while len <> 0
-        if size <> 0 and index > size // SFTODO MUST USE UNSIGNED COMPARISON - WHAT WILL PLASM DO HERE FOR BYTES?
+        if size <> 0 and index > size // SFTODO MUST USE UNSIGNED COMPARISON - WHAT WILL PLASM DO HERE FOR BYTES? PRETTY SURE IT'S UNSIGNED BUT CHECK
             if index == 2 // buffer needs to be filled
                 index, size = fillbuf(refnum)
                 // This may have set index > size and index == 3 to indicate
@@ -314,12 +294,10 @@ def acread(refnum, buf, len)
     iobuf_index[refnum] = index
     iobuf_size[refnum] = size
 
-    perr = 0 // SFTODO!?
+    perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
     return origlen - len
 end
 
-// SFTODO: NEEDS TO USE A BUFFER BUT THIS SHOULD WORK IN MEANTIME SO I CAN
-// CONCENTRATE ON GETTING READ WORKING
 def acwrite(refnum, buf, len)
     word origlen, buffer, chunk_size
     byte size
@@ -330,10 +308,9 @@ def acwrite(refnum, buf, len)
     buffer = iobuf_addr[refnum]
     size = iobuf_size[refnum]
 
-    // SFTODO: Bit annoying - we have to clear the 'fillbuf required' we set up
+    // SFTODONOW: Bit annoying - we have to clear the 'fillbuf required' we set up
     // in open() so read() knows to fill the buffer
     if iobuf_index[refnum] > size
-        puts("RESET\n")
         iobuf_index[refnum] = 0
         size = 0
     fin
@@ -343,12 +320,17 @@ def acwrite(refnum, buf, len)
         if chunk_size > len
             chunk_size = len
         fin
-        memcpy(buffer + size, buf, chunk_size) // SFTODO dst, src, size
+        memcpy(buffer + size, buf, chunk_size)
         buf = buf + chunk_size
         len = len - chunk_size
         size = size + chunk_size
-        puti(size); putc('-') // SFTODO - I AM SEEING 256 HERE, I THINK THERE IS A BUG EITHER IN OPTIMISER OR IN DLB
 
+        // SFTODO: NEXT LINE (AND MAYBE OTHERS) MAY FAIL DUE TO OPTIMISER
+        // WIDENING SOME "BYTE" OPERATIONS - ASSUMING WE DECIDE TO KEEP THIS
+        // BEHAVIOUR AND DOCUMENT IT, THIS CODE NEEDS TO BE WRITTEN TO COPE (AND
+        // PUT COMMENTS IN) - OF COURSE WE COULD SIMPLY USE 'WORD' INSTEAD OF
+        // 'BYTE' IF WE KNOW THIS ISN'T GOING TO BE CONVERTED TO ASM AND WON'T
+        // BENEFIT FROM BYTE MUCH/AT ALL ANYWAY
         if size == 0 // i.e. effectively IOBUF_MAX_SIZE
             flushbuf(refnum, IOBUF_MAX_SIZE)
             iobuf_dirty[refnum] = FALSE
@@ -358,7 +340,7 @@ def acwrite(refnum, buf, len)
     loop
 
     iobuf_size[refnum] = size
-    return origlen // SFTODO NEEDS TO RETURN SMALLER VALUE IF ERROR OCCURS
+    return origlen // SFTODONOW NEEDS TO RETURN SMALLER VALUE IF ERROR OCCURS
 end
 
 def accreate(path, type, aux)
@@ -382,7 +364,7 @@ def accreate(path, type, aux)
         // it, but just possibly we could keep the file open in anticipation of
         // a subsequent fileio:open() with the same path.
         call(osfind, osfind_close, 0, refnum, 0)
-        perr = 0 // SFTODO!?
+        perr = 0
     fin
     return perr
 end
@@ -396,7 +378,7 @@ def acdestroy(path)
     // SFTODO: This will return with A=0 if the object does not exist - do we
     // want to treat that as an error or not?
     call(osfile, osfile_delete_object, @block, @block >> 8, 0)
-    perr = 0 // SFTODO!?
+    perr = 0
     return perr
 end
 
@@ -404,7 +386,7 @@ def acnewline(refnum, emask, nlchar)
     refnum--
     iobuf_emask[refnum] = emask
     iobuf_nlchar[refnum] = nlchar
-    perr = 0 // SFTODO!?
+    perr = 0
     return perr
 end
 

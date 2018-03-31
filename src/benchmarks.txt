@@ -46,3 +46,5 @@ new read() code takes 47/50/50 seconds
 - this is disappointing
 - in some sense it's logical, as the test is just not reading that much (7001 bytes across 3 files)
 - I guess a lot of the slowness was perhaps other things which Dave has now optimised
+drive noises off
+now with new write() code takes 41 seconds/40 seconds/40 seconds
