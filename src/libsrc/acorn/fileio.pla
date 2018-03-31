@@ -309,7 +309,13 @@ def acwrite(refnum, buf, len)
     size = iobuf_size[refnum]
 
     // SFTODONOW: Bit annoying - we have to clear the 'fillbuf required' we set up
-    // in open() so read() knows to fill the buffer
+    // in open() so read() knows to fill the buffer - since iobuf_index is
+    // irrelevant here, can we avoid this by having iobuf_size == 0 in the
+    // 'special values' case? Don't think so, as size 0 functions like 256 and
+    // therefore no index is bigger, and we need to treat size 0 as 256 since
+    // that's how we represent the common case of a full buffer which index is
+    // walking through. Maybe we should replace iobuf_dirty with a flags byte -
+    // it might or might not be cleaner and/or save code.
     if iobuf_index[refnum] > size
         iobuf_index[refnum] = 0
         size = 0
