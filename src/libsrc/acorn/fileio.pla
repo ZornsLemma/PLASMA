@@ -20,11 +20,6 @@ include "inc/acornc.plh"
 // go with this until things are otherwise working.
 const maxpathlen = 128
 
-// SFTODO: I THINK I ACTUALLY DON'T WANT OR NEED THIS
-const MODE_UNKNOWN = 0
-const MODE_READ = 1
-const MODE_WRITE = 2
-
 //
 // External interface
 //
@@ -85,7 +80,6 @@ byte iobuf_nlchar[MAX_IOBUFS]
 word iobuf_addr[MAX_IOBUFS] = @iobuf0
 byte iobuf_size[MAX_IOBUFS]
 byte iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
-byte iobuf_mode[MAX_IOBUFS] // SFTODO: PROB DON'T NEED THIS
 
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
@@ -149,8 +143,9 @@ end
 // SFTODO: THIS WILL NEED TO RETURN SOME KIND OF ERROR INDICATION AND WE MUST BE
 // SURE TO CHECK IT - IT WILL PROBABLY NEED TO USE throw()/except()
 // SFTODO: NOTE THE ARGUMENT IS A 0-BASED INDEX
-// SFTODO: THIS COULD POSSIBLY RETURN iobuf_index[i], iobuf_size[i] - IT *MAY*
-// BE HANDY FOR CALLERS
+// SFTODO: THIS HAS ONLY ONE CALLER, *BUT* SINCE THE FINAL VERSION WILL PROBABLY
+// WANT TO USE EXCEPT()/THROW() WE KEEP IT SEPARATE SO A FINAL ASSEMBLY LANGUAGE
+// IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
 def fillbuf(i)#2
     byte block[osgbpb_block_size]
 
@@ -182,7 +177,6 @@ def acopen(path)
             // to create new files prior to opening them.
             iobuf_ref[i] = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
             iobuf_emask[i] = 0
-            iobuf_mode[i] = MODE_UNKNOWN
             // SFTODO: IT DOESN'T REALLY MAKE SENSE TO CALL FILLBUF() HERE,
             // SINCE WE MAY BE GOING TO WRITE() TO THE FILE - WE PROBABLY GET
             // AWAY WITH IT MOST OF TIME IN PRACTICE AS WE WILL BE WRITING TO AN
