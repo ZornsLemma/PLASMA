@@ -172,6 +172,10 @@ def acopen(path)
             refnum = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
             iobuf_ref[i] = refnum
             iobuf_emask[i] = 0
+            // SFTODO: IT DOESN'T REALLY MAKE SENSE TO CALL FILLBUF() HERE,
+            // SINCE WE MAY BE GOING TO WRITE() TO THE FILE - WE PROBABLY GET
+            // AWAY WITH IT MOST OF TIME IN PRACTICE AS WE WILL BE WRITING TO AN
+            // EMPTY FILE, BUT IT'S NOT REALLY RIGHT
             fillbuf(i) // SFTODO: error handling
             return i + 1 // 0 indicates failure, so have to add 1
             // SFTODO: It just may be cheaper to makes the arrays 1 bigger and
