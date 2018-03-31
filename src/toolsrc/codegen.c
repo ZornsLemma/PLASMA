@@ -1836,6 +1836,7 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // NE_CODE
             case SLB_CODE:
+                SFTODO;
                 crunched = crunched || try_swap(op, LLB_CODE, DLB_CODE);
                 if (!crunched && (opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {

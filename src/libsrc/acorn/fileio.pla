@@ -80,6 +80,7 @@ byte iobuf_nlchar[MAX_IOBUFS]
 word iobuf_addr[MAX_IOBUFS] = @iobuf0
 byte iobuf_size[MAX_IOBUFS]
 byte iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
+byte iobuf_dirty[MAX_IOBUFS]
 
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
@@ -165,6 +166,22 @@ def fillbuf(i)#2
     return 0, ((IOBUF_MAX_SIZE - block:5) & $FF)
 end
 
+// SFTODO: ARG IS 0-BASED
+// SFTODO: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
+// MUST CHECK
+def flushbuf(i, size)#0
+    // SFTODO
+    byte block[osgbpb_block_size]
+
+    block.0 = iobuf_ref[i]
+    block:1 = iobuf_addr[i]
+    block:3 = 0 // SFTODO?!
+    block:5 = size
+    block:7 = 0
+    call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
+    perr = 0 // SFTODO!?
+end
+
 def acopen(path)
     byte pathcr[maxpathlen]
     byte i
@@ -185,6 +202,7 @@ def acopen(path)
             // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
             // 'need to fill buffer' by setting index > size
             iobuf_index[i] = 2; iobuf_size[i] = 1
+            iobuf_dirty[i] = FALSE
             return i + 1 // 0 indicates failure, so have to add 1
             // SFTODO: It just may be cheaper to makes the arrays 1 bigger and
             // waste the 0th element; think about it when code settles down
@@ -198,9 +216,13 @@ end
 
 def acclose(refnum)
     refnum--
+    // We allow the same file to be closed multiple times (the Apple II
+    // implementation seems to allow this), but if you try to read() or write()
+    // after closing that will have undefined results.
     if iobuf_ref[refnum]
-        // SFTODO: This probably needs to flush the buffer if there are any
-        // writes which we haven't yet sent to the file!
+        if iobuf_dirty[refnum]
+            flushbuf(refnum, iobuf_size[refnum])
+        fin
         call(osfind, osfind_close, 0, iobuf_ref[refnum], 0)
         iobuf_ref[refnum] = 0
         perr = 0 // SFTODO?
@@ -299,16 +321,44 @@ end
 // SFTODO: NEEDS TO USE A BUFFER BUT THIS SHOULD WORK IN MEANTIME SO I CAN
 // CONCENTRATE ON GETTING READ WORKING
 def acwrite(refnum, buf, len)
-    byte block[osgbpb_block_size]
+    word origlen, buffer, chunk_size
+    byte size
 
-    block.0 = iobuf_ref[refnum - 1]
-    block:1 = buf
-    block:3 = 0 // SFTODO?!
-    block:5 = len
-    block:7 = 0
-    call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
-    perr = 0 // SFTODO!?
-    return len - block:5 // return number of bytes written
+    refnum--
+
+    origlen = len
+    buffer = iobuf_addr[refnum]
+    size = iobuf_size[refnum]
+
+    // SFTODO: Bit annoying - we have to clear the 'fillbuf required' we set up
+    // in open() so read() knows to fill the buffer
+    if iobuf_index[refnum] > size
+        puts("RESET\n")
+        iobuf_index[refnum] = 0
+        size = 0
+    fin
+
+    while len > 0
+        chunk_size = IOBUF_MAX_SIZE - size
+        if chunk_size > len
+            chunk_size = len
+        fin
+        memcpy(buffer + size, buf, chunk_size) // SFTODO dst, src, size
+        buf = buf + chunk_size
+        len = len - chunk_size
+        size = size + chunk_size
+        puti(size); putc('-') // SFTODO - I AM SEEING 256 HERE, I THINK THERE IS A BUG EITHER IN OPTIMISER OR IN DLB
+
+        if size == 0 // i.e. effectively IOBUF_MAX_SIZE
+            flushbuf(refnum, IOBUF_MAX_SIZE)
+            iobuf_dirty[refnum] = FALSE
+        else
+            iobuf_dirty[refnum] = TRUE
+        fin
+    loop
+
+    iobuf_size[refnum] = size
+    return origlen // SFTODO NEEDS TO RETURN SMALLER VALUE IF ERROR OCCURS
 end
 
 def accreate(path, type, aux)
