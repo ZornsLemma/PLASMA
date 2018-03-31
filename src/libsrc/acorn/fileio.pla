@@ -20,6 +20,11 @@ include "inc/acornc.plh"
 // go with this until things are otherwise working.
 const maxpathlen = 128
 
+// SFTODO: I THINK I ACTUALLY DON'T WANT OR NEED THIS
+const MODE_UNKNOWN = 0
+const MODE_READ = 1
+const MODE_WRITE = 2
+
 //
 // External interface
 //
@@ -78,8 +83,9 @@ byte iobuf_ref[MAX_IOBUFS]
 byte iobuf_emask[MAX_IOBUFS]
 byte iobuf_nlchar[MAX_IOBUFS]
 word iobuf_addr[MAX_IOBUFS] = @iobuf0
-word iobuf_size[MAX_IOBUFS]
-word iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
+byte iobuf_size[MAX_IOBUFS]
+byte iobuf_index[MAX_IOBUFS] // SFTODO NOT SURE, FEELING MY WAY HERE
+byte iobuf_mode[MAX_IOBUFS] // SFTODO: PROB DON'T NEED THIS
 
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
@@ -145,7 +151,7 @@ end
 // SFTODO: NOTE THE ARGUMENT IS A 0-BASED INDEX
 // SFTODO: THIS COULD POSSIBLY RETURN iobuf_index[i], iobuf_size[i] - IT *MAY*
 // BE HANDY FOR CALLERS
-def fillbuf(i)#0
+def fillbuf(i)#2
     byte block[osgbpb_block_size]
 
     block.0 = iobuf_ref[i]
@@ -155,13 +161,18 @@ def fillbuf(i)#0
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
     perr = 0 // SFTODO!?
-    iobuf_index[i] = 0
-    iobuf_size[i] = IOBUF_MAX_SIZE - block:5
+    // SFTODO: MAYBE THIS DOESN'T NEED TO SET IOBUF_{INDEX,SIZE}, THE CALLER MAY
+    // ALWAYS BE ABLE TO JUST SET ITS LOCAL INDEX/SIZE VARAIBLES USING OUR
+    // RETURN VALUES
+    if block:5 == IOBUF_MAX_SIZE // EOF
+        return 3, 1
+    fin
+    return 0, ((IOBUF_MAX_SIZE - block:5) & $FF)
 end
 
 def acopen(path)
     byte pathcr[maxpathlen]
-    byte i, refnum
+    byte i
     
     for i = 0 to MAX_IOBUFS-1
         if iobuf_addr[i] and not iobuf_ref[i]            
@@ -169,19 +180,23 @@ def acopen(path)
             // We use osfind_update; this allows both read and write access but won't
             // create a file which doesn't already exist. fileio::create() is provided
             // to create new files prior to opening them.
-            refnum = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
-            iobuf_ref[i] = refnum
+            iobuf_ref[i] = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
             iobuf_emask[i] = 0
+            iobuf_mode[i] = MODE_UNKNOWN
             // SFTODO: IT DOESN'T REALLY MAKE SENSE TO CALL FILLBUF() HERE,
             // SINCE WE MAY BE GOING TO WRITE() TO THE FILE - WE PROBABLY GET
             // AWAY WITH IT MOST OF TIME IN PRACTICE AS WE WILL BE WRITING TO AN
             // EMPTY FILE, BUT IT'S NOT REALLY RIGHT
-            fillbuf(i) // SFTODO: error handling
+            // SFTODO fillbuf(i) // SFTODO: error handling
+            // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
+            // 'need to fill buffer' by setting index > size
+            iobuf_index[i] = 2; iobuf_size[i] = 1
             return i + 1 // 0 indicates failure, so have to add 1
             // SFTODO: It just may be cheaper to makes the arrays 1 bigger and
             // waste the 0th element; think about it when code settles down
             // anyway. (We'd waste memory there, but save on code to adjust the
             // index between 1-based and 0-based here and in other functions.)
+            // Or maybe we can use an adjusted base address
         fin
     next
     return 0
@@ -205,8 +220,8 @@ end
 // LATER ON, OF COURSE (AND SAME FOR acwrite())
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
 def acread(refnum, buf, len)
-    word origlen, buffer, index, size
-    byte emask, nlchar, stop, c
+    word origlen, buffer
+    byte index, size, emask, nlchar, stop, c
 
     refnum--
 
@@ -217,7 +232,6 @@ def acread(refnum, buf, len)
     size = iobuf_size[refnum]
     emask = iobuf_emask[refnum]
     nlchar = iobuf_nlchar[refnum]
-    //SFTODODELETEputs("emask ");puti(emask);putln()
 
     // SFTODO: IT WOULD BE GOOD IF INDEX AND SIZE COULD BE BYTES NOT WORDS (ESP
     // WITH A VIEW TO CONVERTING TO ASSEMBLER) - WE CAN PROBABLY INDICATE THE
@@ -227,9 +241,26 @@ def acread(refnum, buf, len)
     // BYTES, WHICH MIGHT BE A BIT AWKWARD IN TERMS OF COMPARISONS (AT LEAST IN
     // PLASMA; IT MAY BE NATURALISH IN ASSEMBLER)
 
-    while len > 0
+    // SFTODO: so maybe we say that except temporarily within this function, we
+    // SFTODO
+
+    while len <> 0
+        if size <> 0 and index > size // SFTODO MUST USE UNSIGNED COMPARISON - WHAT WILL PLASM DO HERE FOR BYTES?
+            if index == 2 // buffer needs to be filled
+                index, size = fillbuf(refnum)
+                // This may have set index > size and index == 3 to indicate
+                // EOF, which is why the following 'if' is not 'elsif'. We know
+                // index == 0 otherwise, so there's no chance of
+                // misinterpreting index == 3 indicating an index of 3 into the
+                // buffer.
+            fin
+            if index == 3 // EOF
+                break 
+            fin
+        fin
+
         stop = FALSE
-        while len > 0 and index < size
+        repeat
             // SFTODO: In PLASMA it would probably be more efficient to set
             // buffer = buffer + index at start and just do ^buffer here, but
             // when this gets translated to assembly index will be the Y
@@ -244,23 +275,22 @@ def acread(refnum, buf, len)
                 stop = TRUE
                 break
             fin
-        loop
+        until len == 0 or index == size
 
-        if stop
-            break
+        if index == size
+            if size <> 0
+                // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
+                // know any subsequent read would return 0 bytes and we're therefore
+                // at EOF now.
+                index = 3; size = 1
+            else
+                // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
+                // another read.
+                index = 2; size = 1
+            fin
         fin
 
-        if size == IOBUF_MAX_SIZE
-            // The previous buffer read was the full IOBUF_MAX_SIZE bytes, so
-            // there's potentially more data available.
-            fillbuf(refnum)
-            // We may now have more data in the buffer, or it may be empty if we
-            // were at EOF without realising it.
-            index = iobuf_index[refnum]
-            size = iobuf_size[refnum]
-        fin
-        if index >= size
-            // EOF
+        if stop or len == 0
             break
         fin
     loop
