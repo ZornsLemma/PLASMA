@@ -67,10 +67,6 @@ export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE
 //
 // We always support at least one I/O buffer without needing to call
 // iobufalloc(); this is consistent with the Apple implementation. 
-// SFTODONOW: WE MAY WANT TO HAVE AN ARRAY OF STRUCTS HERE, RATHER THAN SEPARATE
-// ARRAYS FOR EACH - THIS IS ARGUABLY CLEANER, AND I ALSO SUSPECT IT WOULD BE
-// MORE CONVENIENT WHEN CONVERTING TO ASSEMBLER AS WE'D JUST PASS THE SINGLE
-// STRUCT ADDRESS POINTER IN
 const MAX_IOBUFS = 4
 const IOBUF_MAX_SIZE = 256
 byte iobuf0[IOBUF_MAX_SIZE]
@@ -79,12 +75,16 @@ struc t_iobuf
     byte s_handle  // Acorn OS file handle or 0
     byte s_size    // Bytes used at s_addr
     byte s_index   // Current position within s_addr
-    byte s_dirty   // TRUE if data at s_addr needs to be written to disk
+    byte s_flags   // Flags
     byte s_emask   // newline mode emask (0 = disabled)
     byte s_nlchar  // newline mode nlchar
 end
+const FLAG_DIRTY = $01
+const FLAG_EOF   = $02
+const FLAG_EMPTY = $04
 // SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
-// free in older version, so it isn't "expensive"
+// free in older version, so it isn't "expensive" - current flags rewrite is
+// now at 14865
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 def acgetpfx(path)
@@ -206,8 +206,9 @@ def acopen(path)
             iobuf->s_emask = 0
             // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
             // 'need to fill buffer' by setting index > size and index == 2
-            iobuf->s_index = 2; iobuf->s_size = 1
-            iobuf->s_dirty = FALSE
+            iobuf->s_index = 0
+            iobuf->s_size = 0
+            iobuf->s_flags = FLAG_EMPTY
             return i + 1 // 0 indicates failure, so have to add 1
             // SFTODONOW: It just may be cheaper to makes the arrays 1 bigger and
             // waste the 0th element; think about it when code settles down
@@ -229,7 +230,7 @@ def acclose(refnum)
     // implementation seems to allow this), but if you try to read() or write()
     // after closing that will have undefined results.
     if iobuf->s_handle
-        if iobuf->s_dirty
+        if iobuf->s_flags & FLAG_DIRTY
             flushbuf(iobuf, iobuf->s_size)
         fin
         call(osfind, osfind_close, 0, iobuf->s_handle, 0)
@@ -315,16 +316,14 @@ def acread(refnum, buf, len)
     nlchar = iobuf->s_nlchar
 
     while len <> 0
-        if size <> 0 and index > size // SFTODO MUST USE UNSIGNED COMPARISON - WHAT WILL PLASM DO HERE FOR BYTES? PRETTY SURE IT'S UNSIGNED BUT CHECK
-            if index == 2 // buffer needs to be filled
+        if iobuf->s_flags
+            if iobuf->s_flags & FLAG_EMPTY
+                iobuf->s_flags = 0
                 index, size = fillbuf(iobuf)
-                // This may have set index > size and index == 3 to indicate
-                // EOF, which is why the following 'if' is not 'elsif'. We know
-                // index == 0 otherwise, so there's no chance of
-                // misinterpreting index == 3 indicating an index of 3 into the
-                // buffer.
+                // This may have set flags to EOF, which is why the following
+                // 'if' is not 'elsif'.
             fin
-            if index == 3 // EOF
+            if iobuf->s_flags & FLAG_EOF
                 break 
             fin
         fin
@@ -354,11 +353,11 @@ def acread(refnum, buf, len)
                 // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
                 // know any subsequent read would return 0 bytes and we're therefore
                 // at EOF now.
-                index = 3; size = 1
+                iobuf->s_flags = FLAG_EOF
             else
                 // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
                 // another read.
-                index = 2; size = 1
+                iobuf->s_flags = FLAG_EMPTY
             fin
         fin
 
@@ -384,19 +383,6 @@ def acwrite(refnum, buf, len)
     buffer = iobuf=>s_addr
     size = iobuf->s_size
 
-    // SFTODONOW: Bit annoying - we have to clear the 'fillbuf required' we set up
-    // in open() so read() knows to fill the buffer - since iobuf_index is
-    // irrelevant here, can we avoid this by having iobuf_size == 0 in the
-    // 'special values' case? Don't think so, as size 0 functions like 256 and
-    // therefore no index is bigger, and we need to treat size 0 as 256 since
-    // that's how we represent the common case of a full buffer which index is
-    // walking through. Maybe we should replace iobuf_dirty with a flags byte -
-    // it might or might not be cleaner and/or save code.
-    if iobuf->s_index > size
-        iobuf->s_index = 0
-        size = 0
-    fin
-
     while len > 0
         chunk_size = IOBUF_MAX_SIZE - size
         if chunk_size > len
@@ -415,9 +401,9 @@ def acwrite(refnum, buf, len)
         // BENEFIT FROM BYTE MUCH/AT ALL ANYWAY
         if size == 0 // i.e. effectively IOBUF_MAX_SIZE
             flushbuf(iobuf, IOBUF_MAX_SIZE)
-            iobuf->s_dirty = FALSE
+            iobuf->s_flags = 0
         else
-            iobuf->s_dirty = TRUE
+            iobuf->s_flags = FLAG_DIRTY
         fin
     loop
 
