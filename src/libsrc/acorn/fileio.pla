@@ -79,9 +79,9 @@ struc t_iobuf
     byte s_emask   // newline mode emask (0 = disabled)
     byte s_nlchar  // newline mode nlchar
 end
-const FLAG_DIRTY = $01
-const FLAG_EOF   = $02
-const FLAG_EMPTY = $04
+const FLAG_DIRTY = $01 // Buffer contains data not yet written to disk
+const FLAG_EOF   = $02 // EOF reached
+const FLAG_EMPTY = $04 // Buffer is empty
 // SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
 // free in older version, so it isn't "expensive" - current flags rewrite is
 // now at 14865, now 14869
@@ -151,7 +151,6 @@ end
 
 // SFTODONOW: THIS WILL NEED TO RETURN SOME KIND OF ERROR INDICATION AND WE MUST BE
 // SURE TO CHECK IT - IT WILL PROBABLY NEED TO USE throw()/except()
-// SFTODO: NOTE THE ARGUMENT IS A 0-BASED INDEX
 // SFTODO: THIS HAS ONLY ONE CALLER, *BUT* SINCE THE FINAL VERSION WILL PROBABLY
 // WANT TO USE EXCEPT()/THROW() WE KEEP IT SEPARATE SO A FINAL ASSEMBLY LANGUAGE
 // IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
@@ -169,10 +168,11 @@ def fillbuf(iobuf)#2
     if block:5 == IOBUF_MAX_SIZE // EOF
         return 0, FLAG_EOF
     fin
+    // SFTODO: Final implementation may not need the & $FF, e.g. if this is
+    // called from assembler code which just ignores the high byte.
     return ((IOBUF_MAX_SIZE - block:5) & $FF), 0
 end
 
-// SFTODO: ARG IS 0-BASED
 // SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
 // MUST CHECK
 def flushbuf(iobuf, size)#0
@@ -210,11 +210,6 @@ def acopen(path)
             iobuf->s_size = 0
             iobuf->s_flags = FLAG_EMPTY
             return i + 1 // 0 indicates failure, so have to add 1
-            // SFTODONOW: It just may be cheaper to makes the arrays 1 bigger and
-            // waste the 0th element; think about it when code settles down
-            // anyway. (We'd waste memory there, but save on code to adjust the
-            // index between 1-based and 0-based here and in other functions.)
-            // Or maybe we can use an adjusted base address
         fin
     next
     //SFTODOputs("OPENFAIL")
@@ -350,6 +345,7 @@ def acread(refnum, buf, len)
         until len == 0 or index == size
 
         if index == size
+            // We've exhausted our buffer.
             if size <> 0
                 // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
                 // know any subsequent read would return 0 bytes and we're therefore
