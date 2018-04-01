@@ -83,6 +83,8 @@ struc t_iobuf
     byte s_emask   // newline mode emask (0 = disabled)
     byte s_nlchar  // newline mode nlchar
 end
+// SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
+// free in older version, so it isn't "expensive"
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 def acgetpfx(path)
