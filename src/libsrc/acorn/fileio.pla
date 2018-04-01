@@ -61,6 +61,8 @@ word = @acblock // writeblock
 // Globally accessible error code
 //
 export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
+word SFTODOHACK
+word SFTODOHACK2
 
 //
 // I/O buffers SFTODO RENAME THIS COMMENTED SECTION?
@@ -81,11 +83,193 @@ struc t_iobuf
 end
 const FLAG_DIRTY = $01 // Buffer contains data not yet written to disk
 const FLAG_EOF   = $02 // EOF reached
-const FLAG_EMPTY = $04 // Buffer is empty
+const FLAG_EMPTY = $80 // Buffer is empty
 // SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
 // free in older version, so it isn't "expensive" - current flags rewrite is
 // now at 14865, now 14869
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
+
+asm acread(refnum, buf, len)
+    !SOURCE "vmsrc/plvmzp.inc"
+    ; SFTODO: Strictly we can't assume SCRATCH remains valid across our call to
+    ; fillbuf(), but in practice we can get away with it. (call() uses SRC, so
+    ; that's why we don't use SRC and DST for INBUF and OUTBUF.)
+    IOBUF = SCRATCH ; 2 bytes
+    LEN = SCRATCH+2 ; 2 bytes
+    SIZE = SCRATCH+4; 1 byte
+    INDEX = SCRATCH+5 ; 1 byte
+    FLAGS = SCRATCH+6 ; 1 byte
+    EMASK = SCRATCH+7 ; 1 byte
+    STOP = SCRATCH+8 ; 1 byte
+    INBUF = SCRATCH+9 ; 2 bytes
+    OUTBUF = SCRATCH+11 ; 2 bytes
+    S_ADDR = 0
+    S_SIZE = 3
+    S_INDEX = 4
+    S_FLAGS = 5
+    S_EMASK = 6
+    S_NLCHAR = 7
+    FLAG_EMPTY = $80
+    FLAG_EOF = $02
+
+    LDY ESTKL+2,X ; REFNUM
+    DEY
+    TYA
+    ASL
+    ASL
+    ASL
+    ; CLC
+    ADC #$FF ; TODO IOBUF_ARRAY LOW
+    STA IOBUF
+    LDA #$FF ; TODO IOBUF_ARRAY HIGH
+    ADC #0
+    STA IOBUF+1
+
+    LDY #S_SIZE
+    LDA (IOBUF),Y
+    STA SIZE
+
+    LDY #S_INDEX ; SFTODO COULD INY
+    LDA (IOBUF),Y
+    STA INDEX
+
+    LDY #S_FLAGS ; SFTODO COULD INY
+    LDA (IOBUF),Y
+    STA FLAGS
+
+    LDY #S_EMASK ; SFTODO COULD INY
+    LDA (IOBUF),Y
+    STA EMASK
+
+    LDY #S_ADDR
+    LDA (IOBUF),Y
+    STA INBUF
+    INY
+    LDA (IOBUF),Y
+    STA INBUF+1
+
+    LDA ESTKL+1,X
+    STA OUTBUF
+    LDA ESTKH+1,X
+    STA OUTBUF+1
+
+    LDA ESTKL,X
+    STA LEN
+    LDA ESTKH,X
+    STA LEN+1
+
+    LDA #0 ; SFTODO Surely we have a 0 in a register we can save elsewhere in setup?
+    STA STOP
+
+LENLOOP
+    LDA STOP
+    BNE LENLOOPDONE
+    LDA LEN
+    ORA LEN+1
+    BEQ LENLOOPDONE
+
+    LDA FLAGS
+    BEQ FLAGSCLEAR
+    BPL NOTEMPTY
+    LDA #0
+    STA INDEX
+    DEX
+    LDA IOBUF
+    STA ESTKL,X
+    LDA IOBUF+1
+    STA ESTKH,X
+    JSR $FFFF ; SFTODO FILLBUF
+    LDA ESTKL,X
+    STA FLAGS
+    LDA ESTKL+1,X
+    STA SIZE
+    INX
+    INX
+NOTEMPTY
+    LDA FLAGS
+    AND #FLAG_EOF
+    BNE LENLOOPDONE
+FLAGSCLEAR
+
+DATAANDLENLOOP
+    LDA LEN
+    BNE +
+    DEC LEN+1
++   DEC LEN
+
+    LDY INDEX
+    LDA (INBUF),Y
+    
+    ; SFTODO
+;    PHA
+;    LDA #'q'
+;    JSR $FFEE
+;    PLA
+;    JSR $FFEE
+
+    INY
+    STY INDEX
+    LDY #0
+    STA (OUTBUF),Y
+
+    INC OUTBUF
+    BNE +
+    INC OUTBUF+1
++
+
+    LDY EMASK
+    BEQ NOTEMASK
+    AND EMASK
+    LDY #S_NLCHAR
+    CMP (IOBUF),Y
+    BNE NOTEMASK
+    LDA #1
+    STA STOP
+NOTEMASK
+
+    LDA SIZE
+    CMP INDEX
+    BNE INDEXNESIZE
+    LDA SIZE
+    BEQ SETFLAGEMPTY
+    LDA #FLAG_EOF
+    STA FLAGS
+    BNE LENLOOP
+SETFLAGEMPTY
+    LDA #FLAG_EMPTY
+    STA FLAGS
+    BNE LENLOOP
+INDEXNESIZE
+    LDA STOP
+    BNE LENLOOPDONE
+    LDA LEN
+    ORA LEN+1
+    BNE DATAANDLENLOOP
+
+LENLOOPDONE
+    ; SFTODO: CAN PROB USE INY FOR SOME OF THE LDY# HERE
+    LDA INDEX
+    LDY #S_INDEX
+    STA (IOBUF),Y
+    LDA SIZE
+    LDY #S_SIZE
+    STA (IOBUF),Y
+    LDA FLAGS
+    LDY #S_FLAGS
+    STA (IOBUF),Y
+    ; SFTODO: NEED TO SET PERR = 0
+
+    SEC
+    LDA ESTKL,X
+    SBC LEN
+    STA ESTKL+2,X
+    LDA ESTKH,X
+    SBC LEN+1
+    STA ESTKH+2,X
+    INX
+    INX
+    RTS
+end
 
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
@@ -156,7 +340,7 @@ end
 // IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
 def fillbuf(iobuf)#2
     byte block[osgbpb_block_size]
-    //SFTODOputs("FILLBUF")
+    puts("FILLBUF"); puti(iobuf); putln()
 
     block.0 = iobuf->s_handle
     block:1 = iobuf=>s_addr
@@ -296,7 +480,7 @@ end
 // SFTODONOW: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
 // LATER ON, OF COURSE (AND SAME FOR acwrite())
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
-def acread(refnum, buf, len)
+def acreadSFTODOOLD(refnum, buf, len)
     word iobuf, origlen, buffer
     byte index, size, flags, emask, nlchar, stop, c
 
@@ -358,7 +542,7 @@ def acread(refnum, buf, len)
             fin
         fin
 
-        if stop or len == 0
+        if stop or len == 0 // SFTODO: CAN'T WE MAKE THIS THE WHILE CONDITION?
             break
         fin
     loop
@@ -469,4 +653,22 @@ end
 
 //SFTODOputs("FOO")
 //SFTODOputi(iobuf_array[0])
+
+SFTODOHACK=@acread
+for SFTODOHACK2=0 to 3
+    while ^SFTODOHACK <> $FF
+        SFTODOHACK++
+    loop
+    if SFTODOHACK2==0
+        ^SFTODOHACK = @iobuf_array
+    elsif SFTODOHACK2==1
+        ^SFTODOHACK = @iobuf_array >> 8
+    elsif SFTODOHACK2==2
+        ^SFTODOHACK = @fillbuf
+    else
+        ^SFTODOHACK = @fillbuf >> 8
+    fin
+    SFTODOHACK2++
+next
+
 done
