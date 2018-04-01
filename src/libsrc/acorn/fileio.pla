@@ -83,9 +83,6 @@ struc t_iobuf
     byte s_emask   // newline mode emask (0 = disabled)
     byte s_nlchar  // newline mode nlchar
 end
-// SFTODO: YOU CAN IN FACT DO '2D' ARRAYS IN PLASM - see 'res[t_record]
-// patient[20]' EXAMPLE IN DOCS - BUT LET'S STICK WITH THIS UNTIL I GET IT
-// WORKING...
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 def acgetpfx(path)
