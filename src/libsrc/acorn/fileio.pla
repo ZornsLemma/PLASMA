@@ -84,7 +84,7 @@ const FLAG_EOF   = $02
 const FLAG_EMPTY = $04
 // SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
 // free in older version, so it isn't "expensive" - current flags rewrite is
-// now at 14865
+// now at 14865, now 14869
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 def acgetpfx(path)
@@ -167,9 +167,9 @@ def fillbuf(iobuf)#2
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
     perr = 0 // SFTODO: maybe this doesn't need to set perr itself
     if block:5 == IOBUF_MAX_SIZE // EOF
-        return 3, 1
+        return 0, FLAG_EOF
     fin
-    return 0, ((IOBUF_MAX_SIZE - block:5) & $FF)
+    return ((IOBUF_MAX_SIZE - block:5) & $FF), 0
 end
 
 // SFTODO: ARG IS 0-BASED
@@ -303,7 +303,7 @@ end
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
 def acread(refnum, buf, len)
     word iobuf, origlen, buffer
-    byte index, size, emask, nlchar, stop, c
+    byte index, size, flags, emask, nlchar, stop, c
 
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
@@ -312,18 +312,19 @@ def acread(refnum, buf, len)
     buffer = iobuf=>s_addr
     index = iobuf->s_index
     size = iobuf->s_size
+    flags = iobuf->s_flags
     emask = iobuf->s_emask
     nlchar = iobuf->s_nlchar
 
     while len <> 0
-        if iobuf->s_flags
-            if iobuf->s_flags & FLAG_EMPTY
-                iobuf->s_flags = 0
-                index, size = fillbuf(iobuf)
+        if flags
+            if flags & FLAG_EMPTY
+                index = 0
+                size, flags = fillbuf(iobuf)
                 // This may have set flags to EOF, which is why the following
                 // 'if' is not 'elsif'.
             fin
-            if iobuf->s_flags & FLAG_EOF
+            if flags & FLAG_EOF
                 break 
             fin
         fin
@@ -353,11 +354,11 @@ def acread(refnum, buf, len)
                 // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
                 // know any subsequent read would return 0 bytes and we're therefore
                 // at EOF now.
-                iobuf->s_flags = FLAG_EOF
+                flags = FLAG_EOF
             else
                 // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
                 // another read.
-                iobuf->s_flags = FLAG_EMPTY
+                flags = FLAG_EMPTY
             fin
         fin
 
@@ -368,6 +369,7 @@ def acread(refnum, buf, len)
 
     iobuf->s_index = index
     iobuf->s_size = size
+    iobuf->s_flags = flags
 
     perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
     return origlen - len
