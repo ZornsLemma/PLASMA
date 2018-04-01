@@ -63,7 +63,7 @@ word = @acblock // writeblock
 export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
 
 //
-// I/O buffers
+// I/O buffers SFTODO RENAME THIS COMMENTED SECTION?
 //
 // We always support at least one I/O buffer without needing to call
 // iobufalloc(); this is consistent with the Apple implementation. 
@@ -74,13 +74,19 @@ export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE
 const MAX_IOBUFS = 4
 const IOBUF_MAX_SIZE = 256
 byte iobuf0[IOBUF_MAX_SIZE]
-byte iobuf_ref[MAX_IOBUFS]
-byte iobuf_emask[MAX_IOBUFS]
-byte iobuf_nlchar[MAX_IOBUFS]
-word iobuf_addr[MAX_IOBUFS] = @iobuf0
-byte iobuf_size[MAX_IOBUFS]
-byte iobuf_index[MAX_IOBUFS]
-byte iobuf_dirty[MAX_IOBUFS]
+struc t_iobuf
+    word s_addr    // Pointer to IOBUF_MAX_SIZE bytes of space or 0
+    byte s_handle  // Acorn OS file handle or 0
+    byte s_size    // Bytes used at s_addr
+    byte s_index   // Current position within s_addr
+    byte s_dirty   // TRUE if data at s_addr needs to be written to disk
+    byte s_emask   // newline mode emask (0 = disabled)
+    byte s_nlchar  // newline mode nlchar
+end
+// SFTODO: YOU CAN IN FACT DO '2D' ARRAYS IN PLASM - see 'res[t_record]
+// patient[20]' EXAMPLE IN DOCS - BUT LET'S STICK WITH THIS UNTIL I GET IT
+// WORKING...
+word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 def acgetpfx(path)
     // SFTODO: I *think* the 'prefix' is the Apple equivalent of the 'current directory', but
@@ -112,7 +118,7 @@ end
 
 def aciobufs(iobufs)
     byte i
-    word freebuf
+    word iobuf, freebuf
 
     freebuf = heapmark()
 
@@ -122,9 +128,11 @@ def aciobufs(iobufs)
     if iobufs
         iobufs-- // Subtract off always-allocated I/O buffer (iobuf0)
         if iobufs
-            for i = 1 to MAX_IOBUFS-1
-                if not iobuf_addr[i]
-                    iobuf_addr[i] = heapalloc(IOBUF_MAX_SIZE)
+            for i = t_iobuf to (MAX_IOBUFS-1)*t_iobuf step t_iobuf
+                iobuf = @iobuf_array + i
+                if not iobuf=>s_addr
+                    //SFTODOputs("ALLOC")
+                    iobuf=>s_addr = heapalloc(IOBUF_MAX_SIZE)
                     iobufs--
                     if not iobufs
                         return freebuf
@@ -134,8 +142,9 @@ def aciobufs(iobufs)
             return freebuf
         fin
     else
-        for i = 1 to MAX_IOBUFS-1
-            iobuf_addr[i] = 0 // Free I/O buffers if 0 passed in
+        for i = t_iobuf to (MAX_IOBUFS-1)*t_iobuf step t_iobuf
+            iobuf = @iobuf_array + i
+            iobuf=>s_addr = 0 // Free I/O buffers if 0 passed in
         next
     fin
     return 0
@@ -147,11 +156,12 @@ end
 // SFTODO: THIS HAS ONLY ONE CALLER, *BUT* SINCE THE FINAL VERSION WILL PROBABLY
 // WANT TO USE EXCEPT()/THROW() WE KEEP IT SEPARATE SO A FINAL ASSEMBLY LANGUAGE
 // IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
-def fillbuf(i)#2
+def fillbuf(iobuf)#2
     byte block[osgbpb_block_size]
+    //SFTODOputs("FILLBUF")
 
-    block.0 = iobuf_ref[i]
-    block:1 = iobuf_addr[i]
+    block.0 = iobuf->s_handle
+    block:1 = iobuf=>s_addr
     block:3 = 0 // SFTODO: almost certainly fine/correct
     block:5 = IOBUF_MAX_SIZE
     block:7 = 0
@@ -166,11 +176,11 @@ end
 // SFTODO: ARG IS 0-BASED
 // SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
 // MUST CHECK
-def flushbuf(i, size)#0
+def flushbuf(iobuf, size)#0
     byte block[osgbpb_block_size]
 
-    block.0 = iobuf_ref[i]
-    block:1 = iobuf_addr[i]
+    block.0 = iobuf->s_handle
+    block:1 = iobuf=>s_addr
     block:3 = 0 // SFTODO?! almost certainly fine/correct
     block:5 = size
     block:7 = 0
@@ -181,19 +191,24 @@ end
 def acopen(path)
     byte pathcr[maxpathlen]
     byte i
+    word iobuf
     
+//SFTODOputs("FOO2 ")
+//SFTODOputi(iobuf_array[0])
     for i = 0 to MAX_IOBUFS-1
-        if iobuf_addr[i] and not iobuf_ref[i]            
+        iobuf = @iobuf_array + i*t_iobuf
+        //SFTODOputs("i "); puti(i); puts(" "); puti(iobuf=>s_addr); puts(" "); puti(iobuf->s_handle);putln()
+        if iobuf=>s_addr and not iobuf->s_handle
             stocr(path, @pathcr)
             // We use osfind_update; this allows both read and write access but won't
             // create a file which doesn't already exist. fileio::create() is provided
             // to create new files prior to opening them.
-            iobuf_ref[i] = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
-            iobuf_emask[i] = 0
+            iobuf->s_handle = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
+            iobuf->s_emask = 0
             // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
             // 'need to fill buffer' by setting index > size and index == 2
-            iobuf_index[i] = 2; iobuf_size[i] = 1
-            iobuf_dirty[i] = FALSE
+            iobuf->s_index = 2; iobuf->s_size = 1
+            iobuf->s_dirty = FALSE
             return i + 1 // 0 indicates failure, so have to add 1
             // SFTODONOW: It just may be cheaper to makes the arrays 1 bigger and
             // waste the 0th element; think about it when code settles down
@@ -202,20 +217,24 @@ def acopen(path)
             // Or maybe we can use an adjusted base address
         fin
     next
+    //SFTODOputs("OPENFAIL")
     return 0
 end
 
 def acclose(refnum)
-    refnum--
+    word iobuf
+
+    iobuf = @iobuf_array + (refnum-1)*t_iobuf
+
     // We allow the same file to be closed multiple times (the Apple II
     // implementation seems to allow this), but if you try to read() or write()
     // after closing that will have undefined results.
-    if iobuf_ref[refnum]
-        if iobuf_dirty[refnum]
-            flushbuf(refnum, iobuf_size[refnum])
+    if iobuf->s_handle
+        if iobuf->s_dirty
+            flushbuf(iobuf, iobuf->s_size)
         fin
-        call(osfind, osfind_close, 0, iobuf_ref[refnum], 0)
-        iobuf_ref[refnum] = 0
+        call(osfind, osfind_close, 0, iobuf->s_handle, 0)
+        iobuf->s_handle = 0
         perr = 0
         return perr
     fin
@@ -283,23 +302,23 @@ end
 // LATER ON, OF COURSE (AND SAME FOR acwrite())
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
 def acread(refnum, buf, len)
-    word origlen, buffer
+    word iobuf, origlen, buffer
     byte index, size, emask, nlchar, stop, c
 
-    refnum--
+    iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
     origlen = len
 
-    buffer = iobuf_addr[refnum]
-    index = iobuf_index[refnum]
-    size = iobuf_size[refnum]
-    emask = iobuf_emask[refnum]
-    nlchar = iobuf_nlchar[refnum]
+    buffer = iobuf=>s_addr
+    index = iobuf->s_index
+    size = iobuf->s_size
+    emask = iobuf->s_emask
+    nlchar = iobuf->s_nlchar
 
     while len <> 0
         if size <> 0 and index > size // SFTODO MUST USE UNSIGNED COMPARISON - WHAT WILL PLASM DO HERE FOR BYTES? PRETTY SURE IT'S UNSIGNED BUT CHECK
             if index == 2 // buffer needs to be filled
-                index, size = fillbuf(refnum)
+                index, size = fillbuf(iobuf)
                 // This may have set index > size and index == 3 to indicate
                 // EOF, which is why the following 'if' is not 'elsif'. We know
                 // index == 0 otherwise, so there's no chance of
@@ -313,12 +332,14 @@ def acread(refnum, buf, len)
 
         stop = FALSE
         repeat
+
             // SFTODO: In PLASMA it would probably be more efficient to set
             // buffer = buffer + index at start and just do ^buffer here, but
             // when this gets translated to assembly index will be the Y
             // register so this will be the natural way to express it.
             c = ^(buffer + index)
             ^buf = c
+            //putc('X'); putc(c) // SFTODO
             buf++
             len--
             index++
@@ -347,22 +368,22 @@ def acread(refnum, buf, len)
         fin
     loop
 
-    iobuf_index[refnum] = index
-    iobuf_size[refnum] = size
+    iobuf->s_index = index
+    iobuf->s_size = size
 
     perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
     return origlen - len
 end
 
 def acwrite(refnum, buf, len)
-    word origlen, buffer, chunk_size
+    word iobuf, origlen, buffer, chunk_size
     byte size
 
-    refnum--
+    iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
     origlen = len
-    buffer = iobuf_addr[refnum]
-    size = iobuf_size[refnum]
+    buffer = iobuf=>s_addr
+    size = iobuf->s_size
 
     // SFTODONOW: Bit annoying - we have to clear the 'fillbuf required' we set up
     // in open() so read() knows to fill the buffer - since iobuf_index is
@@ -372,8 +393,8 @@ def acwrite(refnum, buf, len)
     // that's how we represent the common case of a full buffer which index is
     // walking through. Maybe we should replace iobuf_dirty with a flags byte -
     // it might or might not be cleaner and/or save code.
-    if iobuf_index[refnum] > size
-        iobuf_index[refnum] = 0
+    if iobuf->s_index > size
+        iobuf->s_index = 0
         size = 0
     fin
 
@@ -394,14 +415,14 @@ def acwrite(refnum, buf, len)
         // 'BYTE' IF WE KNOW THIS ISN'T GOING TO BE CONVERTED TO ASM AND WON'T
         // BENEFIT FROM BYTE MUCH/AT ALL ANYWAY
         if size == 0 // i.e. effectively IOBUF_MAX_SIZE
-            flushbuf(refnum, IOBUF_MAX_SIZE)
-            iobuf_dirty[refnum] = FALSE
+            flushbuf(iobuf, IOBUF_MAX_SIZE)
+            iobuf->s_dirty = FALSE
         else
-            iobuf_dirty[refnum] = TRUE
+            iobuf->s_dirty = TRUE
         fin
     loop
 
-    iobuf_size[refnum] = size
+    iobuf->s_size = size
     return origlen // SFTODONOW NEEDS TO RETURN SMALLER VALUE IF ERROR OCCURS
 end
 
@@ -445,9 +466,11 @@ def acdestroy(path)
 end
 
 def acnewline(refnum, emask, nlchar)
-    refnum--
-    iobuf_emask[refnum] = emask
-    iobuf_nlchar[refnum] = nlchar
+    word iobuf
+
+    iobuf = @iobuf_array + (refnum-1)*t_iobuf
+    iobuf->s_emask = emask
+    iobuf->s_nlchar = nlchar
     perr = 0
     return perr
 end
@@ -460,3 +483,7 @@ def acblock(unit, buf, block)
     perr = $27 // IOERR
     return perr
 end
+
+//SFTODOputs("FOO")
+//SFTODOputi(iobuf_array[0])
+done
