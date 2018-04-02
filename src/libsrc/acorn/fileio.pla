@@ -121,7 +121,7 @@ asm acread(refnum, buf, len)
     ASL
     ASL
     ASL
-    ; CLC
+    ; CLC - pre-shift A value should have been <= MAX_IOBUFS
     ADC #$FF ; TODO IOBUF_ARRAY LOW
     STA IOBUF
     LDA #$FF ; TODO IOBUF_ARRAY HIGH
@@ -132,7 +132,7 @@ asm acread(refnum, buf, len)
     LDA (IOBUF),Y
     STA SIZE
 
-    LDY #S_INDEX ; SFTODO COULD INY
+    LDY #S_INDEX ; SFTODO COULD INY - PROBABLY EVEN USE A COPY LOOP (AND AT END TOO)
     LDA (IOBUF),Y
     STA INDEX
 
@@ -144,7 +144,11 @@ asm acread(refnum, buf, len)
     LDA (IOBUF),Y
     STA EMASK
 
-    LDY #S_ADDR
+    ; SFTODO: IF WE DO USE A COPY LOOP, COPYING S_NLCHARS WOULD PROBABLY BE FREE
+    ; (WE ONLY REALLY CARE ABOUT CODE SIZE) AND ACCESSING IT FROM ZP RATHER THAN
+    ;  USING (ZP),Y WOULD SAVE CODE SPACE WHEN WE NEED IT
+
+    LDY #S_ADDR ; SFTODO THIS TOO COULD PROBABLY BE DONE IN COPY LOOP
     LDA (IOBUF),Y
     STA INBUF
     INY
@@ -163,6 +167,8 @@ asm acread(refnum, buf, len)
 
     LDA #0 ; SFTODO Surely we have a 0 in a register we can save elsewhere in setup?
     STA STOP
+    ; SFTODO If nothing else we could change LDA#xx:ADC#0 above to LDA#0:ADC#xx
+    ; the we could store the 0 from accumulator into STOP.
 
 LENLOOP
     LDA STOP
@@ -202,14 +208,6 @@ DATAANDLENLOOP
 
     LDY INDEX
     LDA (INBUF),Y
-    
-    ; SFTODO
-;    PHA
-;    LDA #'q'
-;    JSR $FFEE
-;    PLA
-;    JSR $FFEE
-
     INY
     STY INDEX
     LDY #0
