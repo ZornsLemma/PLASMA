@@ -1686,7 +1686,31 @@ int parse_defs(void)
         idstr[idlen] = c;
         do
         {
-            if (scantoken != END_TOKEN && scantoken != EOL_TOKEN)
+            // SFTODO: EXPERIMENTAL HACK TO ALLOW FIXUPS IN ASM DEFINITIONS
+            if (scantoken == WORD_TOKEN) // SFTODO: using 'word' as semi-hack
+            {
+                long constval;
+                int consttype, constsize;
+
+                //if (scan_lookahead() != ID_TOKEN)
+                //    parse_error("Missing name");
+                //char SFTODO[100];
+                //sprintf(SFTODO, "; SFTODO %*s", tokenlen, tokenstr);
+
+
+
+
+                if ((consttype = parse_constexpr(&constval, &constsize)))
+                {
+                    emit_data(WORD_TYPE, consttype, constval, constsize);
+                }
+                else
+                    parse_error("Bad variable initializer");
+
+                scantoken = EOL_TOKEN;
+                //emit_asm(SFTODO);
+            }
+            else if (scantoken != END_TOKEN && scantoken != EOL_TOKEN)
             {
                 scantoken = EOL_TOKEN;
                 emit_asm(inputline);

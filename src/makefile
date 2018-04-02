@@ -80,7 +80,7 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
+apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ) $(HELLO)
 	-rm vmsrc/plvmzp.inc
 
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
@@ -226,10 +226,10 @@ $(ROGUEMAP): samplesrc/rogue.map.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/rogue.map.pla > samplesrc/rogue.map.a
 	acme --setpc 4094 -o $(ROGUEMAP) samplesrc/rogue.map.a
 
-hello:	samplesrc/hello.pla $(PLVM) $(PLASM)
+$(HELLO): samplesrc/hello.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/hello.pla > samplesrc/hello.a
 	acme --setpc 4094 -o $(HELLO) samplesrc/hello.a
-	./$(PLVM) HELLO
+	#./$(PLVM) HELLO
 $(ROD): samplesrc/rod.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMO < samplesrc/rod.pla > samplesrc/rod.a
 	acme --setpc 4094 -o $(ROD) samplesrc/rod.a

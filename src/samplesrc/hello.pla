@@ -1,3 +1,29 @@
 include "inc/cmdsys.plh"
+
+predef foo(i)#0
+
+asm bar(i)
+    !SOURCE "vmsrc/plvmzp.inc"
+    INC ESTKL,X
+    !BYTE $20 ; JSR
+    word @foo
+    DEX
+    LDA #42
+    STA ESTKL,X
+    LDA #0
+    STA ESTKH,X
+    !BYTE $20 ; JSR
+    word @foo
+    RTS
+end
+
+def foo(i)#0
+    puts("foo ")
+    puti(i)
+    putln
+end
+
 puts("Hello, world.\n")
+foo(5)
+bar(10)
 done
