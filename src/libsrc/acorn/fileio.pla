@@ -89,23 +89,24 @@ const FLAG_EMPTY = $80 // Buffer is empty
 // now at 14865, now 14869 - now with the crude version of the assembler read(),
 // 14875 bytes free, which is reassuring as (ignoring the minor penalty for
 // assembler code on PLAS128 where it can't live in AUX memory) it suggestes the
-// assembler version is not significantly bloating the module.
+// assembler version is not significantly bloating the module. Now 14905 bytes
+// free.
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
+// This implementation is in assembler to avoid the overhead of doing the
+// newline() checks for every byte in PLASMA code (acwrite() is able to defer
+// most of its bulk operations to machine code via memcpy()) but it's not really
+// performance critical and this code is optimised mainly for size.
 asm acread(refnum, buf, len)
     !SOURCE "vmsrc/plvmzp.inc"
-    ; SFTODO: Strictly we can't assume SCRATCH remains valid across our call to
+    ; SFTODO: Strictly speaking, we can't assume SCRATCH remains valid across our call to
     ; fillbuf(), but in practice we can get away with it. (call() uses SRC, so
-    ; that's why we don't use SRC and DST for INBUF and OUTBUF.)
+    ; that's why we don't use SRC and DST.)
     IOBUF = SCRATCH ; 2 bytes
     LEN = SCRATCH+2 ; 2 bytes
-    SIZE = SCRATCH+4; 1 byte
-    INDEX = SCRATCH+5 ; 1 byte
-    FLAGS = SCRATCH+6 ; 1 byte
-    EMASK = SCRATCH+7 ; 1 byte
-    STOP = SCRATCH+8 ; 1 byte
-    INBUF = SCRATCH+9 ; 2 bytes
-    OUTBUF = SCRATCH+11 ; 2 bytes
+    IOBUFZP = SCRATCH+4 ; 8 bytes
+    STOP = SCRATCH+12 ; 1 byte
+    OUTBUF = SCRATCH+13 ; 2 bytes
     S_ADDR = 0
     S_SIZE = 3
     S_INDEX = 4
@@ -128,32 +129,12 @@ asm acread(refnum, buf, len)
     ADC #0
     STA IOBUF+1
 
-    LDY #S_SIZE
+    LDY #S_NLCHAR
+IOBUFTOZPLOOP
     LDA (IOBUF),Y
-    STA SIZE
-
-    LDY #S_INDEX ; SFTODO COULD INY - PROBABLY EVEN USE A COPY LOOP (AND AT END TOO)
-    LDA (IOBUF),Y
-    STA INDEX
-
-    LDY #S_FLAGS ; SFTODO COULD INY
-    LDA (IOBUF),Y
-    STA FLAGS
-
-    LDY #S_EMASK ; SFTODO COULD INY
-    LDA (IOBUF),Y
-    STA EMASK
-
-    ; SFTODO: IF WE DO USE A COPY LOOP, COPYING S_NLCHARS WOULD PROBABLY BE FREE
-    ; (WE ONLY REALLY CARE ABOUT CODE SIZE) AND ACCESSING IT FROM ZP RATHER THAN
-    ;  USING (ZP),Y WOULD SAVE CODE SPACE WHEN WE NEED IT
-
-    LDY #S_ADDR ; SFTODO THIS TOO COULD PROBABLY BE DONE IN COPY LOOP
-    LDA (IOBUF),Y
-    STA INBUF
-    INY
-    LDA (IOBUF),Y
-    STA INBUF+1
+    STA IOBUFZP,Y
+    DEY
+    BPL IOBUFTOZPLOOP
 
     LDA ESTKL+1,X
     STA OUTBUF
@@ -177,11 +158,11 @@ LENLOOP
     ORA LEN+1
     BEQ LENLOOPDONE
 
-    LDA FLAGS
+    LDA IOBUFZP+S_FLAGS
     BEQ FLAGSCLEAR
     BPL NOTEMPTY
     LDA #0
-    STA INDEX
+    STA IOBUFZP+S_INDEX
     DEX
     LDA IOBUF
     STA ESTKL,X
@@ -189,14 +170,14 @@ LENLOOP
     STA ESTKH,X
     JSR $FFFF ; SFTODO FILLBUF
     LDA ESTKL,X
-    STA FLAGS
+    STA IOBUFZP+S_FLAGS
     LDA ESTKL+1,X
-    STA SIZE
+    STA IOBUFZP+S_SIZE
     INX
     INX
 NOTEMPTY
-    LDA FLAGS
-    AND #FLAG_EOF
+    LDA IOBUFZP+S_FLAGS
+    AND #FLAG_EOF ; SFTODO IF WE MADE FLAG_EOF=$01 WE COULD LSR A AND TEST WITH BCC/BCS
     BNE LENLOOPDONE
 FLAGSCLEAR
 
@@ -206,10 +187,10 @@ DATAANDLENLOOP
     DEC LEN+1
 +   DEC LEN
 
-    LDY INDEX
-    LDA (INBUF),Y
+    LDY IOBUFZP+S_INDEX
+    LDA (IOBUFZP+S_ADDR),Y
     INY
-    STY INDEX
+    STY IOBUFZP+S_INDEX
     LDY #0
     STA (OUTBUF),Y
 
@@ -218,44 +199,43 @@ DATAANDLENLOOP
     INC OUTBUF+1
 +
 
-    LDY EMASK
+    LDY IOBUFZP+S_EMASK
     BEQ NOTEMASK
-    AND EMASK
-    LDY #S_NLCHAR
-    CMP (IOBUF),Y
+    AND IOBUFZP+S_EMASK
+    CMP IOBUFZP+S_NLCHAR
     BNE NOTEMASK
     LDA #1
     STA STOP
 NOTEMASK
 
-    LDA SIZE
-    CMP INDEX
-    BNE INDEXNESIZE
-    LDA SIZE
-    BEQ SETFLAGEMPTY
-    LDA #FLAG_EOF
-    STA FLAGS
-    BNE LENLOOP
-SETFLAGEMPTY
-    LDA #FLAG_EMPTY
-    STA FLAGS
-    BNE LENLOOP
-INDEXNESIZE
+    LDA IOBUFZP+S_SIZE
+    CMP IOBUFZP+S_INDEX
+    BEQ INDEXEQSIZE
     LDA STOP
     BNE LENLOOPDONE
     LDA LEN
     ORA LEN+1
     BNE DATAANDLENLOOP
 
+INDEXEQSIZE
+    LDY #FLAG_EMPTY
+    LDA IOBUFZP+S_SIZE
+    BEQ SETFLAG
+    LDY #FLAG_EOF
+SETFLAG
+    STY IOBUFZP+S_FLAGS
+    CLC
+    BCC LENLOOP
+
 LENLOOPDONE
     ; SFTODO: CAN PROB USE INY FOR SOME OF THE LDY# HERE
-    LDA INDEX
+    LDA IOBUFZP+S_INDEX
     LDY #S_INDEX
     STA (IOBUF),Y
-    LDA SIZE
+    LDA IOBUFZP+S_SIZE
     LDY #S_SIZE
     STA (IOBUF),Y
-    LDA FLAGS
+    LDA IOBUFZP+S_FLAGS
     LDY #S_FLAGS
     STA (IOBUF),Y
     ; SFTODO: NEED TO SET PERR = 0
