@@ -32,6 +32,7 @@ SORT       = rel/acorn/SORT
 SORT1      = rel/acorn/SORT1
 SORT2      = rel/acorn/SORT2
 SYMTBL     = rel/acorn/SYMTBL
+CAT        = rel/acorn/CAT
 DIVMOD     = rel/acorn/DIVMOD
 DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 COMP_ACN   = rel/acorn/compiler.ssd # SFTODO: not sure I like this name
@@ -115,7 +116,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN) $(COMP_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD) $(CAT)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -439,6 +440,10 @@ $(SORT2): samplesrc/acorn/sort2.pla $(PLASM)
 $(SYMTBL): samplesrc/acorn/symtbl.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/symtbl.pla > samplesrc/acorn/symtbl.a
 	acme --setpc 4094 -o $(SYMTBL) samplesrc/acorn/symtbl.a
+
+$(CAT): samplesrc/acorn/cat.pla $(PLASM) $(ARGS) $(FILEIO_ACN)
+	./$(PLASM) -AMOW < samplesrc/acorn/cat.pla > samplesrc/acorn/cat.a
+	acme --setpc 4094 -o $(CAT) samplesrc/acorn/cat.a
 
 $(DIVMOD): samplesrc/acorn/divmod.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/divmod.pla > samplesrc/acorn/divmod.a
