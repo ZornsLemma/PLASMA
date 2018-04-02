@@ -86,7 +86,10 @@ const FLAG_EOF   = $02 // EOF reached
 const FLAG_EMPTY = $80 // Buffer is empty
 // SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
 // free in older version, so it isn't "expensive" - current flags rewrite is
-// now at 14865, now 14869
+// now at 14865, now 14869 - now with the crude version of the assembler read(),
+// 14875 bytes free, which is reassuring as (ignoring the minor penalty for
+// assembler code on PLAS128 where it can't live in AUX memory) it suggestes the
+// assembler version is not significantly bloating the module.
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 asm acread(refnum, buf, len)
@@ -340,7 +343,7 @@ end
 // IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
 def fillbuf(iobuf)#2
     byte block[osgbpb_block_size]
-    puts("FILLBUF"); puti(iobuf); putln()
+    //SFTODOputs("FILLBUF"); puti(iobuf); putln()
 
     block.0 = iobuf->s_handle
     block:1 = iobuf=>s_addr
@@ -480,80 +483,80 @@ end
 // SFTODONOW: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
 // LATER ON, OF COURSE (AND SAME FOR acwrite())
 // SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
-def acreadSFTODOOLD(refnum, buf, len)
-    word iobuf, origlen, buffer
-    byte index, size, flags, emask, nlchar, stop, c
-
-    iobuf = @iobuf_array + (refnum-1)*t_iobuf
-
-    origlen = len
-
-    buffer = iobuf=>s_addr
-    index = iobuf->s_index
-    size = iobuf->s_size
-    flags = iobuf->s_flags
-    emask = iobuf->s_emask
-    nlchar = iobuf->s_nlchar
-
-    while len <> 0
-        if flags
-            if flags & FLAG_EMPTY
-                index = 0
-                size, flags = fillbuf(iobuf)
-                // This may have set flags to EOF, which is why the following
-                // 'if' is not 'elsif'.
-            fin
-            if flags & FLAG_EOF
-                break 
-            fin
-        fin
-
-        stop = FALSE
-        repeat
-
-            // SFTODO: In PLASMA it would probably be more efficient to set
-            // buffer = buffer + index at start and just do ^buffer here, but
-            // when this gets translated to assembly index will be the Y
-            // register so this will be the natural way to express it.
-            c = ^(buffer + index)
-            ^buf = c
-            //putc('X'); putc(c) // SFTODO
-            buf++
-            len--
-            index++
-
-            if emask <> 0 and ((c & emask) == nlchar)
-                stop = TRUE
-                break
-            fin
-        until len == 0 or index == size
-
-        if index == size
-            // We've exhausted our buffer.
-            if size <> 0
-                // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
-                // know any subsequent read would return 0 bytes and we're therefore
-                // at EOF now.
-                flags = FLAG_EOF
-            else
-                // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
-                // another read.
-                flags = FLAG_EMPTY
-            fin
-        fin
-
-        if stop or len == 0 // SFTODO: CAN'T WE MAKE THIS THE WHILE CONDITION?
-            break
-        fin
-    loop
-
-    iobuf->s_index = index
-    iobuf->s_size = size
-    iobuf->s_flags = flags
-
-    perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
-    return origlen - len
-end
+//def acreadSFTODOOLD(refnum, buf, len)
+//    word iobuf, origlen, buffer
+//    byte index, size, flags, emask, nlchar, stop, c
+//
+//    iobuf = @iobuf_array + (refnum-1)*t_iobuf
+//
+//    origlen = len
+//
+//    buffer = iobuf=>s_addr
+//    index = iobuf->s_index
+//    size = iobuf->s_size
+//    flags = iobuf->s_flags
+//    emask = iobuf->s_emask
+//    nlchar = iobuf->s_nlchar
+//
+//    while len <> 0
+//        if flags
+//            if flags & FLAG_EMPTY
+//                index = 0
+//                size, flags = fillbuf(iobuf)
+//                // This may have set flags to EOF, which is why the following
+//                // 'if' is not 'elsif'.
+//            fin
+//            if flags & FLAG_EOF
+//                break 
+//            fin
+//        fin
+//
+//        stop = FALSE
+//        repeat
+//
+//            // SFTODO: In PLASMA it would probably be more efficient to set
+//            // buffer = buffer + index at start and just do ^buffer here, but
+//            // when this gets translated to assembly index will be the Y
+//            // register so this will be the natural way to express it.
+//            c = ^(buffer + index)
+//            ^buf = c
+//            //putc('X'); putc(c) // SFTODO
+//            buf++
+//            len--
+//            index++
+//
+//            if emask <> 0 and ((c & emask) == nlchar)
+//                stop = TRUE
+//                break
+//            fin
+//        until len == 0 or index == size
+//
+//        if index == size
+//            // We've exhausted our buffer.
+//            if size <> 0
+//                // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
+//                // know any subsequent read would return 0 bytes and we're therefore
+//                // at EOF now.
+//                flags = FLAG_EOF
+//            else
+//                // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
+//                // another read.
+//                flags = FLAG_EMPTY
+//            fin
+//        fin
+//
+//        if stop or len == 0 // SFTODO: CAN'T WE MAKE THIS THE WHILE CONDITION?
+//            break
+//        fin
+//    loop
+//
+//    iobuf->s_index = index
+//    iobuf->s_size = size
+//    iobuf->s_flags = flags
+//
+//    perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
+//    return origlen - len
+//end
 
 def acwrite(refnum, buf, len)
     word iobuf, origlen, buffer, chunk_size
