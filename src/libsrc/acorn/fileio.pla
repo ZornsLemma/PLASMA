@@ -90,7 +90,7 @@ const FLAG_EMPTY = $80 // Buffer is empty
 // 14875 bytes free, which is reassuring as (ignoring the minor penalty for
 // assembler code on PLAS128 where it can't live in AUX memory) it suggestes the
 // assembler version is not significantly bloating the module. Now 14905 bytes
-// free.
+// free. Now 14913 bytes free.
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 // This implementation is in assembler to avoid the overhead of doing the
@@ -228,16 +228,14 @@ SETFLAG
     BCC LENLOOP
 
 LENLOOPDONE
-    ; SFTODO: CAN PROB USE INY FOR SOME OF THE LDY# HERE
-    LDA IOBUFZP+S_INDEX
-    LDY #S_INDEX
-    STA (IOBUF),Y
-    LDA IOBUFZP+S_SIZE
-    LDY #S_SIZE
-    STA (IOBUF),Y
-    LDA IOBUFZP+S_FLAGS
+
     LDY #S_FLAGS
+ZPTOIOBUFLOOP
+    LDA IOBUFZP,Y
     STA (IOBUF),Y
+    DEY
+    BPL ZPTOIOBUFLOOP
+
     ; SFTODO: NEED TO SET PERR = 0
 
     SEC
