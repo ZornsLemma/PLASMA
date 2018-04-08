@@ -49,10 +49,6 @@ SEGSTART        =       $2000
         !WORD   SEGSTART
         !WORD   SEGEND-SEGSTART
 
-;        +SOS    $40, SEGREQ     ; ALLOCATE SEG 1 AND MAP IT
-;        BNE     FAIL            ; PRHEX
-;        LDA     #$00
-;        STA     MEMBANK
         LDY     #$0F            ; INSTALL PAGE 0 FETCHOP ROUTINE
         LDA     #$00
 -       LDX     PAGE0,Y
@@ -65,15 +61,8 @@ SEGSTART        =       $2000
         STA     TMPX            ; CLEAR ALL EXTENDED POINTERS
         STA     SRCX
         STA     DSTX
-        STA     PPX             ; INIT FRAME & POOL POINTERS
+        STA     PPX
         STA     IFPX
-        LDA     #$00
-        STA     PPL
-        STA     IFPL
-        LDA     #$A0
-        STA     PPH
-        STA     IFPH
-        !IF     1 {
         LDA     #<VMCORE        ; COPY VM+SYS INTO SBANK
         STA     SRCL
         LDA     #>VMCORE
@@ -91,7 +80,16 @@ SEGSTART        =       $2000
         LDA     DSTH
         CMP     #$B8
         BNE     -
-}
+        LDA     #$00            ; INIT JIT, FRAME & POOL POINTERS
+        STA     JITCOMP
+        STA     JITCOMP+1
+        STA     JITCODE
+        STA     PPL
+        STA     IFPL
+        LDA     #$90            ; RESERVE 4K FOR JITCODE
+        STA     JITCODE+1
+        STA     PPH
+        STA     IFPH
         LDX     #$FF            ; INIT STACK POINTER
         TXS
         LDX     #ESTKSZ/2       ; INIT EVAL STACK INDEX
@@ -134,6 +132,13 @@ PAGE0   =       *
 }
 VMCORE  =       *
         !PSEUDOPC       $A000 {
+TEMPBUF !FILL   $F0
+CMDPARS !WORD   0               ; $A0F0
+JITCOMP !WORD   0               ; $A0F2
+JITCODE !WORD   0               ; $A0F4
+SENTRY  !WORD   INTERP          ; $A0F6
+XENTRY  !WORD   XINTERP         ; $A0F8
+JENTRY  !WORD   JITINTRP        ; $A0FA
 ;*
 ;* OPCODE TABLE
 ;*
@@ -150,6 +155,7 @@ OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 
         !WORD   NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW                      ; 90 92 94 96 98 9A 9C 9E
         !WORD   BRGT,BRLT,INCBRLE,ADDBRLE,DECBRGE,SUBBRGE,BRAND,BROR    ; A0 A2 A4 A6 A8 AA AC AE
         !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
+        !WORD   NATV                                                    ; C0
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;*
@@ -170,7 +176,7 @@ XINTERP PLA
         STA     TMPL
         PLA
         STA     TMPH
-        LDY     #$03
+-       LDY     #$03
         LDA     (TMP),Y
         STA     IPX
         DEY
@@ -181,6 +187,49 @@ XINTERP PLA
         STA     IPL
         DEY
         JMP     FETCHOP
+;*
+;* JIT PROFILING ENTRY INTO INTERPRETER
+;*
+JITINTRP PLA
+        STA     TMPL
+        PLA
+        STA     TMPH
+        LDY     #$04
+        LDA     (TMP),Y         ; DEC JIT COUNT
+        SEC
+        SBC     #$01
+        STA     (TMP),Y
+        BNE     -               ; INTERP BYTECODE
+        LDA     JITCOMP         ; CALL JIT COMPILER
+        STA     SRCL
+        LDA     JITCOMP+1
+        STA     SRCH
+        INY                     ; LDY     #$05
+        LDA     (SRC),Y
+        STA     IPX
+        DEY
+        LDA     (SRC),Y
+        STA     IPH
+        DEY
+        LDA     (SRC),Y
+        STA     IPL
+        DEX                     ; ADD PARAMETER TO DEF ENTRY
+        LDA     TMPL
+        SEC
+        SBC     #$02            ; POINT TO DEF ENTRY
+        PHA                     ; AND SAVE IT FOR LATER
+        STA     ESTKL,X
+        LDA     TMPH
+        SBC     #$00
+        PHA
+        STA     ESTKH,X
+        LDY     #$00
+        JSR     FETCHOP         ; CALL JIT COMPILER
+        PLA
+        STA     TMPH
+        PLA
+        STA     TMPL
+        JMP     (TMP)           ; RE-CALL ORIGINAL DEF ENTRY
 ;*
 ;* INTERNAL DIVIDE ALGORITHM
 ;*
@@ -935,6 +984,8 @@ DLB     INY                     ;+INC_IP
         TAY
         LDA     ESTKL,X
         STA     (IFP),Y
+        LDA     #$00
+        STA     ESTKH,X
         LDY     IPY
         JMP     NEXTOP
 DLW     INY                     ;+INC_IP
@@ -995,6 +1046,8 @@ DAB     INY                     ;+INC_IP
         STA     ESTKH-1,X
         LDA     ESTKL,X
         STA     (ESTKH-2,X)
+        LDA     #$00
+        STA     ESTKH,X
         JMP     NEXTOP
 DAW     INY                     ;+INC_IP
         LDA     (IP),Y
@@ -1302,7 +1355,7 @@ CALL    INY                     ;+INC_IP
         INY                     ;+INC_IP
         LDA     (IP),Y
         STA     CALLADR+2
-        TYA
+_CALL   TYA
         SEC
         ADC     IPL
         PHA
@@ -1369,7 +1422,19 @@ LEAVE   INY                     ;+INC_IP
         PLA
         STA     IFPH
 RET     RTS
+;*
+;* RETURN TO NATIVE CODE
+;*
+NATV    TYA                     ; FLATTEN IP
+        SEC
+        ADC     IPL
+        STA     TMPL
+        LDA     #$00
+        ADC     IPH
+        STA     TMPH
+        JMP     JMPTMP
 SOSCMD  =       *
         !SOURCE "vmsrc/apple/sossys.a"
+
 }
 SEGEND  =       *

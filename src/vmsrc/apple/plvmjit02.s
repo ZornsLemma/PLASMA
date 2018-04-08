@@ -51,6 +51,7 @@ IPH     =       IPL+1
 OPIDX   =       FETCHOP+6
 OPPAGE  =       OPIDX+1
 STRBUF  =       $0280
+JITMOD  =       $02E0
 INTERP  =       $03D0
 JITCOMP =       $03E2
 JITCODE =       $03E4
@@ -277,6 +278,15 @@ BYE     LDY     DEFCMD
 ;        STY     $01FF
 CMDENTRY =      *
 ;
+; SET DCI STRING FOR JIT MODULE
+;
+        LDA     #'J'|$80
+        STA     JITMOD+0
+        LDA     #'I'|$80
+        STA     JITMOD+1
+        LDA     #'T'
+        STA     JITMOD+2
+;
 ; DEACTIVATE 80 COL CARDS
 ;
         BIT     ROMEN
@@ -339,7 +349,7 @@ CMDENTRY =      *
         STA     $01FF           ; CLEAR CMDLINE BUFF
         STA     PPL             ; INIT FRAME POINTER
         STA     IFPL
-        LDA     #$B0            ; FRAME POINTER AT $B000, BELOW JIT BUFFER
+        LDA     #$AF            ; FRAME POINTER AT $AF00, BELOW JIT BUFFER
         STA     PPH
         STA     IFPH
         LDX     #$FE            ; INIT STACK POINTER (YES, $FE. SEE GETS)
@@ -483,7 +493,7 @@ RUNJIT  LDA     JITCOMP
         STA     TMPH
         PLA
         STA     TMPL
-        JMP     JMPTMP          ; RE-CALL ORIGINAL DEF ENTRY
+        JMP     (TMP)           ; RE-CALL ORIGINAL DEF ENTRY
 ;*
 ;* ADD TOS TO TOS-1
 ;*
@@ -1511,6 +1521,8 @@ DLB     INY                     ;+INC_IP
         TAY
         LDA     ESTKL,X
         STA     (IFP),Y
+        LDA     #$00
+        STA     ESTKH,X
         LDY     IPY
         JMP     NEXTOP
 DLW     INY                     ;+INC_IP
@@ -1572,6 +1584,8 @@ DAB     INY                     ;+INC_IP
         STA     ESTKH-1,X
         LDA     ESTKL,X
         STA     (ESTKH-2,X)
+        LDA     #$00
+        STA     ESTKH,X
         JMP     NEXTOP
 DAW     INY                     ;+INC_IP
         LDA     (IP),Y
@@ -2304,6 +2318,37 @@ CDAW    INY                     ;+INC_IP
         LDY     IPY
         JMP     NEXTOP
 CDAWEND
+;
+        LDA     #<DAB
+        LDX     #>DAB
+        LDY     #(CDABEND-CDAB)
+        JSR     OPCPY
+CDAB    INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-2,X
+        INY                     ;+INC_IP
+        LDA     (IP),Y
+        STA     ESTKH-1,X
+        LDA     ESTKL,X
+        STA     (ESTKH-2,X)
+        STZ     ESTKH,X
+        JMP     NEXTOP
+CDABEND
+;
+        LDA     #<DLB
+        LDX     #>DLB
+        LDY     #(CDLBEND-CDLB)
+        JSR     OPCPY
+CDLB    INY                     ;+INC_IP
+        LDA     (IP),Y
+        STY     IPY
+        TAY
+        LDA     ESTKL,X
+        STA     (IFP),Y
+        STZ     ESTKH,X
+        LDY     IPY
+        JMP     NEXTOP
+CDLBEND
 ;
         LDA     #<ISFLS
         LDX     #>ISFLS

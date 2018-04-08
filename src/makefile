@@ -38,6 +38,7 @@ DEMO_ACN   = rel/acorn/demo.ssd # SFTODO: not sure I like this name
 COMP_ACN   = rel/acorn/compiler.ssd # SFTODO: not sure I like this name
 ED         = rel/ED\#FE1000
 JIT        = rel/apple/JIT\#FE1000
+JIT16      = rel/apple/JIT16\#FE1000
 JITUNE     = rel/apple/JITUNE\#FE1000
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
@@ -104,10 +105,9 @@ TXTTYPE	= .TXT
 #SYSTYPE	= \#FF2000
 #TXTTYPE	= \#040000
 
-# SFTODO: This is temporary for my convenience
 SFTODO: acorn
 
-apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
+apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JIT16) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
 	-rm vmsrc/plvmzp.inc
 
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
@@ -232,7 +232,7 @@ $(CMDJIT): vmsrc/apple/cmdjit.pla vmsrc/apple/cmdjitstub.s $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AOW < vmsrc/apple/cmdjit.pla > vmsrc/apple/cmdjit.a
 	acme --setpc 8192 -o $(CMDJIT) vmsrc/apple/cmdjitstub.s
 
-$(SOSCMD): vmsrc/apple/soscmd.pla $(PLVM03) $(PLASM)
+$(SOSCMD): vmsrc/apple/soscmd.pla libsrc/jitcore.pla $(PLVM03) $(PLASM)
 	./$(PLASM) -AMOW < vmsrc/apple/soscmd.pla > vmsrc/apple/soscmd.a
 	acme --setpc 4094 -o $(SOSCMD) vmsrc/apple/soscmd.a
 
@@ -517,9 +517,13 @@ $(SOS): libsrc/apple/sos.pla $(PLVM03) $(PLASM)
 	./$(PLASM) -AMO < libsrc/apple/sos.pla > libsrc/apple/sos.a
 	acme --setpc 4094 -o $(SOS) libsrc/apple/sos.a
 
-$(JIT): libsrc/apple/jit.pla $(PLVMJIT) $(PLASM)
+$(JIT): libsrc/apple/jit.pla libsrc/jitcore.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMO < libsrc/apple/jit.pla > libsrc/apple/jit.a
 	acme --setpc 4094 -o $(JIT) libsrc/apple/jit.a
+
+$(JIT16): libsrc/apple/jit16.pla libsrc/jit16core.pla $(PLVMJIT) $(PLASM)
+	./$(PLASM) -AMO < libsrc/apple/jit16.pla > libsrc/apple/jit16.a
+	acme --setpc 4094 -o $(JIT16) libsrc/apple/jit16.a
 
 $(JITUNE): libsrc/apple/jitune.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMO < libsrc/apple/jitune.pla > libsrc/apple/jitune.a

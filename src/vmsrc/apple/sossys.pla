@@ -11,11 +11,36 @@ const reshgr1     = $0010
 const reshgr2     = $0020
 const resxhgr1    = $0040
 const resxhgr2    = $0080
+const nojitc      = $0100
 //
 // Module don't free memory
 //
 const modkeep     = $2000
 const modinitkeep = $4000
+//
+// Private addresses
+//
+const instr       = $A020
+const cmdparser   = $A0F0
+const xinterp     = $A0F8
+const jitinterp   = $A0FA
+//
+// Indirect interpreter DEFinition entrypoint
+//
+struc t_defentry
+    byte interpjsr
+    word interpaddr
+    word bytecodeaddr
+    byte bytecodexbyte
+    byte callcount
+    byte bytecodesize
+end
+//
+// JIT compiler values
+//
+const jitcomp     = $A0F2
+const jitcodeptr  = $A0F4
+const codemax     = $A000
 //
 // Pedefined functions.
 //
@@ -34,11 +59,10 @@ word syspath
 word cmdlnptr
 word              = @execmod, @open, @close, @read, @write
 byte perr
-byte jitcount     = $10
-byte jitsize      = $FF
+byte jitcount     = 0
+byte jitsize      = 0
 byte refcons      = 0
 byte devcons      = 0
-word cmdparser
 //
 // String pool.
 //
@@ -438,17 +462,6 @@ asm sext(a)#1
         RTS
 end
 //
-// Addresses of internal routines.
-//
-asm interp()#1
-        DEX
-        LDA     #<XINTERP
-        STA     ESTKL,X
-        LDA     #>XINTERP
-        STA     ESTKH,X
-        RTS
-end
-//
 // A DCI string is one that has the high bit set for every character except the last.
 // More efficient than C or Pascal strings.
 //
@@ -661,7 +674,7 @@ end
 //        if deftbl=>3 == addr
 //            return deftbl
 //        fin
-//        deftbl = deftbl + 6
+//        deftbl = deftbl + t_defentry
 //    loop
 //    return 0
 //end
@@ -688,7 +701,7 @@ asm lookupdef(addr, deftbl)#1
         LDA     SRCH
         STA     ESTKH,X
         RTS
-+       LDA     #$06
++       LDA     #$08            ; T_DEFENTRY
         CLC
         ADC     SRCL
         STA     SRCL
@@ -915,12 +928,12 @@ def print(i)#0
 end
 def rdstr(prompt)#1
     cout(prompt)
-    ^heap = read(refcons, heap + 1, 128)
-    if heap->[^heap] == $0D
-        ^heap--
+    ^instr = read(refcons, instr+1, 128)
+    if instr->[^instr] == $0D
+        ^instr--
     fin
     crout
-    return heap
+    return instr
 end
 def prbyte(v)#0
     cout(hexchar[(v >> 4) & $0F])
@@ -1013,22 +1026,32 @@ def lookupextern(esd, index)#1
     fin
     return 0
 end
-def adddef(ext, addr, deflast)#1
-    word defentry
+def adddef(isfirst, ext, addr, deflast)#1
+    word preventry, defentry, defsize
     defentry = *deflast
-    *deflast = defentry + 6
-    defentry->0 = $20
-    defentry=>1 = interp
-    defentry=>3 = addr
-    defentry=>5 = ext // ext is byte, so this nulls out next entry
+    *deflast = defentry + t_defentry
+    if not isfirst
+        preventry = defentry - t_defentry
+        defsize   = addr - preventry=>bytecodeaddr
+        if defsize <= jitsize
+            preventry=>interpaddr   = *jitinterp // JSR JITINTRP
+            preventry->callcount    = jitcount   // Set JIT countdown
+            preventry->bytecodesize = defsize    // Set size
+        fin
+    fin
+    defentry->interpjsr     = $20      // JSR
+    defentry=>interpaddr    = *xinterp // XINTERP
+    defentry=>bytecodeaddr  = addr
+    defentry->bytecodexbyte = ext
+    defentry->t_defentry    = 0
     return defentry
 end
 def loadmod(mod)#1
-    word refnum, rdlen, modsize, bytecode, codefix, defofst, defcnt, init, fixup
+    word refnum[], deffirst, rdlen, modsize, bytecode, codefix, defofst, defcnt, init, fixup
     word addr, defaddr, modaddr, modfix, modofst, modend
     word deftbl, deflast, codeseg
     word moddep, rld, esd, sym
-    byte lerr, defext, fileinfo[], str[16], filename[33]
+    byte lerr, defext, skipjit, fileinfo[], str[16], filename[33]
     byte header[128]
     lerr = 0
     //
@@ -1062,7 +1085,8 @@ def loadmod(mod)#1
             //
             // This is an EXTended RELocatable (data+bytecode) module.
             //
-            systemflags = header:4 | systemflags
+            systemflags = header.4 | systemflags
+            skipjit     = header.5 & (nojitc >> 8)
             defofst     = header:6
             defcnt      = header:8
             init        = header:10
@@ -1085,7 +1109,7 @@ def loadmod(mod)#1
             //
             // Init def table.
             //
-            deftbl   = allocheap(defcnt * 6 + 1)
+            deftbl   = allocheap(defcnt * t_defentry + 1)
             deflast  = deftbl
             ^deflast = 0
             if !refnum
@@ -1148,12 +1172,14 @@ def loadmod(mod)#1
         //
         // Run through the DeFinition Dictionary.
         //
+        deffirst    = 1
         while ^rld == $02
             //
             // This is a bytcode def entry - add it to the def directory.
             //
-            adddef(defext, rld=>1 + defofst, @deflast)
-            rld = rld + 4
+            adddef(deffirst, defext, rld=>1 + defofst, @deflast)
+            deffirst = skipjit // Calculate JIT potential or not
+            rld      = rld + 4
         loop
         //
         // Run through the Re-Location Dictionary.
@@ -1217,6 +1243,8 @@ def loadmod(mod)#1
             //
             memxcpy(codeseg, bytecode, modsize - (bytecode - modaddr))
         fin
+    else
+        lerr = $46
     fin
     if lerr
         return -lerr
@@ -1230,7 +1258,7 @@ def loadmod(mod)#1
     //
     fixup = 0
     if init
-        fixup = adddef(defext, init + defofst, @deflast)()
+        fixup = adddef(deffirst, defext, init + defofst, @deflast)()
         if fixup < 0
             perr = -fixup
         fin
@@ -1239,16 +1267,18 @@ def loadmod(mod)#1
 end
 def execmod(modfile)#1
     byte moddci[17]
-    word saveheap, savesym, saveflags
+    word saveheap, savesym, saveflags, savejit
 
     perr = 1
     if stodci(modfile, @moddci)
-        saveheap    = heap
-        savesym     = lastsym
-        saveflags   = systemflags
+        saveheap  = heap
+        savesym   = lastsym
+        saveflags = systemflags
+        savejit   = *jitcodeptr
         if loadmod(@moddci) < modkeep
-            lastsym = savesym
-            heap    = saveheap
+            lastsym     = savesym
+            heap        = saveheap
+            *jitcodeptr = savejit
             while modid
                 modid--
                 seg_release(modseg[modid])
@@ -1282,7 +1312,7 @@ cmdlnptr = @cmdln
 // Print PLASMA version
 //
 init_cons
-prstr("PLASMA 2.0 Dev\n")//; putb(version.1); putc('.'); putb(version.0); putln
+prstr("PLASMA JITC 2.0 Dev\n")//; putb(version.1); putc('.'); putb(version.0); putln
 prstr("MEM:$"); prword(availheap); crout
 //
 // Exec command line parser
@@ -1298,7 +1328,7 @@ fin
 // Call cmd line parser
 //
 repeat
-    execmod(cmdparser())
+    execmod((*cmdparser)())
     write(refcons, @textmode, 3)
     cmdln = 0
 until 0

@@ -1,5 +1,73 @@
 include "inc/cmdsys.plh"
 //
+// JIT compiler values
+//
+//
+// Indirect interpreter DEFinition entrypoint
+//
+struc t_defentry
+    byte interpjsr
+    word interpaddr
+    word bytecodeaddr
+    byte bytecodexbyte
+    byte callcount
+    byte bytecodesize
+end
+//
+// Private addresses
+//
+const codemax     = $A000
+const cmdparser   = $A0F0
+const jitcomp     = $A0F2
+const jitcodeptr  = $A0F4
+const sinterp     = $A0F6
+const xinterp     = $A0F8
+const jitinterp   = $A0FA
+word  directentry, indirectentry
+//
+// COPY FROM EXT MEM TO MAIN MEM.
+//
+asm defcpy(dst, defentry)#0
+        !SOURCE "vmsrc/plvmzp.inc"
+XPAGE   =       $1600
+SRCX    =       XPAGE+SRCH
+DSTX    =       XPAGE+DSTH
+
+        LDA     ESTKL+1,X
+        STA     DSTL
+        LDA     ESTKH+1,X
+        STA     DSTH
+        LDA     ESTKL,X
+        STA     TMPL
+        LDA     ESTKH,X
+        STA     TMPH
+        LDY     #$05
+        LDA     (TMP),Y
+        STA     SRCX
+        DEY
+        LDA     (TMP),Y
+        STA     SRCH
+        DEY
+        LDA     (TMP),Y
+        STA     SRCL
+        LDY     #$07
+        LDA     (TMP),Y
+        TAY
+        DEY
+        BEQ     +
+-       LDA     (SRC),Y
+        STA     (DST),Y
+        DEY
+        BNE     -
++       LDA     (SRC),Y
+        STA     (DST),Y
+        STY     SRCX
+        INX
+        INX
+        RTS
+end
+include "libsrc/jitcore.pla"
+//
 // SOS routines
 // FILE I/O
 //
@@ -239,5 +307,13 @@ end
 //
 // Save pointer to command line handler
 //
-cmdsys:cmdparser = @shell
+*cmdparser       = @shell
+//
+// Install JIT compiler
+//
+directentry     = *sinterp
+indirectentry   = *xinterp
+*jitcomp        = @compiler
+cmdsys.jitcount = 44
+cmdsys.jitsize  = 96
 done
