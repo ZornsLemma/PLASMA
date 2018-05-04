@@ -262,6 +262,9 @@ OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 
         !WORD   NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW                      ; 90 92 94 96 98 9A 9C 9E
         !WORD   BRGT,BRLT,INCBRLE,ADDBRLE,DECBRGE,SUBBRGE,BRAND,BROR    ; A0 A2 A4 A6 A8 AA AC AE
         !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
+;* SFTODO: Need to add NATV opcode before I try to port the JIT; should probably add it anyway,
+;* but maybe no need - the Apple I VM does have it, but it may be a (small) waste of memory with
+;* no JIT.
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;* (PLAS128: executes bytecode from main RAM)
