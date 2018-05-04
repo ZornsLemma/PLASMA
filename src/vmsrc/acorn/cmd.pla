@@ -211,7 +211,8 @@ byte gm_new_mode
 //
 include "vmsrc/acorn/symtab.pla"
 #endif
-// TODO: DO I NEED saveX/restoreX AS IN CMD.PLA?
+// TODO: DO I NEED saveX/restoreX AS IN CMD.PLA? (THESE HAVE NOW BEEN REMOVED
+// FROM LATEST APPLE CMD.PLA, SO MAYBE NOT)
 //
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
@@ -1872,31 +1873,6 @@ def modloadcr_internal(moddci, modcr)#1
 	    *addr = ^rld & $10 ?? *addr + lookupextern(esd, rld->3) :: lookupdef(fixup + codefix, deftbl)
 	    rld   = rld + 4
 	fin
-	//addr = rld=>1 + modfix
-	//if uword_isge(addr, modaddr) // Skip fixups to header
-	//    if type & $80 // WORD sized fixup.
-	//        fixup = *addr
-	//    else          // BYTE sized fixup.
-	//        fixup = ^addr
-	//    fin
-	//    if ^rld & $10 // EXTERN reference.
-	//        fixup = fixup + lookupextern(esd, rld->3)
-	//    else          // INTERN fixup.
-	//        fixup = fixup + modofst
-	//        if uword_isge(fixup, bytecode)
-	//            //
-	//            // Bytecode address - replace with call def directory.
-	//            //
-	//            fixup = lookupdef(fixup + codefix, deftbl)
-	//        fin
-	//    fin
-	//    if type & $80 // WORD sized fixup.
-	//        *addr = fixup
-	//    else          // BYTE sized fixup.
-	//        ^addr = fixup
-	//    fin
-	//fin
-	//rld = rld + 4
     loop
 #ifdef PLAS128
     //
@@ -2144,6 +2120,8 @@ def time(t)#0
     call(osword, osword_read_time, t, t >> 8, 0)
 end
 #endif 
+// SFTODO: Do I need to factor out command line processor into docmds#0 like
+// Apple VM? Check the 128K VM as well as the 64K one.
 //
 // Get heap start.
 //
