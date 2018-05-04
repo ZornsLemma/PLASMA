@@ -21,8 +21,6 @@ export word size = 20
 export word array
 export word result
 
-const vdu_cls = 12
-
 word acrndnum = 12345
 
 word i
