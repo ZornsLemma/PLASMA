@@ -140,3 +140,5 @@ We could probably re-use the three bytes at the start of the VM code which do "J
 The PLASM self-hosted compiler sometimes seems to leave files open if an OS error occurs - can't blam eit because these currently throw() right out of its code into the main VM. However, one way or another it would be good if I could fix this up (if I do make fileio use except() to catch OS errors and turn them into error return values it would probably work, but I am dithering about doing that as it might effectively throw away useful information for the user)
 
 Assuming I eventually port the JIT, make sure to port the 'sysflags nojitc' in various library modules from the Apple code (and add it to any Acorn-only code where it's appropriate)
+
+Could we introduce some mechanism to allow constants to be shared between asm and PLASMA code? The VM source code has some duplication of constants, e.g. Apple II 'jitmod' address. Perhaps this might be as simple as a preprocessor which is run during the build to extract suitably labelled constants from ACME code and emit a trivial file suitable for including from PLASMA code.
