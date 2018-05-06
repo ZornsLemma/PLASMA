@@ -2187,6 +2187,11 @@ end
 //
 def docmds#0
     *jitcomp = 0 // SFTODO Not sure this is ideal but will work for now
+    // SFTODO: The way the code is currently structured, every time an (OS)
+    // error occurs, we reload the "JIT" module - this is slow and also (because
+    // we reset *jitcomp on the previous line) causes it to load again and
+    // swallow more memory. I obviously want to avoid the reload, not just do
+    // the reload and have it be a no-op.
     modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
     // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
     // to init cmdptr just one - for now I am just going to hack it like this

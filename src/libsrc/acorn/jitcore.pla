@@ -156,6 +156,7 @@ def compiler(defptr)#0
     memset(addrxlate, 0, 512) // Clear xlate buffer
     //puts("Bytecode:   $"); puth(bytecode); putln; getc
     codeptr   = *jitcodeptr
+    puts("SFTODOX1 "); puth(codeptr)
     A_IS_TOSL = FALSE
     VY        = UNKNOWN // Virtual Y register
     VX        = 0       // Virtual X register
@@ -1549,7 +1550,7 @@ def compiler(defptr)#0
     // If we got here. we ran out of code buffer space. Overwrite interpreter
     // entrypoint with standard bytecode interpreter
     //
-    defptr=>interpaddr = indirectentry
+    puts("SFTODO1"); // defptr=>interpaddr = indirectentry
     //
     // Free working bufffers
     //

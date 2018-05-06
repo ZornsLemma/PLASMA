@@ -17,7 +17,7 @@ end
 //
 const jitcomp     = $0409
 const jitcodeptr  = $040B
-const codemax     = $F800 // SFTODO: TEMP HACK
+const codemax     = $D800 // SFTODO SHOULD BE $F800 EVEN IN MY HACK BUT WANT TO FORCE NO CODE TO GENERATE FOR NOW // SFTODO: TEMP HACK
 //
 // Bytecode interpreter entrypoints
 //
@@ -27,13 +27,15 @@ const directentry   = $03D0 // SFTODO!
 // Copy bytecode DEF to main memory
 //
 def defcpy(dst, defptr)#0
-    puts("SFTODO!")
-    while 1
-    loop
-    *$003C   = defptr=>bytecodeaddr
-    *$003E   = *$003C + defptr->bytecodesize
-    *$0042   = dst
-    call($C311, 0, 0, 0, $04) // CALL XMOVE with carry clear (AUX->MAIN) and ints disabled
+    // SFTODO: I may need to implement this properly to make the JIT work on
+    // PLAS128, but for my initial tube-only hack I can just memcpy(). I am not
+    // going to try to avoid the copy in the first place because I suspect a
+    // PLAS128-based JIT is the ultimate destination.
+    memcpy(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+    // SFTODO *$003C   = defptr=>bytecodeaddr
+    // SFTODO *$003E   = *$003C + defptr->bytecodesize
+    // SFTODO *$0042   = dst
+    // SFTODO call($C311, 0, 0, 0, $04) // CALL XMOVE with carry clear (AUX->MAIN) and ints disabled
 end
 include "libsrc/acorn/jitcore.pla"
 //
