@@ -94,6 +94,22 @@ const allocheap_fail_threshold = $FFFF
 const modkeep     = $2000
 const modinitkeep = $4000
 //
+// Indirect interpreter DEFinition entrypoint
+//
+struc t_defentry
+    byte interpjsr
+    word interpaddr
+    word bytecodeaddr
+    byte callcount
+    byte bytecodesize
+end
+//
+// JIT compiler constants
+//
+const jitcomp     = $0409
+const jitcodeptr  = $040B
+// SFTODO: DO I NEED THIS?! LET'S SEE const jitmod      = $02E0
+//
 // Predefined functions.
 //
 // TODO: It would be nice if these could be omitted and we could 'include
@@ -124,13 +140,28 @@ word syspath // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 word syscmdln // SFTODO? NEED THIS ANY WAY FOR INC/CMDSYS.PLH
 word            = @modexec
 // SFTODO: Apple II version now exports @open, @close, @read, @write, not sure
-// what to do about that.
+// what to do about that. For the moment I am going to at least have to include
+// them as null pointers because I need to expose jitcount and jitsize, and
+// cmdsys.plh is a shared header so I have to have them at the same relative
+// offset.
+word = 0, 0, 0, 0 // dummy open, close, read, write
+byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to perr so there may be an incompatibility here - for the moment I don't think anything cares and I am trying to get the JIT working, but this area needs revisiting later on
+// SFTODO: I don't think I can rely on initialisation of these globals due to the
+// way the VM is re-entered on the Tube on BREAK, but for now let's just not
+// care about that.
+byte jitcount    = 0
+byte jitsize     = 0
+// SFTODO: The Apple II VM doesn't seem to have refcons and devcons allocated
+// here, and they are Apple /// specific, so maybe I don't need them either.
 byte refcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 byte devcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
 //
 // Globals
 //
 // word systemflags = 0 TODO: delete this? commented out for now
+// SFTOD: We probably need to reinstance systemflags (perhaps it can be a byte
+// though?) now as we probably want to support nojitc. Maybe there's some other
+// way to handle this, let's not worry about it for now.
 const heapptr = $0089
 #ifdef PLAS128
     word xheapsize
@@ -144,7 +175,6 @@ const heapptr = $0089
 #ifndef STANDALONE
 word symtblchunk
 word lastsym
-byte perr
 //
 // String pool.
 // We don't strictly speaking need this, now that the CS opcode uses string
@@ -439,7 +469,7 @@ end
 //
 // Addresses of internal routines.
 //
-asm interp()#1
+asm iinterp()#1
 	DEX
 	LDA	#<IINTERP
 	STA	ESTKL,X
@@ -447,6 +477,14 @@ asm interp()#1
 	STA	ESTKH,X
 	RTS
 end
+asm jitiinterp()#1
+	DEX
+	LDA	#<JITIINTERP
+	STA	ESTKL,X
+	LDA	#>JITIINTERP
+	STA	ESTKH,X
+	RTS
+end 
 // 
 // A DCI string is one that has the high bit set for every character except the last.
 // More efficient than C or Pascal strings.
@@ -720,11 +758,11 @@ asm lookupidx(esd, index)#1
 +++     RTS
 end
 //def lookupdef(addr, deftbl)#1
-//    while deftbl->0 == $20
-//        if deftbl=>3 == addr
+//    while deftbl->interpjsr == $20
+//        if deftbl=>bytecodeaddr == addr
 //            return deftbl
 //        fin
-//        deftbl = deftbl + 5
+//        deftbl = deftbl + t_defentry
 //    loop
 //    return 0
 //end
@@ -751,7 +789,7 @@ asm lookupdef(addr, deftbl)#1
         LDA     SRCH
         STA     ESTKH,X
         RTS
-+       LDA     #$05
++       LDA     #$07            ; NEXT ENTRY SFTODO: THIS IS $05 IN NON-JIT, WOULD NEED TO CONDITIONALLY COMPILE OR SOMETHING IN A FINAL VSN
         CLC
         ADC     SRCL
         STA     SRCL
@@ -1639,14 +1677,31 @@ def lookupextern(esd, index)#1
     loop
     return 0
 end
-def adddef(addr, deflast)#1
-    word defentry
+//
+// Indirect interpreter DEFinition entrypoint
+//
+// SFTODO: It's probably fine, but for my own satisfaction should later check to
+// see that the last DEF in a module *is* still eligible for being JITted
+// despite the "patch up the previous entry to use the JIT entry point"
+// approach.
+def adddef(isfirst, addr, deflast)#1
+    word preventry, defentry, defsize
+
     defentry = *deflast
-    *deflast = defentry + 5
-    defentry->0 = $20
-    defentry=>1 = interp
-    defentry=>3 = addr
-    defentry->5 = 0 // null out next entry
+    *deflast = defentry + t_defentry
+    if not isfirst
+        preventry = defentry - t_defentry
+        defsize   = addr - preventry=>bytecodeaddr
+        if defsize <= jitsize
+            preventry=>interpaddr   = jitiinterp // JSR JITIINTERP
+            preventry->callcount    = jitcount // Set JIT countdown
+            preventry->bytecodesize = defsize  // Set size
+        fin
+    fin
+    defentry->interpjsr    = $20
+    defentry=>interpaddr   = iinterp // JSR IINTERP
+    defentry=>bytecodeaddr = addr
+    defentry->t_defentry   = 0 // NULL out next entry
     return defentry
 end
 def modname_default(modcr)#0
@@ -1668,6 +1723,7 @@ def modloadcr_internal(moddci, modcr)#1
     word modofst, defbank, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
+    byte deffirst, skipjit
     byte str[maxnamelen+1]
     const header_size = 128
     byte header[header_size]
@@ -1722,6 +1778,7 @@ def modloadcr_internal(moddci, modcr)#1
     // This is an EXTended RELocatable (data+bytecode) module.
     //
     // systemflags = header:4 | systemflags
+    skipjit = 0 // SFTODO: Need to respect nojitc here
     defofst  = header:6
     defcnt   = header:8
     init     = header:10
@@ -1748,9 +1805,9 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Init def table.
     //
-    deftbl   = xheapalloc(defcnt * 5 + 1)
+    deftbl   = xheapalloc(defcnt * t_defentry + 1)
     deflast  = deftbl
-    ^deflast = 0
+    ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER
     //
     // Add module to symbol table. This may grow the symbol table, so we
     // do it before we allocate space on the heap for the module. The
@@ -1857,11 +1914,13 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Run through the DeFinition Dictionary.
     //
+    deffirst = 1
     while ^rld == $02
 	//
 	// This is a bytecode def entry - add it to the def directory.
 	//
-	adddef(rld=>1 + defofst, @deflast)
+	adddef(deffirst, rld=>1 + defofst, @deflast)
+        deffirst = skipjit // Calculate JIT potential or not
 	rld = rld + 4
     loop
     //
@@ -1917,7 +1976,7 @@ def modloadcr_internal(moddci, modcr)#1
     fixup = 0
     if init
         init  = init + defofst
-	fixup = adddef(init, @deflast)()
+	fixup = adddef(deffirst, init, @deflast)()
 	if fixup < modinitkeep
 	    //
 	    // Free init routine unless initkeep. Because we grow our symbol
@@ -2043,7 +2102,8 @@ def modexec(modfile)#1
     word savexheap
 #endif
     word savesym, savesymtblchunk
-    // word saveflags
+    // word saveflags SFTODO MAY NEED TO REINSTATE THIS
+    word savejit
     word error, action, olderrjb, jb
 
     saveheap  = *heapptr
@@ -2053,6 +2113,7 @@ def modexec(modfile)#1
     savesym   = lastsym
     savesymtblchunk = symtblchunk
     // saveflags = systemflags
+    savejit = *jitcodeptr
     modload_handle = 0
     olderrjb = *errjb
     // We allocate a jmp_buf on the heap using except2(); it will get trapped
@@ -2082,6 +2143,7 @@ def modexec(modfile)#1
         *heapptr    = saveheap
     fin
     // systemflags = saveflags
+    *jitcodeptr = savejit
     if error <> 0
         error_handler()
     fin
@@ -2120,8 +2182,69 @@ def time(t)#0
     call(osword, osword_read_time, t, t >> 8, 0)
 end
 #endif 
-// SFTODO: Do I need to factor out command line processor into docmds#0 like
-// Apple VM? Check the 128K VM as well as the 64K one.
+//
+// Command line processor
+// SFTODO: THIS PROB WANTS TO BE OMITTED IFDEF STANDALONE
+//
+def docmds#0
+    modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
+    // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
+    // to init cmdptr just one - for now I am just going to hack it like this
+    // after loading the JIT and I think that will get things more or less
+    // working OK.
+    cmdptr = *heapptr
+    ^cmdptr = 0
+    // SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
+    while 1
+        if ^cmdptr
+            //putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
+            when toupper(parsecmd(cmdptr))
+                is 'M'
+                    modechange(cmdptr)
+                    break
+                is '+'
+    #ifdef TIME
+                    time(@start_time)
+    #endif
+                    // SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
+                    ^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
+                    modexec(striptrail(cmdptr))
+                    // SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
+    #ifdef TIME
+                    time(@end_time)
+                    // We don't want to use the dword library here so we just accept we can
+                    // only return small time deltas correctly using 16-bit arithmetic and
+                    // signed output.
+                    puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
+    #endif
+                    break
+                is '*'
+                    call_oscli(cmdptr)
+                    break
+                otherwise
+                    puts(@huhstr)
+            wend
+            if perr
+                puts(@errorstr)
+                prbyte(perr)
+                perr = 0
+            else
+                puts(@okstr)
+            fin
+            putln()
+        fin
+        puts(@freestr)
+        prword(heapavail)
+    #ifdef PLAS128
+        puts(@xfreestr)
+        prword(xheapsize - 1 - xheap) // a bit approximate
+    #endif
+        putln
+        puts(@prompt)
+        cmdptr = gets(':')
+        syscmdln = cmdptr // SFTODO: bit of a hack, be better to set this once but should work for now
+    loop
+end
 //
 // Get heap start.
 //
@@ -2159,6 +2282,10 @@ fin
 #ifndef STANDALONE
 //
 // Initialise cmdptr
+// SFTODO: I am not 100% sure this was safe even before my JIT efforts; wouldn't
+// this risk corrupting resident modules? They are loaded onto the heap and
+// cmdptr would not be updated to point to the new top of heap afterwards. Need
+// to think about this later but not worrying about it right now.
 //
 cmdptr = *heapptr
 ^cmdptr = 0
@@ -2178,57 +2305,6 @@ if not ^cmdptr
 #endif
     //putln
 fin
-//
-// Handle commands.
-//
-while 1
-    if ^cmdptr
-        //putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
-        when toupper(parsecmd(cmdptr))
-	    is 'M'
-		modechange(cmdptr)
-		break
-	    is '+'
-#ifdef TIME
-		time(@start_time)
-#endif
-	    	// SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
-                ^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
-	        modexec(striptrail(cmdptr))
-		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
-#ifdef TIME
-		time(@end_time)
-		// We don't want to use the dword library here so we just accept we can
-		// only return small time deltas correctly using 16-bit arithmetic and
-		// signed output.
-		puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
-#endif
-		break
-	    is '*'
-	    	call_oscli(cmdptr)
-		break
-	    otherwise
-	        puts(@huhstr)
-        wend
-        if perr
-            puts(@errorstr)
-	    prbyte(perr)
-	    perr = 0
-        else
-            puts(@okstr)
-        fin
-	putln()
-    fin
-    puts(@freestr)
-    prword(heapavail)
-#ifdef PLAS128
-    puts(@xfreestr)
-    prword(xheapsize - 1 - xheap) // a bit approximate
-#endif
-    putln
-    puts(@prompt)
-    cmdptr = gets(':')
-    syscmdln = cmdptr // SFTODO: bit of a hack, be better to set this once but should work for now
-loop
+docmds // SFTODO: I'm sure there's a very good reason (though it just might be Apple-specific) why this code can't remain here at the end of the init code (I think it's related to the loadmod of the jit, but I don't understand why yet) but for the moment I am just doing it like this because the Apple cmdjit.pla does it without really understanding
 #endif
 done
