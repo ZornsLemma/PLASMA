@@ -15,14 +15,24 @@ end
 //
 // JIT compiler constants
 //
+// SFTODO TEMP NOTE - ACORN HAS ESTKH AT $50, ESTKL AT $60 - APPLE HAS ESTKH AT
+// $C0, ESTKL AT $D0
+const estkh8 = $5000
+const estkh = $50
+const estkl8 = $6000
+const estkl = $60
+// SFTODO TEMP NOTE - APPLE HAS IFPL AT $E0, IFPH AT $E1 - ACORN HAS IFPL AT $71, IFPH AT $72
+const ifpl8 = $7100
+const ifph8 = $7200
 const jitcomp     = $0409
 const jitcodeptr  = $040B
-const codemax     = $D800 // SFTODO SHOULD BE $F800 EVEN IN MY HACK BUT WANT TO FORCE NO CODE TO GENERATE FOR NOW // SFTODO: TEMP HACK
+const codemax     = $F700 // SFTODO: TEMP HACK - NOTE THAT AMONG OTHER THINGS I SUSPECT (NOT CHECKED PROPERLY) THAT THE JIT CAN WRITE A FEW BYTES BEYOND THIS, SO WE EITHER NEED TO BE SURE THERE'S ROM AT CODEMAX OR MAKE IT ENOUGH BYTES BELOW THE ACTUAL TOP - OK, SO EVEN FOR THE HACK I'VE GOT F700 NOT F800 TO PLAY IT SAFE FOR THE MOMENT
 //
 // Bytecode interpreter entrypoints
 //
-const indirectentry = $03DC // SFTODO!
-const directentry   = $03D0 // SFTODO!
+// SFTODO: I HAD TO HACK THESE TO BE NON-CONST
+word indirectentry
+word directentry
 //
 // Copy bytecode DEF to main memory
 //
@@ -47,6 +57,8 @@ fin
 *jitcomp        = @compiler
 cmdsys.jitcount = 44
 cmdsys.jitsize  = 96
+indirectentry = *$0417 // SFTODO: HACK
+directentry   = *$0415 // SFTODO: HACK
 puts("JITC enabled\n")
 return modkeep
 done

@@ -468,6 +468,16 @@ end
 //
 // Addresses of internal routines.
 //
+// SFTODO I ONLY HAD TO ADD dinterp() FOR JIT HACK, MAY NOT WANT IT OR ANY OF
+// THESE IN LONG RUN
+asm dinterp()#1
+	DEX
+	LDA	#<INTERP
+	STA	ESTKL,X
+	LDA	#>INTERP
+	STA	ESTKH,X
+	RTS
+end
 asm iinterp()#1
 	DEX
 	LDA	#<IINTERP
@@ -2310,6 +2320,9 @@ if not ^cmdptr
 #endif
     //putln
 fin
+// SFTODO: This is a hack so the JIT module can get access to these addresses.
+*$415 = dinterp()
+*$417 = iinterp()
 docmds // SFTODO: I'm sure there's a very good reason (though it just might be Apple-specific) why this code can't remain here at the end of the init code (I think it's related to the loadmod of the jit, but I don't understand why yet) but for the moment I am just doing it like this because the Apple cmdjit.pla does it without really understanding
 #endif
 done
