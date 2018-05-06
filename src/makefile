@@ -41,6 +41,7 @@ JIT        = rel/apple/JIT\#FE1000
 JIT_ACN    = rel/acorn/JIT
 JIT16      = rel/apple/JIT16\#FE1000
 JITUNE     = rel/apple/JITUNE\#FE1000
+JITUNE_ACN = rel/acorn/JITUNE
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
 SIEVE      = rel/SIEVE\#FE1000
@@ -126,7 +127,7 @@ $(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SI
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
 
-$(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CONIO_ACN) $(JIT_ACN)
+$(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CONIO_ACN) $(JIT_ACN) $(JITUNE_ACN)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/compiler.beebasm -do rel/acorn/compiler.ssd -title "PLASMA COMP"
@@ -553,5 +554,9 @@ $(JIT16): libsrc/apple/jit16.pla libsrc/jit16core.pla $(PLVMJIT) $(PLASM)
 $(JITUNE): libsrc/apple/jitune.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/jitune.pla > libsrc/apple/jitune.a
 	acme --setpc 4094 -o $(JITUNE) libsrc/apple/jitune.a
+
+$(JITUNE_ACN): libsrc/acorn/jitune.pla $(PLASM)
+	./$(PLASM) -AMOW < libsrc/acorn/jitune.pla > libsrc/acorn/jitune.a
+	acme --setpc 4094 -o $(JITUNE_ACN) libsrc/acorn/jitune.a
 
 

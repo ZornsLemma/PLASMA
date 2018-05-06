@@ -156,7 +156,6 @@ def compiler(defptr)#0
     memset(addrxlate, 0, 512) // Clear xlate buffer
     //puts("Bytecode:   $"); puth(bytecode); putln; getc
     codeptr   = *jitcodeptr
-    puts("SFTODOX1 "); puth(codeptr)
     A_IS_TOSL = FALSE
     VY        = UNKNOWN // Virtual Y register
     VX        = 0       // Virtual X register
@@ -363,6 +362,13 @@ def compiler(defptr)#0
                     codeptr   = codeptr + 2
                     A_IS_TOSL = TOS_DIRTY               // STA ESTKL,X
                     break
+                    // SFTODO: IS THIS IMPLEMENTATION OF CS GOING TO BE A
+                    // PROBLEM IF MY PLAS128 JIT USES A SWR BANK TO HOLD THE
+                    // JIT-GENERATED CODE? IF THE STRING GETS PASSED TO AN OS
+                    // FUNCTION AND THEN TO ANOTHER PAGED ROM (EG A FILING
+                    // SYSTEM) THE STRING MAY NO LONGER BE ACCESSIBLE. THIS IS
+                    // *UNLIKELY* BUT IF SOMEONE WERE WRITING A PLASMA STRING
+                    // RAW TO DISC USING OSGBPB IT COULD HAPPEN, I THINK.
                 is $2E // CS
                     i++
                     j    = ^(bytecode+i)
@@ -691,15 +697,15 @@ def compiler(defptr)#0
                         *codeptr = estkl8+$B5+(VX<<8)                // LDA ESTKL,X
                         codeptr  = codeptr + 2
                     fin
-                    codeptr=>0 = $E785                          // STA $E7:TMPL
+                    codeptr=>0 = tmpl8+$85                          // STA $E7:TMPL
                     codeptr=>2 = estkh8+$B5+(VX<<8)                  // LDA ESTKH,X
-                    codeptr=>4 = $E885                          // STA $E8:TMPH
+                    codeptr=>4 = tmph8+$85                          // STA $E8:TMPH
                     codeptr, VX = resolveX(codeptr + 6, VX + 1) // INX
                     //
                     // Call through TMP
                     //
                     codeptr->0 = $20                            // JSR abs
-                    codeptr=>1 = $00E6                          // $E6:JMPTMP
+                    codeptr=>1 = jmptmp                          // $E6:JMPTMP
                     codeptr    = codeptr + 3
                     VY         = UNKNOWN
                     A_IS_TOSL  = FALSE
@@ -1041,6 +1047,10 @@ def compiler(defptr)#0
                     VX++                              // INX
                     A_IS_TOSL   = FALSE
                     break
+                    // SFTODO: COULD I USE A SIMILAR APPROACH TO THE FOLLOWING
+                    // TO RE-USE THE INTERPRETING VM'S CS OPCODE, IF THE
+                    // EXISTING JIT CS OPCODE IMPLEMENTATION DOES CAUSE PROBLEMS
+                    // AS NOTED IN OTHER SFTODO?
                 is $86 // MUL
                 is $88 // DIV
                 is $8A // MOD
@@ -1455,11 +1465,11 @@ def compiler(defptr)#0
                     fin
                     codeptr=>0  = ifpl8+$B1          // LDA (IFP),Y
                     codeptr->2  = $0A            // ASL
-                    codeptr=>3  = $E785          // STA $E7:TMPL
+                    codeptr=>3  = tmpl8+$85          // STA $E7:TMPL
                     codeptr->5  = $C8            // INY
                     codeptr=>6  = ifpl8+$B1          // LDA (IFP),Y
                     codeptr=>8  = $A82A          // ROL; TAY
-                    codeptr=>10 = $E7A5          // LDA $E7:TMPL
+                    codeptr=>10 = tmpl8+$A5          // LDA $E7:TMPL
                     codeptr->12 = $18            // CLC
                     codeptr=>13 = estkl8+$75+(VX<<8)  // ADC ESTKL,X
                     codeptr=>15 = estkl8+$95+(VX<<8)  // STA ESTKL,X
@@ -1507,11 +1517,11 @@ def compiler(defptr)#0
                     codeptr->0  = $AD            // LDA abs
                     codeptr=>1  = dest
                     codeptr->3  = $0A            // ASL
-                    codeptr=>4  = $E785          // STA $E7:TMPL
+                    codeptr=>4  = tmpl8+$85          // STA $E7:TMPL
                     codeptr->6  = $AD            // LDA abs+1
                     codeptr=>7  = dest+1
                     codeptr=>9  = $A82A          // ROL; TAY
-                    codeptr=>11 = $E7A5          // LDA $E7:TMPL
+                    codeptr=>11 = tmpl8+$A5          // LDA $E7:TMPL
                     codeptr->13 = $18            // CLC
                     codeptr=>14 = estkl8+$75+(VX<<8)  // ADC ESTKL,X
                     codeptr=>16 = estkl8+$95+(VX<<8)  // STA ESTKL,X
@@ -1550,7 +1560,6 @@ def compiler(defptr)#0
     // If we got here. we ran out of code buffer space. Overwrite interpreter
     // entrypoint with standard bytecode interpreter
     //
-    puts("SFTODO1")
     defptr=>interpaddr = indirectentry
     //
     // Free working bufffers
