@@ -1,0 +1,50 @@
+//
+// PLASMA JIT bytecode compiler
+//
+include "inc/cmdsys.plh"
+//
+// Indirect interpreter DEFinition entrypoint
+//
+struc t_defentry
+    byte interpjsr
+    word interpaddr
+    word bytecodeaddr
+    byte callcount
+    byte bytecodesize
+end
+//
+// JIT compiler constants
+//
+const jitcomp     = $0409
+const jitcodeptr  = $040B
+const codemax     = $F800 // SFTODO: TEMP HACK
+//
+// Bytecode interpreter entrypoints
+//
+const indirectentry = $03DC // SFTODO!
+const directentry   = $03D0 // SFTODO!
+//
+// Copy bytecode DEF to main memory
+//
+def defcpy(dst, defptr)#0
+    puts("SFTODO!")
+    while 1
+    loop
+    *$003C   = defptr=>bytecodeaddr
+    *$003E   = *$003C + defptr->bytecodesize
+    *$0042   = dst
+    call($C311, 0, 0, 0, $04) // CALL XMOVE with carry clear (AUX->MAIN) and ints disabled
+end
+include "libsrc/acorn/jitcore.pla"
+//
+// Install JIT compiler
+//
+if *jitcomp
+    return 0
+fin
+*jitcomp        = @compiler
+cmdsys.jitcount = 44
+cmdsys.jitsize  = 96
+puts("JITC enabled\n")
+return modkeep
+done
