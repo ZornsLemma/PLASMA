@@ -332,6 +332,60 @@ IINTERP	PLA
         DEY
 	JMP	FETCHOP
 ;*
+;* JIT PROFILING ENTRY INTO INTERPRETER
+;*
+JITIINTERP
+        PLA
+        SEC
+        SBC     #$02            ; POINT TO DEF ENTRY
+        STA     TMPL
+        PLA
+        SBC     #$00
+        STA     TMPH
+        LDY     #$05
+        LDA     (TMP),Y         ; DEC JIT COUNT
+        SEC
+        SBC     #$01
+        STA     (TMP),Y
+        BEQ     RUNJIT
+	; SFTODO: PLAS128 would need the same code as IINTERP (or ideally a way to share it) here - but need to be careful, because TMP is 2 lower than in that case
+        DEY                     ; INTERP BYTECODE AS USUAL
+        LDA     (TMP),Y
+        STA     IPH
+        DEY
+        LDA     (TMP),Y
+        STA     IPL
+        LDY     #$00
+        JMP     FETCHOP
+RUNJIT  LDA     JITCOMP
+	; SFTODO: PLAS128 would need some twiddling here to run the JIT from the right bank of SWR
+	; SFTODO: I might guess not, otherwise the Apple VM would do it, but couldn't we simplify
+	; this (once we've populated SRCL/SRCH) into JSR XXX with .XXX:JMP (SRC) rather than
+	; fetching the bytecode address from (SRC),Y and putting it in IP manually?
+        STA     SRCL
+        LDA     JITCOMP+1
+        STA     SRCH
+        DEY                     ; LDY     #$04
+        LDA     (SRC),Y
+        STA     IPH
+        DEY
+        LDA     (SRC),Y
+        STA     IPL
+        DEX                     ; ADD PARAMETER TO DEF ENTRY
+        LDA     TMPL
+        PHA                     ; AND SAVE IT FOR LATER
+        STA     ESTKL,X
+        LDA     TMPH
+        PHA
+        STA     ESTKH,X
+        LDY     #$00
+        JSR     FETCHOP         ; CALL JIT COMPILER
+        PLA
+        STA     TMPH
+        PLA
+        STA     TMPL
+        JMP     (TMP)           ; RE-CALL ORIGINAL DEF ENTRY
+;*
 ;* ADD TOS TO TOS-1
 ;*
 ADD 	LDA	ESTKL,X

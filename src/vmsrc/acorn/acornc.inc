@@ -71,6 +71,9 @@ ERRFP  = $405		; 2 bytes
 ; stored at ERRJB.
 ERRJB  = $407		; 2 bytes
 
+; SFTODO: TEMPORARY/DOCUMENT IF KEEP
+JITCOMP = $409 		; 2 bytes
+
 ; We use the 256 bytes at $0700 for two purposes - as an input buffer
 ; for rdstr() and to hold the error number and error string after an
 ; OS error occurs.
