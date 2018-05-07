@@ -643,8 +643,9 @@ end
 //SFTODOputi(iobuf_array[0])
 
 SFTODOHACK=@acread
-for SFTODOHACK2=0 to 3
+for SFTODOHACK2=0 to 1 // SFTODO: WOULD BE 'to 3' IF WE DIDN'T USE THE EXPERIMENTAL 'word in asm' HACK
     while ^SFTODOHACK <> $FF
+        //putb(^SFTODOHACK)        
         SFTODOHACK++
     loop
     if SFTODOHACK2==0
@@ -656,6 +657,7 @@ for SFTODOHACK2=0 to 3
     else
         ^SFTODOHACK = @fillbuf >> 8
     fin
+    SFTODOHACK++
     SFTODOHACK2++
 next
 
