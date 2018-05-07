@@ -1985,7 +1985,9 @@ def modloadcr_internal(moddci, modcr)#1
     fixup = 0
     if init
         init  = init + defofst
+        puts("CALLING INIT\n")
 	fixup = adddef(deffirst, init, @deflast)()
+        puts("CALLED INIT\n")
 	if fixup < modinitkeep
 	    //
 	    // Free init routine unless initkeep. Because we grow our symbol
@@ -2134,7 +2136,9 @@ def modexec(modfile)#1
     error = except2(@jb)
     if error == 0
         *errjb = jb
+        puts("CALLING MODLOAD\n");
         action = modloadpstr(modfile)
+        puts("CALLED MODLOAD\n");
     fin
     *errjb = olderrjb
     if error <> 0 or action < modkeep
@@ -2206,11 +2210,18 @@ def docmds#0
     // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
     // to init cmdptr just one - for now I am just going to hack it like this
     // after loading the JIT and I think that will get things more or less
-    // working OK.
+    // working OK. - OK, I am not saying everything's great, but note that on
+    // subsequent passes round the loop cmdptr has been initialised to the
+    // return value of gets() (=$700) and so we are *not* actually relying on
+    // the heap not having moved or being validly initialised. So this isn't
+    // quite such a big problem as I've been imagining.
     cmdptr = *heapptr
     ^cmdptr = 0
     // SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
     while 1
+        // SFTODO TEMP HACK
+        puts("TOP OF DOCMDS LOOP\n")
+        // SFTODO END TEMP HACK
         if ^cmdptr
             //putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
             when toupper(parsecmd(cmdptr))
