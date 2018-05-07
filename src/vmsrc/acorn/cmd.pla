@@ -2206,6 +2206,11 @@ def docmds#0
     // we reset *jitcomp on the previous line) causes it to load again and
     // swallow more memory. I obviously want to avoid the reload, not just do
     // the reload and have it be a no-op.
+    // SFTODO: We should probably fail reasonably gracefully if the "JIT" module
+    // can't be found/loaded - there is probably no
+    // reason I think we can't actually start up and work as an interpretive VM,
+    // just one which is a bit wasteful of space because the definitions will
+    // have extra bytes to support the JIT.
     modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
     // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
     // to init cmdptr just one - for now I am just going to hack it like this
