@@ -2196,87 +2196,6 @@ def time(t)#0
 end
 #endif 
 //
-// Command line processor
-// SFTODO: THIS PROB WANTS TO BE OMITTED IFDEF STANDALONE
-//
-def docmds#0
-    *jitcomp = 0 // SFTODO Not sure this is ideal but will work for now
-    // SFTODO: The way the code is currently structured, every time an (OS)
-    // error occurs, we reload the "JIT" module - this is slow and also (because
-    // we reset *jitcomp on the previous line) causes it to load again and
-    // swallow more memory. I obviously want to avoid the reload, not just do
-    // the reload and have it be a no-op.
-    // SFTODO: We should probably fail reasonably gracefully if the "JIT" module
-    // can't be found/loaded - there is probably no
-    // reason I think we can't actually start up and work as an interpretive VM,
-    // just one which is a bit wasteful of space because the definitions will
-    // have extra bytes to support the JIT.
-    modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
-    // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
-    // to init cmdptr just one - for now I am just going to hack it like this
-    // after loading the JIT and I think that will get things more or less
-    // working OK. - OK, I am not saying everything's great, but note that on
-    // subsequent passes round the loop cmdptr has been initialised to the
-    // return value of gets() (=$700) and so we are *not* actually relying on
-    // the heap not having moved or being validly initialised. So this isn't
-    // quite such a big problem as I've been imagining.
-    cmdptr = *heapptr
-    ^cmdptr = 0
-    // SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
-    while 1
-        // SFTODO TEMP HACK
-        puts("TOP OF DOCMDS LOOP\n")
-        // SFTODO END TEMP HACK
-        if ^cmdptr
-            //putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
-            when toupper(parsecmd(cmdptr))
-                is 'M'
-                    modechange(cmdptr)
-                    break
-                is '+'
-    #ifdef TIME
-                    time(@start_time)
-    #endif
-                    // SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
-                    ^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
-                    modexec(striptrail(cmdptr))
-                    // SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
-    #ifdef TIME
-                    time(@end_time)
-                    // We don't want to use the dword library here so we just accept we can
-                    // only return small time deltas correctly using 16-bit arithmetic and
-                    // signed output.
-                    puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
-    #endif
-                    break
-                is '*'
-                    call_oscli(cmdptr)
-                    break
-                otherwise
-                    puts(@huhstr)
-            wend
-            if perr
-                puts(@errorstr)
-                prbyte(perr)
-                perr = 0
-            else
-                puts(@okstr)
-            fin
-            putln()
-        fin
-        puts(@freestr)
-        prword(heapavail)
-    #ifdef PLAS128
-        puts(@xfreestr)
-        prword(xheapsize - 1 - xheap) // a bit approximate
-    #endif
-        putln
-        puts(@prompt)
-        cmdptr = gets(':')
-        syscmdln = cmdptr // SFTODO: bit of a hack, be better to set this once but should work for now
-    loop
-end
-//
 // Get heap start.
 //
 *heapptr = *freemem
@@ -2339,6 +2258,81 @@ fin
 // SFTODO: This is a hack so the JIT module can get access to these addresses.
 *$415 = dinterp()
 *$417 = iinterp()
-docmds // SFTODO: I'm sure there's a very good reason (though it just might be Apple-specific) why this code can't remain here at the end of the init code (I think it's related to the loadmod of the jit, but I don't understand why yet) but for the moment I am just doing it like this because the Apple cmdjit.pla does it without really understanding
+
+*jitcomp = 0 // SFTODO Not sure this is ideal but will work for now
+// SFTODO: The way the code is currently structured, every time an (OS)
+// error occurs, we reload the "JIT" module - this is slow and also (because
+// we reset *jitcomp on the previous line) causes it to load again and
+// swallow more memory. I obviously want to avoid the reload, not just do
+// the reload and have it be a no-op.
+// SFTODO: We should probably fail reasonably gracefully if the "JIT" module
+// can't be found/loaded - there is probably no
+// reason I think we can't actually start up and work as an interpretive VM,
+// just one which is a bit wasteful of space because the definitions will
+// have extra bytes to support the JIT.
+modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
+// SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
+// to init cmdptr just one - for now I am just going to hack it like this
+// after loading the JIT and I think that will get things more or less
+// working OK. - OK, I am not saying everything's great, but note that on
+// subsequent passes round the loop cmdptr has been initialised to the
+// return value of gets() (=$700) and so we are *not* actually relying on
+// the heap not having moved or being validly initialised. So this isn't
+// quite such a big problem as I've been imagining.
+cmdptr = *heapptr
+^cmdptr = 0
+// SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
+while 1
+    // SFTODO TEMP HACK
+    puts("TOP OF DOCMDS LOOP\n")
+    // SFTODO END TEMP HACK
+    if ^cmdptr
+	//putc('X'); puts(cmdptr); putc('X'); putln() // SFTODO!
+	when toupper(parsecmd(cmdptr))
+	    is 'M'
+		modechange(cmdptr)
+		break
+	    is '+'
+#ifdef TIME
+		time(@start_time)
+#endif
+		// SFTODO: THE A2 VERSION NOW USES SAVEX/RESTOREX AROUND THIS, WHICH MAY BE A GOOD THING FOR US TO DO TOO
+		^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
+		modexec(striptrail(cmdptr))
+		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
+#ifdef TIME
+		time(@end_time)
+		// We don't want to use the dword library here so we just accept we can
+		// only return small time deltas correctly using 16-bit arithmetic and
+		// signed output.
+		puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
+#endif
+		break
+	    is '*'
+		call_oscli(cmdptr)
+		break
+	    otherwise
+		puts(@huhstr)
+	wend
+	if perr
+	    puts(@errorstr)
+	    prbyte(perr)
+	    perr = 0
+	else
+	    puts(@okstr)
+	fin
+	putln()
+    fin
+    puts(@freestr)
+    prword(heapavail)
+#ifdef PLAS128
+    puts(@xfreestr)
+    prword(xheapsize - 1 - xheap) // a bit approximate
+#endif
+    putln
+    puts(@prompt)
+    cmdptr = gets(':')
+    syscmdln = cmdptr // SFTODO: bit of a hack, be better to set this once but should work for now
+loop
 #endif
 done

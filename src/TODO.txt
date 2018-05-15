@@ -142,3 +142,5 @@ The PLASM self-hosted compiler sometimes seems to leave files open if an OS erro
 Assuming I eventually port the JIT, make sure to port the 'sysflags nojitc' in various library modules from the Apple code (and add it to any Acorn-only code where it's appropriate)
 
 Could we introduce some mechanism to allow constants to be shared between asm and PLASMA code? The VM source code has some duplication of constants, e.g. Apple II 'jitmod' address. Perhaps this might be as simple as a preprocessor which is run during the build to extract suitably labelled constants from ACME code and emit a trivial file suitable for including from PLASMA code.
+
+See Dave's e-mail 15/05/18 - I could probably use his idea and have the heap start at the 'init' code, provided I arrange that any code which needs to do a heap allocation lives in a separate function. When running on a second processor this couldn't be done as we need to be able to re-init on BREAK, but that's probably fine - the 2P case is already handled differently for some other need-the-code-to-be-available-on-BREAK issue, I think.
