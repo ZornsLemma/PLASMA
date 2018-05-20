@@ -2209,6 +2209,7 @@ end
 symtblchunk = lowsymtblchunk
 lastsym = lowsymtblchunk
 modname = @modname_default
+*jitcomp = 1
 //
 // Init symbol table.
 //
@@ -2244,6 +2245,7 @@ perr = 0
 // Print some startup info.
 //
 if not ^cmdptr
+    // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
     puts("PLASMA 2.0 Dev\n") //puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
@@ -2259,18 +2261,15 @@ fin
 *$415 = dinterp()
 *$417 = iinterp()
 
-*jitcomp = 0 // SFTODO Not sure this is ideal but will work for now
-// SFTODO: The way the code is currently structured, every time an (OS)
-// error occurs, we reload the "JIT" module - this is slow and also (because
-// we reset *jitcomp on the previous line) causes it to load again and
-// swallow more memory. I obviously want to avoid the reload, not just do
-// the reload and have it be a no-op.
-// SFTODO: We should probably fail reasonably gracefully if the "JIT" module
-// can't be found/loaded - there is probably no
-// reason I think we can't actually start up and work as an interpretive VM,
-// just one which is a bit wasteful of space because the definitions will
-// have extra bytes to support the JIT.
-modloadpstr("JIT") // Cannot do this in init code - it will overwrite it!
+// On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if
+// that fails for any reason (we don't have enough heap, the "JIT" file can't be found, etc)
+// an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
+// OS error isn't necessarily all that clear, but we don't expect this to happen - the main
+// thing is that we don't go into an infinite loop or similar.)
+if *jitcomp == 1
+    *jitcomp = 0
+    modloadpstr("JIT")
+fin
 // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
 // to init cmdptr just one - for now I am just going to hack it like this
 // after loading the JIT and I think that will get things more or less
@@ -2336,3 +2335,5 @@ while 1
 loop
 #endif
 done
+
+// SFTODO: General comment - I should probably review the code to see that if an OS error occurs during module loading, we do not leak any heap. We *don't* reset the heap to the initial pointer when an OS error reaches the top level exception handler - this is correct, because we might have a resident module loaded on the heap - but it does mean we need to be careful not to allow memory to be leaked. To be fair, since I print the heap free at the prompt I'd probably notice if this was happening and I don't think I have, but it would be good to review the code anyway. And perhaps leave a permanent comment somewhere about the importance of this, and why we don't just reset the heap pointer in the top-level error handler.
