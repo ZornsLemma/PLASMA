@@ -144,3 +144,12 @@ Assuming I eventually port the JIT, make sure to port the 'sysflags nojitc' in v
 Could we introduce some mechanism to allow constants to be shared between asm and PLASMA code? The VM source code has some duplication of constants, e.g. Apple II 'jitmod' address. Perhaps this might be as simple as a preprocessor which is run during the build to extract suitably labelled constants from ACME code and emit a trivial file suitable for including from PLASMA code.
 
 See Dave's e-mail 15/05/18 - I could probably use his idea and have the heap start at the 'init' code, provided I arrange that any code which needs to do a heap allocation lives in a separate function. When running on a second processor this couldn't be done as we need to be able to re-init on BREAK, but that's probably fine - the 2P case is already handled differently for some other need-the-code-to-be-available-on-BREAK issue, I think.
+
+
+
+Short term notes:
+- can I avoid use of dinterp()/iinterp()/jitinterp() functions in cmd.pla?
+- (slighly related) use of *$415 and *$417 to communicate dinterp()/iinterp() to JIT could probably be tidier
+- make JIT conditionally compiled
+- PLAS128 JIT - apart from technical issues, am I going to have four binaries or can I provide any sensible defaults? I suspect there's no clear right answer (it varies depending on what the program to be run needs - data memory, code memory, speed) but think about it.
+- I don't have JMPTMP at a fixed address (unlike Apple II), there is a hack in the JIT to handle this, can I fix this better? Quite happy not to have it at a fixed address if I can do it without hacks...
