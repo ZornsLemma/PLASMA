@@ -41,10 +41,13 @@ def dci_bytes(s):
 class Label:
     __next = collections.defaultdict(int)
 
-    def __init__(self, prefix):
-        i = Label.__next[prefix]
-        self.name = '%s%04d' % (prefix, i)
-        Label.__next[prefix] += 1
+    def __init__(self, prefix, add_suffix = True):
+        if add_suffix:
+            i = Label.__next[prefix]
+            self.name = '%s%04d' % (prefix, i)
+            Label.__next[prefix] += 1
+        else:
+            self.name = prefix
 
     def acme_reference(self):
         return "!WORD\t%s+0" % (self.name,)
@@ -180,13 +183,10 @@ class LabelledBlob:
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
-    def dump(self, rld, esd, needs_code_table_fixup):
+    def dump(self, rld, esd):
         print("; SFTODO BLOB START")
         i = 0
         fixup_count = 0
-        if needs_code_table_fixup:
-            label = rld.get_bytecode_function_label()
-            print(label.name)
         while i < len(self.blob):
             if not self.references[i]:
                 #print('SFTODO XXX %d %d %d' % (i, len(self.labels), len(self.labels[i])))
@@ -205,6 +205,20 @@ class LabelledBlob:
                 assert not self.references[i]
             i += 1
         print("; SFTODO BLOB END")
+
+
+class BytecodeFunction:
+    def __init__(self, blob):
+        self.blob = blob
+
+    def is_init(self):
+        return any(x.name == '_INIT' for x in self.blob.labels[0])
+
+    def dump(self, rld, esd):
+        if not self.is_init():
+            label = rld.get_bytecode_function_label()
+            print(label.name)
+        self.blob.dump(rld, esd)
 
 
 class Module:
@@ -307,7 +321,7 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
             assert False
 
 init_offset = init_abs - org - blob_offset
-#blob.label(init_offset, Label("_INIT"))
+blob.label(init_offset, Label("_INIT", False))
 
 new_module = Module()
 # TODO: Should probably support proper [a:b] slice overload instead of having slice() fn
@@ -317,7 +331,7 @@ new_module.data_asm_blob = blob.slice(0, subseg_abs - org - blob_offset)
 offsets = bytecode_function_offsets + [init_offset, len(blob)]
 for start, end in zip(offsets, offsets[1:]):
     bytecode_function_blob = blob.slice(start, end)
-    new_module.bytecode_functions.append(bytecode_function_blob)
+    new_module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
 
 del blob
 del rld
@@ -341,15 +355,15 @@ for import_name in import_names:
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
 new_rld = RLD()
-new_module.data_asm_blob.dump(new_rld, new_esd, False)
+new_module.data_asm_blob.dump(new_rld, new_esd)
 print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
+assert new_module.bytecode_functions[-1].is_init()
 for bytecode_function in new_module.bytecode_functions[0:-1]:
-    bytecode_function.dump(new_rld, new_esd, True)
-print("_INIT")
-new_module.bytecode_functions[-1].dump(new_rld, new_esd, False)
+    bytecode_function.dump(new_rld, new_esd)
+new_module.bytecode_functions[-1].dump(new_rld, new_esd)
 
 defcnt = len(new_module.bytecode_functions)
 print("_DEFCNT = %d" % (defcnt,))
