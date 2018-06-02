@@ -136,7 +136,9 @@ class LabelledBlob:
 
         # TODO: Eventually we may want the blob to pass the RLD/ESD stuff it wants to emit to
         # some other object; this might (though we'd need to be careful about INIT-combining)
-        # for example allow us to merge two modules into a single module.
+        # for example allow us to merge two modules into a single module. (More immediately
+        # usefully, I want to be able to chop up the initial single blob into sub-blobs, e.g.
+        # one per bytecode function, and then emit multiple such blobs into the final output.)
 
         print(";\n; RE-LOCATEABLE DICTIONARY\n;")
         # TODO: Need to emit _C RLD entries
