@@ -1,3 +1,4 @@
+import abc
 import collections
 import struct
 import sys
@@ -68,6 +69,12 @@ class Label:
         # TODO: Use of global label_dict is a bit clunky
         #print('SFTODOXY %d', len(label_dict))
         label_dict[self.name].update_used_things(used_things)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        label = bytecode_function.references[i]
+        assert label
+        return label, i+2
 
 class ExternalReference:
     def __init__(self, external_name, offset):
@@ -230,6 +237,131 @@ class LabelledBlob:
         print("; SFTODO BLOB END")
 
 
+class Opcode:
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def length(self):
+        pass
+    
+
+class OpcodeCN(Opcode):
+    def __init__(self, blob, i):
+        self.opcode = blob[i]
+        self.value = self.opcode / 2
+
+    def length(self):
+        return 1
+
+    def dump(self):
+        print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (self.opcode, self.value))
+
+
+class OpcodeLAB(Opcode):
+    def __init__(self, blob, i):
+        self.opcode = blob[i]
+
+
+class OpcodeDLW(Opcode):
+    def __init__(self, blob, i):
+        self.opcode = blob[i]
+        self.value = ord(blob[i+1])
+
+    def length(self):
+        return 2
+
+    def dump(self):
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; DLW\t[%d]" % (self.opcode, self.value, self.value))
+
+
+class Byte:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "Byte(%d)" % (self.value,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        byte = Byte(ord(bytecode_function[i]))
+        return byte, i+1
+
+
+class Word:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "Word(%d)" % (self.value,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        word = Word(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
+        return word, i+2
+
+
+class String:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "String(%r)" % (self.value,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        length = ord(bytecode_function[i])
+        s = ''
+        for j in range(length):
+            s += bytecode_function[i + j + 1]
+        return String(s), i + length + 1
+
+
+
+# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
+opdict = {
+    0x20: {'opcode': 'MINUS1', 'operands': ()},
+    0x22: {'opcode': 'BREQ', 'operands': (Word,)},
+    0x24: {'opcode': 'BRNE', 'operands': (Word,)},
+    0x26: {'opcode': 'LA', 'operands': (Label,)},
+    0x28: {'opcode': 'LLA', 'operands': (Byte,)},
+    0x2a: {'opcode': 'CB', 'operands': (Byte,)},
+    0x2c: {'opcode': 'CW', 'operands': (Word,)},
+    0x2e: {'opcode': 'CS', 'operands': (String,)},
+    0x30: {'opcode': 'DROP', 'operands': ()},
+    0x38: {'opcode': 'ADDI', 'operands': (Byte,)},
+    0x3c: {'opcode': 'ANDI', 'operands': (Byte,)},
+    0x42: {'opcode': 'ISNE', 'operands': ()},
+    0x44: {'opcode': 'ISGT', 'operands': ()},
+    0x4c: {'opcode': 'BRFLS', 'operands': (Word,)},
+    0x4e: {'opcode': 'BRTRU', 'operands': (Word,)},
+    0x50: {'opcode': 'BRNCH', 'operands': (Word,)},
+    0x52: {'opcode': 'SEL', 'operands': (Word,)}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x54: {'opcode': 'CALL', 'operands': (Label,)},
+    0x56: {'opcode': 'ICAL', 'operands': ()},
+    0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte)},
+    0x5c: {'opcode': 'RET', 'operands': ()},
+    0x5a: {'opcode': 'LEAVE', 'operands': (Byte,)},
+    0x60: {'opcode': 'LB', 'operands': ()},
+    0x64: {'opcode': 'LLB', 'operands': (Byte,)},
+    0x66: {'opcode': 'LLW', 'operands': (Byte,)},
+    0x68: {'opcode': 'LAB', 'operands': (Label,)},
+    0x6e: {'opcode': 'DLW', 'operands': (Byte,)},
+    0x6a: {'opcode': 'LAW', 'operands': (Label,)},
+    0x74: {'opcode': 'SLB', 'operands': (Byte,)},
+    0x76: {'opcode': 'SLW', 'operands': (Byte,)},
+    0x78: {'opcode': 'SAB', 'operands': (Label,)},
+    0x7a: {'opcode': 'SAW', 'operands': (Label,)},
+    0x8c: {'opcode': 'INCR', 'operands': ()},
+    0x8e: {'opcode': 'DECR', 'operands': ()},
+    0x94: {'opcode': 'BAND', 'operands': ()},
+    0xac: {'opcode': 'BRAND', 'operands': (Word,)},
+}
+
+# TODO: Crappy having init code stuck here in the middle of function/class definitions
+for opcode in range(0, 0x20, 2):
+    opdict[opcode] = {'opcode': 'CN', 'operands': ()}
+
+
 class BytecodeFunction(LabelledBlob):
     # TODO: This seems really really wrong but let's not worry about it for now
     def __init__(self, labelled_blob):
@@ -241,7 +373,28 @@ class BytecodeFunction(LabelledBlob):
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels[0])
 
+    # TODO: Ultra experimental, I need to be very careful to ensure that any 
+    # changes to the disassembled version are reflected when dump() is called.
+    def disassemble(self):
+        ops = []
+        i = 0
+        while i < len(self.blob):
+            # There should be no labels within a bytecode function. We will later
+            # create branch-target labels based on the branch instructions within
+            # the function, but those are different.
+            assert i == 0 or not self.labels[i]
+            opcode = ord(self.blob[i])
+            print('SFTODOQQ %X' % opcode)
+            opdef = opdict[opcode]
+            i += 1
+            operands = []
+            for operandcls in opdef['operands']:
+                operand, i = operandcls.disassemble(self, i)
+                operands.append(operand)
+            print(opdef['opcode'], operands)
+
     def dump(self, rld, esd):
+        self.disassemble() # SFTODO MASSIVE HACK
         if not self.is_init():
             label = rld.get_bytecode_function_label()
             print(label.name)
