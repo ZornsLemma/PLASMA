@@ -29,7 +29,10 @@ def dci_bytes(s):
     result += '$%02X' % ord(s[-1])
     return result
 
+# TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
+
 class Label:
+    # TODO: Perhaps instead of callers supplying a name, they should specify a prefix and this class uses an internal 'static' counter (a dictionary keyed by prefix with a default value of 0, probably) to assign a name. That way we should be completely safe from the confusion of duplicate labels.
     def __init__(self, name):
         self.name = name
 
