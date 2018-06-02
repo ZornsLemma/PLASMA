@@ -771,7 +771,7 @@ end
 //        if ^rld & $10 // EXTERN reference.
 //            return rld, addr, fixup
 //        fin
-//        addr = rld=>1 + modfix
+//        addr = rld=>1 + modfix // SFTODO: SHOULD THIS LINE COME BEFORE THE 'if ^rld & $10'?? (COMPARE WITH THE ASSEMBLY CODE BELOW)
 //        fixup = *addr + modofst
 //        if uword_isge(fixup, bytecode) // Bytecode address.
 //            return rld, addr, fixup
