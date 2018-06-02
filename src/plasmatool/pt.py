@@ -72,7 +72,7 @@ class ExternalReference:
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
                 "\t!WORD\t%s-_SEGBEGIN\n" +
-                "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_index(self.external_name, 0x10), self.external_name)
+                "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_external_index(self.external_name), self.external_name)
 
 class RLD:
     def __init__(self):
@@ -102,14 +102,19 @@ class RLD:
 
 class ESD:
     def __init__(self):
-        self.dict = {}
+        self.entry_dict = {}
+        self.external_dict = {}
 
-    def get_index(self, external_name, flag):
-        esd_entry = self.dict.get(external_name)
+    def add_entry(self, external_name, reference):
+        assert external_name not in self.entry_dict
+        self.entry_dict[external_name] = reference
+
+    def get_external_index(self, external_name):
+        esd_entry = self.external_dict.get(external_name)
         if esd_entry is None:
-            esd_entry = (flag, len(self.dict))
-            self.dict[external_name] = esd_entry
-        return esd_entry[1]
+            esd_entry = len(self.external_dict)
+            self.external_dict[external_name] = esd_entry
+        return esd_entry
 
     def dump(self):
         print(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;")
@@ -118,11 +123,16 @@ class ESD:
         # the arbitrary order they appear in the dictionary iteration.
         # TODO: Similarly, the actual PLASMA compiler seems to put all the EXTERNAL SYMBOL FLAG
         # entries first - I think this will not break the VM, but it would be good to be compatible.
-        for external_name, esd_entry in self.dict.items():
+        for external_name, esd_index in self.external_dict.items():
             print("\t; DCI STRING: %s" % external_name)
             print("\t!BYTE\t%s" % dci_bytes(external_name))
-            print("\t!BYTE\t$%02X\t\t\t; %s" % (esd_entry[0], "EXTERNAL SYMBOL FLAG" if esd_entry[0] == 0x10 else "ENTRY SYMBOL FLAG")) # TODO: Bit crap assuming if it's not 0x10 it's 0x08
-            print("\t!WORD\t%d\t\t\t; ESD INDEX" % (esd_entry[1]))
+            print("\t!BYTE\t$10\t\t\t; EXTERNAL SYMBOL FLAG")
+            print("\t!WORD\t%d\t\t\t; ESD INDEX" % (esd_index,))
+        for external_name, reference in self.entry_dict.items():
+            print("\t; DCI STRING: %s" % external_name)
+            print("\t!BYTE\t%s" % dci_bytes(external_name))
+            print("\t!BYTE\t$08\t\t\t; ENTRY SYMBOL FLAG")
+            print('\t%s' % (reference.acme_reference(),))
         print("\t!BYTE\t$00\t\t\t; END OF ESD")
 
 class LabelledBlob:
@@ -250,9 +260,13 @@ with open('../rel/PLASM#FE1000', 'rb') as f:
 org = 4094
 
 new_esd = ESD()
+# TODO: esd_index is misnamed in the case of these 'ENTRY' flags
 for esd_name, esd_flag, esd_index in esd:
     if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
-        new_esd.get_index(esd_name, esd_flag)
+        blob_index = esd_index - org - blob_offset
+        label = Label('_X')
+        blob.label(blob_index, label)
+        new_esd.add_entry(esd_name, label)
 
 doing_code_table_fixups = True
 #bytecode_function_labels = []
