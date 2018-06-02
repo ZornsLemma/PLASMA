@@ -300,6 +300,18 @@ class Word:
         return word, i+2
 
 
+class CaseBlockOffset(Word):
+    def __repr__(self):
+        return "CaseBlockOffset(%d)" % (self.value,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        cbo = CaseBlockOffset(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
+        print('SFTODOCBO %d' % ord(bytecode_function[i + cbo.value]))
+        bytecode_function.special[i + cbo.value] = 1+4*ord(bytecode_function[i + cbo.value]) # SFTODO INCOMPLETE HACK
+        return cbo, i+2
+
+
 class String:
     def __init__(self, value):
         self.value = value
@@ -317,7 +329,8 @@ class String:
 
 
 
-# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
+# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
+# TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 opdict = {
     0x20: {'opcode': 'MINUS1', 'operands': ()},
     0x22: {'opcode': 'BREQ', 'operands': (Word,)},
@@ -328,33 +341,73 @@ opdict = {
     0x2c: {'opcode': 'CW', 'operands': (Word,)},
     0x2e: {'opcode': 'CS', 'operands': (String,)},
     0x30: {'opcode': 'DROP', 'operands': ()},
+    0x34: {'opcode': 'DUP', 'operands': ()},
     0x38: {'opcode': 'ADDI', 'operands': (Byte,)},
+    0x3a: {'opcode': 'SUBI', 'operands': (Byte,)},
     0x3c: {'opcode': 'ANDI', 'operands': (Byte,)},
+    0x3e: {'opcode': 'ORI', 'operands': (Byte,)},
+    0x40: {'opcode': 'ISEQ', 'operands': ()},
     0x42: {'opcode': 'ISNE', 'operands': ()},
     0x44: {'opcode': 'ISGT', 'operands': ()},
+    0x46: {'opcode': 'ISLT', 'operands': ()},
+    0x48: {'opcode': 'ISGE', 'operands': ()},
+    0x4a: {'opcode': 'ISLE', 'operands': ()},
     0x4c: {'opcode': 'BRFLS', 'operands': (Word,)},
     0x4e: {'opcode': 'BRTRU', 'operands': (Word,)},
     0x50: {'opcode': 'BRNCH', 'operands': (Word,)},
-    0x52: {'opcode': 'SEL', 'operands': (Word,)}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,)}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,)},
     0x56: {'opcode': 'ICAL', 'operands': ()},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte)},
     0x5c: {'opcode': 'RET', 'operands': ()},
     0x5a: {'opcode': 'LEAVE', 'operands': (Byte,)},
+    0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
+    0x62: {'opcode': 'LW', 'operands': ()},
     0x64: {'opcode': 'LLB', 'operands': (Byte,)},
     0x66: {'opcode': 'LLW', 'operands': (Byte,)},
     0x68: {'opcode': 'LAB', 'operands': (Label,)},
     0x6e: {'opcode': 'DLW', 'operands': (Byte,)},
     0x6a: {'opcode': 'LAW', 'operands': (Label,)},
+    0x6c: {'opcode': 'DLB', 'operands': (Byte,)},
+    0x70: {'opcode': 'SB', 'operands': ()},
+    0x72: {'opcode': 'SW', 'operands': ()},
     0x74: {'opcode': 'SLB', 'operands': (Byte,)},
     0x76: {'opcode': 'SLW', 'operands': (Byte,)},
     0x78: {'opcode': 'SAB', 'operands': (Label,)},
     0x7a: {'opcode': 'SAW', 'operands': (Label,)},
+    0x7c: {'opcode': 'DAB', 'operands': (Label,)},
+    0x7e: {'opcode': 'DAW', 'operands': (Label,)},
+    0x80: {'opcode': 'LNOT', 'operands': ()},
+    0x82: {'opcode': 'ADD', 'operands': ()},
+    0x84: {'opcode': 'SUB', 'operands': ()},
+    0x86: {'opcode': 'MUL', 'operands': ()},
+    0x88: {'opcode': 'DIV', 'operands': ()},
+    0x8a: {'opcode': 'MOD', 'operands': ()},
     0x8c: {'opcode': 'INCR', 'operands': ()},
     0x8e: {'opcode': 'DECR', 'operands': ()},
+    0x90: {'opcode': 'NEG', 'operands': ()},
+    0x92: {'opcode': 'COMP', 'operands': ()},
     0x94: {'opcode': 'BAND', 'operands': ()},
+    0x96: {'opcode': 'IOR', 'operands': ()},
+    0x98: {'opcode': 'XOR', 'operands': ()},
+    0x9a: {'opcode': 'SHL', 'operands': ()},
+    0x9c: {'opcode': 'SHR', 'operands': ()},
+    0x9e: {'opcode': 'IDXW', 'operands': ()},
+    0xa0: {'opcode': 'BRGT', 'operands': (Word,)},
+    0xa2: {'opcode': 'BRLT', 'operands': (Word,)},
+    0xa4: {'opcode': 'INCBRLE', 'operands': (Word,)},
+    0xa8: {'opcode': 'DECBRGE', 'operands': (Word,)},
     0xac: {'opcode': 'BRAND', 'operands': (Word,)},
+    0xae: {'opcode': 'BROR', 'operands': (Word,)},
+    0xb0: {'opcode': 'ADDLB', 'operands': (Byte,)},
+    0xb2: {'opcode': 'ADDLW', 'operands': (Byte,)},
+    0xb4: {'opcode': 'ADDAB', 'operands': (Label,)},
+    0xb6: {'opcode': 'ADDAW', 'operands': (Label,)},
+    0xb8: {'opcode': 'IDXLB', 'operands': (Byte,)},
+    0xba: {'opcode': 'IDXLW', 'operands': (Byte,)},
+    0xbc: {'opcode': 'IDXAB', 'operands': (Label,)},
+    0xbe: {'opcode': 'IDXAW', 'operands': (Label,)},
 }
 
 # TODO: Crappy having init code stuck here in the middle of function/class definitions
@@ -369,6 +422,7 @@ class BytecodeFunction(LabelledBlob):
         self.blob = labelled_blob.blob
         self.labels = labelled_blob.labels
         self.references = labelled_blob.references
+        self.special = [None] * len(labelled_blob) # SFTODO VERY EXPERIMENTAL
 
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels[0])
@@ -383,15 +437,22 @@ class BytecodeFunction(LabelledBlob):
             # create branch-target labels based on the branch instructions within
             # the function, but those are different.
             assert i == 0 or not self.labels[i]
-            opcode = ord(self.blob[i])
-            print('SFTODOQQ %X' % opcode)
-            opdef = opdict[opcode]
-            i += 1
-            operands = []
-            for operandcls in opdef['operands']:
-                operand, i = operandcls.disassemble(self, i)
-                operands.append(operand)
-            print(opdef['opcode'], operands)
+            if not self.special[i]:
+                opcode = ord(self.blob[i])
+                print('SFTODOQQ %X' % opcode)
+                opdef = opdict[opcode]
+                i += 1
+                operands = []
+                for operandcls in opdef['operands']:
+                    operand, i = operandcls.disassemble(self, i)
+                    operands.append(operand)
+                print(opdef['opcode'], operands)
+            else:
+                print('SFTODOSPECIAL')
+                # SFTODO: If this approach even roughly works, self.special[i] will need to be
+                # something more than just the size in bytes, but this will do for the moment
+                # so the disassembly can continue
+                i += self.special[i]
 
     def dump(self, rld, esd):
         self.disassemble() # SFTODO MASSIVE HACK
