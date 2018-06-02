@@ -50,6 +50,13 @@ class Label:
                 "\t!WORD\t%s-_SEGBEGIN\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
+    # TODO: Seems wrong to need this variant function, but let's just get
+    # things going for the moment
+    def acme_rld2(self, fixup_label, esd):
+        return ("\t!BYTE\t$02\t\t\t; CODE TABLE FIXUP\n" +
+                "\t!WORD\t%s\n" +
+                "\t!BYTE\t$00") % (fixup_label.name,)
+
 class ExternalReference:
     def __init__(self, external_name, offset):
         self.external_name = external_name
@@ -61,16 +68,16 @@ class ExternalReference:
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
                 "\t!WORD\t%s-_SEGBEGIN\n" +
-                "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_index(self.external_name), self.external_name)
+                "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_index(self.external_name, 0x10), self.external_name)
 
 class ESD:
     def __init__(self):
         self.dict = {}
 
-    def get_index(self, external_name):
+    def get_index(self, external_name, flag):
         esd_entry = self.dict.get(external_name)
         if esd_entry is None:
-            esd_entry = (0x10, len(self.dict))
+            esd_entry = (flag, len(self.dict))
             self.dict[external_name] = esd_entry
         return esd_entry[1]
 
@@ -79,6 +86,8 @@ class ESD:
         # TODO: I think the current PLASMA VM will be fine, as it searches the whole ESD every
         # time, but this should probably output the ESD entries in order of their index, not
         # the arbitrary order they appear in the dictionary iteration.
+        # TODO: Similarly, the actual PLASMA compiler seems to put all the EXTERNAL SYMBOL FLAG
+        # entries first - I think this will not break the VM, but it would be good to be compatible.
         for external_name, esd_entry in self.dict.items():
             print("\t; DCI STRING: %s" % external_name)
             print("\t!BYTE\t%s" % dci_bytes(external_name))
@@ -121,7 +130,7 @@ class LabelledBlob:
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
-    def dump(self):
+    def dump(self, esd, bytecode_function_labels):
         i = 0
         fixup_count = 0
         fixups = []
@@ -149,12 +158,17 @@ class LabelledBlob:
         # usefully, I want to be able to chop up the initial single blob into sub-blobs, e.g.
         # one per bytecode function, and then emit multiple such blobs into the final output.)
 
+        print("_SEGEND")
         print(";\n; RE-LOCATEABLE DICTIONARY\n;")
+
         # TODO: Need to emit _C RLD entries
-        esd = ESD()
+        for bytecode_function_label in bytecode_function_labels:
+            print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
+
         for reference, fixup_label in fixups:
             print(reference.acme_rld(fixup_label, esd))
         print("\t!BYTE\t$00\t\t\t; END OF RLD")
+
         esd.dump()
 
 with open('../rel/PLASM#FE1000', 'rb') as f:
@@ -203,6 +217,11 @@ with open('../rel/PLASM#FE1000', 'rb') as f:
 
 org = 4094
 
+new_esd = ESD()
+for esd_name, esd_flag, esd_index in esd:
+    if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
+        new_esd.get_index(esd_name, esd_flag)
+
 doing_code_table_fixups = True
 bytecode_function_labels = []
 for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
@@ -225,9 +244,6 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
             reference = None
             for esd_name, esd_flag, esd_index in esd: # TODO: We could have a dictionary keyed on esd_index
                 if esd_index == target_esd_index:
-                    # TODO: This is not really right; it will emit a !WORD _EFOO+4 thing in the
-                    # dump, but these really are fundamentally different and need to emit just the '4'                     # but trigger emission an external fixup.
-
                     reference = ExternalReference(esd_name, star_addr)
                     break
             assert label
@@ -243,4 +259,20 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
         else:
             assert False
 
-blob.dump()
+blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
+blob.label(init_abs - org - blob_offset, Label("_INIT"))
+
+print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
+print("_SEGBEGIN")
+print("\t!WORD\t$6502\t\t\t; MAGIC #")
+print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (sysflags,))
+print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
+print("\t!WORD\t%d\t\t\t; BYTECODE DEF COUNT" % (defcnt,))
+print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
+
+for import_name in import_names:
+    print("\t; DCI STRING: %s" % (import_name,))
+    print("\t!BYTE\t%s" % dci_bytes(import_name))
+print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
+
+blob.dump(new_esd, bytecode_function_labels)
