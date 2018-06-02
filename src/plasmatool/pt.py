@@ -104,6 +104,16 @@ class LabelledBlob:
     def __getitem__(self, key):
         return self.blob[key]
 
+    def __len__(self):
+        return len(self.blob)
+
+    def slice(self, start, end):
+        # SFTODO: Should use a proper ctor
+        b = LabelledBlob(self.blob[start:end])
+        b.labels = self.labels[start:end]
+        b.references = self.references[start:end]
+        return b
+
     def label(self, key, lbl):
         #print('QQQ %s' % (type(key)))
         #print('YYY %d %s' % (key, lbl.name))
@@ -130,10 +140,9 @@ class LabelledBlob:
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
-    def dump(self, esd, bytecode_function_labels):
+    def dump(self, rld, esd):
         i = 0
         fixup_count = 0
-        fixups = []
         while i < len(self.blob):
             if not self.references[i]:
                 #print('SFTODO XXX %d %d %d' % (i, len(self.labels), len(self.labels[i])))
@@ -145,31 +154,19 @@ class LabelledBlob:
                 assert not self.labels[i]
                 fixup_label = Label('_F%03d' % fixup_count)
                 fixup_count += 1
-                fixups.append((reference, fixup_label))
+                rld.append((reference, fixup_label))
                 print('%s\t%s' % (fixup_label.name, reference.acme_reference()))
                 i += 1
                 assert not self.labels[i]
                 assert not self.references[i]
             i += 1
 
-        # TODO: Eventually we may want the blob to pass the RLD/ESD stuff it wants to emit to
-        # some other object; this might (though we'd need to be careful about INIT-combining)
-        # for example allow us to merge two modules into a single module. (More immediately
-        # usefully, I want to be able to chop up the initial single blob into sub-blobs, e.g.
-        # one per bytecode function, and then emit multiple such blobs into the final output.)
 
-        print("_SEGEND")
-        print(";\n; RE-LOCATEABLE DICTIONARY\n;")
-
-        # TODO: Need to emit _C RLD entries
-        for bytecode_function_label in bytecode_function_labels:
-            print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
-
-        for reference, fixup_label in fixups:
-            print(reference.acme_rld(fixup_label, esd))
-        print("\t!BYTE\t$00\t\t\t; END OF RLD")
-
-        esd.dump()
+class Module:
+    def __init__(self):
+        self.sysflags = 0 # SFTODO!?
+        self.data_asm_blob = None # SFTODO!?
+        self.bytecode_functions = []
 
 with open('../rel/PLASM#FE1000', 'rb') as f:
     seg_size = read_u16(f)
@@ -259,8 +256,18 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
         else:
             assert False
 
-blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 blob.label(init_abs - org - blob_offset, Label("_INIT"))
+
+new_module = Module()
+# TODO: Should probably support proper [a:b] slice overload instead of having slice() fn
+new_module.data_asm_blob = blob.slice(0, subseg_abs - org - blob_offset)
+new_module.bytecode_blob = blob.slice(subseg_abs - org - blob_offset, len(blob))
+del blob
+del rld
+del esd
+
+#blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
+new_module.bytecode_blob.label(0, Label("_SUBSEG"))
 
 print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
 print("_SEGBEGIN")
@@ -275,4 +282,22 @@ for import_name in import_names:
     print("\t!BYTE\t%s" % dci_bytes(import_name))
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
-blob.dump(new_esd, bytecode_function_labels)
+new_rld = []
+new_module.data_asm_blob.dump(new_rld, new_esd)
+new_module.bytecode_blob.dump(new_rld, new_esd)
+
+print("_SEGEND")
+print(";\n; RE-LOCATEABLE DICTIONARY\n;")
+
+for bytecode_function_label in bytecode_function_labels:
+    print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
+
+# TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
+# the fast fixup case inside reloc() case handle them all sequentially. This may not make
+# a huge load time different, but it's probably a good idea - especially as output from
+# the standard compiler probably does this anyway.
+for reference, fixup_label in new_rld:
+    print(reference.acme_rld(fixup_label, new_esd))
+print("\t!BYTE\t$00\t\t\t; END OF RLD")
+
+new_esd.dump()
