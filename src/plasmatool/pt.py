@@ -293,7 +293,7 @@ for bytecode_function_label in bytecode_function_labels:
     print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
 
 # TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
-# the fast fixup case inside reloc() case handle them all sequentially. This may not make
+# the fast fixup case inside reloc() can handle them all sequentially. This may not make
 # a huge load time different, but it's probably a good idea - especially as output from
 # the standard compiler probably does this anyway.
 for reference, fixup_label in new_rld:
