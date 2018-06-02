@@ -331,6 +331,7 @@ new_module.data_asm_blob.dump(new_rld, new_esd, False)
 print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
+# TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
 for bytecode_function in new_module.bytecode_functions[0:-1]:
     bytecode_function.dump(new_rld, new_esd, True)
 print("_INIT")
