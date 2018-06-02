@@ -41,10 +41,9 @@ def dci_bytes(s):
 class Label:
     __next = collections.defaultdict(int)
 
-    # TODO: Perhaps instead of callers supplying a name, they should specify a prefix and this class uses an internal 'static' counter (a dictionary keyed by prefix with a default value of 0, probably) to assign a name. That way we should be completely safe from the confusion of duplicate labels.
     def __init__(self, prefix):
         i = Label.__next[prefix]
-        self.name = '%s%03d' % (prefix, i)
+        self.name = '%s%04d' % (prefix, i)
         Label.__next[prefix] += 1
 
     def acme_reference(self):
@@ -154,9 +153,9 @@ class LabelledBlob:
         #print('ZZZ %d' % (len(self.labels[key])))
         #print('QPP %r' % (self.labels))
 
-    def label_or_get(self, key, name):
+    def label_or_get(self, key, prefix):
         if not self.labels[key]:
-            self.labels[key].append(Label(name))
+            self.labels[key].append(Label(prefix))
         return self.labels[key][0]
 
     def reference(self, key, reference):
@@ -287,9 +286,8 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
             assert rld_byte == 0
             blob_index = star_addr - org - blob_offset
             # TODO? label would be _C or _D in compiler output, we can't tell
-            # and don't strictly care (I think). Perhaps use _I for internal?
-            # TODO: Perhaps have a separate count starting at 0 for these? If so, label_or_get should probably be responsible for incrementing that count to avoid gaps.
-            label = blob.label_or_get(blob_index, '_T')
+            # and don't strictly care (I think).
+            label = blob.label_or_get(blob_index, '_I')
             blob.reference(addr, label)
         else:
             assert False
@@ -310,6 +308,7 @@ for start, end in zip(offsets, offsets[1:]):
 del blob
 del rld
 del esd
+del defcnt
 
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
@@ -319,7 +318,7 @@ print("_SEGBEGIN")
 print("\t!WORD\t$6502\t\t\t; MAGIC #")
 print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (sysflags,))
 print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
-print("\t!WORD\t%d\t\t\t; BYTECODE DEF COUNT" % (defcnt,))
+print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
 print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
 
 for import_name in import_names:
@@ -337,6 +336,8 @@ for bytecode_function in new_module.bytecode_functions[0:-1]:
 print("_INIT")
 new_module.bytecode_functions[-1].dump(new_rld, new_esd, False)
 
+defcnt = len(new_module.bytecode_functions) # SFTODO NOT SURE THIS IS EXACTLY RIGHT, ALSO NOT SURE IF COMPILER ISN'T OVERDOING IT
+print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 
