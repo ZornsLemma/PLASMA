@@ -336,7 +336,7 @@ for bytecode_function in new_module.bytecode_functions[0:-1]:
 print("_INIT")
 new_module.bytecode_functions[-1].dump(new_rld, new_esd, False)
 
-defcnt = len(new_module.bytecode_functions) # SFTODO NOT SURE THIS IS EXACTLY RIGHT, ALSO NOT SURE IF COMPILER ISN'T OVERDOING IT
+defcnt = len(new_module.bytecode_functions)
 print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
