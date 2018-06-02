@@ -64,6 +64,11 @@ class Label:
                 "\t!WORD\t%s\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
+    def update_used_things(self, used_things):
+        # TODO: Use of global label_dict is a bit clunky
+        #print('SFTODOXY %d', len(label_dict))
+        label_dict[self.name].update_used_things(used_things)
+
 class ExternalReference:
     def __init__(self, external_name, offset):
         self.external_name = external_name
@@ -76,6 +81,9 @@ class ExternalReference:
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
                 "\t!WORD\t%s-_SEGBEGIN\n" +
                 "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_external_index(self.external_name), self.external_name)
+
+    def update_used_things(self, used_things):
+        pass
 
 class RLD:
     def __init__(self):
@@ -179,12 +187,27 @@ class LabelledBlob:
         # TODO: Best way to write this?!
         return ord(self[key]) | (ord(self[key+1]) << 8)
 
+    def update_label_dict(self, label_dict):
+        for label_list in self.labels:
+            for label in label_list:
+                label_dict[label.name] = self
+
+    def update_used_things(self, used_things):
+        if self in used_things:
+            return
+        used_things.add(self)
+        #print("SFTODO99 %r %r" % (self, len(self.references)))
+        #print("SFTODO99 %r" % self.references)
+        for reference in self.references:
+            if reference:
+                reference.update_used_things(used_things)
+
     # TODO: This will probably need to evolve quite a bit and may not be used
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
     def dump(self, rld, esd):
-        print("; SFTODO BLOB START")
+        print("; SFTODO BLOB START %r" % self)
         i = 0
         fixup_count = 0
         while i < len(self.blob):
@@ -207,18 +230,22 @@ class LabelledBlob:
         print("; SFTODO BLOB END")
 
 
-class BytecodeFunction:
-    def __init__(self, blob):
-        self.blob = blob
+class BytecodeFunction(LabelledBlob):
+    # TODO: This seems really really wrong but let's not worry about it for now
+    def __init__(self, labelled_blob):
+        assert isinstance(labelled_blob, LabelledBlob)
+        self.blob = labelled_blob.blob
+        self.labels = labelled_blob.labels
+        self.references = labelled_blob.references
 
     def is_init(self):
-        return any(x.name == '_INIT' for x in self.blob.labels[0])
+        return any(x.name == '_INIT' for x in self.labels[0])
 
     def dump(self, rld, esd):
         if not self.is_init():
             label = rld.get_bytecode_function_label()
             print(label.name)
-        self.blob.dump(rld, esd)
+        LabelledBlob.dump(self, rld, esd)
 
 
 class Module:
@@ -338,6 +365,34 @@ del rld
 del esd
 del defcnt
 
+# TODO: Should the keys in label_dict be the Label objects themselves rather than their names?
+label_dict = {}
+new_module.data_asm_blob.update_label_dict(label_dict)
+for bytecode_function in new_module.bytecode_functions:
+    bytecode_function.update_label_dict(label_dict)
+#print('SFTODOQ1 %r', label_dict)
+
+assert new_module.bytecode_functions[-1].is_init()
+used_things = set()
+new_module.bytecode_functions[-1].update_used_things(used_things)
+for external_name, reference in new_esd.entry_dict.items():
+    label_dict[reference.name].update_used_things(used_things)
+#print('SFTODOXXX %r', used_things)
+#print('SFTODOXXX %r', len(used_things))
+used_things_ordered = []
+init = []
+for used_thing in used_things:
+    if used_thing is new_module.data_asm_blob: # SFTODO HORRIBLE WAY TO DETECT THIS
+        # TODO: It is *possible* this data/asm blob is present but not used and we should
+        # be capable of avoiding emitting it if so, but since we need to treat it a bit
+        # differently let's not worry about it for now.
+        pass
+    elif used_thing.is_init():
+        init = [used_thing]
+    else:
+        used_things_ordered.append(used_thing)
+used_things_ordered += init
+
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
 
@@ -360,12 +415,20 @@ print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
-assert new_module.bytecode_functions[-1].is_init()
-for bytecode_function in new_module.bytecode_functions[0:-1]:
-    bytecode_function.dump(new_rld, new_esd)
-new_module.bytecode_functions[-1].dump(new_rld, new_esd)
+if False:
+    assert new_module.bytecode_functions[-1].is_init()
+    #print('SFTODOINITLEN %d' % len(new_module.bytecode_functions[-1].blob))
+    for bytecode_function in new_module.bytecode_functions[0:-1]:
+        bytecode_function.dump(new_rld, new_esd)
+    new_module.bytecode_functions[-1].dump(new_rld, new_esd)
+    defcnt = len(new_module.bytecode_functions)
+else:
+    assert used_things_ordered[-1].is_init()
+    for bytecode_function in used_things_ordered[0:-1]:
+        bytecode_function.dump(new_rld, new_esd)
+    used_things_ordered[-1].dump(new_rld, new_esd)
+    defcnt = len(used_things_ordered)
 
-defcnt = len(new_module.bytecode_functions)
 print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
