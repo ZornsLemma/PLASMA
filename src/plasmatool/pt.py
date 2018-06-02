@@ -1,3 +1,4 @@
+import collections
 import struct
 import sys
 
@@ -38,9 +39,13 @@ def dci_bytes(s):
 # TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
 
 class Label:
+    __next = collections.defaultdict(int)
+
     # TODO: Perhaps instead of callers supplying a name, they should specify a prefix and this class uses an internal 'static' counter (a dictionary keyed by prefix with a default value of 0, probably) to assign a name. That way we should be completely safe from the confusion of duplicate labels.
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, prefix):
+        i = Label.__next[prefix]
+        self.name = '%s%03d' % (prefix, i)
+        Label.__next[prefix] += 1
 
     def acme_reference(self):
         return "!WORD\t%s+0" % (self.name,)
@@ -69,6 +74,32 @@ class ExternalReference:
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
                 "\t!WORD\t%s-_SEGBEGIN\n" +
                 "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_index(self.external_name, 0x10), self.external_name)
+
+class RLD:
+    def __init__(self):
+        self.bytecode_function_labels = []
+        self.fixups = [] # TODO: poor name?
+
+    def get_bytecode_function_label(self):
+        label = Label('_C')
+        self.bytecode_function_labels.append(label)
+        return label
+
+    def add_fixup(self, reference, fixup_label):
+        self.fixups.append((reference, fixup_label))
+
+    def dump(self):
+        for bytecode_function_label in self.bytecode_function_labels:
+            print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
+
+        # TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
+        # the fast fixup case inside reloc() can handle them all sequentially. This may not make
+        # a huge load time different, but it's probably a good idea - especially as output from
+        # the standard compiler probably does this anyway.
+        for reference, fixup_label in self.fixups:
+            print(reference.acme_rld(fixup_label, new_esd))
+        print("\t!BYTE\t$00\t\t\t; END OF RLD")
+
 
 class ESD:
     def __init__(self):
@@ -140,9 +171,13 @@ class LabelledBlob:
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
-    def dump(self, rld, esd):
+    def dump(self, rld, esd, needs_code_table_fixup):
+        print("; SFTODO BLOB START")
         i = 0
         fixup_count = 0
+        if needs_code_table_fixup:
+            label = rld.get_bytecode_function_label()
+            print(label.name)
         while i < len(self.blob):
             if not self.references[i]:
                 #print('SFTODO XXX %d %d %d' % (i, len(self.labels), len(self.labels[i])))
@@ -152,14 +187,15 @@ class LabelledBlob:
             else:
                 reference = self.references[i]
                 assert not self.labels[i]
-                fixup_label = Label('_F%03d' % fixup_count)
+                fixup_label = Label('_F')
                 fixup_count += 1
-                rld.append((reference, fixup_label))
+                rld.add_fixup(reference, fixup_label)
                 print('%s\t%s' % (fixup_label.name, reference.acme_reference()))
                 i += 1
                 assert not self.labels[i]
                 assert not self.references[i]
             i += 1
+        print("; SFTODO BLOB END")
 
 
 class Module:
@@ -220,15 +256,17 @@ for esd_name, esd_flag, esd_index in esd:
         new_esd.get_index(esd_name, esd_flag)
 
 doing_code_table_fixups = True
-bytecode_function_labels = []
+#bytecode_function_labels = []
+bytecode_function_offsets = []
 for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
     if rld_type == 0x02: # code table fixup
         assert doing_code_table_fixups
         assert rld_byte == 0
         blob_index = rld_word - org - blob_offset
-        label = Label('_C%03d' % i)
-        bytecode_function_labels.append(label)
-        blob.label(blob_index, label)
+        bytecode_function_offsets.append(blob_index)
+        #label = Label('_C%03d' % i)
+        #bytecode_function_labels.append(label)
+        #blob.label(blob_index, label)
         #print blob[blob_index]
     else:
         doing_code_table_fixups = False
@@ -243,7 +281,7 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
                 if esd_index == target_esd_index:
                     reference = ExternalReference(esd_name, star_addr)
                     break
-            assert label
+            assert reference
             blob.reference(addr, reference)
         elif rld_type == 0x81: # internal fixup
             assert rld_byte == 0
@@ -251,23 +289,30 @@ for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
             # TODO? label would be _C or _D in compiler output, we can't tell
             # and don't strictly care (I think). Perhaps use _I for internal?
             # TODO: Perhaps have a separate count starting at 0 for these? If so, label_or_get should probably be responsible for incrementing that count to avoid gaps.
-            label = blob.label_or_get(blob_index, '_T%03d' % i)
+            label = blob.label_or_get(blob_index, '_T')
             blob.reference(addr, label)
         else:
             assert False
 
-blob.label(init_abs - org - blob_offset, Label("_INIT"))
+init_offset = init_abs - org - blob_offset
+#blob.label(init_offset, Label("_INIT"))
 
 new_module = Module()
 # TODO: Should probably support proper [a:b] slice overload instead of having slice() fn
 new_module.data_asm_blob = blob.slice(0, subseg_abs - org - blob_offset)
-new_module.bytecode_blob = blob.slice(subseg_abs - org - blob_offset, len(blob))
+
+#new_module.bytecode_blob = blob.slice(subseg_abs - org - blob_offset, len(blob))
+offsets = bytecode_function_offsets + [init_offset, len(blob)]
+for start, end in zip(offsets, offsets[1:]):
+    bytecode_function_blob = blob.slice(start, end)
+    new_module.bytecode_functions.append(bytecode_function_blob)
+
 del blob
 del rld
 del esd
 
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
-new_module.bytecode_blob.label(0, Label("_SUBSEG"))
+#new_module.bytecode_blob.label(0, Label("_SUBSEG"))
 
 print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
 print("_SEGBEGIN")
@@ -282,22 +327,19 @@ for import_name in import_names:
     print("\t!BYTE\t%s" % dci_bytes(import_name))
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
-new_rld = []
-new_module.data_asm_blob.dump(new_rld, new_esd)
-new_module.bytecode_blob.dump(new_rld, new_esd)
+new_rld = RLD()
+new_module.data_asm_blob.dump(new_rld, new_esd, False)
+print("_SUBSEG")
+#new_module.bytecode_blob.dump(new_rld, new_esd)
+# TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
+for bytecode_function in new_module.bytecode_functions[0:-1]:
+    bytecode_function.dump(new_rld, new_esd, True)
+print("_INIT")
+new_module.bytecode_functions[-1].dump(new_rld, new_esd, False)
 
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 
-for bytecode_function_label in bytecode_function_labels:
-    print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
-
-# TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
-# the fast fixup case inside reloc() can handle them all sequentially. This may not make
-# a huge load time different, but it's probably a good idea - especially as output from
-# the standard compiler probably does this anyway.
-for reference, fixup_label in new_rld:
-    print(reference.acme_rld(fixup_label, new_esd))
-print("\t!BYTE\t$00\t\t\t; END OF RLD")
+new_rld.dump()
 
 new_esd.dump()
