@@ -299,13 +299,42 @@ class Word:
         word = Word(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
         return word, i+2
 
+# https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
+def sign_extend(value, bits):
+    sign_bit = 1 << (bits - 1)
+    return (value & (sign_bit - 1)) - (value & sign_bit)
 
-class CaseBlockOffset(Word):
+class Offset(Word):
+    def __repr__(self):
+        return "Offset(%d)" % (self.value,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        value = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
+        value = sign_extend(value, 16)
+        target = i + value
+        if value > 0:
+            bytecode_function.local_target[target] = 999
+        elif value < 0:
+            j = 0
+            while j < len(bytecode_function.op_offset):
+                if bytecode_function.op_offset[j] == target:
+                    bytecode_function.op_offset.insert(j, None)
+                    bytecode_function.ops.insert(j, (0xff, []))
+                    j = 99999 # SFTODO ULTRA FOUL
+                j += 1
+            assert j >= 99999
+        return Offset(value), i+2
+
+
+
+class CaseBlockOffset(Offset):
     def __repr__(self):
         return "CaseBlockOffset(%d)" % (self.value,)
 
     @classmethod
     def disassemble(cls, bytecode_function, i):
+        # SFTODO: THIS NEEDS TO DO SIMILAR STUFF TO OFFSET CLASS I THINK
         cbo = CaseBlockOffset(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
         print('SFTODOCBO %d' % ord(bytecode_function[i + cbo.value]))
         bytecode_function.special[i + cbo.value] = 1+4*ord(bytecode_function[i + cbo.value]) # SFTODO INCOMPLETE HACK
@@ -353,9 +382,9 @@ opdict = {
     0x46: {'opcode': 'ISLT', 'operands': ()},
     0x48: {'opcode': 'ISGE', 'operands': ()},
     0x4a: {'opcode': 'ISLE', 'operands': ()},
-    0x4c: {'opcode': 'BRFLS', 'operands': (Word,)},
-    0x4e: {'opcode': 'BRTRU', 'operands': (Word,)},
-    0x50: {'opcode': 'BRNCH', 'operands': (Word,)},
+    0x4c: {'opcode': 'BRFLS', 'operands': (Offset,)},
+    0x4e: {'opcode': 'BRTRU', 'operands': (Offset,)},
+    0x50: {'opcode': 'BRNCH', 'operands': (Offset,)},
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,)}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,)},
     0x56: {'opcode': 'ICAL', 'operands': ()},
@@ -395,12 +424,12 @@ opdict = {
     0x9a: {'opcode': 'SHL', 'operands': ()},
     0x9c: {'opcode': 'SHR', 'operands': ()},
     0x9e: {'opcode': 'IDXW', 'operands': ()},
-    0xa0: {'opcode': 'BRGT', 'operands': (Word,)},
-    0xa2: {'opcode': 'BRLT', 'operands': (Word,)},
-    0xa4: {'opcode': 'INCBRLE', 'operands': (Word,)},
-    0xa8: {'opcode': 'DECBRGE', 'operands': (Word,)},
-    0xac: {'opcode': 'BRAND', 'operands': (Word,)},
-    0xae: {'opcode': 'BROR', 'operands': (Word,)},
+    0xa0: {'opcode': 'BRGT', 'operands': (Offset,)},
+    0xa2: {'opcode': 'BRLT', 'operands': (Offset,)},
+    0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,)},
+    0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,)},
+    0xac: {'opcode': 'BRAND', 'operands': (Offset,)},
+    0xae: {'opcode': 'BROR', 'operands': (Offset,)},
     0xb0: {'opcode': 'ADDLB', 'operands': (Byte,)},
     0xb2: {'opcode': 'ADDLW', 'operands': (Byte,)},
     0xb4: {'opcode': 'ADDAB', 'operands': (Label,)},
@@ -423,7 +452,10 @@ class BytecodeFunction(LabelledBlob):
         self.blob = labelled_blob.blob
         self.labels = labelled_blob.labels
         self.references = labelled_blob.references
+        self.local_target = [None] * len(labelled_blob) # SFTODO VERY EXPERIMETNAL
         self.special = [None] * len(labelled_blob) # SFTODO VERY EXPERIMENTAL
+        self.ops = [] # SFTODO VERY EXPERIMENTAL
+        self.op_offset = [] # SFTODO VERY EXPERIMENTAL
 
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels[0])
@@ -431,14 +463,18 @@ class BytecodeFunction(LabelledBlob):
     # TODO: Ultra experimental, I need to be very careful to ensure that any 
     # changes to the disassembled version are reflected when dump() is called.
     def disassemble(self):
-        ops = []
+        ops = self.ops
         i = 0
         while i < len(self.blob):
             # There should be no labels within a bytecode function. We will later
             # create branch-target labels based on the branch instructions within
             # the function, but those are different.
             assert i == 0 or not self.labels[i]
-            if not self.special[i]:
+            if self.local_target[i]:
+                ops.append((0xff, [])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+            self.op_offset.append(i)
+            special = self.special[i]
+            if not special:
                 opcode = ord(self.blob[i])
                 print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
@@ -448,12 +484,17 @@ class BytecodeFunction(LabelledBlob):
                     operand, i = operandcls.disassemble(self, i)
                     operands.append(operand)
                 print(opdef['opcode'], operands)
+                op = (opcode, operands)
+                ops.append(op)
             else:
                 print('SFTODOSPECIAL')
                 # SFTODO: If this approach even roughly works, self.special[i] will need to be
                 # something more than just the size in bytes, but this will do for the moment
                 # so the disassembly can continue
                 i += self.special[i]
+
+        for op in ops:
+            print repr(op)
 
     def dump(self, rld, esd):
         self.disassemble() # SFTODO MASSIVE HACK
