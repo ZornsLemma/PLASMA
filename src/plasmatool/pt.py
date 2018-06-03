@@ -304,27 +304,35 @@ def sign_extend(value, bits):
     sign_bit = 1 << (bits - 1)
     return (value & (sign_bit - 1)) - (value & sign_bit)
 
-class Offset(Word):
+local_label_count = 0
+
+class Offset:
+    def __init__(self, value):
+        self.value = value
+
     def __repr__(self):
-        return "Offset(%d)" % (self.value,)
+        return "Offset(%s)" % (self.value,)
 
     @classmethod
     def disassemble(cls, bytecode_function, i):
         value = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
         value = sign_extend(value, 16)
         target = i + value
+        global local_label_count
+        local_label = 'L%04d' % (local_label_count,)
+        local_label_count += 1
         if value > 0:
-            bytecode_function.local_target[target] = 999
+            bytecode_function.local_target[target] = local_label
         elif value < 0:
             j = 0
             while j < len(bytecode_function.op_offset):
                 if bytecode_function.op_offset[j] == target:
                     bytecode_function.op_offset.insert(j, None)
-                    bytecode_function.ops.insert(j, (0xff, []))
+                    bytecode_function.ops.insert(j, (0xff, [local_label]))
                     j = 99999 # SFTODO ULTRA FOUL
                 j += 1
             assert j >= 99999
-        return Offset(value), i+2
+        return Offset(local_label), i+2
 
 
 
@@ -362,13 +370,29 @@ class String:
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 # TODO: Check this table is complete and correct
 opdict = {
-    0x20: {'opcode': 'MINUS1', 'operands': ()},
-    0x22: {'opcode': 'BREQ', 'operands': (Word,)},
-    0x24: {'opcode': 'BRNE', 'operands': (Word,)},
+    0x00: {'opcode': 'CN', 'constfn': lambda bfn, i: (0, i)},
+    0x02: {'opcode': 'CN', 'constfn': lambda bfn, i: (1, i)},
+    0x04: {'opcode': 'CN', 'constfn': lambda bfn, i: (2, i)},
+    0x06: {'opcode': 'CN', 'constfn': lambda bfn, i: (3, i)},
+    0x08: {'opcode': 'CN', 'constfn': lambda bfn, i: (4, i)},
+    0x0a: {'opcode': 'CN', 'constfn': lambda bfn, i: (5, i)},
+    0x0c: {'opcode': 'CN', 'constfn': lambda bfn, i: (6, i)},
+    0x0e: {'opcode': 'CN', 'constfn': lambda bfn, i: (7, i)},
+    0x10: {'opcode': 'CN', 'constfn': lambda bfn, i: (8, i)},
+    0x12: {'opcode': 'CN', 'constfn': lambda bfn, i: (9, i)},
+    0x14: {'opcode': 'CN', 'constfn': lambda bfn, i: (10, i)},
+    0x16: {'opcode': 'CN', 'constfn': lambda bfn, i: (11, i)},
+    0x18: {'opcode': 'CN', 'constfn': lambda bfn, i: (12, i)},
+    0x1a: {'opcode': 'CN', 'constfn': lambda bfn, i: (13, i)},
+    0x1c: {'opcode': 'CN', 'constfn': lambda bfn, i: (14, i)},
+    0x1e: {'opcode': 'CN', 'constfn': lambda bfn, i: (15, i)},
+    0x20: {'opcode': 'MINUS1', 'constfn': lambda bfn, i: (-1, i)},
+    0x22: {'opcode': 'BREQ', 'operands': (Offset,)},
+    0x24: {'opcode': 'BRNE', 'operands': (Offset,)},
     0x26: {'opcode': 'LA', 'operands': (Label,)},
     0x28: {'opcode': 'LLA', 'operands': (Byte,)},
-    0x2a: {'opcode': 'CB', 'operands': (Byte,)},
-    0x2c: {'opcode': 'CW', 'operands': (Word,)},
+    0x2a: {'opcode': 'CB', 'constfn': lambda bfn, i: (ord(bfn[i]), i+1)},
+    0x2c: {'opcode': 'CW', 'constfn': lambda bfn, i: (999, i+2)}, # SFTODO 999 IS HACK
     0x2e: {'opcode': 'CS', 'operands': (String,)},
     0x30: {'opcode': 'DROP', 'operands': ()},
     0x34: {'opcode': 'DUP', 'operands': ()},
@@ -471,20 +495,25 @@ class BytecodeFunction(LabelledBlob):
             # the function, but those are different.
             assert i == 0 or not self.labels[i]
             if self.local_target[i]:
-                ops.append((0xff, [])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
-            self.op_offset.append(i)
+                ops.append((0xff, [self.local_target[i]])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+            self.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = self.special[i]
             if not special:
                 opcode = ord(self.blob[i])
+                i += 1
                 print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
-                i += 1
-                operands = []
-                for operandcls in opdef['operands']:
-                    operand, i = operandcls.disassemble(self, i)
-                    operands.append(operand)
-                print(opdef['opcode'], operands)
-                op = (opcode, operands)
+                constfn = opdef.get('constfn', None)
+                if constfn:
+                    operand, i = constfn(self, i)
+                    op = (0xfd, [operand]) # SFTODO MAGIC CONSTANT 'CONST' PSEUDO OP
+                else:
+                    operands = []
+                    for operandcls in opdef['operands']:
+                        operand, i = operandcls.disassemble(self, i)
+                        operands.append(operand)
+                    print(opdef['opcode'], operands)
+                    op = (opcode, operands)
                 ops.append(op)
             else:
                 print('SFTODOSPECIAL')
