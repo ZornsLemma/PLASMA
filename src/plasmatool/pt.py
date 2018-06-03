@@ -331,6 +331,7 @@ class String:
 
 # TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
+# TODO: Check this table is complete and correct
 opdict = {
     0x20: {'opcode': 'MINUS1', 'operands': ()},
     0x22: {'opcode': 'BREQ', 'operands': (Word,)},
