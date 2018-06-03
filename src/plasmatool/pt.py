@@ -50,8 +50,11 @@ class Label:
         else:
             self.name = prefix
 
+    def nm(self):
+        return self.name
+
     def acme_reference(self):
-        return "!WORD\t%s+0" % (self.name,)
+        return "\t!WORD\t%s+0" % (self.name,)
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$81\t\t\t; INTERNAL FIXUP\n" +
@@ -80,9 +83,15 @@ class ExternalReference:
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
+        
+    def nm(self):
+        if self.offset:
+            return "%s+%d" % (self.external_name, self.offset)
+        else:
+            return self.external_name
 
     def acme_reference(self):
-        return "!WORD\t%d\t\t\t; %s+%d" % (self.offset, self.external_name, self.offset)
+        return "\t!WORD\t%d\t\t\t; %s+%d" % (self.offset, self.external_name, self.offset)
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
@@ -245,35 +254,6 @@ class Opcode:
         pass
     
 
-class OpcodeCN(Opcode):
-    def __init__(self, blob, i):
-        self.opcode = blob[i]
-        self.value = self.opcode / 2
-
-    def length(self):
-        return 1
-
-    def dump(self):
-        print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (self.opcode, self.value))
-
-
-class OpcodeLAB(Opcode):
-    def __init__(self, blob, i):
-        self.opcode = blob[i]
-
-
-class OpcodeDLW(Opcode):
-    def __init__(self, blob, i):
-        self.opcode = blob[i]
-        self.value = ord(blob[i+1])
-
-    def length(self):
-        return 2
-
-    def dump(self):
-        print("\t!BYTE\t$%02X,$%02X\t\t\t; DLW\t[%d]" % (self.opcode, self.value, self.value))
-
-
 class Byte:
     def __init__(self, value):
         self.value = value
@@ -281,10 +261,22 @@ class Byte:
     def __repr__(self):
         return "Byte(%d)" % (self.value,)
 
+    def acme(self):
+        return "$%02X" % (self.value,)
+
+    def human(self):
+        return "%d" % (self.value,)
+
     @classmethod
     def disassemble(cls, bytecode_function, i):
-        byte = Byte(ord(bytecode_function[i]))
+        byte = cls(ord(bytecode_function[i]))
         return byte, i+1
+
+
+class FrameOffset(Byte):
+    def human(self):
+        return "[%d]" % (self.value,)
+
 
 
 class Word:
@@ -319,7 +311,7 @@ class Offset:
         value = sign_extend(value, 16)
         target = i + value
         global local_label_count
-        local_label = 'L%04d' % (local_label_count,)
+        local_label = '_L%04d' % (local_label_count,)
         local_label_count += 1
         if value > 0:
             bytecode_function.local_target[target] = local_label
@@ -365,6 +357,31 @@ class String:
         return String(s), i + length + 1
 
 
+def acme_dump_enter(opcode, operands):
+    print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; ENTER\t%d,%d" % (opcode, operands[0].value, operands[1].value, operands[0].value, operands[1].value))
+
+def acme_dump_branch(opcode, operands):
+    print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].value))
+    print("\t!WORD\t%s-*" % (operands[0].value,))
+
+def acme_dump_label(opcode, operands):
+    print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
+    print(operands[0].acme_reference())
+
+def acme_dump_cs(opcode, operands):
+    s = operands[0].value
+    print("\t!BYTE\t$2E\t\t\t; CS\t%r" % (s,)) # SFTODO: REPR NOT PERFECT BUT WILL DO - IT CAN USE SINGLE QUOTES TO WRAP THE STRING WHICH ISN'T IDEAL
+    print("\t!BYTE\t$%02X" % (len(s),))
+    while s:
+        t = s[0:8]
+        s = s[8:]
+        print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
+
+def acme_dump_sel(opcode, operands):
+    print("SFTODOSEL!")
+
+
+
 
 # TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
@@ -387,13 +404,13 @@ opdict = {
     0x1c: {'opcode': 'CN', 'constfn': lambda bfn, i: (14, i)},
     0x1e: {'opcode': 'CN', 'constfn': lambda bfn, i: (15, i)},
     0x20: {'opcode': 'MINUS1', 'constfn': lambda bfn, i: (-1, i)},
-    0x22: {'opcode': 'BREQ', 'operands': (Offset,)},
-    0x24: {'opcode': 'BRNE', 'operands': (Offset,)},
-    0x26: {'opcode': 'LA', 'operands': (Label,)},
-    0x28: {'opcode': 'LLA', 'operands': (Byte,)},
+    0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x28: {'opcode': 'LLA', 'operands': (FrameOffset,)},
     0x2a: {'opcode': 'CB', 'constfn': lambda bfn, i: (ord(bfn[i]), i+1)},
     0x2c: {'opcode': 'CW', 'constfn': lambda bfn, i: (999, i+2)}, # SFTODO 999 IS HACK
-    0x2e: {'opcode': 'CS', 'operands': (String,)},
+    0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
     0x30: {'opcode': 'DROP', 'operands': ()},
     0x34: {'opcode': 'DUP', 'operands': ()},
     0x38: {'opcode': 'ADDI', 'operands': (Byte,)},
@@ -406,32 +423,32 @@ opdict = {
     0x46: {'opcode': 'ISLT', 'operands': ()},
     0x48: {'opcode': 'ISGE', 'operands': ()},
     0x4a: {'opcode': 'ISLE', 'operands': ()},
-    0x4c: {'opcode': 'BRFLS', 'operands': (Offset,)},
-    0x4e: {'opcode': 'BRTRU', 'operands': (Offset,)},
-    0x50: {'opcode': 'BRNCH', 'operands': (Offset,)},
-    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,)}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
-    0x54: {'opcode': 'CALL', 'operands': (Label,)},
+    0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_sel}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x56: {'opcode': 'ICAL', 'operands': ()},
-    0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte)},
+    0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter},
     0x5c: {'opcode': 'RET', 'operands': ()},
     0x5a: {'opcode': 'LEAVE', 'operands': (Byte,)},
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
     0x62: {'opcode': 'LW', 'operands': ()},
     0x64: {'opcode': 'LLB', 'operands': (Byte,)},
-    0x66: {'opcode': 'LLW', 'operands': (Byte,)},
-    0x68: {'opcode': 'LAB', 'operands': (Label,)},
-    0x6e: {'opcode': 'DLW', 'operands': (Byte,)},
-    0x6a: {'opcode': 'LAW', 'operands': (Label,)},
-    0x6c: {'opcode': 'DLB', 'operands': (Byte,)},
+    0x66: {'opcode': 'LLW', 'operands': (FrameOffset,)},
+    0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,)},
+    0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,)},
     0x70: {'opcode': 'SB', 'operands': ()},
     0x72: {'opcode': 'SW', 'operands': ()},
-    0x74: {'opcode': 'SLB', 'operands': (Byte,)},
-    0x76: {'opcode': 'SLW', 'operands': (Byte,)},
-    0x78: {'opcode': 'SAB', 'operands': (Label,)},
-    0x7a: {'opcode': 'SAW', 'operands': (Label,)},
-    0x7c: {'opcode': 'DAB', 'operands': (Label,)},
-    0x7e: {'opcode': 'DAW', 'operands': (Label,)},
+    0x74: {'opcode': 'SLB', 'operands': (FrameOffset,)},
+    0x76: {'opcode': 'SLW', 'operands': (FrameOffset,)},
+    0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x7e: {'opcode': 'DAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x80: {'opcode': 'LNOT', 'operands': ()},
     0x82: {'opcode': 'ADD', 'operands': ()},
     0x84: {'opcode': 'SUB', 'operands': ()},
@@ -448,25 +465,21 @@ opdict = {
     0x9a: {'opcode': 'SHL', 'operands': ()},
     0x9c: {'opcode': 'SHR', 'operands': ()},
     0x9e: {'opcode': 'IDXW', 'operands': ()},
-    0xa0: {'opcode': 'BRGT', 'operands': (Offset,)},
-    0xa2: {'opcode': 'BRLT', 'operands': (Offset,)},
-    0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,)},
-    0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,)},
-    0xac: {'opcode': 'BRAND', 'operands': (Offset,)},
-    0xae: {'opcode': 'BROR', 'operands': (Offset,)},
-    0xb0: {'opcode': 'ADDLB', 'operands': (Byte,)},
-    0xb2: {'opcode': 'ADDLW', 'operands': (Byte,)},
-    0xb4: {'opcode': 'ADDAB', 'operands': (Label,)},
-    0xb6: {'opcode': 'ADDAW', 'operands': (Label,)},
-    0xb8: {'opcode': 'IDXLB', 'operands': (Byte,)},
-    0xba: {'opcode': 'IDXLW', 'operands': (Byte,)},
-    0xbc: {'opcode': 'IDXAB', 'operands': (Label,)},
-    0xbe: {'opcode': 'IDXAW', 'operands': (Label,)},
+    0xa0: {'opcode': 'BRGT', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xa2: {'opcode': 'BRLT', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xac: {'opcode': 'BRAND', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,)},
+    0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,)},
+    0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0xb6: {'opcode': 'ADDAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,)},
+    0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,)},
+    0xbc: {'opcode': 'IDXAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0xbe: {'opcode': 'IDXAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
 }
-
-# TODO: Crappy having init code stuck here in the middle of function/class definitions
-for opcode in range(0, 0x20, 2):
-    opdict[opcode] = {'opcode': 'CN', 'operands': ()}
 
 
 class BytecodeFunction(LabelledBlob):
@@ -496,12 +509,13 @@ class BytecodeFunction(LabelledBlob):
             assert i == 0 or not self.labels[i]
             if self.local_target[i]:
                 ops.append((0xff, [self.local_target[i]])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+                self.op_offset.append(None)
             self.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = self.special[i]
             if not special:
                 opcode = ord(self.blob[i])
                 i += 1
-                print('SFTODOQQ %X' % opcode)
+                #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 constfn = opdef.get('constfn', None)
                 if constfn:
@@ -512,7 +526,7 @@ class BytecodeFunction(LabelledBlob):
                     for operandcls in opdef['operands']:
                         operand, i = operandcls.disassemble(self, i)
                         operands.append(operand)
-                    print(opdef['opcode'], operands)
+                    #print(opdef['opcode'], operands)
                     op = (opcode, operands)
                 ops.append(op)
             else:
@@ -522,8 +536,35 @@ class BytecodeFunction(LabelledBlob):
                 # so the disassembly can continue
                 i += self.special[i]
 
-        for op in ops:
-            print repr(op)
+        for opcode, operands in ops:
+            if opcode == 0xfd:
+                value = operands[0]
+                if value >= 0 and value < 16:
+                    print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
+                elif value >= 0 and value < 256:
+                    print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
+                elif value == -1:
+                    print("\t!BYTE\t$20\t\t\t; MINUS ONE")
+                elif value & 0xff00 == 0xff00:
+                    print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
+                else:
+                    print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
+            elif opcode == 0xff:
+                print("%s" % (operands[0]))
+            else:
+                opdef = opdict[opcode]
+                operand_types = opdef['operands']
+                acme_dump = opdef.get('acme_dump', None)
+                #print('SFTODO99 %02X' % (opcode,))
+                if acme_dump:
+                    acme_dump(opcode, operands)
+                else:
+                    if len(operands) == 0:
+                        print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode, opdef['opcode']))
+                    else:
+                        assert len(operands) == 1
+                        print("\t!BYTE\t$%02X,%s\t\t\t; %s\t%s" % (opcode, operands[0].acme(), opdef['opcode'], operands[0].human()))
+
 
     def dump(self, rld, esd):
         self.disassemble() # SFTODO MASSIVE HACK
