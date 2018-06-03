@@ -248,6 +248,11 @@ _DIVEX	INX
 ;*
 ;* TODO: Check every now and again that this alignment is still "efficient"
 ;* on all builds.
+;* TODO: Could I simply make the load address 3 bytes below a page boundary?
+;* That way the table could be at the start and still be page-aligned. Only
+;* downside I can see is that if we load *just* below PAGE, we will corrupt
+;* workspace - but there's always a risk of that kind of thing anyway (eg.
+;* PAGE is at &2100 and we load at &2000).
 ;*
 	!ALIGN	255,0
 OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
