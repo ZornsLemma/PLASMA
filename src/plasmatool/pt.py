@@ -306,16 +306,19 @@ class Offset:
         return "Offset(%s)" % (self.value,)
 
     @classmethod
-    def disassemble(cls, bytecode_function, i):
+    def disassemble(cls, bytecode_function, i, current_pos = None):
+        if not current_pos:
+            current_pos = i
         value = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
         value = sign_extend(value, 16)
         target = i + value
         global local_label_count
         local_label = '_L%04d' % (local_label_count,)
+        print("; SFTODO ASSIGNING LOCAL LABEL %s" % (local_label,))
         local_label_count += 1
-        if value > 0:
-            bytecode_function.local_target[target] = local_label
-        elif value < 0:
+        if target > current_pos:
+            bytecode_function.local_target[target].append(local_label)
+        elif target < current_pos:
             j = 0
             while j < len(bytecode_function.op_offset):
                 if bytecode_function.op_offset[j] == target:
@@ -328,17 +331,27 @@ class Offset:
 
 
 
-class CaseBlockOffset(Offset):
+class CaseBlockOffset:
+    def __init__(self, table):
+        self.table = table
+
     def __repr__(self):
-        return "CaseBlockOffset(%d)" % (self.value,)
+        return "CaseBlockOffset(%d)" % (len(self.table),)
 
     @classmethod
     def disassemble(cls, bytecode_function, i):
         # SFTODO: THIS NEEDS TO DO SIMILAR STUFF TO OFFSET CLASS I THINK
-        cbo = CaseBlockOffset(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
-        print('SFTODOCBO %d' % ord(bytecode_function[i + cbo.value]))
-        bytecode_function.special[i + cbo.value] = 1+4*ord(bytecode_function[i + cbo.value]) # SFTODO INCOMPLETE HACK
-        return cbo, i+2
+        cbo = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
+        count = ord(bytecode_function[i + cbo])
+        #print('SFTODOCBO %d' % count)
+        bytecode_function.special[i + cbo] = 1+4*count # SFTODO INCOMPLETE HACK
+        table = []
+        for j in range(count):
+            k = i + cbo + 1 + 4*j
+            value = ord(bytecode_function[k]) | (ord(bytecode_function[k+1]) << 8)
+            offset, _ = Offset.disassemble(bytecode_function, k+2, i)
+            table.append((value, offset))
+        return CaseBlockOffset(table), i+2
 
 
 class String:
@@ -378,7 +391,17 @@ def acme_dump_cs(opcode, operands):
         print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
 def acme_dump_sel(opcode, operands):
-    print("SFTODOSEL!")
+    global local_label_count
+    local_label = '_L%04d' % (local_label_count,)
+    local_label_count += 1
+    global tail
+    print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (local_label,))
+    print("\t!WORD\t%s-*" % (local_label,))
+    tail.append(local_label)
+    tail.append("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(operands[0].table),))
+    for value, offset in operands[0].table:
+        tail.append("\t!WORD\t$%04X" % (value,))
+        tail.append("\t!WORD\t%s-*" % (offset.value,))
 
 
 
@@ -489,7 +512,7 @@ class BytecodeFunction(LabelledBlob):
         self.blob = labelled_blob.blob
         self.labels = labelled_blob.labels
         self.references = labelled_blob.references
-        self.local_target = [None] * len(labelled_blob) # SFTODO VERY EXPERIMETNAL
+        self.local_target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
         self.special = [None] * len(labelled_blob) # SFTODO VERY EXPERIMENTAL
         self.ops = [] # SFTODO VERY EXPERIMENTAL
         self.op_offset = [] # SFTODO VERY EXPERIMENTAL
@@ -507,8 +530,8 @@ class BytecodeFunction(LabelledBlob):
             # create branch-target labels based on the branch instructions within
             # the function, but those are different.
             assert i == 0 or not self.labels[i]
-            if self.local_target[i]:
-                ops.append((0xff, [self.local_target[i]])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+            for t in self.local_target[i]:
+                ops.append((0xff, [t])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
                 self.op_offset.append(None)
             self.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = self.special[i]
@@ -530,12 +553,10 @@ class BytecodeFunction(LabelledBlob):
                     op = (opcode, operands)
                 ops.append(op)
             else:
-                print('SFTODOSPECIAL')
-                # SFTODO: If this approach even roughly works, self.special[i] will need to be
-                # something more than just the size in bytes, but this will do for the moment
-                # so the disassembly can continue
                 i += self.special[i]
 
+        global tail# SFTODO HACK, SHOULD BE MEMBER OR SOMETHING
+        tail = []
         for opcode, operands in ops:
             if opcode == 0xfd:
                 value = operands[0]
@@ -564,14 +585,17 @@ class BytecodeFunction(LabelledBlob):
                     else:
                         assert len(operands) == 1
                         print("\t!BYTE\t$%02X,%s\t\t\t; %s\t%s" % (opcode, operands[0].acme(), opdef['opcode'], operands[0].human()))
+        print("\n".join(tail))
 
 
     def dump(self, rld, esd):
-        self.disassemble() # SFTODO MASSIVE HACK
         if not self.is_init():
             label = rld.get_bytecode_function_label()
             print(label.name)
-        LabelledBlob.dump(self, rld, esd)
+        for label in self.labels[0]:
+            print(label.name)
+        self.disassemble() # SFTODO MASSIVE HACK
+        # LabelledBlob.dump(self, rld, esd)
 
 
 class Module:
