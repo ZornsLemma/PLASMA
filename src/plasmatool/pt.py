@@ -1,5 +1,6 @@
 import abc
 import collections
+import itertools
 import struct
 import sys
 
@@ -667,6 +668,27 @@ class BytecodeFunction:
         # LabelledBlob.dump(self, rld, esd)
 
 
+
+def straightline_optimise(bytecode_function, optimisations):
+    groups = []
+    group = []
+    for opcode, operands in bytecode_function.ops:
+        if not group or (opcode == 0xff and group[-1][0] == 0xff) or (opcode != 0xff and group[-1][0] != 0xff):
+            group.append((opcode, operands))
+        else:
+            groups.append(group)
+            group = [(opcode, operands)]
+    if group:
+        groups.append(group)
+    new_ops = []
+    for group in groups:
+        if group[0][0] != 0xff:
+            for optimisation in optimisations:
+                optimisation(bytecode_function, group)
+        new_ops.extend(group)
+    bytecode_function.ops = new_ops
+
+
 class Module:
     def __init__(self):
         self.sysflags = 0 # SFTODO!?
@@ -831,19 +853,12 @@ print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
-if False:
-    assert new_module.bytecode_functions[-1].is_init()
-    #print('SFTODOINITLEN %d' % len(new_module.bytecode_functions[-1].blob))
-    for bytecode_function in new_module.bytecode_functions[0:-1]:
-        bytecode_function.dump(new_rld, new_esd)
-    new_module.bytecode_functions[-1].dump(new_rld, new_esd)
-    defcnt = len(new_module.bytecode_functions)
-else:
-    assert used_things_ordered[-1].is_init()
-    for bytecode_function in used_things_ordered[0:-1]:
-        bytecode_function.dump(new_rld, new_esd)
-    used_things_ordered[-1].dump(new_rld, new_esd)
-    defcnt = len(used_things_ordered)
+assert used_things_ordered[-1].is_init()
+for bytecode_function in used_things_ordered[0:-1]:
+    straightline_optimise(bytecode_function, [])
+    bytecode_function.dump(new_rld, new_esd)
+used_things_ordered[-1].dump(new_rld, new_esd)
+defcnt = len(used_things_ordered)
 
 print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
