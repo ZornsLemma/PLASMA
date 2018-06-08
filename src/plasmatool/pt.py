@@ -320,7 +320,7 @@ class Offset:
         target = i + value
         global local_label_count
         local_label = '_L%04d' % (local_label_count,)
-        print("; SFTODO ASSIGNING LOCAL LABEL %s" % (local_label,))
+        #print("; SFTODO ASSIGNING LOCAL LABEL %s" % (local_label,))
         local_label_count += 1
         if target > current_pos:
             bytecode_function.local_target[target].append(local_label)
@@ -338,26 +338,42 @@ class Offset:
 
 
 class CaseBlockOffset:
+    def __init__(self, label):
+        self.label = label
+
+    def __repr__(self):
+        return "CaseBlockOffset(%s)" % (self.label,)
+
+    @classmethod
+    def disassemble(cls, bytecode_function, i):
+        global local_label_count
+        local_label = '_L%04d' % (local_label_count,)
+        local_label_count += 1
+        # SFTODO: THIS NEEDS TO DO SIMILAR STUFF TO OFFSET CLASS I THINK
+        cbo = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
+        #count = ord(bytecode_function[i + cbo])
+        #print('SFTODOCBO %d' % count)
+        bytecode_function.special[i + cbo] = local_label # SFTODO HACKY
+        return CaseBlockOffset(local_label), i+2
+
+
+class CaseBlock:
     def __init__(self, table):
         self.table = table
 
     def __repr__(self):
-        return "CaseBlockOffset(%d)" % (len(self.table),)
+        return "CaseBlock(%d)" % (len(self.table),)
 
     @classmethod
     def disassemble(cls, bytecode_function, i):
-        # SFTODO: THIS NEEDS TO DO SIMILAR STUFF TO OFFSET CLASS I THINK
-        cbo = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
-        count = ord(bytecode_function[i + cbo])
-        #print('SFTODOCBO %d' % count)
-        bytecode_function.special[i + cbo] = 1+4*count # SFTODO INCOMPLETE HACK
+        count = ord(bytecode_function[i])
         table = []
         for j in range(count):
-            k = i + cbo + 1 + 4*j
+            k = i + 1 + 4*j
             value = ord(bytecode_function[k]) | (ord(bytecode_function[k+1]) << 8)
             offset, _ = Offset.disassemble(bytecode_function, k+2, i)
             table.append((value, offset))
-        return CaseBlockOffset(table), i+2
+        return CaseBlock(table), i+1+4*count
 
 
 class String:
@@ -399,22 +415,26 @@ def acme_dump_cs(opcode, operands):
         print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
 def acme_dump_sel(opcode, operands):
-    global local_label_count
-    local_label = '_L%04d' % (local_label_count,)
-    local_label_count += 1
     global tail
-    print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (local_label,))
-    print("\t!WORD\t%s-*" % (local_label,))
-    tail.append(local_label)
-    tail.append("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(operands[0].table),))
-    for value, offset in operands[0].table:
-        tail.append("\t!WORD\t$%04X" % (value,))
-        tail.append("\t!WORD\t%s-*" % (offset.value,))
+    print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (operands[0].label,))
+    print("\t!WORD\t%s-*" % (operands[0].label,))
+    #tail.append(local_label)
+    #tail.append("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(operands[0].table),))
+    #for value, offset in operands[0].table:
+    #    tail.append("\t!WORD\t$%04X" % (value,))
+    #    tail.append("\t!WORD\t%s-*" % (offset.value,))
+
+def acme_dump_caseblock(opcode, operands):
+    table = operands[0].table
+    print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),))
+    for value, offset in table:
+        print("\t!WORD\t$%04X" % (value,))
+        print("\t!WORD\t%s-*" % (offset.value,))
 
 
 
 
-# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
+# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one - I have done this, but it many ways it would be cleaner to turn them all into CW not a CONST pseudo-op, and then optimise CW on output instead of optimising this CONST pseudo-op
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 # TODO: Check this table is complete and correct
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
@@ -562,7 +582,10 @@ class BytecodeFunction(LabelledBlob):
                     op = (opcode, operands)
                 ops.append(op)
             else:
-                i += self.special[i]
+                label = self.special[i]
+                operand, i = CaseBlock.disassemble(self, i)
+                op = (0xfb, [operand]) # SFTODO MAGIC CONST 'CASEBLOCK' PSEUDO OP
+                ops.append(op)
 
         global tail# SFTODO HACK, SHOULD BE MEMBER OR SOMETHING
         tail = []
@@ -581,6 +604,8 @@ class BytecodeFunction(LabelledBlob):
                     print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
             elif opcode == 0xff:
                 print("%s" % (operands[0]))
+            elif opcode == 0xfb:
+                acme_dump_caseblock(opcode, operands)
             else:
                 opdef = opdict[opcode]
                 operand_types = opdef['operands']
