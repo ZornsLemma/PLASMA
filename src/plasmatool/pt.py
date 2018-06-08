@@ -487,7 +487,7 @@ opdict = {
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
     0x62: {'opcode': 'LW', 'operands': ()},
-    0x64: {'opcode': 'LLB', 'operands': (Byte,)},
+    0x64: {'opcode': 'LLB', 'operands': (FrameOffset,)},
     0x66: {'opcode': 'LLW', 'operands': (FrameOffset,)},
     0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,)},
