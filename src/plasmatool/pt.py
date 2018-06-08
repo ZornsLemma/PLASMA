@@ -56,6 +56,9 @@ class Label:
     def acme_reference(self):
         return "\t!WORD\t%s+0" % (self.name,)
 
+    def acme_reference2(self): # SFTODO: HORRIBLE NAMING ETC ETC
+        return "!WORD\t%s+0" % (self.name,)
+
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$81\t\t\t; INTERNAL FIXUP\n" +
                 "\t!WORD\t%s-_SEGBEGIN\n" +
@@ -92,6 +95,9 @@ class ExternalReference:
 
     def acme_reference(self):
         return "\t!WORD\t%d\t\t\t; %s+%d" % (self.offset, self.external_name, self.offset)
+
+    def acme_reference2(self): # SFTODO: HORRIBLE NAMING ETC ETC
+        return "!WORD\t%d" % (self.offset,)
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
@@ -377,9 +383,11 @@ def acme_dump_branch(opcode, operands):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].value))
     print("\t!WORD\t%s-*" % (operands[0].value,))
 
-def acme_dump_label(opcode, operands):
+def acme_dump_label(opcode, operands, rld):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
-    print(operands[0].acme_reference())
+    fixup_label = Label('_F')
+    rld.add_fixup(operands[0], fixup_label)
+    print('%s\t%s' % (fixup_label.name, operands[0].acme_reference2()))
 
 def acme_dump_cs(opcode, operands):
     s = operands[0].value
@@ -409,6 +417,7 @@ def acme_dump_sel(opcode, operands):
 # TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 # TODO: Check this table is complete and correct
+# TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 opdict = {
     0x00: {'opcode': 'CN', 'constfn': lambda bfn, i: (0, i)},
     0x02: {'opcode': 'CN', 'constfn': lambda bfn, i: (1, i)},
@@ -522,7 +531,7 @@ class BytecodeFunction(LabelledBlob):
 
     # TODO: Ultra experimental, I need to be very careful to ensure that any 
     # changes to the disassembled version are reflected when dump() is called.
-    def disassemble(self):
+    def disassemble(self, rld):
         ops = self.ops
         i = 0
         while i < len(self.blob):
@@ -578,7 +587,11 @@ class BytecodeFunction(LabelledBlob):
                 acme_dump = opdef.get('acme_dump', None)
                 #print('SFTODO99 %02X' % (opcode,))
                 if acme_dump:
-                    acme_dump(opcode, operands)
+                    # SFTODO: Truly hacky
+                    if acme_dump == acme_dump_label:
+                        acme_dump(opcode, operands, rld)
+                    else:
+                        acme_dump(opcode, operands)
                 else:
                     if len(operands) == 0:
                         print("\t!BYTE\t$%02X\t\t\t; %s" % (opcode, opdef['opcode']))
@@ -594,7 +607,7 @@ class BytecodeFunction(LabelledBlob):
             print(label.name)
         for label in self.labels[0]:
             print(label.name)
-        self.disassemble() # SFTODO MASSIVE HACK
+        self.disassemble(rld) # SFTODO MASSIVE HACK
         # LabelledBlob.dump(self, rld, esd)
 
 
