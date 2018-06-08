@@ -999,3 +999,7 @@ print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 new_rld.dump()
 
 new_esd.dump()
+
+# TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
+
+# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler.
