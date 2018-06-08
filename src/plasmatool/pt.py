@@ -441,7 +441,7 @@ opdict = {
     0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x28: {'opcode': 'LLA', 'operands': (FrameOffset,)},
     0x2a: {'opcode': 'CB', 'constfn': lambda bfn, i: (ord(bfn[i]), i+1)},
-    0x2c: {'opcode': 'CW', 'constfn': lambda bfn, i: (999, i+2)}, # SFTODO 999 IS HACK
+    0x2c: {'opcode': 'CW', 'constfn': lambda bfn, i: (sign_extend(ord(bfn[i]) | (ord(bfn[i+1]) << 8), 16), i+2)}, # SFTODO 999 IS HACK
     0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
     0x30: {'opcode': 'DROP', 'operands': ()},
     0x34: {'opcode': 'DUP', 'operands': ()},
@@ -742,19 +742,14 @@ for external_name, reference in new_esd.entry_dict.items():
     label_dict[reference.name].update_used_things(used_things)
 #print('SFTODOXXX %r', used_things)
 #print('SFTODOXXX %r', len(used_things))
-used_things_ordered = []
-init = []
-for used_thing in used_things:
-    if used_thing is new_module.data_asm_blob: # SFTODO HORRIBLE WAY TO DETECT THIS
-        # TODO: It is *possible* this data/asm blob is present but not used and we should
-        # be capable of avoiding emitting it if so, but since we need to treat it a bit
-        # differently let's not worry about it for now.
-        pass
-    elif used_thing.is_init():
-        init = [used_thing]
-    else:
-        used_things_ordered.append(used_thing)
-used_things_ordered += init
+# We preserve the order of things in the input module; this automatically ensure that
+# the data/asm blob comes first and init comes last, and it also avoids gratuitous
+# reordering which makes comparig the input and output difficult.
+used_things_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
+if False: # SFTODO TEMP - DO WANT THIS, BUT EASIER TO DEBUG WITHOUT IT
+    #print('SFTODOXY %r' % len(used_things_ordered),)
+    #print('SFTODOXY2 %r' % len(set(used_things_ordered)),)
+    used_things_ordered = [x for x in used_things_ordered if x in used_things]
 
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
@@ -773,7 +768,9 @@ for import_name in import_names:
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
 new_rld = RLD()
-new_module.data_asm_blob.dump(new_rld, new_esd)
+if used_things_ordered[0] == new_module.data_asm_blob:
+    new_module.data_asm_blob.dump(new_rld, new_esd)
+    used_things_ordered.pop(0)
 print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
