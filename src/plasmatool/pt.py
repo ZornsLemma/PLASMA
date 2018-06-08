@@ -338,23 +338,23 @@ class Offset:
 
 
 class CaseBlockOffset:
-    def __init__(self, label):
-        self.label = label
+    def __init__(self, offset):
+        self.offset = offset
 
     def __repr__(self):
-        return "CaseBlockOffset(%s)" % (self.label,)
+        return "CaseBlockOffset(%r)" % (self.offset,)
+
+    @property
+    def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
+        return self.offset.value
 
     @classmethod
     def disassemble(cls, bytecode_function, i):
-        global local_label_count
-        local_label = '_L%04d' % (local_label_count,)
-        local_label_count += 1
-        # SFTODO: THIS NEEDS TO DO SIMILAR STUFF TO OFFSET CLASS I THINK
         cbo = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
-        #count = ord(bytecode_function[i + cbo])
-        #print('SFTODOCBO %d' % count)
-        bytecode_function.special[i + cbo] = local_label # SFTODO HACKY
-        return CaseBlockOffset(local_label), i+2
+        j = i + cbo
+        offset, i = Offset.disassemble(bytecode_function, i)
+        bytecode_function.special[j] = offset.value # SFTODO HACKY
+        return CaseBlockOffset(offset), i
 
 
 class CaseBlock:
@@ -415,9 +415,9 @@ def acme_dump_cs(opcode, operands):
         print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
 def acme_dump_sel(opcode, operands):
-    global tail
-    print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (operands[0].label,))
-    print("\t!WORD\t%s-*" % (operands[0].label,))
+    print(1/0) # SFTODO THIS FN NOT USED
+    #print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (operands[0].offset.nm(),))
+    #print("\t!WORD\t%s-*" % (operands[0].offset.nm(),))
     #tail.append(local_label)
     #tail.append("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(operands[0].table),))
     #for value, offset in operands[0].table:
@@ -478,7 +478,7 @@ opdict = {
     0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_sel}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x56: {'opcode': 'ICAL', 'operands': ()},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter},
@@ -771,7 +771,7 @@ for external_name, reference in new_esd.entry_dict.items():
 # the data/asm blob comes first and init comes last, and it also avoids gratuitous
 # reordering which makes comparig the input and output difficult.
 used_things_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
-if False: # SFTODO TEMP - DO WANT THIS, BUT EASIER TO DEBUG WITHOUT IT
+if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
     #print('SFTODOXY %r' % len(used_things_ordered),)
     #print('SFTODOXY2 %r' % len(set(used_things_ordered)),)
     used_things_ordered = [x for x in used_things_ordered if x in used_things]
