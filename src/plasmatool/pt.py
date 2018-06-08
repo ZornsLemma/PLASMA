@@ -507,16 +507,16 @@ opdict = {
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
     0x62: {'opcode': 'LW', 'operands': ()},
-    0x64: {'opcode': 'LLB', 'operands': (FrameOffset,)},
-    0x66: {'opcode': 'LLW', 'operands': (FrameOffset,)},
+    0x64: {'opcode': 'LLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
+    0x66: {'opcode': 'LLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
     0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,)},
+    0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1},
+    0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2},
     0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,)},
     0x70: {'opcode': 'SB', 'operands': ()},
     0x72: {'opcode': 'SW', 'operands': ()},
-    0x74: {'opcode': 'SLB', 'operands': (FrameOffset,)},
-    0x76: {'opcode': 'SLW', 'operands': (FrameOffset,)},
+    0x74: {'opcode': 'SLB', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 1},
+    0x76: {'opcode': 'SLW', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 2},
     0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
@@ -543,12 +543,12 @@ opdict = {
     0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0xac: {'opcode': 'BRAND', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,)},
-    0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,)},
+    0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
+    0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
     0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0xb6: {'opcode': 'ADDAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,)},
-    0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,)},
+    0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
+    0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
     0xbc: {'opcode': 'IDXAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0xbe: {'opcode': 'IDXAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
 }
@@ -668,12 +668,15 @@ class BytecodeFunction:
         # LabelledBlob.dump(self, rld, esd)
 
 
+def is_branch(opcode):
+    # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
+    return opcode == 0xff or (opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch)
 
 def straightline_optimise(bytecode_function, optimisations):
     groups = []
     group = []
     for opcode, operands in bytecode_function.ops:
-        if not group or (opcode == 0xff and group[-1][0] == 0xff) or (opcode != 0xff and group[-1][0] != 0xff):
+        if not group or is_branch(opcode) == is_branch(group[-1][0]):
             group.append((opcode, operands))
         else:
             groups.append(group)
@@ -684,9 +687,78 @@ def straightline_optimise(bytecode_function, optimisations):
     for group in groups:
         if group[0][0] != 0xff:
             for optimisation in optimisations:
-                optimisation(bytecode_function, group)
+                # optimisation function may modify group in place if it wishes, but it
+                # may also be more convenient for it to create a new list so we take a
+                # return value; it can of course just 'return group' if it does everything
+                # in place.
+                group = optimisation(bytecode_function, group)
         new_ops.extend(group)
     bytecode_function.ops = new_ops
+
+def optimise_load_store(bytecode_function, straightline_ops):
+    lla_threshold = 256
+    for opcode, operands in bytecode_function.ops:
+        if opcode == 0x28: # SFTODO MAGIC CONSTANT 'LLA'
+            lla_threshold = min(operands[0].value, lla_threshold)
+
+    store_index_visibly_affected_bytes = [None] * 256
+    last_store_index_for_offset = [None] * 256
+
+    def record_store(this_store_index, frame_offsets):
+        for frame_offset in frame_offsets:
+            last_store_index = last_store_index_for_offset[frame_offset]
+            if last_store_index and store_index_visibly_affected_bytes[last_store_index] > 0:
+                store_index_visibly_affected_bytes[last_store_index] -= 1
+                if store_index_visibly_affected_bytes[last_store_index] == 0:
+                    # The stores performed by straightline_ops[last_store_index] are all
+                    # irrelevant, so we don't need to perform them.
+                    opcode = straightline_ops[last_store_index][0]
+                    assert opdict[opcode]['is_store']
+                    if opdict[opcode]['is_load']: # it's a duplicate opcode
+                        straightline_ops[last_store_index] = (0xf1, []) # SFTODO MAGIC CONSTANT NO OP
+                    else:
+                        straightline_ops[last_store_index] = (0x30, []) # SFTODO MAGIC CONSTANT DROP
+            last_store_index_for_offset[frame_offset] = this_store_index
+        store_index_visibly_affected_bytes[this_store_index] = len(frame_offsets)
+
+    def record_load(frame_offsets):
+        for frame_offset in frame_offsets:
+            last_store_index = last_store_index_for_offset[frame_offset]
+            if last_store_index:
+                store_index_visibly_affected_bytes[last_store_index] = None
+
+    for i in range(len(straightline_ops)):
+        opcode, operands = straightline_ops[i]
+        opdef = opdict.get(opcode, None)
+        if opdef:
+            is_store = opdef.get('is_store', False)
+            is_load = opdef.get('is_load', False)
+            is_call = (opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
+            is_exit = (opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
+            if is_store or is_load:
+                frame_offsets = [operands[0].value]
+                if opdef.get('data_size') == 2:
+                    #print(operands[0])
+                    frame_offsets.append(operands[0].value + 1)
+            if is_store: # stores and duplicates
+                record_store(i, frame_offsets)
+            elif is_load: # load, but not a duplicate
+                record_load(frame_offsets)
+            elif is_call:
+                # A function call has to be assumed to load from any frame offsets which
+                # have been made available via LLA. We assume it's not valid to use a
+                # negative index with the address of a local variable to access another
+                # local variable. If, for example, we see an LLA [4] but no other LLA,
+                # a function call might load via a pointer from offset 4 or 100, but not
+                # offset 3.
+                record_load(range(lla_threshold, 256))
+            elif is_exit:
+                # We're exiting the current function, so anything which has been stored
+                # but not yet loaded is irrelevant. We model this by storing to every
+                # frame offset.
+                record_store(i, range(0, 256))
+
+    return [op for op in straightline_ops if op[0] != 0xf1]
 
 
 class Module:
@@ -855,7 +927,7 @@ print("_SUBSEG")
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
 assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered[0:-1]:
-    straightline_optimise(bytecode_function, [])
+    straightline_optimise(bytecode_function, [optimise_load_store])
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
 defcnt = len(used_things_ordered)
