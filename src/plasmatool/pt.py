@@ -74,11 +74,12 @@ class Label:
     def update_used_things(self, used_things):
         # TODO: Use of global label_dict is a bit clunky
         #print('SFTODOXY %d', len(label_dict))
+        #print(repr(label_dict[self.name]))
         label_dict[self.name].update_used_things(used_things)
 
     @classmethod
-    def disassemble(cls, bytecode_function, i):
-        label = bytecode_function.references[i]
+    def disassemble(cls, di, i):
+        label = di.references[i]
         assert label
         return label, i+2
 
@@ -273,9 +274,12 @@ class Byte:
     def human(self):
         return "%d" % (self.value,)
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i):
-        byte = cls(ord(bytecode_function[i]))
+    def disassemble(cls, di, i):
+        byte = cls(ord(di.labelled_blob[i]))
         return byte, i+1
 
 
@@ -292,8 +296,11 @@ class Word:
     def __repr__(self):
         return "Word(%d)" % (self.value,)
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i):
+    def disassemble(cls, di, i):
         word = Word(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
         return word, i+2
 
@@ -311,11 +318,14 @@ class Offset:
     def __repr__(self):
         return "Offset(%s)" % (self.value,)
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i, current_pos = None):
+    def disassemble(cls, di, i, current_pos = None):
         if not current_pos:
             current_pos = i
-        value = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
+        value = ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8)
         value = sign_extend(value, 16)
         target = i + value
         global local_label_count
@@ -323,13 +333,13 @@ class Offset:
         #print("; SFTODO ASSIGNING LOCAL LABEL %s" % (local_label,))
         local_label_count += 1
         if target > current_pos:
-            bytecode_function.local_target[target].append(local_label)
+            di.local_target[target].append(local_label)
         elif target < current_pos:
             j = 0
-            while j < len(bytecode_function.op_offset):
-                if bytecode_function.op_offset[j] == target:
-                    bytecode_function.op_offset.insert(j, None)
-                    bytecode_function.ops.insert(j, (0xff, [local_label]))
+            while j < len(di.op_offset):
+                if di.op_offset[j] == target:
+                    di.op_offset.insert(j, None)
+                    di.bytecode_function.ops.insert(j, (0xff, [local_label]))
                     j = 99999 # SFTODO ULTRA FOUL
                 j += 1
             assert j >= 99999
@@ -348,12 +358,15 @@ class CaseBlockOffset:
     def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
         return self.offset.value
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i):
-        cbo = ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8)
+    def disassemble(cls, di, i):
+        cbo = ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8)
         j = i + cbo
-        offset, i = Offset.disassemble(bytecode_function, i)
-        bytecode_function.special[j] = offset.value # SFTODO HACKY
+        offset, i = Offset.disassemble(di, i)
+        di.special[j] = True # SFTODO HACKY?
         return CaseBlockOffset(offset), i
 
 
@@ -364,14 +377,17 @@ class CaseBlock:
     def __repr__(self):
         return "CaseBlock(%d)" % (len(self.table),)
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i):
-        count = ord(bytecode_function[i])
+    def disassemble(cls, di, i):
+        count = ord(di.labelled_blob[i])
         table = []
         for j in range(count):
             k = i + 1 + 4*j
-            value = ord(bytecode_function[k]) | (ord(bytecode_function[k+1]) << 8)
-            offset, _ = Offset.disassemble(bytecode_function, k+2, i)
+            value = ord(di.labelled_blob[k]) | (ord(di.labelled_blob[k+1]) << 8)
+            offset, _ = Offset.disassemble(di, k+2, i)
             table.append((value, offset))
         return CaseBlock(table), i+1+4*count
 
@@ -383,12 +399,15 @@ class String:
     def __repr__(self):
         return "String(%r)" % (self.value,)
 
+    def update_used_things(self, used_things):
+        pass
+
     @classmethod
-    def disassemble(cls, bytecode_function, i):
-        length = ord(bytecode_function[i])
+    def disassemble(cls, di, i):
+        length = ord(di.labelled_blob[i])
         s = ''
         for j in range(length):
-            s += bytecode_function[i + j + 1]
+            s += di.labelled_blob[i + j + 1]
         return String(s), i + length + 1
 
 
@@ -439,29 +458,29 @@ def acme_dump_caseblock(opcode, operands):
 # TODO: Check this table is complete and correct
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 opdict = {
-    0x00: {'opcode': 'CN', 'constfn': lambda bfn, i: (0, i)},
-    0x02: {'opcode': 'CN', 'constfn': lambda bfn, i: (1, i)},
-    0x04: {'opcode': 'CN', 'constfn': lambda bfn, i: (2, i)},
-    0x06: {'opcode': 'CN', 'constfn': lambda bfn, i: (3, i)},
-    0x08: {'opcode': 'CN', 'constfn': lambda bfn, i: (4, i)},
-    0x0a: {'opcode': 'CN', 'constfn': lambda bfn, i: (5, i)},
-    0x0c: {'opcode': 'CN', 'constfn': lambda bfn, i: (6, i)},
-    0x0e: {'opcode': 'CN', 'constfn': lambda bfn, i: (7, i)},
-    0x10: {'opcode': 'CN', 'constfn': lambda bfn, i: (8, i)},
-    0x12: {'opcode': 'CN', 'constfn': lambda bfn, i: (9, i)},
-    0x14: {'opcode': 'CN', 'constfn': lambda bfn, i: (10, i)},
-    0x16: {'opcode': 'CN', 'constfn': lambda bfn, i: (11, i)},
-    0x18: {'opcode': 'CN', 'constfn': lambda bfn, i: (12, i)},
-    0x1a: {'opcode': 'CN', 'constfn': lambda bfn, i: (13, i)},
-    0x1c: {'opcode': 'CN', 'constfn': lambda bfn, i: (14, i)},
-    0x1e: {'opcode': 'CN', 'constfn': lambda bfn, i: (15, i)},
-    0x20: {'opcode': 'MINUS1', 'constfn': lambda bfn, i: (-1, i)},
+    0x00: {'opcode': 'CN', 'constfn': lambda di, i: (0, i)},
+    0x02: {'opcode': 'CN', 'constfn': lambda di, i: (1, i)},
+    0x04: {'opcode': 'CN', 'constfn': lambda di, i: (2, i)},
+    0x06: {'opcode': 'CN', 'constfn': lambda di, i: (3, i)},
+    0x08: {'opcode': 'CN', 'constfn': lambda di, i: (4, i)},
+    0x0a: {'opcode': 'CN', 'constfn': lambda di, i: (5, i)},
+    0x0c: {'opcode': 'CN', 'constfn': lambda di, i: (6, i)},
+    0x0e: {'opcode': 'CN', 'constfn': lambda di, i: (7, i)},
+    0x10: {'opcode': 'CN', 'constfn': lambda di, i: (8, i)},
+    0x12: {'opcode': 'CN', 'constfn': lambda di, i: (9, i)},
+    0x14: {'opcode': 'CN', 'constfn': lambda di, i: (10, i)},
+    0x16: {'opcode': 'CN', 'constfn': lambda di, i: (11, i)},
+    0x18: {'opcode': 'CN', 'constfn': lambda di, i: (12, i)},
+    0x1a: {'opcode': 'CN', 'constfn': lambda di, i: (13, i)},
+    0x1c: {'opcode': 'CN', 'constfn': lambda di, i: (14, i)},
+    0x1e: {'opcode': 'CN', 'constfn': lambda di, i: (15, i)},
+    0x20: {'opcode': 'MINUS1', 'constfn': lambda di, i: (-1, i)},
     0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x28: {'opcode': 'LLA', 'operands': (FrameOffset,)},
-    0x2a: {'opcode': 'CB', 'constfn': lambda bfn, i: (ord(bfn[i]), i+1)},
-    0x2c: {'opcode': 'CW', 'constfn': lambda bfn, i: (sign_extend(ord(bfn[i]) | (ord(bfn[i+1]) << 8), 16), i+2)}, # SFTODO 999 IS HACK
+    0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1)},
+    0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2)},
     0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
     0x30: {'opcode': 'DROP', 'operands': ()},
     0x34: {'opcode': 'DUP', 'operands': ()},
@@ -534,62 +553,84 @@ opdict = {
 }
 
 
-class BytecodeFunction(LabelledBlob):
-    # TODO: This seems really really wrong but let's not worry about it for now
+class DisassemblyInfo:
+    """Collection of temporary information needing while disassembling a bytecode
+       function; can be discarded once disassembly is complete."""
+    def __init__(self, bytecode_function, labelled_blob):
+        self.bytecode_function = bytecode_function
+        self.labelled_blob = labelled_blob
+        self.references = labelled_blob.references # SFTODO!? IF THIS LIVES, WE CAN ACCESS IT VIA SELF.LABELLED_BLOB
+        self.local_target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
+        self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
+        self.op_offset = []
+
+
+class BytecodeFunction:
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
-        self.blob = labelled_blob.blob
-        self.labels = labelled_blob.labels
-        self.references = labelled_blob.references
-        self.local_target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
-        self.special = [None] * len(labelled_blob) # SFTODO VERY EXPERIMENTAL
-        self.ops = [] # SFTODO VERY EXPERIMENTAL
-        self.op_offset = [] # SFTODO VERY EXPERIMENTAL
+        self.labels = labelled_blob.labels[0]
+        self.ops = []
+        di = DisassemblyInfo(self, labelled_blob)
 
-    def is_init(self):
-        return any(x.name == '_INIT' for x in self.labels[0])
-
-    # TODO: Ultra experimental, I need to be very careful to ensure that any 
-    # changes to the disassembled version are reflected when dump() is called.
-    def disassemble(self, rld):
-        ops = self.ops
         i = 0
-        while i < len(self.blob):
+        while i < len(labelled_blob):
             # There should be no labels within a bytecode function. We will later
             # create branch-target labels based on the branch instructions within
             # the function, but those are different.
-            assert i == 0 or not self.labels[i]
-            for t in self.local_target[i]:
-                ops.append((0xff, [t])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
-                self.op_offset.append(None)
-            self.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
-            special = self.special[i]
+            assert i == 0 or not labelled_blob.labels[i]
+            for t in di.local_target[i]:
+                self.ops.append((0xff, [t])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+                di.op_offset.append(None)
+            di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
+            special = di.special[i]
             if not special:
-                opcode = ord(self.blob[i])
+                opcode = ord(labelled_blob[i])
                 i += 1
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 constfn = opdef.get('constfn', None)
                 if constfn:
-                    operand, i = constfn(self, i)
+                    operand, i = constfn(di, i)
                     op = (0xfd, [operand]) # SFTODO MAGIC CONSTANT 'CONST' PSEUDO OP
                 else:
                     operands = []
                     for operandcls in opdef['operands']:
-                        operand, i = operandcls.disassemble(self, i)
+                        operand, i = operandcls.disassemble(di, i)
                         operands.append(operand)
                     #print(opdef['opcode'], operands)
                     op = (opcode, operands)
-                ops.append(op)
             else:
-                label = self.special[i]
-                operand, i = CaseBlock.disassemble(self, i)
+                operand, i = CaseBlock.disassemble(di, i)
                 op = (0xfb, [operand]) # SFTODO MAGIC CONST 'CASEBLOCK' PSEUDO OP
-                ops.append(op)
+            self.ops.append(op)
 
-        #global tail# SFTODO HACK, SHOULD BE MEMBER OR SOMETHING
-        #tail = []
-        for opcode, operands in ops:
+    def is_init(self):
+        return any(x.name == '_INIT' for x in self.labels)
+
+
+
+    def update_label_dict(self, label_dict):
+        for label in self.labels:
+            label_dict[label.name] = self
+
+    def update_used_things(self, used_things):
+        if self in used_things:
+            return
+        used_things.add(self)
+        #print("SFTODO99 %r %r" % (self, len(self.references)))
+        #print("SFTODO99 %r" % self.references)
+        for opcode, operands in self.ops:
+            for operand in operands:
+                if not isinstance(operand, int) and not isinstance(operand, str): # SFTODO: HACKY
+                    operand.update_used_things(used_things)
+
+    def dump(self, rld, esd):
+        if not self.is_init():
+            label = rld.get_bytecode_function_label()
+            print(label.name)
+        for label in self.labels:
+            print(label.name)
+        for opcode, operands in self.ops:
             if opcode == 0xfd:
                 value = operands[0]
                 if value >= 0 and value < 16:
@@ -623,16 +664,6 @@ class BytecodeFunction(LabelledBlob):
                     else:
                         assert len(operands) == 1
                         print("\t!BYTE\t$%02X,%s\t\t\t; %s\t%s" % (opcode, operands[0].acme(), opdef['opcode'], operands[0].human()))
-        #print("\n".join(tail))
-
-
-    def dump(self, rld, esd):
-        if not self.is_init():
-            label = rld.get_bytecode_function_label()
-            print(label.name)
-        for label in self.labels[0]:
-            print(label.name)
-        self.disassemble(rld) # SFTODO MASSIVE HACK
         # LabelledBlob.dump(self, rld, esd)
 
 
