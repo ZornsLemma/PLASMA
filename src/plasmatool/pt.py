@@ -237,7 +237,7 @@ class LabelledBlob:
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
     def dump(self, rld, esd):
-        print("; SFTODO BLOB START %r" % self)
+        #print("; SFTODO BLOB START %r" % self)
         i = 0
         fixup_count = 0
         while i < len(self.blob):
@@ -726,6 +726,23 @@ def branch_optimise(bytecode_function):
 
 
 
+def branch_optimise2(bytecode_function):
+    # This relies on local_label_deduplicate() being called beforehand
+    targets = {}
+    for i in range(len(bytecode_function.ops)-1):
+        if bytecode_function.ops[i][0] == 0xff and bytecode_function.ops[i+1][0] in (0x5a, 0x5c): # SFTODO: MAGIC CONST RET LEAVE
+            targets[bytecode_function.ops[i][1][0]] = bytecode_function.ops[i+1]
+    #print('SFTODOQ4', targets)
+    for i in range(len(bytecode_function.ops)):
+        if bytecode_function.ops[i][0] == 0x50: # SFTODO MAGIC
+            local_label = bytecode_function.ops[i][1][0].value
+            #print('SFTODOQ5', local_label)
+            if local_label in targets:
+                bytecode_function.ops[i] = targets[local_label]
+
+    # TODO: We will leave a potentially orphaned label from removed branches here. This might inhibit some other optimisations (e.g. removal of redundant stores - hitting a LEAVE or RET is gold, but the preceding label will break the straight line sequence). Need to come back to this - we need to be calling optimisations in a sensible order (looping over at least some of them multiple times) until we find no more improvements.
+
+
 def is_branch(opcode):
     # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
     return opcode == 0xff or (opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch)
@@ -987,6 +1004,7 @@ assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered[0:-1]:
     local_label_deduplicate(bytecode_function)
     branch_optimise(bytecode_function)
+    branch_optimise2(bytecode_function)
     straightline_optimise(bytecode_function, [optimise_load_store])
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
