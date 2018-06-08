@@ -587,8 +587,8 @@ class BytecodeFunction(LabelledBlob):
                 op = (0xfb, [operand]) # SFTODO MAGIC CONST 'CASEBLOCK' PSEUDO OP
                 ops.append(op)
 
-        global tail# SFTODO HACK, SHOULD BE MEMBER OR SOMETHING
-        tail = []
+        #global tail# SFTODO HACK, SHOULD BE MEMBER OR SOMETHING
+        #tail = []
         for opcode, operands in ops:
             if opcode == 0xfd:
                 value = operands[0]
@@ -623,7 +623,7 @@ class BytecodeFunction(LabelledBlob):
                     else:
                         assert len(operands) == 1
                         print("\t!BYTE\t$%02X,%s\t\t\t; %s\t%s" % (opcode, operands[0].acme(), opdef['opcode'], operands[0].human()))
-        print("\n".join(tail))
+        #print("\n".join(tail))
 
 
     def dump(self, rld, esd):
