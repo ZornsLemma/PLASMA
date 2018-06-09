@@ -81,6 +81,9 @@ class Label:
     def rename_local_labels(self, alias):
         pass
 
+    def update_local_labels_used(self, labels):
+        pass
+
     @classmethod
     def disassemble(cls, di, i):
         label = di.references[i]
@@ -113,6 +116,9 @@ class ExternalReference:
         pass
 
     def rename_local_labels(self, alias):
+        pass
+
+    def update_local_labels_used(self, labels):
         pass
 
 class RLD:
@@ -287,6 +293,9 @@ class Byte:
     def rename_local_labels(self, alias):
         pass
 
+    def update_local_labels_used(self, labels):
+        pass
+
     @classmethod
     def disassemble(cls, di, i):
         byte = cls(ord(di.labelled_blob[i]))
@@ -310,6 +319,9 @@ class Word:
         pass
 
     def rename_local_labels(self, alias):
+        pass
+
+    def update_local_labels_used(self, labels):
         pass
 
     @classmethod
@@ -336,6 +348,9 @@ class Offset:
 
     def rename_local_labels(self, alias):
         self.value = alias.get(self.value, self.value)
+
+    def update_local_labels_used(self, labels):
+        labels.add(self.value)
 
     @classmethod
     def disassemble(cls, di, i, current_pos = None):
@@ -380,6 +395,9 @@ class CaseBlockOffset:
     def rename_local_labels(self, alias):
         self.offset.rename_local_labels(alias)
 
+    def update_local_labels_used(self, labels):
+        self.offset.update_local_labels_used(labels)
+
     @classmethod
     def disassemble(cls, di, i):
         cbo = ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8)
@@ -402,6 +420,10 @@ class CaseBlock:
     def rename_local_labels(self, alias):
         for value, offset in self.table:
             offset.rename_local_labels(alias)
+
+    def update_local_labels_used(self, labels):
+        for value, offset in self.table:
+            offset.update_local_labels_used(labels)
 
     @classmethod
     def disassemble(cls, di, i):
@@ -426,6 +448,9 @@ class String:
         pass
 
     def rename_local_labels(self, alias):
+        pass
+
+    def update_local_labels_used(self, labels):
         pass
 
     @classmethod
@@ -522,13 +547,13 @@ opdict = {
     0x4a: {'opcode': 'ISLE', 'operands': ()},
     0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
     0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'nis': True},
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x56: {'opcode': 'ICAL', 'operands': ()},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter},
-    0x5c: {'opcode': 'RET', 'operands': ()},
-    0x5a: {'opcode': 'LEAVE', 'operands': (Byte,)},
+    0x5c: {'opcode': 'RET', 'operands': (), 'nis': True},
+    0x5a: {'opcode': 'LEAVE', 'operands': (Byte,), 'nis': True},
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
     0x62: {'opcode': 'LW', 'operands': ()},
@@ -760,6 +785,37 @@ def branch_optimise3(bytecode_function):
             if local_label in targets:
                 bytecode_function.ops[i] = (bytecode_function.ops[i][0], targets[local_label][1])
     # TODO: As always we may have left a now-orphaned label around
+
+def remove_orphaned_labels(bytecode_function):
+    labels_used = set()
+    for opcode, operands in bytecode_function.ops:
+        if operands and not isinstance(operands[0], int) and not isinstance(operands[0], str): # SFTODO HACKY isinstance
+            operands[0].update_local_labels_used(labels_used)
+    new_ops = []
+    for opcode, operands in bytecode_function.ops:
+        if not (opcode == 0xff and operands[0] not in labels_used):
+            new_ops.append((opcode, operands))
+    bytecode_function.ops = new_ops
+
+def never_immediate_successor(opcode):
+    opdef = opdict.get(opcode, None)
+    return opdef and opdef.get('nis', False)
+
+def remove_dead_code(bytecode_function):
+    # This relies on remove_orphaned_labels() being called beforehand
+    new_ops = []
+    i = 0
+    while i < len(bytecode_function.ops):
+        new_ops.append(bytecode_function.ops[i])
+        this_opcode = bytecode_function.ops[i][0]
+        i += 1
+        if never_immediate_successor(this_opcode):
+            while i < len(bytecode_function.ops) and bytecode_function.ops[i][0] != 0xff:
+                i += 1
+    bytecode_function.ops = new_ops
+
+
+
 
 
 def is_branch(opcode):
@@ -1021,10 +1077,13 @@ print("_SUBSEG")
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
 assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered[0:-1]:
+    # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     local_label_deduplicate(bytecode_function)
     branch_optimise(bytecode_function)
     branch_optimise2(bytecode_function)
     branch_optimise3(bytecode_function)
+    remove_orphaned_labels(bytecode_function)
+    remove_dead_code(bytecode_function)
     straightline_optimise(bytecode_function, [optimise_load_store])
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
