@@ -731,10 +731,12 @@ def local_label_deduplicate(bytecode_function):
     for opcode, operands in bytecode_function.ops:
         if operands and not isinstance(operands[0], int) and not isinstance(operands[0], str): # SFTODO HACKY isinstance
             operands[0].rename_local_labels(alias)
+    return False # changes here aren't in themselves desirable
 
 
 def branch_optimise(bytecode_function):
     # This relies on local_label_deduplicate() being called beforehand
+    changed = False
     # This removes a BRNCH to an immediately following label.
     # TODO: There are probably other opportunities for optimisation here but this is a
     # simple case which seems to occur a bit. (We remove a BRNCH to an immedatiately
@@ -747,14 +749,18 @@ def branch_optimise(bytecode_function):
         next_opcode, next_operands = (None, None) if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
         if not (opcode == 0x50 and next_opcode == 0xff and operands[0].value == next_operands[0]): # SFTODO MAGIC CONST
             new_ops.append((opcode, operands))
+        else:
+            changed = True
         # TODO: When we remove the branch we leave the label it brancehd too - we don't have a simple way to determine if anyone else is using it. It probably makes no difference, but it may turn out to be useful to remove orphaned labels to open up further optimisation possibilities.
     bytecode_function.ops = new_ops
+    return changed
 
 
 
 # This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
 def branch_optimise2(bytecode_function):
     # This relies on local_label_deduplicate() being called beforehand
+    changed = False
     targets = {}
     for i in range(len(bytecode_function.ops)-1):
         if bytecode_function.ops[i][0] == 0xff and bytecode_function.ops[i+1][0] in (0x5a, 0x5c): # SFTODO: MAGIC CONST RET LEAVE
@@ -766,13 +772,16 @@ def branch_optimise2(bytecode_function):
             #print('SFTODOQ5', local_label)
             if local_label in targets:
                 bytecode_function.ops[i] = targets[local_label]
+                changed = True
     # TODO: We will leave a potentially orphaned label from removed branches here. This might inhibit some other optimisations (e.g. removal of redundant stores - hitting a LEAVE or RET is gold, but the preceding label will break the straight line sequence). Need to come back to this - we need to be calling optimisations in a sensible order (looping over at least some of them multiple times) until we find no more improvements.
+    return changed
 
 # This replaces a branch (conditional or not) to a BRNCH with a branch.
 # TODO: This would definitely benefit from being called in a loop; we can get branch-to-branch-to-branch occasionally and it won't snap all the way to the final destination on a single pass.
 # TODO: Not just relevant to this, but this probably is one cause - we might benefit from removing orphaned labels and then removing dead code - for example, this optimisation may cause a branch instruction to be redundant because it was only ever used as a target for other branches which have been snapped
 def branch_optimise3(bytecode_function):
     # This relies on local_label_deduplicate() being called beforehand
+    changed = False
     targets = {}
     for i in range(len(bytecode_function.ops)-1):
         if bytecode_function.ops[i][0] == 0xff and bytecode_function.ops[i+1][0] == 0x50: # SFTODO MAGIC BRNCH
@@ -784,9 +793,12 @@ def branch_optimise3(bytecode_function):
             local_label = bytecode_function.ops[i][1][0].value
             if local_label in targets:
                 bytecode_function.ops[i] = (bytecode_function.ops[i][0], targets[local_label][1])
+                changed = True
     # TODO: As always we may have left a now-orphaned label around
+    return changed
 
 def remove_orphaned_labels(bytecode_function):
+    changed = False
     labels_used = set()
     for opcode, operands in bytecode_function.ops:
         if operands and not isinstance(operands[0], int) and not isinstance(operands[0], str): # SFTODO HACKY isinstance
@@ -795,7 +807,10 @@ def remove_orphaned_labels(bytecode_function):
     for opcode, operands in bytecode_function.ops:
         if not (opcode == 0xff and operands[0] not in labels_used):
             new_ops.append((opcode, operands))
+        else:
+            changed = True
     bytecode_function.ops = new_ops
+    return changed
 
 def never_immediate_successor(opcode):
     opdef = opdict.get(opcode, None)
@@ -803,6 +818,7 @@ def never_immediate_successor(opcode):
 
 def remove_dead_code(bytecode_function):
     # This relies on remove_orphaned_labels() being called beforehand
+    changed = False
     new_ops = []
     i = 0
     while i < len(bytecode_function.ops):
@@ -812,7 +828,9 @@ def remove_dead_code(bytecode_function):
         if never_immediate_successor(this_opcode):
             while i < len(bytecode_function.ops) and bytecode_function.ops[i][0] != 0xff:
                 i += 1
+                changed = True
     bytecode_function.ops = new_ops
+    return changed
 
 
 
@@ -823,6 +841,7 @@ def is_branch(opcode):
     return opcode == 0xff or (opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch)
 
 def straightline_optimise(bytecode_function, optimisations):
+    changed = False
     groups = []
     group = []
     for opcode, operands in bytecode_function.ops:
@@ -841,11 +860,14 @@ def straightline_optimise(bytecode_function, optimisations):
                 # may also be more convenient for it to create a new list so we take a
                 # return value; it can of course just 'return group' if it does everything
                 # in place.
-                group = optimisation(bytecode_function, group)
+                group, changed2 = optimisation(bytecode_function, group)
+                changed = changed or changed2
         new_ops.extend(group)
     bytecode_function.ops = new_ops
+    return changed
 
 def optimise_load_store(bytecode_function, straightline_ops):
+    changed = False
     lla_threshold = 256
     for opcode, operands in bytecode_function.ops:
         if opcode == 0x28: # SFTODO MAGIC CONSTANT 'LLA'
@@ -868,6 +890,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                         straightline_ops[last_store_index] = (0xf1, []) # SFTODO MAGIC CONSTANT NO OP
                     else:
                         straightline_ops[last_store_index] = (0x30, []) # SFTODO MAGIC CONSTANT DROP
+                    changed = True
             last_store_index_for_offset[frame_offset] = this_store_index
         store_index_visibly_affected_bytes[this_store_index] = len(frame_offsets)
 
@@ -908,7 +931,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 # frame offset.
                 record_store(i, range(0, 256))
 
-    return [op for op in straightline_ops if op[0] != 0xf1]
+    return [op for op in straightline_ops if op[0] != 0xf1], changed
 
 
 class Module:
@@ -1078,13 +1101,18 @@ print("_SUBSEG")
 assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered[0:-1]:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
-    local_label_deduplicate(bytecode_function)
-    branch_optimise(bytecode_function)
-    branch_optimise2(bytecode_function)
-    branch_optimise3(bytecode_function)
-    remove_orphaned_labels(bytecode_function)
-    remove_dead_code(bytecode_function)
-    straightline_optimise(bytecode_function, [optimise_load_store])
+    changed = True
+    while changed:
+        # TODO: This seems a clunky way to handle 'changed' but I don't want
+        # short-circuit evaluation.
+        result = [local_label_deduplicate(bytecode_function)]
+        result.append(branch_optimise(bytecode_function))
+        result.append(branch_optimise2(bytecode_function))
+        result.append(branch_optimise3(bytecode_function))
+        result.append(remove_orphaned_labels(bytecode_function))
+        result.append(remove_dead_code(bytecode_function))
+        result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
+        changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
 defcnt = len(used_things_ordered)
