@@ -779,6 +779,7 @@ def branch_optimise2(bytecode_function):
 # This replaces a branch (conditional or not) to a BRNCH with a branch.
 # TODO: This would definitely benefit from being called in a loop; we can get branch-to-branch-to-branch occasionally and it won't snap all the way to the final destination on a single pass.
 # TODO: Not just relevant to this, but this probably is one cause - we might benefit from removing orphaned labels and then removing dead code - for example, this optimisation may cause a branch instruction to be redundant because it was only ever used as a target for other branches which have been snapped
+# TODO: This should also treat CASEBLOCK targets as BRNCH opcodes - which they kind of are. There is at least one case in self-hosted compiled where such a target could be snapped, and it may also then allow the intermediate branch (which follows another unconditional branch) to be removed by the dead code optimisation.
 def branch_optimise3(bytecode_function):
     # This relies on local_label_deduplicate() being called beforehand
     changed = False
@@ -1131,3 +1132,9 @@ new_esd.dump()
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
 # TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler.
+
+# TODO: A few times in self-hosted compiler, we have DROP:DROP - we should change this to DROP2.
+
+# TODO: Possibly difficult (and what I am about to write may not be maximally generic) - if all uses of a label are as unconditional branch targets (probably easiest to ignore caseblock here; use in a caseblock would disable this optimisation, unless we work back to its SEL and see the preceding opcode) and every use such plus any possible fallthrough to the label from previous instruction are the same opcode (the case I spotted in SHC is a DROP), we can remove it from before every branch and move the label before it. We could consider only a single opcode at a time, if there are further opportunities a subsequent loop round would catch these.
+
+# TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
