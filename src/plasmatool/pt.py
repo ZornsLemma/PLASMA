@@ -940,7 +940,8 @@ class Module:
         self.data_asm_blob = None # SFTODO!?
         self.bytecode_functions = []
 
-with open('../rel/PLASM#FE1000', 'rb') as f:
+input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
+with open(input_file, 'rb') as f:
     seg_size = read_u16(f)
     magic = read_u16(f)
     assert magic == 0x6502
@@ -1105,13 +1106,15 @@ for bytecode_function in used_things_ordered[0:-1]:
     while changed:
         # TODO: This seems a clunky way to handle 'changed' but I don't want
         # short-circuit evaluation.
-        result = [local_label_deduplicate(bytecode_function)]
-        result.append(branch_optimise(bytecode_function))
-        result.append(branch_optimise2(bytecode_function))
-        result.append(branch_optimise3(bytecode_function))
-        result.append(remove_orphaned_labels(bytecode_function))
-        result.append(remove_dead_code(bytecode_function))
-        result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
+        result = []
+        if True: # SFTODO TEMP
+            result.append(local_label_deduplicate(bytecode_function))
+            result.append(branch_optimise(bytecode_function))
+            result.append(branch_optimise2(bytecode_function))
+            result.append(branch_optimise3(bytecode_function))
+            result.append(remove_orphaned_labels(bytecode_function))
+            result.append(remove_dead_code(bytecode_function))
+            result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
         changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
