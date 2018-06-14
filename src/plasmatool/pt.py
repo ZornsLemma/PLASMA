@@ -597,6 +597,26 @@ class StackInstruction(Instruction):
         super(StackInstruction, self).__init__(opcode, [])
 
 
+# SFTODO: Not sure about this, but let's see how it goes
+class FrameInstruction(Instruction):
+    def __init__(self, opcode, frame_offset):
+        # SFTODO: WE SHOULD PROBABLY ASSERT - MAYBE USING opdict - THAT THIS IS A FRAME INSTRUCTION
+        assert isinstance(frame_offset, FrameOffset)
+        super(FrameInstruction, self).__init__(opcode, [frame_offset])
+
+    @property
+    def frame_offset(self):
+        return self.operands[0].value
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        opcode = ord(disassembly_info.labelled_blob[i])
+        # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet
+        frame_offset = FrameOffset(ord(disassembly_info.labelled_blob[i+1]))
+        return FrameInstruction(opcode, frame_offset), i+2
+
+
+
 # TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one - I have done this, but it many ways it would be cleaner to turn them all into CW not a CONST pseudo-op, and then optimise CW on output instead of optimising this CONST pseudo-op
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 # TODO: Check this table is complete and correct
@@ -623,7 +643,7 @@ opdict = {
     0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x28: {'opcode': 'LLA', 'operands': (FrameOffset,)},
+    0x28: {'opcode': 'LLA', 'operands': (FrameOffset,), 'dis': FrameInstruction.disassemble},
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
     0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
     0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
@@ -651,16 +671,16 @@ opdict = {
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
     0x60: {'opcode': 'LB', 'operands': ()},
     0x62: {'opcode': 'LW', 'operands': ()},
-    0x64: {'opcode': 'LLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
-    0x66: {'opcode': 'LLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
+    0x64: {'opcode': 'LLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0x66: {'opcode': 'LLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1},
-    0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2},
+    0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x70: {'opcode': 'SB', 'operands': ()},
     0x72: {'opcode': 'SW', 'operands': ()},
-    0x74: {'opcode': 'SLB', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 1},
-    0x76: {'opcode': 'SLW', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 2},
+    0x74: {'opcode': 'SLB', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0x76: {'opcode': 'SLW', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
@@ -687,12 +707,12 @@ opdict = {
     0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xac: {'opcode': 'BRAND', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
-    0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
+    0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0xb6: {'opcode': 'ADDAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
-    0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
+    0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0xbc: {'opcode': 'IDXAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0xbe: {'opcode': 'IDXAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
 }
@@ -986,7 +1006,8 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 store_index_visibly_affected_bytes[last_store_index] = None
 
     for i in range(len(straightline_ops)):
-        opcode, operands = straightline_ops[i].opcode, straightline_ops[i].operands
+        instruction = straightline_ops[i]
+        opcode, operands = instruction.opcode, instruction.operands
         opdef = opdict.get(opcode, None)
         if opdef:
             is_store = opdef.get('is_store', False)
@@ -994,10 +1015,12 @@ def optimise_load_store(bytecode_function, straightline_ops):
             is_call = (opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
             is_exit = (opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
             if is_store or is_load:
-                frame_offsets = [operands[0].value]
+                # SFTODO: This assertion may well not be valid later on - at the moment only frame instructions are annotated as loads/stores, but I could well imagine annotating things like LAW with is_load. This code may or may not want to consider optimising such stores, but we will need to think about it.
+                assert isinstance(instruction, FrameInstruction)
+                frame_offsets = [instruction.frame_offset]
                 if opdef.get('data_size') == 2:
                     #print(operands[0])
-                    frame_offsets.append(operands[0].value + 1)
+                    frame_offsets.append(instruction.frame_offset + 1)
             if is_store: # stores and duplicates
                 record_store(i, frame_offsets)
             elif is_load: # load, but not a duplicate
