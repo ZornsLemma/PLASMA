@@ -591,6 +591,18 @@ class BranchInstruction(Instruction):
         return BranchInstruction(opcode, offset), i
 
 
+class SelInstruction(Instruction):
+    def __init__(self, case_block_offset):
+        # SFTODO: Perhaps we should not have CaseBlockOffset any more but let's minimise changes for now
+        assert isinstance(case_block_offset, CaseBlockOffset)
+        super(SelInstruction, self).__init__(0x52, [case_block_offset])
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
+        return SelInstruction(case_block_offset), i
+
+
 
 # SFTODO: Not sure about this, but let's see how it goes
 # SFTODO: Perhaps rename this ImpliedInstruction? I use it for things like RET which don't really use the stack as such, but are similar in the sense that the data (if any) is implied, not explicit.
@@ -706,7 +718,7 @@ opdict = {
     0x20: {'opcode': 'MINUS1', 'constfn': lambda di, i: (-1, i), 'dis': ConstantInstruction.disassemble},
     0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0x28: {'opcode': 'LLA', 'operands': (FrameOffset,), 'dis': FrameInstruction.disassemble},
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
     0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
@@ -726,7 +738,7 @@ opdict = {
     0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
-    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch, 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'operands': (), 'dis': StackInstruction.disassemble},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter, 'dis': ImmediateInstruction.disassemble2},
@@ -809,7 +821,7 @@ class BytecodeFunction:
                     op, i = dis(di, i-1)
                 else: # SFTODO: I HOPE THIS BRANCH WILL CEASE TO EXIST LATER
                     print('SFTODO9912 %x' % opcode)
-                    #assert False
+                    assert False
                     constfn = opdef.get('constfn', None)
                     if constfn:
                         operand, i = constfn(di, i)
