@@ -188,6 +188,7 @@ class LabelledBlob:
         self.labels = [[] for _ in range(len(self.blob))]
         self.references = [None] * len(self.blob)
 
+    # SFTODO: This should possibly return ord(self.blob[key]) - this would simplify the vast bulk of callers, and the few that do want a character can use chr() themselves. This *might* also be helpful if I ever want to try to make this work on Python 3.
     def __getitem__(self, key):
         return self.blob[key]
 
@@ -813,26 +814,10 @@ class BytecodeFunction:
             special = di.special[i]
             if not special:
                 opcode = ord(labelled_blob[i])
-                i += 1
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
-                dis = opdef.get('dis', None)
-                if dis:
-                    op, i = dis(di, i-1)
-                else: # SFTODO: I HOPE THIS BRANCH WILL CEASE TO EXIST LATER
-                    print('SFTODO9912 %x' % opcode)
-                    assert False
-                    constfn = opdef.get('constfn', None)
-                    if constfn:
-                        operand, i = constfn(di, i)
-                        op = ConstantInstruction(operand) # SFTODO MAGIC CONSTANT 'CONST' PSEUDO OP
-                    else:
-                        operands = []
-                        for operandcls in opdef['operands']:
-                            operand, i = operandcls.disassemble(di, i)
-                            operands.append(operand)
-                        #print(opdef['opcode'], operands)
-                        op = Instruction(opcode, operands)
+                dis = opdef.get('dis')
+                op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
                 op = CaseBlockInstruction(operand)
