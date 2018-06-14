@@ -637,7 +637,7 @@ class ImmediateInstruction(Instruction):
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
         # TODO: For the moment we just assume the only kind of address is a label; need to make this work with absolute addresses as well.
-        assert isinstance(address, Label)
+        assert isinstance(address, Label) or isinstance(address, ExternalReference)
         super(MemoryInstruction, self).__init__(opcode, [address])
 
     @classmethod
@@ -715,7 +715,7 @@ opdict = {
     0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
-    0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'operands': (), 'dis': StackInstruction.disassemble},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter, 'dis': ImmediateInstruction.disassemble2},
     0x5c: {'opcode': 'RET', 'operands': (), 'nis': True, 'dis': StackInstruction.disassemble},
@@ -728,15 +728,15 @@ opdict = {
     0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0x70: {'opcode': 'SB', 'operands': (), 'dis': StackInstruction.disassemble},
     0x72: {'opcode': 'SW', 'operands': (), 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x76: {'opcode': 'SLW', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x7e: {'opcode': 'DAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x7e: {'opcode': 'DAW', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0x80: {'opcode': 'LNOT', 'operands': (), 'dis': StackInstruction.disassemble},
     0x82: {'opcode': 'ADD', 'operands': (), 'dis': StackInstruction.disassemble},
     0x84: {'opcode': 'SUB', 'operands': (), 'dis': StackInstruction.disassemble},
@@ -761,12 +761,12 @@ opdict = {
     0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0xb6: {'opcode': 'ADDAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0xb6: {'opcode': 'ADDAW', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0xb8: {'opcode': 'IDXLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xba: {'opcode': 'IDXLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xbc: {'opcode': 'IDXAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0xbe: {'opcode': 'IDXAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0xbc: {'opcode': 'IDXAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0xbe: {'opcode': 'IDXAW', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
 }
 
 class BytecodeFunction:
