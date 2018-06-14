@@ -552,6 +552,8 @@ class ConstantInstruction(Instruction):
             return ConstantInstruction(ord(disassembly_info.labelled_blob[i+1])), i+2
         elif opcode == 0x2c: # CW opcode
             return ConstantInstruction(sign_extend(ord(disassembly_info.labelled_blob[i+1]) | (ord(disassembly_info.labelled_blob[i+2]) << 8), 16)), i+3
+        elif opcode == 0x5e: # CFFB opcode
+            return ConstantInstruction(0xff00 | ord(disassembly_info.labelled_blob[i+1])), i+2
         else:
             print('SFTODO %02x' % opcode)
             assert False
@@ -591,6 +593,7 @@ class BranchInstruction(Instruction):
 
 
 # SFTODO: Not sure about this, but let's see how it goes
+# SFTODO: Perhaps rename this ImpliedInstruction? I use it for things like RET which don't really use the stack as such, but are similar in the sense that the data (if any) is implied, not explicit.
 class StackInstruction(Instruction):
     def __init__(self, opcode):
         # SFTODO: WE SHOULD PROBABLY ASSERT - MAYBE USING opdict - THAT THIS IS A STACK INSTRUCTION
@@ -670,43 +673,43 @@ opdict = {
     0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x56: {'opcode': 'ICAL', 'operands': ()},
+    0x56: {'opcode': 'ICAL', 'operands': (), 'dis': StackInstruction.disassemble},
     0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter},
-    0x5c: {'opcode': 'RET', 'operands': (), 'nis': True},
+    0x5c: {'opcode': 'RET', 'operands': (), 'nis': True, 'dis': StackInstruction.disassemble},
     0x5a: {'opcode': 'LEAVE', 'operands': (Byte,), 'nis': True},
-    0x5e: {'opcode': 'CFFB', 'operands': (Byte,)},
-    0x60: {'opcode': 'LB', 'operands': ()},
-    0x62: {'opcode': 'LW', 'operands': ()},
+    0x5e: {'opcode': 'CFFB', 'operands': (Byte,), 'dis': ConstantInstruction.disassemble},
+    0x60: {'opcode': 'LB', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x62: {'opcode': 'LW', 'operands': (), 'dis': StackInstruction.disassemble},
     0x64: {'opcode': 'LLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x66: {'opcode': 'LLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x70: {'opcode': 'SB', 'operands': ()},
-    0x72: {'opcode': 'SW', 'operands': ()},
+    0x70: {'opcode': 'SB', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x72: {'opcode': 'SW', 'operands': (), 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x76: {'opcode': 'SLW', 'operands': (FrameOffset,), 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x78: {'opcode': 'SAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7a: {'opcode': 'SAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7c: {'opcode': 'DAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x7e: {'opcode': 'DAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
-    0x80: {'opcode': 'LNOT', 'operands': ()},
-    0x82: {'opcode': 'ADD', 'operands': ()},
-    0x84: {'opcode': 'SUB', 'operands': ()},
-    0x86: {'opcode': 'MUL', 'operands': ()},
-    0x88: {'opcode': 'DIV', 'operands': ()},
-    0x8a: {'opcode': 'MOD', 'operands': ()},
-    0x8c: {'opcode': 'INCR', 'operands': ()},
-    0x8e: {'opcode': 'DECR', 'operands': ()},
-    0x90: {'opcode': 'NEG', 'operands': ()},
-    0x92: {'opcode': 'COMP', 'operands': ()},
-    0x94: {'opcode': 'BAND', 'operands': ()},
-    0x96: {'opcode': 'IOR', 'operands': ()},
-    0x98: {'opcode': 'XOR', 'operands': ()},
-    0x9a: {'opcode': 'SHL', 'operands': ()},
-    0x9c: {'opcode': 'SHR', 'operands': ()},
-    0x9e: {'opcode': 'IDXW', 'operands': ()},
+    0x80: {'opcode': 'LNOT', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x82: {'opcode': 'ADD', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x84: {'opcode': 'SUB', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x86: {'opcode': 'MUL', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x88: {'opcode': 'DIV', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x8a: {'opcode': 'MOD', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x8c: {'opcode': 'INCR', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x8e: {'opcode': 'DECR', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x90: {'opcode': 'NEG', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x92: {'opcode': 'COMP', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x94: {'opcode': 'BAND', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x96: {'opcode': 'IOR', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x98: {'opcode': 'XOR', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x9a: {'opcode': 'SHL', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x9c: {'opcode': 'SHR', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x9e: {'opcode': 'IDXW', 'operands': (), 'dis': StackInstruction.disassemble},
     0xa0: {'opcode': 'BRGT', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xa2: {'opcode': 'BRLT', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
