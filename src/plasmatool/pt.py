@@ -578,7 +578,16 @@ class BranchInstruction(Instruction):
     def __init__(self, opcode, target):
         # SFTODO: Magic constants - we should perhaps be consulting opdict here instead
         assert opcode in (0x22, 0x24, 0x4c, 0x4e, 0x50, 0xa0, 0xa2, 0xa4, 0xa8, 0xac, 0xae)
+        assert isinstance(target, Offset)
         super(BranchInstruction, self).__init__(opcode, [target])
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        opcode = ord(disassembly_info.labelled_blob[i])
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        offset, i = Offset.disassemble(disassembly_info, i+1)
+        return BranchInstruction(opcode, offset), i
+
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -611,8 +620,8 @@ opdict = {
     0x1c: {'opcode': 'CN', 'constfn': lambda di, i: (14, i), 'dis': ConstantInstruction.disassemble},
     0x1e: {'opcode': 'CN', 'constfn': lambda di, i: (15, i), 'dis': ConstantInstruction.disassemble},
     0x20: {'opcode': 'MINUS1', 'constfn': lambda di, i: (-1, i), 'dis': ConstantInstruction.disassemble},
-    0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0x22: {'opcode': 'BREQ', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0x24: {'opcode': 'BRNE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x26: {'opcode': 'LA', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x28: {'opcode': 'LLA', 'operands': (FrameOffset,)},
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
@@ -630,9 +639,9 @@ opdict = {
     0x46: {'opcode': 'ISLT', 'operands': ()},
     0x48: {'opcode': 'ISGE', 'operands': ()},
     0x4a: {'opcode': 'ISLE', 'operands': ()},
-    0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'nis': True},
+    0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x56: {'opcode': 'ICAL', 'operands': ()},
@@ -672,12 +681,12 @@ opdict = {
     0x9a: {'opcode': 'SHL', 'operands': ()},
     0x9c: {'opcode': 'SHR', 'operands': ()},
     0x9e: {'opcode': 'IDXW', 'operands': ()},
-    0xa0: {'opcode': 'BRGT', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xa2: {'opcode': 'BRLT', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xac: {'opcode': 'BRAND', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
-    0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch},
+    0xa0: {'opcode': 'BRGT', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xa2: {'opcode': 'BRLT', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xa4: {'opcode': 'INCBRLE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xa8: {'opcode': 'DECBRGE', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xac: {'opcode': 'BRAND', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xae: {'opcode': 'BROR', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0xb0: {'opcode': 'ADDLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1},
     0xb2: {'opcode': 'ADDLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2},
     0xb4: {'opcode': 'ADDAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
