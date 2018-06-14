@@ -606,6 +606,34 @@ class StackInstruction(Instruction):
         return StackInstruction(opcode), i+1
 
 
+class ImmediateInstruction(Instruction):
+    def __init__(self, opcode, operands):
+        assert isinstance(operands, list)
+        assert len(operands) > 0
+        # SFTODO: We may or may not want to retain the Byte type rather than using raw ints eventually but let's keep it for now to minimise changes
+        assert all(isinstance(x, Byte) for x in operands)
+        super(ImmediateInstruction, self).__init__(opcode, operands)
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i, operand_count):
+        opcode = ord(disassembly_info.labelled_blob[i])
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        i += 1
+        operands = []
+        for j in range(operand_count):
+            operand, i = Byte.disassemble(disassembly_info, i)
+            operands.append(operand)
+        return ImmediateInstruction(opcode, operands), i
+
+    @classmethod
+    def disassemble1(cls, disassembly_info, i):
+        return cls.disassemble(disassembly_info, i, 1)
+
+    @classmethod
+    def disassemble2(cls, disassembly_info, i):
+        return cls.disassemble(disassembly_info, i, 2)
+
+
 # SFTODO: Not sure about this, but let's see how it goes
 class FrameInstruction(Instruction):
     def __init__(self, opcode, frame_offset):
@@ -674,9 +702,9 @@ opdict = {
     0x52: {'opcode': 'SEL', 'operands': (CaseBlockOffset,), 'acme_dump': acme_dump_branch}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'operands': (Label,), 'acme_dump': acme_dump_label},
     0x56: {'opcode': 'ICAL', 'operands': (), 'dis': StackInstruction.disassemble},
-    0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter},
+    0x58: {'opcode': 'ENTER', 'operands': (Byte, Byte), 'acme_dump': acme_dump_enter, 'dis': ImmediateInstruction.disassemble2},
     0x5c: {'opcode': 'RET', 'operands': (), 'nis': True, 'dis': StackInstruction.disassemble},
-    0x5a: {'opcode': 'LEAVE', 'operands': (Byte,), 'nis': True},
+    0x5a: {'opcode': 'LEAVE', 'operands': (Byte,), 'nis': True, 'dis': ImmediateInstruction.disassemble1},
     0x5e: {'opcode': 'CFFB', 'operands': (Byte,), 'dis': ConstantInstruction.disassemble},
     0x60: {'opcode': 'LB', 'operands': (), 'dis': StackInstruction.disassemble},
     0x62: {'opcode': 'LW', 'operands': (), 'dis': StackInstruction.disassemble},
