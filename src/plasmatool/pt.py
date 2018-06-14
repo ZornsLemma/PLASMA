@@ -668,6 +668,18 @@ class FrameInstruction(Instruction):
         return FrameInstruction(opcode, frame_offset), i+2
 
 
+class StringInstruction(Instruction):
+    def __init__(self, s):
+        # SFTODO: NOT SURE IF WE WANT TO RETAIN THE 'String' CLASS OR FOLD IT IN HERE, BUT LET'S KEEP IT MINIMAL CHANGE FOR NOW
+        assert isinstance(s, String)
+        super(StringInstruction, self).__init__(0x2e, [s])
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        s, i = String.disassemble(disassembly_info, i+1)
+        return StringInstruction(s), i
+
+
 
 # TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one - I have done this, but it many ways it would be cleaner to turn them all into CW not a CONST pseudo-op, and then optimise CW on output instead of optimising this CONST pseudo-op
 # TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
@@ -698,7 +710,7 @@ opdict = {
     0x28: {'opcode': 'LLA', 'operands': (FrameOffset,), 'dis': FrameInstruction.disassemble},
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
     0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
-    0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
+    0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs, 'dis': StringInstruction.disassemble},
     0x30: {'opcode': 'DROP', 'operands': (), 'dis': StackInstruction.disassemble},
     0x34: {'opcode': 'DUP', 'operands': (), 'dis': StackInstruction.disassemble},
     0x38: {'opcode': 'ADDI', 'operands': (Byte,), 'dis': ImmediateInstruction.disassemble1},
@@ -796,6 +808,8 @@ class BytecodeFunction:
                 if dis:
                     op, i = dis(di, i-1)
                 else: # SFTODO: I HOPE THIS BRANCH WILL CEASE TO EXIST LATER
+                    print('SFTODO9912 %x' % opcode)
+                    #assert False
                     constfn = opdef.get('constfn', None)
                     if constfn:
                         operand, i = constfn(di, i)
