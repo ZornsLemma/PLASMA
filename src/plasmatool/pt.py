@@ -634,6 +634,21 @@ class ImmediateInstruction(Instruction):
         return cls.disassemble(disassembly_info, i, 2)
 
 
+class MemoryInstruction(Instruction):
+    def __init__(self, opcode, address):
+        # TODO: For the moment we just assume the only kind of address is a label; need to make this work with absolute addresses as well.
+        assert isinstance(address, Label)
+        super(MemoryInstruction, self).__init__(opcode, [address])
+
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        opcode = ord(disassembly_info.labelled_blob[i])
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        i += 1
+        label, i = Label.disassemble(disassembly_info, i)
+        return MemoryInstruction(opcode, label), i
+
+
 # SFTODO: Not sure about this, but let's see how it goes
 class FrameInstruction(Instruction):
     def __init__(self, opcode, frame_offset):
@@ -710,7 +725,7 @@ opdict = {
     0x62: {'opcode': 'LW', 'operands': (), 'dis': StackInstruction.disassemble},
     0x64: {'opcode': 'LLB', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x66: {'opcode': 'LLW', 'operands': (FrameOffset,), 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label},
+    0x68: {'opcode': 'LAB', 'operands': (Label,), 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
     0x6c: {'opcode': 'DLB', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'operands': (FrameOffset,), 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x6a: {'opcode': 'LAW', 'operands': (Label,), 'acme_dump': acme_dump_label},
