@@ -646,6 +646,31 @@ class LocalLabelInstruction(Instruction):
         super(LocalLabelInstruction, self).__init__(0xff, [value])
 
 
+class NopInstruction(Instruction):
+    def __init__(self):
+        super(NopInstruction, self).__init__(0xf1, [])
+
+
+class CaseBlockInstruction(Instruction):
+    def __init__(self, value):
+        assert isinstance(value, CaseBlock) # SFTODO: 'CaseBlock' MAY EVENTUALLY FOLD INTO THIS, NOT AT ALL SURE YET
+        super(CaseBlockInstruction, self).__init__(0xfb, [value])
+
+
+class BranchInstruction(Instruction):
+    def __init__(self, opcode, target):
+        # SFTODO: Magic constants - we should perhaps be consulting opdict here instead
+        assert opcode in (0x22, 0x24, 0x4c, 0x4e, 0x50, 0xa0, 0xa2, 0xa4, 0xa8, 0xac, 0xae)
+        super(BranchInstruction, self).__init__(opcode, [target])
+
+
+# SFTODO: Not sure about this, but let's see how it goes
+class StackInstruction(Instruction):
+    def __init__(self, opcode):
+        # SFTODO: WE SHOULD PROBABLY ASSERT - MAYBE USING opdict - THAT THIS IS A STACK INSTRUCTION
+        super(StackInstruction, self).__init__(opcode, [])
+
+
 class BytecodeFunction:
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
@@ -682,7 +707,7 @@ class BytecodeFunction:
                     op = Instruction(opcode, operands)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
-                op = Instruction(0xfb, [operand]) # SFTODO MAGIC CONST 'CASEBLOCK' PSEUDO OP
+                op = CaseBlockInstruction(operand)
             self.ops.append(op)
 
     def is_init(self):
@@ -822,7 +847,7 @@ def branch_optimise3(bytecode_function):
         if opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch:
             local_label = bytecode_function.ops[i].operands[0].value
             if local_label in targets:
-                bytecode_function.ops[i] = Instruction(bytecode_function.ops[i].opcode, targets[local_label].operands)
+                bytecode_function.ops[i] = BranchInstruction(bytecode_function.ops[i].opcode, targets[local_label].operands[0])
                 changed = True
     # TODO: As always we may have left a now-orphaned label around
     return changed
@@ -917,9 +942,9 @@ def optimise_load_store(bytecode_function, straightline_ops):
                     opcode = straightline_ops[last_store_index].opcode
                     assert opdict[opcode]['is_store']
                     if opdict[opcode]['is_load']: # it's a duplicate opcode
-                        straightline_ops[last_store_index] = Instruction(0xf1, []) # SFTODO MAGIC CONSTANT NO OP
+                        straightline_ops[last_store_index] = NopInstruction()
                     else:
-                        straightline_ops[last_store_index] = Instruction(0x30, []) # SFTODO MAGIC CONSTANT DROP
+                        straightline_ops[last_store_index] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
                     changed = True
             last_store_index_for_offset[frame_offset] = this_store_index
         store_index_visibly_affected_bytes[this_store_index] = len(frame_offsets)
