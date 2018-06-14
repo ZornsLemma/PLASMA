@@ -370,7 +370,7 @@ class Offset:
             while j < len(di.op_offset):
                 if di.op_offset[j] == target:
                     di.op_offset.insert(j, None)
-                    di.bytecode_function.ops.insert(j, Instruction(0xff, [local_label]))
+                    di.bytecode_function.ops.insert(j, LocalLabelInstruction(local_label))
                     j = 99999 # SFTODO ULTRA FOUL
                 j += 1
             assert j >= 99999
@@ -616,11 +616,34 @@ class DisassemblyInfo:
         self.op_offset = []
 
 
-class Instruction:
+# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an Instruction object is constructed
+class Instruction(object):
     def __init__(self, opcode, operands):
         assert isinstance(operands, list)
-        self.opcode = opcode
+        self._opcode = opcode
         self.operands = operands
+
+    # It may or may not be Pythonic but we use a property here to prevent code accidentally
+    # changing the opcode. Doing so would lead to subtle problems because the type of the
+    # object wouldn't change.
+    @property
+    def opcode(self):
+        return self._opcode
+
+    def is_local_label(self):
+        return self.opcode == 0xff # SFTODO MAGIC CONSTANT
+
+
+class ConstantInstruction(Instruction):
+    def __init__(self, value):
+        assert isinstance(value, int)
+        super(ConstantInstruction, self).__init__(0xfd, [value])
+
+
+class LocalLabelInstruction(Instruction):
+    def __init__(self, value):
+        assert isinstance(value, str)
+        super(LocalLabelInstruction, self).__init__(0xff, [value])
 
 
 class BytecodeFunction:
@@ -637,7 +660,7 @@ class BytecodeFunction:
             # the function, but those are different.
             assert i == 0 or not labelled_blob.labels[i]
             for t in di.local_target[i]:
-                self.ops.append(Instruction(0xff, [t])) # SFTODO MAGIC CONSTANT - 'TARGET' PSEUDO-OPCODE
+                self.ops.append(LocalLabelInstruction(t))
                 di.op_offset.append(None)
             di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = di.special[i]
@@ -649,7 +672,7 @@ class BytecodeFunction:
                 constfn = opdef.get('constfn', None)
                 if constfn:
                     operand, i = constfn(di, i)
-                    op = Instruction(0xfd, [operand]) # SFTODO MAGIC CONSTANT 'CONST' PSEUDO OP
+                    op = ConstantInstruction(operand) # SFTODO MAGIC CONSTANT 'CONST' PSEUDO OP
                 else:
                     operands = []
                     for operandcls in opdef['operands']:
@@ -728,14 +751,12 @@ class BytecodeFunction:
 def local_label_deduplicate(bytecode_function):
     alias = {}
     new_ops = []
-    previous_opcode = None
-    previous_operands = None
+    previous_instruction = None
     for instruction in bytecode_function.ops:
-        if instruction.opcode == 0xff and previous_opcode == 0xff:
-            alias[instruction.operands[0]] = previous_operands[0]
+        if instruction.is_local_label() and previous_instruction and previous_instruction.is_local_label():
+            alias[instruction.operands[0]] = previous_instruction.operands[0]
         else:
-            previous_opcode = instruction.opcode
-            previous_operands = instruction.operands
+            previous_instruction = instruction
     for instruction in bytecode_function.ops:
         if instruction.operands and not isinstance(instruction.operands[0], int) and not isinstance(instruction.operands[0], str): # SFTODO HACKY isinstance
             instruction.operands[0].rename_local_labels(alias)
@@ -755,7 +776,7 @@ def branch_optimise(bytecode_function):
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
-        if not (instruction.opcode == 0x50 and next_instruction and next_instruction.opcode == 0xff and instruction.operands[0].value == next_instruction.operands[0]): # SFTODO MAGIC CONST
+        if not (instruction.opcode == 0x50 and next_instruction and next_instruction.is_local_label() and instruction.operands[0].value == next_instruction.operands[0]): # SFTODO MAGIC CONST
             new_ops.append(instruction)
         else:
             changed = True
@@ -771,7 +792,7 @@ def branch_optimise2(bytecode_function):
     changed = False
     targets = {}
     for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].opcode == 0xff and bytecode_function.ops[i+1].opcode in (0x5a, 0x5c): # SFTODO: MAGIC CONST RET LEAVE
+        if bytecode_function.ops[i].is_local_label() and bytecode_function.ops[i+1].opcode in (0x5a, 0x5c): # SFTODO: MAGIC CONST RET LEAVE
             targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
     #print('SFTODOQ4', targets)
     for i in range(len(bytecode_function.ops)):
@@ -793,7 +814,7 @@ def branch_optimise3(bytecode_function):
     changed = False
     targets = {}
     for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].opcode == 0xff and bytecode_function.ops[i+1].opcode == 0x50: # SFTODO MAGIC BRNCH
+        if bytecode_function.ops[i].is_local_label() and bytecode_function.ops[i+1].opcode == 0x50: # SFTODO MAGIC BRNCH
             targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
     #print('SFTODOQ4', targets)
     for i in range(len(bytecode_function.ops)):
@@ -814,7 +835,7 @@ def remove_orphaned_labels(bytecode_function):
             instruction.operands[0].update_local_labels_used(labels_used)
     new_ops = []
     for instruction in bytecode_function.ops:
-        if not (instruction.opcode == 0xff and instruction.operands[0] not in labels_used):
+        if not (instruction.is_local_label() and instruction.operands[0] not in labels_used):
             new_ops.append(instruction)
         else:
             changed = True
@@ -835,7 +856,7 @@ def remove_dead_code(bytecode_function):
         this_opcode = bytecode_function.ops[i].opcode
         i += 1
         if never_immediate_successor(this_opcode):
-            while i < len(bytecode_function.ops) and bytecode_function.ops[i].opcode != 0xff:
+            while i < len(bytecode_function.ops) and not bytecode_function.ops[i].is_local_label():
                 i += 1
                 changed = True
     bytecode_function.ops = new_ops
@@ -863,7 +884,7 @@ def straightline_optimise(bytecode_function, optimisations):
         groups.append(group)
     new_ops = []
     for group in groups:
-        if group[0].opcode != 0xff:
+        if not group[0].is_local_label():
             for optimisation in optimisations:
                 # optimisation function may modify group in place if it wishes, but it
                 # may also be more convenient for it to create a new list so we take a
