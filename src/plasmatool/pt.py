@@ -596,6 +596,12 @@ class StackInstruction(Instruction):
         # SFTODO: WE SHOULD PROBABLY ASSERT - MAYBE USING opdict - THAT THIS IS A STACK INSTRUCTION
         super(StackInstruction, self).__init__(opcode, [])
 
+    @classmethod
+    def disassemble(cls, disassembly_info, i):
+        opcode = ord(disassembly_info.labelled_blob[i])
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        return StackInstruction(opcode), i+1
+
 
 # SFTODO: Not sure about this, but let's see how it goes
 class FrameInstruction(Instruction):
@@ -647,18 +653,18 @@ opdict = {
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
     0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
     0x2e: {'opcode': 'CS', 'operands': (String,), 'acme_dump': acme_dump_cs},
-    0x30: {'opcode': 'DROP', 'operands': ()},
-    0x34: {'opcode': 'DUP', 'operands': ()},
+    0x30: {'opcode': 'DROP', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x34: {'opcode': 'DUP', 'operands': (), 'dis': StackInstruction.disassemble},
     0x38: {'opcode': 'ADDI', 'operands': (Byte,)},
     0x3a: {'opcode': 'SUBI', 'operands': (Byte,)},
     0x3c: {'opcode': 'ANDI', 'operands': (Byte,)},
     0x3e: {'opcode': 'ORI', 'operands': (Byte,)},
-    0x40: {'opcode': 'ISEQ', 'operands': ()},
-    0x42: {'opcode': 'ISNE', 'operands': ()},
-    0x44: {'opcode': 'ISGT', 'operands': ()},
-    0x46: {'opcode': 'ISLT', 'operands': ()},
-    0x48: {'opcode': 'ISGE', 'operands': ()},
-    0x4a: {'opcode': 'ISLE', 'operands': ()},
+    0x40: {'opcode': 'ISEQ', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x42: {'opcode': 'ISNE', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x44: {'opcode': 'ISGT', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x46: {'opcode': 'ISLT', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x48: {'opcode': 'ISGE', 'operands': (), 'dis': StackInstruction.disassemble},
+    0x4a: {'opcode': 'ISLE', 'operands': (), 'dis': StackInstruction.disassemble},
     0x4c: {'opcode': 'BRFLS', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x4e: {'opcode': 'BRTRU', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
     0x50: {'opcode': 'BRNCH', 'operands': (Offset,), 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
