@@ -976,7 +976,6 @@ def local_label_deduplicate(bytecode_function):
 
 
 def branch_optimise(bytecode_function):
-    # This relies on local_label_deduplicate() being called beforehand
     changed = False
     # This removes a BRNCH to an immediately following label.
     # TODO: There are probably other opportunities for optimisation here but this is a
@@ -988,11 +987,12 @@ def branch_optimise(bytecode_function):
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
+        # TODO: I hate the way we need to use .value on lhs and nothing on rhs in next line
         if not (instruction.opcode == 0x50 and next_instruction and next_instruction.is_local_label() and instruction.operands[0].value == next_instruction.operands[0]): # SFTODO MAGIC CONST
             new_ops.append(instruction)
         else:
             changed = True
-        # TODO: When we remove the branch we leave the label it brancehd too - we don't have a simple way to determine if anyone else is using it. It probably makes no difference, but it may turn out to be useful to remove orphaned labels to open up further optimisation possibilities.
+            # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
     bytecode_function.ops = new_ops
     return changed
 
@@ -1000,7 +1000,6 @@ def branch_optimise(bytecode_function):
 
 # This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
 def branch_optimise2(bytecode_function):
-    # This relies on local_label_deduplicate() being called beforehand
     changed = False
     targets = {}
     for i in range(len(bytecode_function.ops)-1):
@@ -1008,17 +1007,17 @@ def branch_optimise2(bytecode_function):
             targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
     #print('SFTODOQ4', targets)
     for i in range(len(bytecode_function.ops)):
-        if bytecode_function.ops[i].opcode == 0x50: # SFTODO MAGIC
-            local_label = bytecode_function.ops[i].operands[0].value
+        instruction = bytecode_function.ops[i]
+        if instruction.opcode == 0x50: # SFTODO MAGIC
+            local_label = instruction.operands[0].value
             #print('SFTODOQ5', local_label)
             if local_label in targets:
                 bytecode_function.ops[i] = targets[local_label]
                 changed = True
-    # TODO: We will leave a potentially orphaned label from removed branches here. This might inhibit some other optimisations (e.g. removal of redundant stores - hitting a LEAVE or RET is gold, but the preceding label will break the straight line sequence). Need to come back to this - we need to be calling optimisations in a sensible order (looping over at least some of them multiple times) until we find no more improvements.
+                # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
     return changed
 
 # This replaces a branch (conditional or not) to a BRNCH with a branch.
-# TODO: This would definitely benefit from being called in a loop; we can get branch-to-branch-to-branch occasionally and it won't snap all the way to the final destination on a single pass.
 # TODO: Not just relevant to this, but this probably is one cause - we might benefit from removing orphaned labels and then removing dead code - for example, this optimisation may cause a branch instruction to be redundant because it was only ever used as a target for other branches which have been snapped
 # TODO: This should also treat CASEBLOCK targets as BRNCH opcodes - which they kind of are. There is at least one case in self-hosted compiled where such a target could be snapped, and it may also then allow the intermediate branch (which follows another unconditional branch) to be removed by the dead code optimisation.
 def branch_optimise3(bytecode_function):
