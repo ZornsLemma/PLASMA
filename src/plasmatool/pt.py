@@ -542,6 +542,12 @@ class Instruction(object):
     def is_branch(self):
         return False
 
+    def is_store(self):
+        return opdict[self.opcode].get('is_store', False)
+
+    def is_load(self):
+        return opdict[self.opcode].get('is_load', False)
+
 
 class ConstantInstruction(Instruction):
     def __init__(self, value):
@@ -1080,9 +1086,9 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 if store_index_visibly_affected_bytes[last_store_index] == 0:
                     # The stores performed by straightline_ops[last_store_index] are all
                     # irrelevant, so we don't need to perform them.
-                    opcode = straightline_ops[last_store_index].opcode
-                    assert opdict[opcode]['is_store']
-                    if opdict[opcode]['is_load']: # it's a duplicate opcode
+                    store_instruction = straightline_ops[last_store_index]
+                    assert store_instruction.is_store()
+                    if store_instruction.is_load(): # it's a duplicate opcode
                         straightline_ops[last_store_index] = NopInstruction()
                     else:
                         straightline_ops[last_store_index] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
