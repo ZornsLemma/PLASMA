@@ -1029,10 +1029,9 @@ def branch_optimise3(bytecode_function):
     alias = {k:v.operands[0].value for k, v in targets.items()}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        if True: # SFTODOinstruction.is_branch():
-            original_operands = instruction.operands
-            instruction.rename_local_labels(alias)
-            changed = changed or (original_operands != instruction.operands)
+        original_operands = instruction.operands
+        instruction.rename_local_labels(alias)
+        changed = changed or (original_operands != instruction.operands)
     return changed
 
 # Remove local labels which have no instructions referencing them; this can occur as a result
@@ -1071,6 +1070,40 @@ def remove_dead_code(bytecode_function):
                 changed = True
     bytecode_function.ops = new_ops
     return changed
+
+# A CASEBLOCK instruction is followed by the 'otherwise' instructions. If those instructions
+# are a logically isolated block, the CASEBLOCK+otherwise instructions can be moved to the end
+# of the function. This may allow a BRNCH instruction which is there just to skip over the
+# CASEBLOCK to be optimised away.
+def move_caseblocks(bytecode_function):
+    tail = []
+    i = 0
+    while i < len(bytecode_function.ops):
+        if bytecode_function.ops[i].opcode == 0xfb and bytecode_function.ops[i-2].opcode == 0x50: # SFTODO MAGIC CONST CASEBLOCK, BRNCH
+            assert bytecode_function.ops[i-1].is_local_label()
+            j = i
+            while j < len(bytecode_function.ops)-1:
+                j += 1
+                instruction2 = bytecode_function.ops[j]
+                if instruction2.is_local_label():
+                    i = j
+                    break
+                if never_immediate_successor(instruction2.opcode):
+                    for k in range(i-1, j+1):
+                        tail.append(bytecode_function.ops[k])
+                        bytecode_function.ops[k] = NopInstruction()
+                    i = j
+                    break
+        i += 1
+    bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1] # SFTODO MAGIC CONSTANT NOP
+    changed = False
+    for i in range(len(bytecode_function.ops)-1):
+        if bytecode_function.ops[i].opcode == 0xf1 and bytecode_function.ops[i+1].opcode != 0xf1:
+            changed = True
+            break
+    bytecode_function.ops += tail
+    return changed
+
 
 
 
@@ -1358,6 +1391,7 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(remove_orphaned_labels(bytecode_function))
             result.append(remove_dead_code(bytecode_function))
             result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
+            result.append(move_caseblocks(bytecode_function))
         changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
