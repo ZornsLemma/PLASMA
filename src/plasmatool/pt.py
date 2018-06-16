@@ -997,15 +997,19 @@ def branch_optimise(bytecode_function):
     return changed
 
 
+def build_local_label_dictionary(bytecode_function, test):
+    result = {}
+    for i in range(len(bytecode_function.ops)-1):
+        if bytecode_function.ops[i].is_local_label() and test(bytecode_function.ops[i+1]):
+            result[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
+    return result
+
+
 
 # This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
 def branch_optimise2(bytecode_function):
     changed = False
-    targets = {}
-    for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].is_local_label() and bytecode_function.ops[i+1].opcode in (0x5a, 0x5c): # SFTODO: MAGIC CONST RET LEAVE
-            targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
-    #print('SFTODOQ4', targets)
+    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.opcode in (0x5a, 0x5c)) # SFTODO: MAGIC CONST RET LEAVE
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         if instruction.opcode == 0x50: # SFTODO MAGIC
@@ -1018,16 +1022,10 @@ def branch_optimise2(bytecode_function):
     return changed
 
 # This replaces a branch (conditional or not) to a BRNCH with a branch.
-# TODO: Not just relevant to this, but this probably is one cause - we might benefit from removing orphaned labels and then removing dead code - for example, this optimisation may cause a branch instruction to be redundant because it was only ever used as a target for other branches which have been snapped
 # TODO: This should also treat CASEBLOCK targets as BRNCH opcodes - which they kind of are. There is at least one case in self-hosted compiled where such a target could be snapped, and it may also then allow the intermediate branch (which follows another unconditional branch) to be removed by the dead code optimisation.
 def branch_optimise3(bytecode_function):
-    # This relies on local_label_deduplicate() being called beforehand
     changed = False
-    targets = {}
-    for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].is_local_label() and bytecode_function.ops[i+1].opcode == 0x50: # SFTODO MAGIC BRNCH
-            targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
-    #print('SFTODOQ4', targets)
+    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.opcode == 0x50) # SFTODO MAGIC CONSTANT BRNCH
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         if instruction.is_branch():
@@ -1035,7 +1033,7 @@ def branch_optimise3(bytecode_function):
             if local_label in targets:
                 bytecode_function.ops[i] = BranchInstruction(instruction.opcode, targets[local_label].operands[0])
                 changed = True
-    # TODO: As always we may have left a now-orphaned label around
+                # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
     return changed
 
 def remove_orphaned_labels(bytecode_function):
