@@ -51,6 +51,15 @@ class Label:
         else:
             self.name = prefix
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.name == other.name
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def nm(self):
         return self.name
 
@@ -94,6 +103,15 @@ class ExternalReference:
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.external_name == other.external_name and self.offset == other.offset
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
         
     def nm(self):
         if self.offset:
@@ -284,6 +302,15 @@ class Byte:
     def __repr__(self):
         return "Byte(%d)" % (self.value,)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value == other.value
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def acme(self):
         return "$%02X" % (self.value,)
 
@@ -318,6 +345,15 @@ class Word:
     def __repr__(self):
         return "Word(%d)" % (self.value,)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value == other.value
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def update_used_things(self, used_things):
         pass
 
@@ -346,6 +382,15 @@ class Offset:
 
     def __repr__(self):
         return "Offset(%s)" % (self.value,)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value == other.value
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def update_used_things(self, used_things):
         pass
@@ -389,6 +434,15 @@ class CaseBlockOffset:
     def __repr__(self):
         return "CaseBlockOffset(%r)" % (self.offset,)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.offset == other.offset
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
         return self.offset.value
@@ -417,6 +471,15 @@ class CaseBlock:
 
     def __repr__(self):
         return "CaseBlock(%d)" % (len(self.table),)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.table == other.table
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def update_used_things(self, used_things):
         pass
@@ -447,6 +510,15 @@ class String:
 
     def __repr__(self):
         return "String(%r)" % (self.value,)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.value == other.value
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def update_used_things(self, used_things):
         pass
@@ -528,6 +600,15 @@ class Instruction(object):
         assert isinstance(operands, list)
         self._opcode = opcode
         self.operands = operands
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._opcode == other._opcode and self.operands == other.operands
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     # It may or may not be Pythonic but we use a property here to prevent code accidentally
     # changing the opcode. Doing so would lead to subtle problems because the type of the
@@ -1104,6 +1185,71 @@ def move_caseblocks(bytecode_function):
     bytecode_function.ops += tail
     return changed
 
+# Identify duplicated blocks of code in a function and remove the duplicates.
+def block_deduplicate(bytecode_function):
+    blocks = []
+    block_labels = []
+    block_label_only = {}
+    block_label = None
+    block = []
+    # Identify the distinct blocks; a block for our purposes starts with a label, contains
+    # no other labels and ends with an instruction which never transfers control to its
+    # immediate successor. We further classify these blocks based on whether control
+    # can only reach them via their label or it can enter from the instruction before the
+    # block; we can't remove a block of the second type.
+    for i in range(len(bytecode_function.ops)):
+        instruction = bytecode_function.ops[i]
+        if never_immediate_successor(instruction.opcode):
+            block.append(instruction)
+            if block_label:
+                blocks.append(block)
+                block_labels.append(block_label)
+            block_label = None
+        elif instruction.is_local_label():
+            block_label = instruction.operands[0]
+            block = []
+            block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode)
+            #print('SFTODO %r %r' % (block_label, block_label_only[block_label]))
+        elif block_label:
+            block.append(instruction)
+    if block_label:
+        blocks.append(block)
+        block_labels.append(block_label)
+    assert len(blocks) == len(block_labels)
+
+    alias = {}
+    unwanted = set()
+    for i in range(len(blocks)):
+        for j in range(i+1, len(blocks)):
+            if blocks[i] == blocks[j]:
+                #print('SFTODOX1 %r' % block_labels[i])
+                #print('SFTODOX2 %r' % block_labels[j])
+                
+                replace = None
+                if block_label_only[block_labels[i]]:
+                    replace = (block_labels[i], block_labels[j])
+                elif block_label_only[block_labels[j]]:
+                    replace = (block_labels[j], block_labels[i])
+                if replace:
+                    alias[replace[0]] = replace[1]
+                    unwanted.add(replace[0])
+
+    changed = False
+    new_ops = []
+    for i in range(len(bytecode_function.ops)):
+        instruction = bytecode_function.ops[i]
+        if instruction.is_local_label() and instruction.operands[0] in unwanted:
+            changed = True
+            while i < len(bytecode_function.ops):
+                i += 1
+                if bytecode_function.ops[i].is_local_label():
+                    break
+        else:
+            instruction.rename_local_labels(alias)
+            new_ops.append(instruction)
+    bytecode_function.ops = new_ops
+    return changed
+
 
 
 
@@ -1392,6 +1538,7 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(remove_dead_code(bytecode_function))
             result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
             result.append(move_caseblocks(bytecode_function))
+            result.append(block_deduplicate(bytecode_function))
         changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
