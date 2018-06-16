@@ -134,7 +134,7 @@ class RLD:
     def add_fixup(self, reference, fixup_label):
         self.fixups.append((reference, fixup_label))
 
-    def dump(self):
+    def dump(self): # SFTODO: SHOULD PROB TAKE ESD ARG INSTEAD OF USING GLOBAL new_esd
         for bytecode_function_label in self.bytecode_function_labels:
             print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
 
@@ -188,9 +188,8 @@ class LabelledBlob:
         self.labels = [[] for _ in range(len(self.blob))]
         self.references = [None] * len(self.blob)
 
-    # SFTODO: This should possibly return ord(self.blob[key]) - this would simplify the vast bulk of callers, and the few that do want a character can use chr() themselves. This *might* also be helpful if I ever want to try to make this work on Python 3.
     def __getitem__(self, key):
-        return self.blob[key]
+        return ord(self.blob[key])
 
     def __len__(self):
         return len(self.blob)
@@ -222,7 +221,7 @@ class LabelledBlob:
 
     def read_u16(self, key):
         # TODO: Best way to write this?!
-        return ord(self[key]) | (ord(self[key+1]) << 8)
+        return self[key] | (self[key+1] << 8)
 
     def update_label_dict(self, label_dict):
         for label_list in self.labels:
@@ -252,7 +251,7 @@ class LabelledBlob:
                 #print('SFTODO XXX %d %d %d' % (i, len(self.labels), len(self.labels[i])))
                 for label in self.labels[i]:
                     print('%s' % label.name)
-                print('\t!BYTE\t$%02X' % (ord(self.blob[i]),))
+                print('\t!BYTE\t$%02X' % (self[i],))
             else:
                 reference = self.references[i]
                 assert not self.labels[i]
@@ -302,7 +301,7 @@ class Byte:
 
     @classmethod
     def disassemble(cls, di, i):
-        byte = cls(ord(di.labelled_blob[i]))
+        byte = cls(di.labelled_blob[i])
         return byte, i+1
 
 
@@ -330,6 +329,7 @@ class Word:
 
     @classmethod
     def disassemble(cls, di, i):
+        assert False
         word = Word(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
         return word, i+2
 
@@ -360,7 +360,7 @@ class Offset:
     def disassemble(cls, di, i, current_pos = None):
         if not current_pos:
             current_pos = i
-        value = ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8)
+        value = di.labelled_blob.read_u16(i)
         value = sign_extend(value, 16)
         target = i + value
         global local_label_count
@@ -404,7 +404,7 @@ class CaseBlockOffset:
 
     @classmethod
     def disassemble(cls, di, i):
-        cbo = ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8)
+        cbo = di.labelled_blob.read_u16(i)
         j = i + cbo
         offset, i = Offset.disassemble(di, i)
         di.special[j] = True # SFTODO HACKY?
@@ -431,11 +431,11 @@ class CaseBlock:
 
     @classmethod
     def disassemble(cls, di, i):
-        count = ord(di.labelled_blob[i])
+        count = di.labelled_blob[i]
         table = []
         for j in range(count):
             k = i + 1 + 4*j
-            value = ord(di.labelled_blob[k]) | (ord(di.labelled_blob[k+1]) << 8)
+            value = di.labelled_blob.read_u16(k)
             offset, _ = Offset.disassemble(di, k+2, i)
             table.append((value, offset))
         return CaseBlock(table), i+1+4*count
@@ -459,10 +459,10 @@ class String:
 
     @classmethod
     def disassemble(cls, di, i):
-        length = ord(di.labelled_blob[i])
+        length = di.labelled_blob[i]
         s = ''
         for j in range(length):
-            s += di.labelled_blob[i + j + 1]
+            s += chr(di.labelled_blob[i + j + 1])
         return String(s), i + length + 1
 
 
@@ -556,17 +556,17 @@ class ConstantInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         if opcode <= 0x1e: # CN opcode
             return ConstantInstruction(opcode/2), i+1
         elif opcode == 0x20: # MINUS ONE opcode
             return ConstantInstruction(-1), i+1
         elif opcode == 0x2a: # CB opcode
-            return ConstantInstruction(ord(disassembly_info.labelled_blob[i+1])), i+2
+            return ConstantInstruction(disassembly_info.labelled_blob[i+1]), i+2
         elif opcode == 0x2c: # CW opcode
-            return ConstantInstruction(sign_extend(ord(disassembly_info.labelled_blob[i+1]) | (ord(disassembly_info.labelled_blob[i+2]) << 8), 16)), i+3
+            return ConstantInstruction(sign_extend(disassembly_info.labelled_blob.read_u16(i+1), 16)), i+3
         elif opcode == 0x5e: # CFFB opcode
-            return ConstantInstruction(0xff00 | ord(disassembly_info.labelled_blob[i+1])), i+2
+            return ConstantInstruction(0xff00 | disassembly_info.labelled_blob[i+1]), i+2
         else:
             print('SFTODO %02x' % opcode)
             assert False
@@ -617,7 +617,7 @@ class BranchInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         # SFTODO: Validate opcode?? Arguably redundant given how this is called
         offset, i = Offset.disassemble(disassembly_info, i+1)
         return BranchInstruction(opcode, offset), i
@@ -659,7 +659,7 @@ class StackInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         # SFTODO: Validate opcode?? Arguably redundant given how this is called
         return StackInstruction(opcode), i+1
 
@@ -677,7 +677,7 @@ class ImmediateInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i, operand_count):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         # SFTODO: Validate opcode?? Arguably redundant given how this is called
         i += 1
         operands = []
@@ -711,7 +711,7 @@ class MemoryInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         # SFTODO: Validate opcode?? Arguably redundant given how this is called
         i += 1
         label, i = Label.disassemble(disassembly_info, i)
@@ -735,9 +735,9 @@ class FrameInstruction(Instruction):
 
     @classmethod
     def disassemble(cls, disassembly_info, i):
-        opcode = ord(disassembly_info.labelled_blob[i])
+        opcode = disassembly_info.labelled_blob[i]
         # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet
-        frame_offset = FrameOffset(ord(disassembly_info.labelled_blob[i+1]))
+        frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
         return FrameInstruction(opcode, frame_offset), i+2
 
     def dump(self, rld):
@@ -767,29 +767,29 @@ class StringInstruction(Instruction):
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
 opdict = {
-    0x00: {'opcode': 'CN', 'constfn': lambda di, i: (0, i), 'dis': ConstantInstruction.disassemble},
-    0x02: {'opcode': 'CN', 'constfn': lambda di, i: (1, i), 'dis': ConstantInstruction.disassemble},
-    0x04: {'opcode': 'CN', 'constfn': lambda di, i: (2, i), 'dis': ConstantInstruction.disassemble},
-    0x06: {'opcode': 'CN', 'constfn': lambda di, i: (3, i), 'dis': ConstantInstruction.disassemble},
-    0x08: {'opcode': 'CN', 'constfn': lambda di, i: (4, i), 'dis': ConstantInstruction.disassemble},
-    0x0a: {'opcode': 'CN', 'constfn': lambda di, i: (5, i), 'dis': ConstantInstruction.disassemble},
-    0x0c: {'opcode': 'CN', 'constfn': lambda di, i: (6, i), 'dis': ConstantInstruction.disassemble},
-    0x0e: {'opcode': 'CN', 'constfn': lambda di, i: (7, i), 'dis': ConstantInstruction.disassemble},
-    0x10: {'opcode': 'CN', 'constfn': lambda di, i: (8, i), 'dis': ConstantInstruction.disassemble},
-    0x12: {'opcode': 'CN', 'constfn': lambda di, i: (9, i), 'dis': ConstantInstruction.disassemble},
-    0x14: {'opcode': 'CN', 'constfn': lambda di, i: (10, i), 'dis': ConstantInstruction.disassemble},
-    0x16: {'opcode': 'CN', 'constfn': lambda di, i: (11, i), 'dis': ConstantInstruction.disassemble},
-    0x18: {'opcode': 'CN', 'constfn': lambda di, i: (12, i), 'dis': ConstantInstruction.disassemble},
-    0x1a: {'opcode': 'CN', 'constfn': lambda di, i: (13, i), 'dis': ConstantInstruction.disassemble},
-    0x1c: {'opcode': 'CN', 'constfn': lambda di, i: (14, i), 'dis': ConstantInstruction.disassemble},
-    0x1e: {'opcode': 'CN', 'constfn': lambda di, i: (15, i), 'dis': ConstantInstruction.disassemble},
-    0x20: {'opcode': 'MINUS1', 'constfn': lambda di, i: (-1, i), 'dis': ConstantInstruction.disassemble},
+    0x00: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x02: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x04: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x06: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x08: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x0a: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x0c: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x0e: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x10: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x12: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x14: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x16: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x18: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x1a: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x1c: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x1e: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
+    0x20: {'opcode': 'MINUS1', 'dis': ConstantInstruction.disassemble},
     0x22: {'opcode': 'BREQ', 'dis': BranchInstruction.disassemble},
     0x24: {'opcode': 'BRNE', 'dis': BranchInstruction.disassemble},
     0x26: {'opcode': 'LA', 'dis': MemoryInstruction.disassemble},
     0x28: {'opcode': 'LLA', 'dis': FrameInstruction.disassemble},
-    0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
-    0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
+    0x2a: {'opcode': 'CB', 'dis': ConstantInstruction.disassemble},
+    0x2c: {'opcode': 'CW', 'dis': ConstantInstruction.disassemble},
     0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
     0x30: {'opcode': 'DROP', 'dis': StackInstruction.disassemble},
     0x34: {'opcode': 'DUP', 'dis': StackInstruction.disassemble},
@@ -880,7 +880,7 @@ class BytecodeFunction:
             di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = di.special[i]
             if not special:
-                opcode = ord(labelled_blob[i])
+                opcode = labelled_blob[i]
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 dis = opdef.get('dis')
