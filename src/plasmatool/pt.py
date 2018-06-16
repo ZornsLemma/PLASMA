@@ -548,6 +548,9 @@ class Instruction(object):
     def is_load(self):
         return opdict[self.opcode].get('is_load', False)
 
+    def rename_local_labels(self, alias_dict):
+        pass
+
 
 class ConstantInstruction(Instruction):
     def __init__(self, value):
@@ -584,6 +587,8 @@ class ConstantInstruction(Instruction):
         else:
             print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
 
+    def rename_local_labels(self, alias_dict):
+        pass
 
 class LocalLabelInstruction(Instruction):
     def __init__(self, value):
@@ -593,10 +598,16 @@ class LocalLabelInstruction(Instruction):
     def dump(self, rld):
         print("%s" % (self.operands[0]))
 
+    def rename_local_labels(self, alias_dict):
+        assert self.operands[0] not in alias_dict
+
 
 class NopInstruction(Instruction):
     def __init__(self):
         super(NopInstruction, self).__init__(0xf1, [])
+
+    def rename_local_labels(self, alias_dict):
+        pass
 
 
 class CaseBlockInstruction(Instruction):
@@ -606,6 +617,9 @@ class CaseBlockInstruction(Instruction):
 
     def dump(self, rld):
         acme_dump_caseblock(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
+
+    def rename_local_labels(self, alias_dict):
+        self.operands[0].rename_local_labels(alias_dict)
 
 
 class BranchInstruction(Instruction):
@@ -629,6 +643,9 @@ class BranchInstruction(Instruction):
         # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
         acme_dump_branch(self.opcode, self.operands)
 
+    def rename_local_labels(self, alias_dict):
+        self.operands[0].rename_local_labels(alias_dict)
+
 
 class SelInstruction(Instruction):
     def __init__(self, case_block_offset):
@@ -648,6 +665,9 @@ class SelInstruction(Instruction):
         # SFTODO: Fold acme_dump_branch() in here?
         acme_dump_branch(self.opcode, self.operands)
 
+    def rename_local_labels(self, alias_dict):
+        self.operands[0].rename_local_labels(alias_dict)
+
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -665,6 +685,9 @@ class StackInstruction(Instruction):
 
     def dump(self, rld):
         print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
+
+    def rename_local_labels(self, alias_dict):
+        pass
 
 
 class ImmediateInstruction(Instruction):
@@ -702,6 +725,9 @@ class ImmediateInstruction(Instruction):
         else:
             assert False
 
+    def rename_local_labels(self, alias_dict):
+        pass
+
 
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
@@ -720,6 +746,9 @@ class MemoryInstruction(Instruction):
     def dump(self, rld):
         # SFTODO: Probably merge acme_dump_label in here
         acme_dump_label(self.opcode, self.operands, rld)
+
+    def rename_local_labels(self, alias_dict):
+        pass
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -743,6 +772,9 @@ class FrameInstruction(Instruction):
     def dump(self, rld):
         print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
 
+    def rename_local_labels(self, alias_dict):
+        pass
+
 
 class StringInstruction(Instruction):
     def __init__(self, s):
@@ -758,6 +790,9 @@ class StringInstruction(Instruction):
     def dump(self, rld):
         # SFTODO: Fold acme_dump_cs in here
         acme_dump_cs(self.opcode, self.operands)
+
+    def rename_local_labels(self, alias_dict):
+        pass
 
 
 
@@ -920,19 +955,24 @@ class BytecodeFunction:
         for instruction in self.ops:
             instruction.dump(rld)
 
+# Remove all but the first of each group of consecutive labels; this makes it easier to spot other
+# optimisations.
 def local_label_deduplicate(bytecode_function):
     alias = {}
     new_ops = []
     previous_instruction = None
+    changed = False
     for instruction in bytecode_function.ops:
         if instruction.is_local_label() and previous_instruction and previous_instruction.is_local_label():
             alias[instruction.operands[0]] = previous_instruction.operands[0]
+            changed = True
         else:
             previous_instruction = instruction
-    for instruction in bytecode_function.ops:
-        if instruction.operands and not isinstance(instruction.operands[0], int) and not isinstance(instruction.operands[0], str): # SFTODO HACKY isinstance
-            instruction.operands[0].rename_local_labels(alias)
-    return False # changes here aren't in themselves desirable
+            new_ops.append(instruction)
+    for instruction in new_ops:
+        instruction.rename_local_labels(alias)
+    bytecode_function.ops = new_ops
+    return changed
 
 
 def branch_optimise(bytecode_function):
