@@ -599,7 +599,9 @@ class LocalLabelInstruction(Instruction):
         print("%s" % (self.operands[0]))
 
     def rename_local_labels(self, alias_dict):
-        assert self.operands[0] not in alias_dict
+        # rename_local_labels() only affects instructions using a label; we don't rename
+        # ourself.
+        pass
 
 
 class NopInstruction(Instruction):
@@ -992,7 +994,6 @@ def branch_optimise(bytecode_function):
             new_ops.append(instruction)
         else:
             changed = True
-            # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
     bytecode_function.ops = new_ops
     return changed
 
@@ -1018,7 +1019,6 @@ def branch_optimise2(bytecode_function):
             if local_label in targets:
                 bytecode_function.ops[i] = targets[local_label]
                 changed = True
-                # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
     return changed
 
 # This replaces a branch (conditional or not) to a BRNCH with a branch.
@@ -1026,16 +1026,17 @@ def branch_optimise2(bytecode_function):
 def branch_optimise3(bytecode_function):
     changed = False
     targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.opcode == 0x50) # SFTODO MAGIC CONSTANT BRNCH
+    alias = {k:v.operands[0].value for k, v in targets.items()}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        if instruction.is_branch():
-            local_label = bytecode_function.ops[i].operands[0].value
-            if local_label in targets:
-                bytecode_function.ops[i] = BranchInstruction(instruction.opcode, targets[local_label].operands[0])
-                changed = True
-                # We leave the label in place; remove_orphaned_labels() will remove it if appropriate.
+        if True: # SFTODOinstruction.is_branch():
+            original_operands = instruction.operands
+            instruction.rename_local_labels(alias)
+            changed = changed or (original_operands != instruction.operands)
     return changed
 
+# Remove local labels which have no instructions referencing them; this can occur as a result
+# of other optimisations and is useful in opening up further optimisations.
 def remove_orphaned_labels(bytecode_function):
     changed = False
     labels_used = set()
