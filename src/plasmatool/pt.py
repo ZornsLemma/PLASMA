@@ -539,6 +539,9 @@ class Instruction(object):
     def is_local_label(self):
         return self.opcode == 0xff # SFTODO MAGIC CONSTANT
 
+    def is_branch(self):
+        return False
+
 
 class ConstantInstruction(Instruction):
     def __init__(self, value):
@@ -613,6 +616,9 @@ class BranchInstruction(Instruction):
         offset, i = Offset.disassemble(disassembly_info, i+1)
         return BranchInstruction(opcode, offset), i
 
+    def is_branch(self):
+        return True
+
     def dump(self, rld):
         # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
         acme_dump_branch(self.opcode, self.operands)
@@ -628,6 +634,9 @@ class SelInstruction(Instruction):
     def disassemble(cls, disassembly_info, i):
         case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
         return SelInstruction(case_block_offset), i
+
+    def is_branch(self):
+        return True
 
     def dump(self, rld):
         # SFTODO: Fold acme_dump_branch() in here?
@@ -769,13 +778,13 @@ opdict = {
     0x1c: {'opcode': 'CN', 'constfn': lambda di, i: (14, i), 'dis': ConstantInstruction.disassemble},
     0x1e: {'opcode': 'CN', 'constfn': lambda di, i: (15, i), 'dis': ConstantInstruction.disassemble},
     0x20: {'opcode': 'MINUS1', 'constfn': lambda di, i: (-1, i), 'dis': ConstantInstruction.disassemble},
-    0x22: {'opcode': 'BREQ', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0x24: {'opcode': 'BRNE', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0x26: {'opcode': 'LA', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x22: {'opcode': 'BREQ', 'dis': BranchInstruction.disassemble},
+    0x24: {'opcode': 'BRNE', 'dis': BranchInstruction.disassemble},
+    0x26: {'opcode': 'LA', 'dis': MemoryInstruction.disassemble},
     0x28: {'opcode': 'LLA', 'dis': FrameInstruction.disassemble},
     0x2a: {'opcode': 'CB', 'constfn': lambda di, i: (ord(di.labelled_blob[i]), i+1), 'dis': ConstantInstruction.disassemble},
     0x2c: {'opcode': 'CW', 'constfn': lambda di, i: (sign_extend(ord(di.labelled_blob[i]) | (ord(di.labelled_blob[i+1]) << 8), 16), i+2), 'dis': ConstantInstruction.disassemble},
-    0x2e: {'opcode': 'CS', 'acme_dump': acme_dump_cs, 'dis': StringInstruction.disassemble},
+    0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
     0x30: {'opcode': 'DROP', 'dis': StackInstruction.disassemble},
     0x34: {'opcode': 'DUP', 'dis': StackInstruction.disassemble},
     0x38: {'opcode': 'ADDI', 'dis': ImmediateInstruction.disassemble1},
@@ -788,13 +797,13 @@ opdict = {
     0x46: {'opcode': 'ISLT', 'dis': StackInstruction.disassemble},
     0x48: {'opcode': 'ISGE', 'dis': StackInstruction.disassemble},
     0x4a: {'opcode': 'ISLE', 'dis': StackInstruction.disassemble},
-    0x4c: {'opcode': 'BRFLS', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0x4e: {'opcode': 'BRTRU', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0x50: {'opcode': 'BRNCH', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble, 'nis': True},
-    0x52: {'opcode': 'SEL', 'acme_dump': acme_dump_branch, 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
-    0x54: {'opcode': 'CALL', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
+    0x4c: {'opcode': 'BRFLS', 'dis': BranchInstruction.disassemble},
+    0x4e: {'opcode': 'BRTRU', 'dis': BranchInstruction.disassemble},
+    0x50: {'opcode': 'BRNCH', 'dis': BranchInstruction.disassemble, 'nis': True},
+    0x52: {'opcode': 'SEL', 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x54: {'opcode': 'CALL', 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'dis': StackInstruction.disassemble},
-    0x58: {'opcode': 'ENTER', 'acme_dump': acme_dump_enter, 'dis': ImmediateInstruction.disassemble2},
+    0x58: {'opcode': 'ENTER', 'dis': ImmediateInstruction.disassemble2},
     0x5c: {'opcode': 'RET', 'nis': True, 'dis': StackInstruction.disassemble},
     0x5a: {'opcode': 'LEAVE', 'nis': True, 'dis': ImmediateInstruction.disassemble1},
     0x5e: {'opcode': 'CFFB', 'dis': ConstantInstruction.disassemble},
@@ -802,18 +811,18 @@ opdict = {
     0x62: {'opcode': 'LW', 'dis': StackInstruction.disassemble},
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x68: {'opcode': 'LAB', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x68: {'opcode': 'LAB', 'dis': MemoryInstruction.disassemble},
     0x6c: {'opcode': 'DLB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x6a: {'opcode': 'LAW', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x6a: {'opcode': 'LAW', 'dis': MemoryInstruction.disassemble},
     0x70: {'opcode': 'SB', 'dis': StackInstruction.disassemble},
     0x72: {'opcode': 'SW', 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x78: {'opcode': 'SAB', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
-    0x7a: {'opcode': 'SAW', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
-    0x7c: {'opcode': 'DAB', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
-    0x7e: {'opcode': 'DAW', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0x78: {'opcode': 'SAB', 'dis': MemoryInstruction.disassemble},
+    0x7a: {'opcode': 'SAW', 'dis': MemoryInstruction.disassemble},
+    0x7c: {'opcode': 'DAB', 'dis': MemoryInstruction.disassemble},
+    0x7e: {'opcode': 'DAW', 'dis': MemoryInstruction.disassemble},
     0x80: {'opcode': 'LNOT', 'dis': StackInstruction.disassemble},
     0x82: {'opcode': 'ADD', 'dis': StackInstruction.disassemble},
     0x84: {'opcode': 'SUB', 'dis': StackInstruction.disassemble},
@@ -830,20 +839,20 @@ opdict = {
     0x9a: {'opcode': 'SHL', 'dis': StackInstruction.disassemble},
     0x9c: {'opcode': 'SHR', 'dis': StackInstruction.disassemble},
     0x9e: {'opcode': 'IDXW', 'dis': StackInstruction.disassemble},
-    0xa0: {'opcode': 'BRGT', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xa2: {'opcode': 'BRLT', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xa4: {'opcode': 'INCBRLE', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xa8: {'opcode': 'DECBRGE', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xac: {'opcode': 'BRAND', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
-    0xae: {'opcode': 'BROR', 'acme_dump': acme_dump_branch, 'dis': BranchInstruction.disassemble},
+    0xa0: {'opcode': 'BRGT', 'dis': BranchInstruction.disassemble},
+    0xa2: {'opcode': 'BRLT', 'dis': BranchInstruction.disassemble},
+    0xa4: {'opcode': 'INCBRLE', 'dis': BranchInstruction.disassemble},
+    0xa8: {'opcode': 'DECBRGE', 'dis': BranchInstruction.disassemble},
+    0xac: {'opcode': 'BRAND', 'dis': BranchInstruction.disassemble},
+    0xae: {'opcode': 'BROR', 'dis': BranchInstruction.disassemble},
     0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xb4: {'opcode': 'ADDAB', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
-    0xb6: {'opcode': 'ADDAW', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0xb4: {'opcode': 'ADDAB', 'dis': MemoryInstruction.disassemble},
+    0xb6: {'opcode': 'ADDAW', 'dis': MemoryInstruction.disassemble},
     0xb8: {'opcode': 'IDXLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xbc: {'opcode': 'IDXAB', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
-    0xbe: {'opcode': 'IDXAW', 'acme_dump': acme_dump_label, 'dis': MemoryInstruction.disassemble},
+    0xbc: {'opcode': 'IDXAB', 'dis': MemoryInstruction.disassemble},
+    0xbe: {'opcode': 'IDXAW', 'dis': MemoryInstruction.disassemble},
 }
 
 class BytecodeFunction:
@@ -975,11 +984,11 @@ def branch_optimise3(bytecode_function):
             targets[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
     #print('SFTODOQ4', targets)
     for i in range(len(bytecode_function.ops)):
-        opcode = bytecode_function.ops[i].opcode
-        if opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch:
+        instruction = bytecode_function.ops[i]
+        if instruction.is_branch():
             local_label = bytecode_function.ops[i].operands[0].value
             if local_label in targets:
-                bytecode_function.ops[i] = BranchInstruction(bytecode_function.ops[i].opcode, targets[local_label].operands[0])
+                bytecode_function.ops[i] = BranchInstruction(instruction.opcode, targets[local_label].operands[0])
                 changed = True
     # TODO: As always we may have left a now-orphaned label around
     return changed
@@ -1023,16 +1032,16 @@ def remove_dead_code(bytecode_function):
 
 
 
-def is_branch(opcode):
+def is_branch_or_label(instruction):
     # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
-    return opcode == 0xff or (opcode in opdict and opdict[opcode].get('acme_dump', None) == acme_dump_branch)
+    return instruction.is_local_label() or instruction.is_branch()
 
 def straightline_optimise(bytecode_function, optimisations):
     changed = False
     groups = []
     group = []
     for instruction in bytecode_function.ops:
-        if not group or is_branch(instruction.opcode) == is_branch(group[-1].opcode):
+        if not group or is_branch_or_label(instruction) == is_branch_or_label(group[-1]):
             group.append(instruction)
         else:
             groups.append(group)
