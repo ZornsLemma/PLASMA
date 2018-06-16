@@ -279,6 +279,9 @@ class Byte:
     def __init__(self, value):
         self.value = value
 
+    def __str__(self):
+        return "%d" % (self.value,)
+
     def __repr__(self):
         return "Byte(%d)" % (self.value,)
 
@@ -559,11 +562,27 @@ class ConstantInstruction(Instruction):
             print('SFTODO %02x' % opcode)
             assert False
 
+    def dump(self, rld):
+        value = self.operands[0]
+        if value >= 0 and value < 16:
+            print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
+        elif value >= 0 and value < 256:
+            print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
+        elif value == -1:
+            print("\t!BYTE\t$20\t\t\t; MINUS ONE")
+        elif value & 0xff00 == 0xff00:
+            print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
+        else:
+            print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
+
 
 class LocalLabelInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, str)
         super(LocalLabelInstruction, self).__init__(0xff, [value])
+
+    def dump(self, rld):
+        print("%s" % (self.operands[0]))
 
 
 class NopInstruction(Instruction):
@@ -575,6 +594,9 @@ class CaseBlockInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, CaseBlock) # SFTODO: 'CaseBlock' MAY EVENTUALLY FOLD INTO THIS, NOT AT ALL SURE YET
         super(CaseBlockInstruction, self).__init__(0xfb, [value])
+
+    def dump(self, rld):
+        acme_dump_caseblock(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
 
 
 class BranchInstruction(Instruction):
@@ -591,6 +613,10 @@ class BranchInstruction(Instruction):
         offset, i = Offset.disassemble(disassembly_info, i+1)
         return BranchInstruction(opcode, offset), i
 
+    def dump(self, rld):
+        # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
+        acme_dump_branch(self.opcode, self.operands)
+
 
 class SelInstruction(Instruction):
     def __init__(self, case_block_offset):
@@ -602,6 +628,10 @@ class SelInstruction(Instruction):
     def disassemble(cls, disassembly_info, i):
         case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
         return SelInstruction(case_block_offset), i
+
+    def dump(self, rld):
+        # SFTODO: Fold acme_dump_branch() in here?
+        acme_dump_branch(self.opcode, self.operands)
 
 
 
@@ -617,6 +647,9 @@ class StackInstruction(Instruction):
         opcode = ord(disassembly_info.labelled_blob[i])
         # SFTODO: Validate opcode?? Arguably redundant given how this is called
         return StackInstruction(opcode), i+1
+
+    def dump(self, rld):
+        print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
 
 
 class ImmediateInstruction(Instruction):
@@ -646,6 +679,14 @@ class ImmediateInstruction(Instruction):
     def disassemble2(cls, disassembly_info, i):
         return cls.disassemble(disassembly_info, i, 2)
 
+    def dump(self, rld):
+        if len(self.operands) == 1:
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+        elif len(self.operands) == 2:
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (self.opcode, self.operands[0].value, self.operands[1].value, opdict[self.opcode]['opcode'], self.operands[0].value, self.operands[1].value))
+        else:
+            assert False
+
 
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
@@ -660,6 +701,10 @@ class MemoryInstruction(Instruction):
         i += 1
         label, i = Label.disassemble(disassembly_info, i)
         return MemoryInstruction(opcode, label), i
+
+    def dump(self, rld):
+        # SFTODO: Probably merge acme_dump_label in here
+        acme_dump_label(self.opcode, self.operands, rld)
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -680,6 +725,9 @@ class FrameInstruction(Instruction):
         frame_offset = FrameOffset(ord(disassembly_info.labelled_blob[i+1]))
         return FrameInstruction(opcode, frame_offset), i+2
 
+    def dump(self, rld):
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+
 
 class StringInstruction(Instruction):
     def __init__(self, s):
@@ -691,6 +739,10 @@ class StringInstruction(Instruction):
     def disassemble(cls, disassembly_info, i):
         s, i = String.disassemble(disassembly_info, i+1)
         return StringInstruction(s), i
+
+    def dump(self, rld):
+        # SFTODO: Fold acme_dump_cs in here
+        acme_dump_cs(self.opcode, self.operands)
 
 
 
@@ -844,30 +896,15 @@ class BytecodeFunction:
                 if not isinstance(operand, int) and not isinstance(operand, str): # SFTODO: HACKY
                     operand.update_used_things(used_things)
 
-    def dump(self, rld, esd):
+    def dump(self, rld, esd): # SFTODO: We don't use the esd arg
         if not self.is_init():
             label = rld.get_bytecode_function_label()
             print(label.name)
         for label in self.labels:
             print(label.name)
         for instruction in self.ops:
-            if instruction.opcode == 0xfd:
-                value = instruction.operands[0]
-                if value >= 0 and value < 16:
-                    print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
-                elif value >= 0 and value < 256:
-                    print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
-                elif value == -1:
-                    print("\t!BYTE\t$20\t\t\t; MINUS ONE")
-                elif value & 0xff00 == 0xff00:
-                    print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
-                else:
-                    print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
-            elif instruction.opcode == 0xff:
-                print("%s" % (instruction.operands[0]))
-            elif instruction.opcode == 0xfb:
-                acme_dump_caseblock(instruction.opcode, instruction.operands)
-            else:
+            instruction.dump(rld)
+            if False:
                 opdef = opdict[instruction.opcode]
                 operand_types = opdef['operands']
                 acme_dump = opdef.get('acme_dump', None)
