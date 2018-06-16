@@ -910,6 +910,7 @@ opdict = {
     0x2c: {'opcode': 'CW', 'dis': ConstantInstruction.disassemble},
     0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
     0x30: {'opcode': 'DROP', 'dis': StackInstruction.disassemble},
+    0x32: {'opcode': 'DROP2', 'dis': StackInstruction.disassemble},
     0x34: {'opcode': 'DUP', 'dis': StackInstruction.disassemble},
     0x38: {'opcode': 'ADDI', 'dis': ImmediateInstruction.disassemble1},
     0x3a: {'opcode': 'SUBI', 'dis': ImmediateInstruction.disassemble1},
@@ -1250,6 +1251,25 @@ def block_deduplicate(bytecode_function):
     bytecode_function.ops = new_ops
     return changed
 
+def peephole_optimise(bytecode_function):
+    changed = False
+    i = 0
+    bytecode_function.ops += [NopInstruction()] # add dummy NOP so we can use ops[i+1] freely
+    while i < len(bytecode_function.ops)-1:
+        instruction = bytecode_function.ops[i]
+        next_instruction = bytecode_function.ops[i+1]
+        if instruction.opcode == 0x30 and next_instruction.opcode == 0x30: # SFTODO MAGIC 'DROP'
+            bytecode_function.ops[i] = StackInstruction(0x32) # SFTODO MAGIC DROP2
+            bytecode_function.ops[i+1] = NopInstruction()
+            changed = True
+        i += 1
+    bytecode_function.ops = bytecode_function.ops[:-1] # remove dummy NOP
+    changed = any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
+    bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
+    return changed
+
+
+
 
 
 
@@ -1539,6 +1559,7 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
             result.append(move_caseblocks(bytecode_function))
             result.append(block_deduplicate(bytecode_function))
+            result.append(peephole_optimise(bytecode_function))
         changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
