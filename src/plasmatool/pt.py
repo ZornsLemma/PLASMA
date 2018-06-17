@@ -1,5 +1,6 @@
 import abc
 import collections
+import copy # SFTODO TEMP
 import itertools
 import struct
 import sys
@@ -40,7 +41,7 @@ def dci_bytes(s):
 
 # TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
 
-class Label:
+class Label(object):
     __next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
@@ -110,7 +111,7 @@ class Label:
         assert label
         return label, i+2
 
-class ExternalReference:
+class ExternalReference(object):
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
@@ -150,7 +151,7 @@ class ExternalReference:
     def update_local_labels_used(self, labels):
         pass
 
-class RLD:
+class RLD(object):
     def __init__(self):
         self.bytecode_function_labels = []
         self.fixups = [] # TODO: poor name?
@@ -176,7 +177,7 @@ class RLD:
         print("\t!BYTE\t$00\t\t\t; END OF RLD")
 
 
-class ESD:
+class ESD(object):
     def __init__(self):
         self.entry_dict = {}
         self.external_dict = {}
@@ -211,7 +212,7 @@ class ESD:
             print('\t%s' % (reference.acme_reference(),))
         print("\t!BYTE\t$00\t\t\t; END OF ESD")
 
-class LabelledBlob:
+class LabelledBlob(object):
     def __init__(self, blob):
         self.blob = blob
         self.labels = [[] for _ in range(len(self.blob))]
@@ -295,7 +296,7 @@ class LabelledBlob:
         print("; SFTODO BLOB END")
 
 
-class Opcode:
+class Opcode(object):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -303,7 +304,7 @@ class Opcode:
         pass
     
 
-class Byte:
+class Byte(object):
     def __init__(self, value):
         self.value = value
 
@@ -352,7 +353,7 @@ class FrameOffset(Byte):
 
 
 
-class Word:
+class Word(object):
     def __init__(self, value):
         self.value = value
 
@@ -390,7 +391,7 @@ def sign_extend(value, bits):
 
 local_label_count = 0
 
-class Offset:
+class Offset(object):
     def __init__(self, value):
         self.value = value
 
@@ -441,7 +442,7 @@ class Offset:
 
 
 
-class CaseBlockOffset:
+class CaseBlockOffset(object):
     def __init__(self, offset):
         self.offset = offset
 
@@ -479,7 +480,7 @@ class CaseBlockOffset:
         return CaseBlockOffset(offset), i
 
 
-class CaseBlock:
+class CaseBlock(object):
     def __init__(self, table):
         self.table = table
 
@@ -518,7 +519,7 @@ class CaseBlock:
         return CaseBlock(table), i+1+4*count
 
 
-class String:
+class String(object):
     def __init__(self, value):
         self.value = value
 
@@ -596,7 +597,7 @@ def acme_dump_caseblock(opcode, operands):
 
 
 
-class DisassemblyInfo:
+class DisassemblyInfo(object):
     """Collection of temporary information needing while disassembling a bytecode
        function; can be discarded once disassembly is complete."""
     def __init__(self, bytecode_function, labelled_blob):
@@ -1052,7 +1053,7 @@ opdict = {
     0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
 }
 
-class BytecodeFunction:
+class BytecodeFunction(object):
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
         self.labels = labelled_blob.labels[0]
@@ -1183,9 +1184,12 @@ def branch_optimise3(bytecode_function):
     alias = {k:v.operands[0].value for k, v in targets.items()}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        original_operands = instruction.operands
+        original_operands = copy.deepcopy(instruction.operands) # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
+        #print('SFTODO899 %r' % original_operands)
         instruction.rename_local_labels(alias)
         changed = changed or (original_operands != instruction.operands)
+        #print('SFTODO900 %r' % original_operands)
+        #print('SFTODO901 %r' % instruction.operands)
     return changed
 
 # Remove local labels which have no instructions referencing them; this can occur as a result
@@ -1249,13 +1253,13 @@ def move_caseblocks(bytecode_function):
                     i = j
                     break
         i += 1
+    original_ops = bytecode_function.ops
     bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1] # SFTODO MAGIC CONSTANT NOP
-    changed = False
     for i in range(len(bytecode_function.ops)-1):
         if bytecode_function.ops[i].opcode == 0xf1 and bytecode_function.ops[i+1].opcode != 0xf1:
-            changed = True
             break
     bytecode_function.ops += tail
+    changed = bytecode_function.ops != original_ops 
     return changed
 
 # Identify duplicated blocks of code in a function and remove the duplicates.
@@ -1281,6 +1285,7 @@ def block_deduplicate(bytecode_function):
         elif instruction.is_local_label():
             block_label = instruction.operands[0]
             block = []
+            assert not bytecode_function.ops[i-1].is_local_label()
             block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode)
             #print('SFTODO %r %r' % (block_label, block_label_only[block_label]))
         elif block_label:
@@ -1309,7 +1314,8 @@ def block_deduplicate(bytecode_function):
 
     changed = False
     new_ops = []
-    for i in range(len(bytecode_function.ops)):
+    i = 0
+    while i < len(bytecode_function.ops):
         instruction = bytecode_function.ops[i]
         if instruction.is_local_label() and instruction.operands[0] in unwanted:
             changed = True
@@ -1320,10 +1326,10 @@ def block_deduplicate(bytecode_function):
         else:
             instruction.rename_local_labels(alias)
             new_ops.append(instruction)
+            i += 1
     bytecode_function.ops = new_ops
     return changed
 
-#SFTODOFOO = False
 # Look for blocks of code within a function which cannot be entered except via their
 # label and see if we can move those blocks to avoid the need to BRNCH to them.
 # SFTODO: This is quite copy and paste from block_deduplicate() - factor out. (Note that
@@ -1343,11 +1349,10 @@ def block_move(bytecode_function):
     # block; we can't merge a block of the second type.
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        if never_immediate_successor(instruction.opcode):
+        if block_label and never_immediate_successor(instruction.opcode):
             block.append(instruction)
-            if block_label:
-                blocks.append(block)
-                block_labels.append(block_label)
+            blocks.append(block)
+            block_labels.append(block_label)
             block_label = None
         elif instruction.is_local_label():
             block_label = instruction.operands[0]
@@ -1359,6 +1364,7 @@ def block_move(bytecode_function):
             # for moving and that doesn't really gain us anything, since when the BRNCH
             # is optimised away we will get the same effect. We prefer to preserve the
             # order of code if there's no good reason to change it, hence this logic.
+            assert not bytecode_function.ops[i-1].is_local_label()
             block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode) and (bytecode_function.ops[i-1].opcode != 0x50 or bytecode_function.ops[i-1].operands[0].value != block_label)
             #if block_label == '_L0842':
             #    print('SFTODO911 %x' % (bytecode_function.ops[i-1].opcode))
@@ -1375,29 +1381,29 @@ def block_move(bytecode_function):
 
     merged = set()
 
+    changed = False
     for i in range(len(blocks)):
         if blocks[i][-1].opcode == 0x50: #SFTODO MAGIC BRNCH
             target = blocks[i][-1].operands[0].value
             if target not in merged and target in block_labels and block_label_only[target]:
-                if target == '_L0842':
-                    print('SFTODOL0842')
-                else:
-                    target_index = block_labels.index(target)
-                    blocks[i] = blocks[i][:-1] + blocks[target_index]
-                    merged.add(target)
+                target_index = block_labels.index(target)
+                blocks[i] = blocks[i][:-1] + blocks[target_index]
+                merged.add(target)
+                changed = True
 
     new_ops = []
     i = 0
     while i < len(bytecode_function.ops):
         instruction = bytecode_function.ops[i]
         if instruction.is_local_label() and instruction.operands[0] in block_labels:
-            while i < len(bytecode_function.ops)-1:
-                i += 1
+            i += 1
+            while i < len(bytecode_function.ops):
                 if never_immediate_successor(bytecode_function.ops[i].opcode):
                     i += 1
                     break
                 elif bytecode_function.ops[i].is_local_label():
                     break
+                i += 1
             if instruction.operands[0] not in merged:
                 new_ops += blocks[block_labels.index(instruction.operands[0])]
         else:
@@ -1405,16 +1411,15 @@ def block_move(bytecode_function):
             i += 1
     bytecode_function.ops = new_ops
 
-    #print('SFTODO %d' % len(merged))
-    return len(merged) > 0
+    return changed
 
 
 # If the same instruction occurs before all unconditional branches to a label, and there are
 # no conditional branches to the label, the instruction can be moved immediately after the
 # label.
 def tail_move(bytecode_function):
-    # SFTODO: I think this must be careful to notice *all* possible uses of the label (e.g. in CASEBLOCK) and disable the optimisation as appropriate - what I've written here is probably too lax
-    SFTODO # This is *not* working right, but it looks very promising indeed so well worth persevering
+    #branch_optimise(bytecode_function) # SFTODO EXPERIMENTAL
+    #remove_orphaned_labels(bytecode_function) # SFTODO EXPERIMENTAL
     candidates = {}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
@@ -1426,10 +1431,16 @@ def tail_move(bytecode_function):
             else:
                 if candidates[label] != previous_instruction:
                     candidates[label] = None
-        elif instruction.is_branch():
-            label = instruction.operands[0].value
-            candidates[label] = None
+        else:
+            if instruction.operands and not isinstance(instruction.operands[0], int) and not isinstance(instruction.operands[0], str): # SFTODO HACKY isinstance
+                labels_used = set()
+                instruction.operands[0].update_local_labels_used(labels_used)
+                for label in labels_used:
+                    candidates[label] = None
     #print('SFTODOX9913 %r' % candidates)
+    #if '_L0541' in candidates:
+    #    SFTODOFOO = True
+    #    return False
 
     changed = False
     i = 0
@@ -1440,8 +1451,10 @@ def tail_move(bytecode_function):
             if candidate:
                 # If the previous instruction can fall through to this label, it must be the
                 # same as the candidate.
+                assert not bytecode_function.ops[i-1].is_local_label()
                 if not never_immediate_successor(bytecode_function.ops[i-1].opcode):
                     if bytecode_function.ops[i-1] != candidate:
+                        candidates[instruction.operands[0]] = None
                         i += 1
                         continue
                     bytecode_function.ops[i-1] = NopInstruction()
@@ -1495,7 +1508,7 @@ def peephole_optimise(bytecode_function):
         #                  (0x42, 0x4e): 0x24}[(instruction.opcode, next_instruction.opcode)]
         #    bytecode_function.ops[i] = NopInstruction()
         #    bytecode_function.ops[i+1] = BranchInstruction(new_opcode, bytecode_function.ops[i+1].operands[0].value)
-        #    changed = Truew
+        #    changed = True
         # TODO: This optimisation is temporarily disabled as it is a very hacky implementation. I think it may be worth writing a more general version, if nothing else it would likely cause me to think up some useful general predicates ('get affected addresses', perhaps returning a generic list which can handle all kinds of load/store addresses) on the instruction classes. Note that this optimisation will increase use of the expression stack by one, so it should be separately controllable as it just may break code which is pushing the expression stack size.
         elif False and instruction.opcode == 0x66 and next_instruction.is_store() and instruction == next_next_instruction: # SFTODO: MAGIC CONST LLW - ALSO THIS OPTIMISATION COULD IN PRINCIPLE BE DONE IN A MUCH MORE GENERAL WAY ALLOWING FOR LONGER SERIES OF INTERVENING INSTRUCTIONS ETC, BUT THIS IS A FIRST CUT
             frame_offset = instruction.frame_offset
@@ -1505,7 +1518,7 @@ def peephole_optimise(bytecode_function):
                 changed = True
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
-    changed = any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
+    changed = changed or any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
     bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
     return changed
 
@@ -1595,13 +1608,13 @@ def load_to_dup(bytecode_function, straightline_ops):
     return straightline_ops, changed
 
 def optimise_load_store(bytecode_function, straightline_ops):
-    changed = False
     lla_threshold = calculate_lla_threshold(bytecode_function)
 
     store_index_visibly_affected_bytes = [None] * 256
     last_store_index_for_offset = [None] * 256
 
     def record_store(this_store_index, frame_offsets):
+        changed = False
         for frame_offset in frame_offsets:
             last_store_index = last_store_index_for_offset[frame_offset]
             if last_store_index and store_index_visibly_affected_bytes[last_store_index] > 0:
@@ -1618,6 +1631,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                     changed = True
             last_store_index_for_offset[frame_offset] = this_store_index
         store_index_visibly_affected_bytes[this_store_index] = len(frame_offsets)
+        return changed
 
     def record_load(frame_offsets):
         for frame_offset in frame_offsets:
@@ -1625,6 +1639,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
             if last_store_index:
                 store_index_visibly_affected_bytes[last_store_index] = None
 
+    changed = False
     for i in range(len(straightline_ops)):
         instruction = straightline_ops[i]
         opcode, operands = instruction.opcode, instruction.operands
@@ -1642,7 +1657,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                     #print(operands[0])
                     frame_offsets.append(instruction.frame_offset + 1)
             if is_store: # stores and duplicates
-                record_store(i, frame_offsets)
+                changed = record_store(i, frame_offsets) or changed
             elif is_load: # load, but not a duplicate
                 record_load(frame_offsets)
             elif is_call:
@@ -1657,12 +1672,12 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 # We're exiting the current function, so anything which has been stored
                 # but not yet loaded is irrelevant. We model this by storing to every
                 # frame offset.
-                record_store(i, range(0, 256))
+                changed = record_store(i, range(0, 256)) or changed
 
     return [op for op in straightline_ops if op.opcode != 0xf1], changed
 
 
-class Module:
+class Module(object):
     def __init__(self):
         self.sysflags = 0 # SFTODO!?
         self.data_asm_blob = None # SFTODO!?
@@ -1819,6 +1834,21 @@ for import_name in import_names:
     print("\t!BYTE\t%s" % dci_bytes(import_name))
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
+SFTODOFLAG = True
+def SFTODO(ops):
+    global SFTODOFLAG
+    if len(ops) < 4:
+        return True
+    i = 0
+    while i < len(ops) - 3:
+        if isinstance(ops[i], LocalLabelInstruction) and ops[i].operands[0] == '_L0426':
+            pass #print('SFTODOqqq')
+        if isinstance(ops[i], ConstantInstruction) and ops[i].operands[0] == -1 and ops[i+1].opcode == 0x5c and isinstance(ops[i+2], ConstantInstruction) and ops[i+2].operands[0] == -1 and ops[i+3].opcode == 0x5c:
+            return False 
+        i += 1
+    SFTODOFLAG = False 
+    return True
+
 new_rld = RLD()
 if used_things_ordered[0] == new_module.data_asm_blob:
     new_module.data_asm_blob.dump(new_rld, new_esd)
@@ -1831,26 +1861,58 @@ assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered[0:-1]:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     changed = True
+    SFTODOFLAG = True
+    assert SFTODO(bytecode_function.ops)
     while changed:
-        # TODO: This seems a clunky way to handle 'changed' but I don't want
-        # short-circuit evaluation.
-        result = []
-        if True: # SFTODO TEMP
-            result.append(local_label_deduplicate(bytecode_function))
-            result.append(branch_optimise(bytecode_function))
-            result.append(branch_optimise2(bytecode_function))
-            result.append(branch_optimise3(bytecode_function))
-            result.append(remove_orphaned_labels(bytecode_function))
-            result.append(remove_dead_code(bytecode_function))
-            result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
-            result.append(move_caseblocks(bytecode_function))
+        changed1 = True
+        while changed1:
+            # TODO: This seems a clunky way to handle 'changed' but I don't want
+            # short-circuit evaluation. I think we can do 'changed = function() or changed', if
+            # we want...
+            result = []
+            if True: # SFTODO TEMP
+                #SFTODO = copy.deepcopy(bytecode_function.ops)
+                result.append(local_label_deduplicate(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                #assert result[-1] or (SFTODO == bytecode_function.ops)
+                result.append(branch_optimise(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(branch_optimise2(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(branch_optimise3(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(remove_orphaned_labels(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(remove_dead_code(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
+                assert SFTODO(bytecode_function.ops)
+                result.append(move_caseblocks(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(peephole_optimise(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                #if SFTODOFOO:
+                #    break
+            changed1 = any(result)
+        #remove_dead_code(bytecode_function) # SFTODO
+        changed2 = True
+        # We do these following optimisations only when the ones above fail to produce any
+        # effect. These can reorder code but this can give (slightly) unhelpful/confusing
+        # re-orderings, so we let the more localised optimisations above have first go.
+        # TODO: It may be worth putting all this back into a single loop later on to see if
+        # this is actually still true.
+        while changed2:
+            result = []
+            assert SFTODO(bytecode_function.ops)
             result.append(block_deduplicate(bytecode_function))
+            #remove_dead_code(bytecode_function) # SFTODO
+            assert SFTODO(bytecode_function.ops)
             result.append(block_move(bytecode_function))
+            assert SFTODO(bytecode_function.ops)
             result.append(tail_move(bytecode_function))
-            #if SFTODOFOO:
-            #    break
-            result.append(peephole_optimise(bytecode_function))
-        changed = any(result)
+            assert SFTODO(bytecode_function.ops)
+            changed2 = any(result)
+        changed = changed1 or changed2
     bytecode_function.dump(new_rld, new_esd)
 used_things_ordered[-1].dump(new_rld, new_esd)
 defcnt = len(used_things_ordered)
@@ -1865,10 +1927,8 @@ new_esd.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
-# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler.
-
-# TODO: A few times in self-hosted compiler, we have DROP:DROP - we should change this to DROP2.
-
-# TODO: Possibly difficult (and what I am about to write may not be maximally generic) - if all uses of a label are as unconditional branch targets (probably easiest to ignore caseblock here; use in a caseblock would disable this optimisation, unless we work back to its SEL and see the preceding opcode) and every use such plus any possible fallthrough to the label from previous instruction are the same opcode (the case I spotted in SHC is a DROP), we can remove it from before every branch and move the label before it. We could consider only a single opcode at a time, if there are further opportunities a subsequent loop round would catch these.
+# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler. I think this is better (where possible) than the expression-stack-use-increasing optimisation I have using DUP.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
+
+# TODO: I think we have some straight line instances of SAW x:LAW x which we could turn in DAW x. Ditto SLW [n]:LLW [n]
