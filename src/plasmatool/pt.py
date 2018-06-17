@@ -623,6 +623,9 @@ class Instruction(object):
     def is_branch(self):
         return False
 
+    def is_conditional_branch(self):
+        return False
+
     def is_store(self):
         return opdict[self.opcode].get('is_store', False)
 
@@ -706,6 +709,8 @@ class CaseBlockInstruction(Instruction):
 
 
 class BranchInstruction(Instruction):
+    conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
+
     def __init__(self, opcode, target):
         # SFTODO: Magic constants - we should perhaps be consulting opdict here instead
         assert opcode in (0x22, 0x24, 0x4c, 0x4e, 0x50, 0xa0, 0xa2, 0xa4, 0xa8, 0xac, 0xae)
@@ -721,6 +726,17 @@ class BranchInstruction(Instruction):
 
     def is_branch(self):
         return True
+
+    def is_conditional_branch(self):
+        return self.opcode in self.conditional_branch_pairs
+
+    def invert_condition(self):
+        assert self.is_conditional_branch()
+        i = self.conditional_branch_pairs.index(self.opcode)
+        if i % 2 == 0:
+            self._opcode = self.conditional_branch_pairs[i + 1]
+        else:
+            self._opcode = self.conditional_branch_pairs[i - 1]
 
     def dump(self, rld):
         # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
@@ -1341,16 +1357,23 @@ def block_move(bytecode_function):
 def peephole_optimise(bytecode_function):
     changed = False
     i = 0
-    bytecode_function.ops += [NopInstruction()] # add dummy NOP so we can use ops[i+1] freely
-    while i < len(bytecode_function.ops)-1:
+    bytecode_function.ops += [NopInstruction(), NopInstruction()] # add dummy NOPs so we can use ops[i+2] freely
+    while i < len(bytecode_function.ops)-2:
         instruction = bytecode_function.ops[i]
         next_instruction = bytecode_function.ops[i+1]
+        next_next_instruction = bytecode_function.ops[i+2]
+        # DROP:DROP -> DROP
         if instruction.opcode == 0x30 and next_instruction.opcode == 0x30: # SFTODO MAGIC 'DROP'
             bytecode_function.ops[i] = StackInstruction(0x32) # SFTODO MAGIC DROP2
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
+        # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
+        elif instruction.is_conditional_branch() and next_instruction.opcode == 0x50 and next_next_instruction.is_local_label() and instruction.operands[0].value == next_next_instruction.operands[0]: # SFTODO MAGIC BRNCH
+            bytecode_function.ops[i].invert_condition()
+            bytecode_function.ops[i].operands = next_instruction.operands
+            bytecode_function.ops[i+1] = NopInstruction()
         i += 1
-    bytecode_function.ops = bytecode_function.ops[:-1] # remove dummy NOP
+    bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
     changed = any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
     bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
     return changed
