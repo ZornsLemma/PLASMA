@@ -60,6 +60,17 @@ class Label:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.name)
+
+    def __add__(self, rhs):
+        # SFTODO: This is a bit odd. We need this for add_affect(). However, I *think* that
+        # since we evidently have no need to support the concept of "label+n" anywhere,
+        # we can get away with just returning self here - because if it's impossible to
+        # represent the concept of "label+1", there is no scope for one bit of code to e.g.
+        # LAW label and another bit of code to SAB label+1 and the two to "clash".
+        return self
+
     def nm(self):
         return self.name
 
@@ -301,6 +312,9 @@ class Byte:
 
     def __repr__(self):
         return "Byte(%d)" % (self.value,)
+
+    def __hash__(self):
+        return hash(self.value)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -631,10 +645,28 @@ class Instruction(object):
             return False
         return opdict[self.opcode].get('is_store', False)
 
+    def is_simple_store(self):
+        # TODO: This is a bit of a hack but let's see how it goes
+        return self.is_store() and self.opcode not in (0x70, 0x72) # SFTODO MAGIC SB, SW
+
     def is_load(self):
         if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
             return False
         return opdict[self.opcode].get('is_load', False)
+
+    def is_simple_load(self):
+        # TODO: This is a bit of a hack but let's see how it goes
+        return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
+
+    def has_side_effects(self):
+        # SFTODO: Once I actually start supporting loads/stores to absolute addresses,
+        # this needs to return True for those just as is_hardware_address() or whatever it
+        # is called in the compiler does.
+        return self.opcode == 0x70 # SFTODO MAGIC 'SB'
+
+    def add_affect(self, affect):
+        assert self.is_simple_store() or self.is_simple_load()
+        pass
 
     def rename_local_labels(self, alias_dict):
         pass
@@ -792,6 +824,10 @@ class StackInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         pass
 
+    def add_affect(self, affect):
+        super(StackInstruction.self).add_affect(affect)
+        assert False
+
 
 class ImmediateInstruction(Instruction):
     def __init__(self, opcode, operands):
@@ -853,6 +889,14 @@ class MemoryInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         pass
 
+    def data_size(self):
+        return opdict[self.opcode]['data_size']
+
+    def add_affect(self, affect):
+        super(MemoryInstruction,self).add_affect(affect)
+        for i in range(0, self.data_size()):
+            affect.add(self.operands[0] + i)
+
 
 # SFTODO: Not sure about this, but let's see how it goes
 class FrameInstruction(Instruction):
@@ -877,6 +921,14 @@ class FrameInstruction(Instruction):
 
     def rename_local_labels(self, alias_dict):
         pass
+
+    def data_size(self):
+        return opdict[self.opcode]['data_size']
+
+    def add_affect(self, affect):
+        super(FrameInstruction,self).add_affect(affect)
+        for i in range(0, self.data_size()):
+            affect.add(FrameOffset(self.frame_offset + i))
 
 
 class StringInstruction(Instruction):
@@ -952,22 +1004,22 @@ opdict = {
     0x5c: {'opcode': 'RET', 'nis': True, 'dis': StackInstruction.disassemble},
     0x5a: {'opcode': 'LEAVE', 'nis': True, 'dis': ImmediateInstruction.disassemble1},
     0x5e: {'opcode': 'CFFB', 'dis': ConstantInstruction.disassemble},
-    0x60: {'opcode': 'LB', 'dis': StackInstruction.disassemble},
-    0x62: {'opcode': 'LW', 'dis': StackInstruction.disassemble},
+    0x60: {'opcode': 'LB', 'is_load': True, 'dis': StackInstruction.disassemble},
+    0x62: {'opcode': 'LW', 'is_load': True, 'dis': StackInstruction.disassemble},
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x68: {'opcode': 'LAB', 'dis': MemoryInstruction.disassemble},
+    0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
     0x6c: {'opcode': 'DLB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x6a: {'opcode': 'LAW', 'dis': MemoryInstruction.disassemble},
-    0x70: {'opcode': 'SB', 'dis': StackInstruction.disassemble},
-    0x72: {'opcode': 'SW', 'dis': StackInstruction.disassemble},
+    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0x70: {'opcode': 'SB', 'is_store': True, 'dis': StackInstruction.disassemble},
+    0x72: {'opcode': 'SW', 'is_store': True, 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x78: {'opcode': 'SAB', 'dis': MemoryInstruction.disassemble},
-    0x7a: {'opcode': 'SAW', 'dis': MemoryInstruction.disassemble},
-    0x7c: {'opcode': 'DAB', 'dis': MemoryInstruction.disassemble},
-    0x7e: {'opcode': 'DAW', 'dis': MemoryInstruction.disassemble},
+    0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
+    0x7c: {'opcode': 'DAB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0x7e: {'opcode': 'DAW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
     0x80: {'opcode': 'LNOT', 'dis': StackInstruction.disassemble},
     0x82: {'opcode': 'ADD', 'dis': StackInstruction.disassemble},
     0x84: {'opcode': 'SUB', 'dis': StackInstruction.disassemble},
@@ -992,12 +1044,12 @@ opdict = {
     0xae: {'opcode': 'BROR', 'dis': BranchInstruction.disassemble},
     0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xb4: {'opcode': 'ADDAB', 'dis': MemoryInstruction.disassemble},
-    0xb6: {'opcode': 'ADDAW', 'dis': MemoryInstruction.disassemble},
+    0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0xb6: {'opcode': 'ADDAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
     0xb8: {'opcode': 'IDXLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xbc: {'opcode': 'IDXAB', 'dis': MemoryInstruction.disassemble},
-    0xbe: {'opcode': 'IDXAW', 'dis': MemoryInstruction.disassemble},
+    0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
 }
 
 class BytecodeFunction:
@@ -1437,12 +1489,57 @@ def straightline_optimise(bytecode_function, optimisations):
     bytecode_function.ops = new_ops
     return changed
 
-def optimise_load_store(bytecode_function, straightline_ops):
-    changed = False
+def calculate_lla_threshold(bytecode_function):
     lla_threshold = 256
     for instruction in bytecode_function.ops:
         if instruction.opcode == 0x28: # SFTODO MAGIC CONSTANT 'LLA'
             lla_threshold = min(instruction.operands[0].value, lla_threshold)
+    return lla_threshold
+
+def disjoint_affect(lhs, rhs):
+    #print("SFTODOX1 %r", lhs)
+    #print("SFTODOX2 %r", rhs)
+    return len(lhs.intersection(rhs)) == 0
+
+# TODO: This optimisation will increase expression stack usage, which might break some
+# programs - it should probably be controlled separately (e.g. -O3 only, and/or a
+# --risky-optimisations switch)
+def load_to_dup(bytecode_function, straightline_ops):
+    lla_threshold = calculate_lla_threshold(bytecode_function)
+
+    changed = False
+    for i in range(len(straightline_ops)):
+        instruction = straightline_ops[i]
+        if instruction.is_simple_load() and not instruction.is_store() and not instruction.has_side_effects():
+            stores_affect = set()
+            j = i + 1
+            while j < len(straightline_ops):
+                if straightline_ops[j].is_simple_store():
+                    straightline_ops[j].add_affect(stores_affect)
+                    if not straightline_ops[j].is_load():
+                        j += 1
+                        break
+                else:
+                    break
+                j += 1
+            if j < len(straightline_ops) and instruction == straightline_ops[j]:
+                # We have a load, zero or more "dup stores", a store and an identical load.
+                # Provided none of the intervening stores modify the data loaded and the
+                # load has no side effects, we can replace the initial load with a load:DUP
+                # and remove the final load. 
+                loads_affect = set()
+                instruction.add_affect(loads_affect)
+                if disjoint_affect(loads_affect, stores_affect):
+                    for k in range(j, i+1, -1):
+                        straightline_ops[k] = straightline_ops[k-1]
+                    straightline_ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
+                    changed = True
+
+    return straightline_ops, changed
+
+def optimise_load_store(bytecode_function, straightline_ops):
+    changed = False
+    lla_threshold = calculate_lla_threshold(bytecode_function)
 
     store_index_visibly_affected_bytes = [None] * 256
     last_store_index_for_offset = [None] * 256
@@ -1476,8 +1573,8 @@ def optimise_load_store(bytecode_function, straightline_ops):
         opcode, operands = instruction.opcode, instruction.operands
         opdef = opdict.get(opcode, None)
         if opdef:
-            is_store = opdef.get('is_store', False)
-            is_load = opdef.get('is_load', False)
+            is_store = isinstance(instruction, FrameInstruction) and opdef.get('is_store', False)
+            is_load = isinstance(instruction, FrameInstruction) and opdef.get('is_load', False)
             is_call = (opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
             is_exit = (opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
             if is_store or is_load:
@@ -1688,7 +1785,7 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(branch_optimise3(bytecode_function))
             result.append(remove_orphaned_labels(bytecode_function))
             result.append(remove_dead_code(bytecode_function))
-            result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
+            result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
             result.append(move_caseblocks(bytecode_function))
             result.append(block_deduplicate(bytecode_function))
             result.append(block_move(bytecode_function))
