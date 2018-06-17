@@ -1409,6 +1409,62 @@ def block_move(bytecode_function):
     return len(merged) > 0
 
 
+# If the same instruction occurs before all unconditional branches to a label, and there are
+# no conditional branches to the label, the instruction can be moved immediately after the
+# label.
+def tail_move(bytecode_function):
+    SFTODO # This is *not* working right, but it looks very promising indeed so well worth persevering
+    candidates = {}
+    for i in range(len(bytecode_function.ops)):
+        instruction = bytecode_function.ops[i]
+        if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
+            label = instruction.operands[0].value
+            previous_instruction = bytecode_function.ops[i-1]
+            if label not in candidates:
+                candidates[label] = previous_instruction
+            else:
+                if candidates[label] != previous_instruction:
+                    candidates[label] = None
+        elif instruction.is_branch():
+            label = instruction.operands[0].value
+            candidates[label] = None
+    #print('SFTODOX9913 %r' % candidates)
+
+    changed = False
+    i = 0
+    while i < len(bytecode_function.ops):
+        instruction = bytecode_function.ops[i]
+        if i > 0 and instruction.is_local_label() and instruction.operands[0] in candidates:
+            candidate = candidates[instruction.operands[0]]
+            if candidate:
+                # If the previous instruction can fall through to this label, it must be the
+                # same as the candidate.
+                if not never_immediate_successor(bytecode_function.ops[i-1].opcode):
+                    if bytecode_function.ops[i-1] != candidate:
+                        i += 1
+                        continue
+                    bytecode_function.ops[i-1] = NopInstruction()
+                bytecode_function.ops[i+1:i+1] = [candidate]
+                changed = True
+        i += 1
+
+    if changed:
+        i = 0
+        while i < len(bytecode_function.ops):
+            instruction = bytecode_function.ops[i]
+            if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
+                label = instruction.operands[0].value
+                if label in candidates:
+                    candidate = candidates[label]
+                    if candidate:
+                        bytecode_function.ops[i-1] = NopInstruction()
+            i += 1
+
+        bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
+
+    return changed
+
+
 
 def peephole_optimise(bytecode_function):
     changed = False
@@ -1789,6 +1845,7 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(move_caseblocks(bytecode_function))
             result.append(block_deduplicate(bytecode_function))
             result.append(block_move(bytecode_function))
+            result.append(tail_move(bytecode_function))
             #if SFTODOFOO:
             #    break
             result.append(peephole_optimise(bytecode_function))
