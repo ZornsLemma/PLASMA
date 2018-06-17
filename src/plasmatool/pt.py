@@ -1413,6 +1413,7 @@ def block_move(bytecode_function):
 # no conditional branches to the label, the instruction can be moved immediately after the
 # label.
 def tail_move(bytecode_function):
+    # SFTODO: I think this must be careful to notice *all* possible uses of the label (e.g. in CASEBLOCK) and disable the optimisation as appropriate - what I've written here is probably too lax
     SFTODO # This is *not* working right, but it looks very promising indeed so well worth persevering
     candidates = {}
     for i in range(len(bytecode_function.ops)):
