@@ -627,9 +627,13 @@ class Instruction(object):
         return False
 
     def is_store(self):
+        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
+            return False
         return opdict[self.opcode].get('is_store', False)
 
     def is_load(self):
+        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
+            return False
         return opdict[self.opcode].get('is_load', False)
 
     def rename_local_labels(self, alias_dict):
@@ -1382,8 +1386,14 @@ def peephole_optimise(bytecode_function):
         #                  (0x42, 0x4e): 0x24}[(instruction.opcode, next_instruction.opcode)]
         #    bytecode_function.ops[i] = NopInstruction()
         #    bytecode_function.ops[i+1] = BranchInstruction(new_opcode, bytecode_function.ops[i+1].operands[0].value)
-        #    changed = True
-
+        #    changed = Truew
+        # TODO: This optimisation is temporarily disabled as it is a very hacky implementation. I think it may be worth writing a more general version, if nothing else it would likely cause me to think up some useful general predicates ('get affected addresses', perhaps returning a generic list which can handle all kinds of load/store addresses) on the instruction classes. Note that this optimisation will increase use of the expression stack by one, so it should be separately controllable as it just may break code which is pushing the expression stack size.
+        elif False and instruction.opcode == 0x66 and next_instruction.is_store() and instruction == next_next_instruction: # SFTODO: MAGIC CONST LLW - ALSO THIS OPTIMISATION COULD IN PRINCIPLE BE DONE IN A MUCH MORE GENERAL WAY ALLOWING FOR LONGER SERIES OF INTERVENING INSTRUCTIONS ETC, BUT THIS IS A FIRST CUT
+            frame_offset = instruction.frame_offset
+            if not (isinstance(next_instruction, FrameOffset) and abs(frame_offset - next_instruction.frame_offset) < 2): # SFTODO: RIDICULOUSLY OVER-CONSERVATIVE WAY TO CHECK THIS, JUST FOR EXPEDIENCY
+                bytecode_function.ops[i+2] = bytecode_function.ops[i+1]
+                bytecode_function.ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
+                changed = True
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
     changed = any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
