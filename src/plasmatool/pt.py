@@ -1010,9 +1010,9 @@ opdict = {
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
     0x6c: {'opcode': 'DLB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x6e: {'opcode': 'DLW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
     0x70: {'opcode': 'SB', 'is_store': True, 'dis': StackInstruction.disassemble},
     0x72: {'opcode': 'SW', 'is_store': True, 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
@@ -1516,6 +1516,14 @@ def peephole_optimise(bytecode_function):
                 bytecode_function.ops[i+2] = bytecode_function.ops[i+1]
                 bytecode_function.ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
                 changed = True
+        elif instruction.is_simple_store() and not instruction.is_load() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.is_store() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
+            dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS
+                             0x78: 0x7c,
+                             0x74: 0x6c,
+                             0x76: 0x6e}
+            bytecode_function.ops[i] = instruction.__class__(dup_for_store[instruction.opcode], instruction.operands[0])
+            bytecode_function.ops[i+1] = NopInstruction()
+            changed = True
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
     changed = changed or any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
