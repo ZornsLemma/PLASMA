@@ -1372,6 +1372,18 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i].invert_condition()
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
+            changed = True
+        # TODO: Delete the following - it doesn't actually occur, because there's always an 
+        # intervening label which stops this optimisation.
+        #elif instruction.opcode in (0x40, 0x42) and next_instruction.opcode in (0x4c, 0x4e): # SFTODO MAGIC - ISEQ/ISNE, BRFLS/BRTRU
+        #    new_opcode = {(0x40, 0x4c): 0x24, # SFTODO MAGIC BRNE
+        #                  (0x40, 0x4e): 0x22, # SFTODO MAGIC BREQ
+        #                  (0x42, 0x4c): 0x22,
+        #                  (0x42, 0x4e): 0x24}[(instruction.opcode, next_instruction.opcode)]
+        #    bytecode_function.ops[i] = NopInstruction()
+        #    bytecode_function.ops[i+1] = BranchInstruction(new_opcode, bytecode_function.ops[i+1].operands[0].value)
+        #    changed = True
+
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
     changed = any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
