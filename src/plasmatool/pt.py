@@ -1935,8 +1935,6 @@ new_esd.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
-# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler. I think this is better (where possible) than the expression-stack-use-increasing optimisation I have using DUP.
+# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler. I think this is better (where possible) than the expression-stack-use-increasing optimisation I have using DUP. This pattern of observation (provided the loads have no side effects; we aren't optimising away the store so it's fine if it does) applies generally; LOAD foo:STORE bar:LOAD foo can be optimised to LOAD foo:DUPSTORE bar. There's a corner case where foo and bar partially overlap (if they fully overlap it's fine), so we shouldn't optimise if that's the case.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
-
-# TODO: I think we have some straight line instances of SAW x:LAW x which we could turn in DAW x. Ditto SLW [n]:LLW [n]
