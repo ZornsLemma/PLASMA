@@ -1227,9 +1227,9 @@ def block_deduplicate(bytecode_function):
                 #print('SFTODOX2 %r' % block_labels[j])
                 
                 replace = None
-                if block_label_only[block_labels[i]]:
+                if block_labels[i] not in unwanted and block_label_only[block_labels[i]]:
                     replace = (block_labels[i], block_labels[j])
-                elif block_label_only[block_labels[j]]:
+                elif block_labels[j] not in unwanted and block_label_only[block_labels[j]]:
                     replace = (block_labels[j], block_labels[i])
                 if replace:
                     alias[replace[0]] = replace[1]
@@ -1250,6 +1250,93 @@ def block_deduplicate(bytecode_function):
             new_ops.append(instruction)
     bytecode_function.ops = new_ops
     return changed
+
+#SFTODOFOO = False
+# Look for blocks of code within a function which cannot be entered except via their
+# label and see if we can move those blocks to avoid the need to BRNCH to them.
+# SFTODO: This is quite copy and paste from block_deduplicate() - factor out. (Note that
+# this is slightly different as it includes the label at the start of the block, but I
+# think that could be handled in a common way.)
+def block_move(bytecode_function):
+    #print('SFTODOBMSTART')
+    blocks = []
+    block_labels = []
+    block_label_only = {}
+    block_label = None
+    block = []
+    # Identify the distinct blocks; a block for our purposes starts with a label, contains
+    # no other labels and ends with an instruction which never transfers control to its
+    # immediate successor. We further classify these blocks based on whether control
+    # can only reach them via their label or it can enter from the instruction before the
+    # block; we can't merge a block of the second type.
+    for i in range(len(bytecode_function.ops)):
+        instruction = bytecode_function.ops[i]
+        if never_immediate_successor(instruction.opcode):
+            block.append(instruction)
+            if block_label:
+                blocks.append(block)
+                block_labels.append(block_label)
+            block_label = None
+        elif instruction.is_local_label():
+            block_label = instruction.operands[0]
+            block = [instruction]
+            # The last part of this condition recognises the situation where we have a
+            # BRNCH into the label which immediately follows it. (This will be optimised
+            # away by other code.) It would be strictly harmless not to recognise this
+            # special case, but it would cause the code following the BRNCH to be eligible
+            # for moving and that doesn't really gain us anything, since when the BRNCH
+            # is optimised away we will get the same effect. We prefer to preserve the
+            # order of code if there's no good reason to change it, hence this logic.
+            block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode) and (bytecode_function.ops[i-1].opcode != 0x50 or bytecode_function.ops[i-1].operands[0].value != block_label)
+            #if block_label == '_L0842':
+            #    print('SFTODO911 %x' % (bytecode_function.ops[i-1].opcode))
+            #    if block_label_only[block_label]:
+            #        global SFTODOFOO
+            #        SFTODOFOO = True
+            #        return True
+        elif block_label:
+            block.append(instruction)
+    if block_label:
+        blocks.append(block)
+        block_labels.append(block_label)
+    assert len(blocks) == len(block_labels)
+
+    merged = set()
+
+    for i in range(len(blocks)):
+        if blocks[i][-1].opcode == 0x50: #SFTODO MAGIC BRNCH
+            target = blocks[i][-1].operands[0].value
+            if target not in merged and target in block_labels and block_label_only[target]:
+                if target == '_L0842':
+                    print('SFTODOL0842')
+                else:
+                    target_index = block_labels.index(target)
+                    blocks[i] = blocks[i][:-1] + blocks[target_index]
+                    merged.add(target)
+
+    new_ops = []
+    i = 0
+    while i < len(bytecode_function.ops):
+        instruction = bytecode_function.ops[i]
+        if instruction.is_local_label() and instruction.operands[0] in block_labels:
+            while i < len(bytecode_function.ops)-1:
+                i += 1
+                if never_immediate_successor(bytecode_function.ops[i].opcode):
+                    i += 1
+                    break
+                elif bytecode_function.ops[i].is_local_label():
+                    break
+            if instruction.operands[0] not in merged:
+                new_ops += blocks[block_labels.index(instruction.operands[0])]
+        else:
+            new_ops.append(instruction)
+            i += 1
+    bytecode_function.ops = new_ops
+
+    #print('SFTODO %d' % len(merged))
+    return len(merged) > 0
+
+
 
 def peephole_optimise(bytecode_function):
     changed = False
@@ -1559,6 +1646,9 @@ for bytecode_function in used_things_ordered[0:-1]:
             result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
             result.append(move_caseblocks(bytecode_function))
             result.append(block_deduplicate(bytecode_function))
+            result.append(block_move(bytecode_function))
+            #if SFTODOFOO:
+            #    break
             result.append(peephole_optimise(bytecode_function))
         changed = any(result)
     bytecode_function.dump(new_rld, new_esd)
