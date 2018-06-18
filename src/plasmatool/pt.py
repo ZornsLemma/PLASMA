@@ -1262,72 +1262,97 @@ def move_caseblocks(bytecode_function):
     changed = bytecode_function.ops != original_ops 
     return changed
 
-# Identify duplicated blocks of code in a function and remove the duplicates.
-def block_deduplicate(bytecode_function):
-    blocks = []
-    block_labels = []
-    block_label_only = {}
-    block_label = None
-    block = []
-    # Identify the distinct blocks; a block for our purposes starts with a label, contains
-    # no other labels and ends with an instruction which never transfers control to its
-    # immediate successor. We further classify these blocks based on whether control
-    # can only reach them via their label or it can enter from the instruction before the
-    # block; we can't remove a block of the second type.
-    for i in range(len(bytecode_function.ops)):
-        instruction = bytecode_function.ops[i]
-        if never_immediate_successor(instruction.opcode):
-            block.append(instruction)
-            if block_label:
-                blocks.append(block)
-                block_labels.append(block_label)
-            block_label = None
-        elif instruction.is_local_label():
-            block_label = instruction.operands[0]
-            block = []
-            assert not bytecode_function.ops[i-1].is_local_label()
-            block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode)
-            #print('SFTODO %r %r' % (block_label, block_label_only[block_label]))
-        elif block_label:
-            block.append(instruction)
-    if block_label:
-        blocks.append(block)
-        block_labels.append(block_label)
-    assert len(blocks) == len(block_labels)
+# SFTODO: EXPERIMENTAL
+class Foo(object):
+    def __init__(self, bytecode_function):
+        self.ops = bytecode_function.ops
+        self.blocks_metadata = [None]
+        self.block_starts = [0]
+        self.start = 0
 
+    def start_before(self, i, metadata):
+        start = self.block_starts[-1]
+        assert start <= i
+        assert i <= len(self.ops)
+        if start == i:
+            assert self.blocks_metadata[-1] is None
+            self.blocks_metadata[-1] = metadata
+        else:
+            self.block_starts.append(i)
+            self.blocks_metadata.append(metadata)
+
+    def start_after(self, i, metadata):
+        self.start_before(i + 1, metadata)
+
+    def get_blocks_and_metadata(self):
+        if self.block_starts[-1] < len(self.ops):
+            self.start_before(len(self.ops), None)
+        blocks = []
+        for start, end in zip(self.block_starts, self.block_starts[1:]):
+            blocks.append(self.ops[start:end])
+        assert len(blocks) == len(self.blocks_metadata)-1
+        assert sum(len(block) for block in blocks) == len(self.ops)
+        return blocks, self.blocks_metadata[:-1]
+
+
+# SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
+def get_blocks(bytecode_function):
+    foo = Foo(bytecode_function)
+    for i, instruction in enumerate(bytecode_function.ops):
+        if instruction.is_local_label():
+            foo.start_before(i, instruction.operands[0])
+        elif never_immediate_successor(instruction.opcode):
+            foo.start_after(i, None)
+    return foo.get_blocks_and_metadata()
+
+def block_deduplicate(bytecode_function):
+    blocks, blocks_metadata = get_blocks(bytecode_function)
+    block_label_only = [False] * len(blocks)
+    for i, block in enumerate(blocks):
+        if block:
+            if not never_immediate_successor(block[-1].opcode):
+                blocks_metadata[i] = None
+            else:
+                block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
+
+    # We now have the function divided into blocks. Blocks starting with a
+    # local label followed by non-label instructions and ending with an 'never
+    # immediate successor' instruction are named by the local labels; others
+    # are anonymous and we just leave them alone. We have also set
+    # block_label_only[i] to True iff block i cannot be entered by falling
+    # through from the previous block; such blocks can be freely moved around. SFTODO: MOVE THIS COMMENT ABOVE THE PREIVOUS BLOCK OF CODE AND CHANGE ITS TENSE
+
+    # Compare each pair of non-anonymous blocks (ignoring the initial local
+    # label); if two are identical and one of them is never entered by falling
+    # through from the previous block, we can delete that one and replace all
+    # references to its label with the label of the other block.
     alias = {}
     unwanted = set()
     for i in range(len(blocks)):
         for j in range(i+1, len(blocks)):
-            if blocks[i] == blocks[j]:
-                #print('SFTODOX1 %r' % block_labels[i])
-                #print('SFTODOX2 %r' % block_labels[j])
-                
+            if blocks_metadata[i] and blocks_metadata[j] and blocks[i][1:] == blocks[j][1:]:
                 replace = None
-                if block_labels[i] not in unwanted and block_label_only[block_labels[i]]:
-                    replace = (block_labels[i], block_labels[j])
-                elif block_labels[j] not in unwanted and block_label_only[block_labels[j]]:
-                    replace = (block_labels[j], block_labels[i])
+                if blocks_metadata[i] not in unwanted and block_label_only[i]:
+                    replace = (blocks_metadata[i], blocks_metadata[j])
+                elif blocks_metadata[j] not in unwanted and block_label_only[j]:
+                    replace = (blocks_metadata[j], blocks_metadata[i])
                 if replace:
                     alias[replace[0]] = replace[1]
                     unwanted.add(replace[0])
 
-    changed = False
+    # Now rebuild the function from the blocks.
     new_ops = []
-    i = 0
-    while i < len(bytecode_function.ops):
-        instruction = bytecode_function.ops[i]
-        if instruction.is_local_label() and instruction.operands[0] in unwanted:
-            changed = True
-            while i < len(bytecode_function.ops):
-                i += 1
-                if bytecode_function.ops[i].is_local_label():
-                    break
+    changed = False
+    assert None not in unwanted
+    for i, block in enumerate(blocks):
+        if blocks_metadata[i] not in unwanted:
+            for instruction in block:
+                instruction.rename_local_labels(alias)
+                new_ops.append(instruction)
         else:
-            instruction.rename_local_labels(alias)
-            new_ops.append(instruction)
-            i += 1
+            changed = True
     bytecode_function.ops = new_ops
+
     return changed
 
 # Look for blocks of code within a function which cannot be entered except via their
