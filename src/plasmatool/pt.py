@@ -1334,6 +1334,9 @@ def block_deduplicate(bytecode_function):
                 assert blocks[i][0].is_local_label()
                 assert blocks[j][0].is_local_label()
                 replace = None
+                # SFTODO: Isn't this code subtly wrong? In the 'if' case, for example,
+                # what if block[j] is in unwanted? We'd generate calls to its label
+                # even though it's being removed.
                 if blocks_metadata[i] not in unwanted and block_label_only[i]:
                     replace = (blocks_metadata[i], blocks_metadata[j])
                 elif blocks_metadata[j] not in unwanted and block_label_only[j]:
