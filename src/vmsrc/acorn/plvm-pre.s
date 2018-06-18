@@ -328,6 +328,13 @@ IINTERP	PLA
 	STA 	IPH
 
 	LDA	RAMBANK,Y
+	; SFTODO: Random though, possibly incorrect - could we compare A with
+	; $F4 here and only if it is different a) do the STA $FE30 b) stack
+	; the old value of $F4 instead of doing it in CALL/ICAL? This might
+	; save time and/or stack space on function calls. I suspect this isn't
+	; workable because we don't have the "raw" IP value we'd need to
+	; recompute the desired bank on return from CALL/ICAL, but I'll leave
+	; this here to think about again before I delete this comment.
 	STA	$F4
 	STA	$FE30
 
