@@ -1306,6 +1306,13 @@ def get_blocks(bytecode_function):
     return foo.get_blocks_and_metadata()
 
 def block_deduplicate(bytecode_function):
+    # Split the function up into blocks:
+    # - blocks which start with a local label, contain a series of non-label
+    #   instructions and end with an instruction transferring control elsewhere.
+    # - anonymous blocks which don't satisfy that condition
+    # We also classify named blocks such that block_label_only[i] is True iff
+    # control only reaches that block via its label (not by falling off the end
+    # of the previous block); such blocks can be freely moved around.
     blocks, blocks_metadata = get_blocks(bytecode_function)
     block_label_only = [False] * len(blocks)
     for i, block in enumerate(blocks):
@@ -1314,13 +1321,6 @@ def block_deduplicate(bytecode_function):
                 blocks_metadata[i] = None
             else:
                 block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
-
-    # We now have the function divided into blocks. Blocks starting with a
-    # local label followed by non-label instructions and ending with an 'never
-    # immediate successor' instruction are named by the local labels; others
-    # are anonymous and we just leave them alone. We have also set
-    # block_label_only[i] to True iff block i cannot be entered by falling
-    # through from the previous block; such blocks can be freely moved around. SFTODO: MOVE THIS COMMENT ABOVE THE PREIVOUS BLOCK OF CODE AND CHANGE ITS TENSE
 
     # Compare each pair of non-anonymous blocks (ignoring the initial local
     # label); if two are identical and one of them is never entered by falling
@@ -1331,6 +1331,8 @@ def block_deduplicate(bytecode_function):
     for i in range(len(blocks)):
         for j in range(i+1, len(blocks)):
             if blocks_metadata[i] and blocks_metadata[j] and blocks[i][1:] == blocks[j][1:]:
+                assert blocks[i][0].is_local_label()
+                assert blocks[j][0].is_local_label()
                 replace = None
                 if blocks_metadata[i] not in unwanted and block_label_only[i]:
                     replace = (blocks_metadata[i], blocks_metadata[j])
