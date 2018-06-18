@@ -1316,6 +1316,7 @@ def block_deduplicate(bytecode_function):
     blocks, blocks_metadata = get_blocks(bytecode_function)
     block_label_only = [False] * len(blocks)
     for i, block in enumerate(blocks):
+        assert block # SFTODO: I think the split code can never generate an empty block - if so we can remove the following if...
         if block:
             if not never_immediate_successor(block[-1].opcode):
                 blocks_metadata[i] = None
