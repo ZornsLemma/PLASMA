@@ -1209,6 +1209,7 @@ def remove_orphaned_labels(bytecode_function):
     bytecode_function.ops = new_ops
     return changed
 
+# SFTODO: Rename this to is_terminator() and change all comments to use the same terminology
 def never_immediate_successor(opcode):
     opdef = opdict.get(opcode, None)
     return opdef and opdef.get('nis', False)
@@ -1423,7 +1424,7 @@ def tail_move(bytecode_function):
                 # This branch can never actually be reached; it will be optimised away
                 # eventually (it probably already has and this case won't occur) but
                 # it's not correct to move the preceding instruction on the assumption
-                # this branch will be taken.
+                # this branch will be unconditionally taken.
                 continue
             label = instruction.operands[0].value
             if candidates.setdefault(label, previous_instruction) != previous_instruction:
@@ -1435,39 +1436,43 @@ def tail_move(bytecode_function):
                 for label in labels_used:
                     candidates[label] = None
 
+    # Now check the immediately preceding instruction before every local label with a
+    # candidate. If it's not a terminator and it doesn't match the candidate, the
+    # candidate must be discarded. Otherwise we insert the candidate after the label
+    # and remove any copy of the candidate immediately preceding the label. (We don't
+    # remove instances of the candidate before unconditional branches here, because
+    # until we've finished this loop we can't be sure a candidate won't be discarded.)
+    new_ops = []
     changed = False
-    i = 0
-    while i < len(bytecode_function.ops):
-        instruction = bytecode_function.ops[i]
-        if i > 0 and instruction.is_local_label() and instruction.operands[0] in candidates:
-            candidate = candidates[instruction.operands[0]]
+    for instruction in bytecode_function.ops:
+        new_ops.append(instruction)
+        if len(new_ops) >= 2 and instruction.is_local_label():
+            candidate = candidates.get(instruction.operands[0], None)
             if candidate:
-                # If the previous instruction can fall through to this label, it must be the
-                # same as the candidate.
-                assert not bytecode_function.ops[i-1].is_local_label()
-                if not never_immediate_successor(bytecode_function.ops[i-1].opcode):
-                    if bytecode_function.ops[i-1] != candidate:
+                previous_instruction = new_ops[-2]
+                assert not previous_instruction.is_local_label()
+                if not never_immediate_successor(previous_instruction.opcode):
+                    if previous_instruction != candidate:
                         candidates[instruction.operands[0]] = None
-                        i += 1
                         continue
-                    bytecode_function.ops[i-1] = NopInstruction()
-                bytecode_function.ops[i+1:i+1] = [candidate]
+                    new_ops.pop(-2) # remove previous_instruction
+                new_ops.append(candidate)
                 changed = True
-        i += 1
 
+    # We can now go ahead and remove all instances of candidates before unconditional
+    # branches.
     if changed:
         i = 0
-        while i < len(bytecode_function.ops):
-            instruction = bytecode_function.ops[i]
+        while i < len(new_ops):
+            instruction = new_ops[i]
             if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
                 label = instruction.operands[0].value
                 if label in candidates:
                     candidate = candidates[label]
                     if candidate:
-                        bytecode_function.ops[i-1] = NopInstruction()
+                        new_ops[i-1] = NopInstruction()
             i += 1
-
-        bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
+        bytecode_function.ops = [op for op in new_ops if op.opcode != 0xf1]
 
     return changed
 
