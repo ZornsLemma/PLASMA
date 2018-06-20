@@ -1410,29 +1410,30 @@ def block_move(bytecode_function):
 # no conditional branches to the label, the instruction can be moved immediately after the
 # label.
 def tail_move(bytecode_function):
-    #branch_optimise(bytecode_function) # SFTODO EXPERIMENTAL
-    #remove_orphaned_labels(bytecode_function) # SFTODO EXPERIMENTAL
+    # For every local label, set candidates[label] to:
+    # - the unique preceding instruction for all unconditional branches to it, provided it has
+    #   no conditional branches to it, or
+    # - None otherwise.
     candidates = {}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
-            label = instruction.operands[0].value
             previous_instruction = bytecode_function.ops[i-1]
-            if label not in candidates:
-                candidates[label] = previous_instruction
-            else:
-                if candidates[label] != previous_instruction:
-                    candidates[label] = None
+            if never_immediate_successor(previous_instruction.opcode):
+                # This branch can never actually be reached; it will be optimised away
+                # eventually (it probably already has and this case won't occur) but
+                # it's not correct to move the preceding instruction on the assumption
+                # this branch will be taken.
+                continue
+            label = instruction.operands[0].value
+            if candidates.setdefault(label, previous_instruction) != previous_instruction:
+                candidates[label] = None
         else:
             if instruction.operands and not isinstance(instruction.operands[0], int) and not isinstance(instruction.operands[0], str): # SFTODO HACKY isinstance
                 labels_used = set()
                 instruction.operands[0].update_local_labels_used(labels_used)
                 for label in labels_used:
                     candidates[label] = None
-    #print('SFTODOX9913 %r' % candidates)
-    #if '_L0541' in candidates:
-    #    SFTODOFOO = True
-    #    return False
 
     changed = False
     i = 0
