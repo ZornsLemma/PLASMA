@@ -1361,88 +1361,54 @@ def block_deduplicate(bytecode_function):
 
     return changed
 
+
 # Look for blocks of code within a function which cannot be entered except via their
 # label and see if we can move those blocks to avoid the need to BRNCH to them.
-# SFTODO: This is quite copy and paste from block_deduplicate() - factor out. (Note that
-# this is slightly different as it includes the label at the start of the block, but I
-# think that could be handled in a common way.)
 def block_move(bytecode_function):
-    #print('SFTODOBMSTART')
-    blocks = []
-    block_labels = []
-    block_label_only = {}
-    block_label = None
-    block = []
-    # Identify the distinct blocks; a block for our purposes starts with a label, contains
-    # no other labels and ends with an instruction which never transfers control to its
-    # immediate successor. We further classify these blocks based on whether control
-    # can only reach them via their label or it can enter from the instruction before the
-    # block; we can't merge a block of the second type.
-    for i in range(len(bytecode_function.ops)):
-        instruction = bytecode_function.ops[i]
-        if block_label and never_immediate_successor(instruction.opcode):
-            block.append(instruction)
-            blocks.append(block)
-            block_labels.append(block_label)
-            block_label = None
-        elif instruction.is_local_label():
-            block_label = instruction.operands[0]
-            block = [instruction]
-            # The last part of this condition recognises the situation where we have a
-            # BRNCH into the label which immediately follows it. (This will be optimised
-            # away by other code.) It would be strictly harmless not to recognise this
-            # special case, but it would cause the code following the BRNCH to be eligible
-            # for moving and that doesn't really gain us anything, since when the BRNCH
-            # is optimised away we will get the same effect. We prefer to preserve the
-            # order of code if there's no good reason to change it, hence this logic.
-            assert not bytecode_function.ops[i-1].is_local_label()
-            block_label_only[block_label] = i > 0 and never_immediate_successor(bytecode_function.ops[i-1].opcode) and (bytecode_function.ops[i-1].opcode != 0x50 or bytecode_function.ops[i-1].operands[0].value != block_label)
-            #if block_label == '_L0842':
-            #    print('SFTODO911 %x' % (bytecode_function.ops[i-1].opcode))
-            #    if block_label_only[block_label]:
-            #        global SFTODOFOO
-            #        SFTODOFOO = True
-            #        return True
-        elif block_label:
-            block.append(instruction)
-    if block_label:
-        blocks.append(block)
-        block_labels.append(block_label)
-    assert len(blocks) == len(block_labels)
+    # In order to avoid gratuitously moving chunks of code around (which makes it
+    # harder to verify the transformations performed by this valid), we remove any
+    # redundant branches to the immediately following instruction first.
+    branch_optimise(bytecode_function)
 
-    merged = set()
+    # SFTODO: THIS CHUNK OF CODE IS STILL A COPY AND PASTE FROM block_deduplicate
+    # Split the function up into blocks:
+    # - blocks which start with a local label, contain a series of non-label
+    #   instructions and end with an instruction transferring control elsewhere.
+    # - anonymous blocks which don't satisfy that condition
+    # We also classify named blocks such that block_label_only[i] is True iff
+    # control only reaches that block via its label (not by falling off the end
+    # of the previous block); such blocks can be freely moved around.
+    blocks, blocks_metadata = get_blocks(bytecode_function)
+    block_label_only = [False] * len(blocks)
+    for i, block in enumerate(blocks):
+        assert block # SFTODO: I think the split code can never generate an empty block - if so we can remove the following if...
+        if block:
+            if not never_immediate_successor(block[-1].opcode):
+                blocks_metadata[i] = None
+            else:
+                block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
 
+    # Merge blocks where possible.
     changed = False
-    for i in range(len(blocks)):
-        if blocks[i][-1].opcode == 0x50: #SFTODO MAGIC BRNCH
-            target = blocks[i][-1].operands[0].value
-            if target not in merged and target in block_labels and block_label_only[target]:
-                target_index = block_labels.index(target)
-                blocks[i] = blocks[i][:-1] + blocks[target_index]
-                merged.add(target)
-                changed = True
+    for i, block in enumerate(blocks):
+        if block and block[-1].opcode == 0x50: # SFTODO MAGIC BRNCH
+            target_label = block[-1].operands[0].value
+            if target_label in blocks_metadata:
+                target_block_index = blocks_metadata.index(target_label)
+                if target_block_index != i and block_label_only[target_block_index]:
+                    blocks[i] = blocks[i][:-1] + blocks[target_block_index]
+                    blocks[target_block_index] = []
+                    blocks_metadata[target_block_index] = None
+                    changed = True
 
+    # Regenerate the function from the modified blocks.
     new_ops = []
-    i = 0
-    while i < len(bytecode_function.ops):
-        instruction = bytecode_function.ops[i]
-        if instruction.is_local_label() and instruction.operands[0] in block_labels:
-            i += 1
-            while i < len(bytecode_function.ops):
-                if never_immediate_successor(bytecode_function.ops[i].opcode):
-                    i += 1
-                    break
-                elif bytecode_function.ops[i].is_local_label():
-                    break
-                i += 1
-            if instruction.operands[0] not in merged:
-                new_ops += blocks[block_labels.index(instruction.operands[0])]
-        else:
-            new_ops.append(instruction)
-            i += 1
+    for block in blocks:
+        new_ops.extend(block)
     bytecode_function.ops = new_ops
 
     return changed
+
 
 
 # If the same instruction occurs before all unconditional branches to a label, and there are
