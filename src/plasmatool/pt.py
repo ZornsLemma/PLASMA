@@ -1295,6 +1295,13 @@ class Foo(object):
         return blocks, self.blocks_metadata[:-1]
 
 
+
+# SFTODO: In following fns and their callers, should I stop saying 'metadata' and say
+# 'label', because that's what it is in these cases? It may turn out that Foo() is used
+# in cases where the metadata is something else, so that's fine, but the below do
+# specifically use labels.
+
+
 # SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
 def get_blocks(bytecode_function):
     foo = Foo(bytecode_function)
@@ -1305,14 +1312,14 @@ def get_blocks(bytecode_function):
             foo.start_after(i, None)
     return foo.get_blocks_and_metadata()
 
-def block_deduplicate(bytecode_function):
-    # Split the function up into blocks:
-    # - blocks which start with a local label, contain a series of non-label
-    #   instructions and end with an instruction transferring control elsewhere.
-    # - anonymous blocks which don't satisfy that condition
-    # We also classify named blocks such that block_label_only[i] is True iff
-    # control only reaches that block via its label (not by falling off the end
-    # of the previous block); such blocks can be freely moved around.
+# Split a function up into blocks:
+# - blocks which start with a local label, contain a series of non-label
+#   instructions and end with an instruction transferring control elsewhere.
+# - anonymous blocks which don't satisfy that condition
+# We also classify named blocks such that block_label_only[i] is True iff
+# control only reaches that block via its label (not by falling off the end
+# of the previous block); such blocks can be freely moved around.
+def get_blocks2(bytecode_function): # SFTODO POOR NAME
     blocks, blocks_metadata = get_blocks(bytecode_function)
     block_label_only = [False] * len(blocks)
     for i, block in enumerate(blocks):
@@ -1322,6 +1329,10 @@ def block_deduplicate(bytecode_function):
                 blocks_metadata[i] = None
             else:
                 block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
+    return blocks, blocks_metadata, block_label_only
+
+def block_deduplicate(bytecode_function):
+    blocks, blocks_metadata, block_label_only = get_blocks2(bytecode_function)
 
     # Compare each pair of non-anonymous blocks (ignoring the initial local
     # label); if two are identical and one of them is never entered by falling
@@ -1370,23 +1381,7 @@ def block_move(bytecode_function):
     # redundant branches to the immediately following instruction first.
     branch_optimise(bytecode_function)
 
-    # SFTODO: THIS CHUNK OF CODE IS STILL A COPY AND PASTE FROM block_deduplicate
-    # Split the function up into blocks:
-    # - blocks which start with a local label, contain a series of non-label
-    #   instructions and end with an instruction transferring control elsewhere.
-    # - anonymous blocks which don't satisfy that condition
-    # We also classify named blocks such that block_label_only[i] is True iff
-    # control only reaches that block via its label (not by falling off the end
-    # of the previous block); such blocks can be freely moved around.
-    blocks, blocks_metadata = get_blocks(bytecode_function)
-    block_label_only = [False] * len(blocks)
-    for i, block in enumerate(blocks):
-        assert block # SFTODO: I think the split code can never generate an empty block - if so we can remove the following if...
-        if block:
-            if not never_immediate_successor(block[-1].opcode):
-                blocks_metadata[i] = None
-            else:
-                block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
+    blocks, blocks_metadata, block_label_only = get_blocks2(bytecode_function)
 
     # Merge blocks where possible.
     changed = False
