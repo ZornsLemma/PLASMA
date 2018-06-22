@@ -1142,7 +1142,6 @@ class BytecodeFunction(object):
         #print("SFTODO99 %r %r" % (self, len(self.references)))
         #print("SFTODO99 %r" % self.references)
         for instruction in self.ops:
-            assert isinstance(instruction, Instruction) # SFTODO TEMP DURING TRANSITION
             for operand in instruction.operands:
                 if not isinstance(operand, int): # SFTODO: HACKY
                     operand.update_used_things(used_things)
@@ -1473,11 +1472,10 @@ def tail_move(bytecode_function):
             if candidates.setdefault(label, previous_instruction) != previous_instruction:
                 candidates[label] = None
         else:
-            if instruction.operands and not isinstance(instruction.operands[0], int) and not instruction.is_local_label(): # SFTODO HACKY isinstance, not local label is also hacky
-                labels_used = set()
-                instruction.update_local_labels_used(labels_used)
-                for label in labels_used:
-                    candidates[label] = None
+            labels_used = set()
+            instruction.update_local_labels_used(labels_used)
+            for label in labels_used:
+                candidates[label] = None
 
     # Now check the immediately preceding instruction before every local label with a
     # candidate. If it's not a terminator and it doesn't match the candidate, the
