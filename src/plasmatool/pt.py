@@ -1166,8 +1166,7 @@ def local_label_deduplicate(bytecode_function):
             previous_instruction = instruction
             new_ops.append(instruction)
     for instruction in new_ops:
-        if not instruction.is_local_label(): # SFTODO HACK
-            instruction.rename_local_labels(alias)
+        instruction.rename_local_labels(alias)
     bytecode_function.ops = new_ops
     return changed
 
@@ -1226,8 +1225,7 @@ def branch_optimise3(bytecode_function):
         instruction = bytecode_function.ops[i]
         original_operands = copy.deepcopy(instruction.operands) # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
         #print('SFTODO899 %r' % original_operands)
-        if not instruction.is_local_label(): # SFTODO HACK
-            instruction.rename_local_labels(alias)
+        instruction.rename_local_labels(alias)
         changed = changed or (original_operands != instruction.operands)
         #print('SFTODO900 %r' % original_operands)
         #print('SFTODO901 %r' % instruction.operands)
@@ -1406,8 +1404,7 @@ def block_deduplicate(bytecode_function):
     for i, block in enumerate(blocks):
         if blocks_metadata[i] not in unwanted:
             for instruction in block:
-                if not instruction.is_local_label(): # SFTODO HACK
-                    instruction.rename_local_labels(alias)
+                instruction.rename_local_labels(alias)
                 new_ops.append(instruction)
         else:
             changed = True
