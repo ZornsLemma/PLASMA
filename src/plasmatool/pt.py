@@ -99,12 +99,6 @@ class Label(object):
         #print(repr(label_dict[self.name]))
         label_dict[self.name].update_used_things(used_things)
 
-    #def rename_local_labels(self, alias):
-    #    pass
-
-    #def update_local_labels_used(self, labels):
-    #    pass
-
     @classmethod
     def disassemble(cls, di, i):
         label = di.references[i]
@@ -144,12 +138,6 @@ class ExternalReference(object):
 
     def update_used_things(self, used_things):
         pass
-
-    #def rename_local_labels(self, alias):
-    #    pass
-
-    #def update_local_labels_used(self, labels):
-    #    pass
 
 class RLD(object):
     def __init__(self):
@@ -335,12 +323,6 @@ class Byte(object):
     def update_used_things(self, used_things):
         pass
 
-    #def rename_local_labels(self, alias):
-    #    pass
-
-    #def update_local_labels_used(self, labels):
-    #    pass
-
     @classmethod
     def disassemble(cls, di, i):
         byte = cls(di.labelled_blob[i])
@@ -371,12 +353,6 @@ class Word(object):
 
     def update_used_things(self, used_things):
         pass
-
-    #def rename_local_labels(self, alias):
-    #    pass
-
-    #def update_local_labels_used(self, labels):
-    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -575,12 +551,6 @@ class String(object):
 
     def update_used_things(self, used_things):
         pass
-
-    #def rename_local_labels(self, alias):
-    #    pass
-
-    #def update_local_labels_used(self, labels):
-    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
