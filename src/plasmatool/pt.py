@@ -102,8 +102,8 @@ class Label(object):
     #def rename_local_labels(self, alias):
     #    pass
 
-    def update_local_labels_used(self, labels):
-        pass
+    #def update_local_labels_used(self, labels):
+    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -148,8 +148,8 @@ class ExternalReference(object):
     #def rename_local_labels(self, alias):
     #    pass
 
-    def update_local_labels_used(self, labels):
-        pass
+    #def update_local_labels_used(self, labels):
+    #    pass
 
 class RLD(object):
     def __init__(self):
@@ -338,8 +338,8 @@ class Byte(object):
     #def rename_local_labels(self, alias):
     #    pass
 
-    def update_local_labels_used(self, labels):
-        pass
+    #def update_local_labels_used(self, labels):
+    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -375,8 +375,8 @@ class Word(object):
     #def rename_local_labels(self, alias):
     #    pass
 
-    def update_local_labels_used(self, labels):
-        pass
+    #def update_local_labels_used(self, labels):
+    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -579,8 +579,8 @@ class String(object):
     #def rename_local_labels(self, alias):
     #    pass
 
-    def update_local_labels_used(self, labels):
-        pass
+    #def update_local_labels_used(self, labels):
+    #    pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -708,6 +708,8 @@ class Instruction(object):
         pass
 
 
+
+
 class ConstantInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, int)
@@ -746,6 +748,10 @@ class ConstantInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         pass
 
+    def update_local_labels_used(self, labels_used):
+        pass
+
+
 class LocalLabelInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, Offset)
@@ -760,12 +766,20 @@ class LocalLabelInstruction(Instruction):
         # ourself.
         pass
 
+    def update_local_labels_used(self, labels_used):
+        # update_local_labels_used() only counts labels used as a target; defining a local label
+        # via this instruction doesn't count.
+        pass
+
 
 class NopInstruction(Instruction):
     def __init__(self):
         super(NopInstruction, self).__init__(0xf1, [])
 
     def rename_local_labels(self, alias_dict):
+        pass
+
+    def update_local_labels_used(self, labels_used):
         pass
 
 
@@ -779,6 +793,9 @@ class CaseBlockInstruction(Instruction):
 
     def rename_local_labels(self, alias_dict):
         self.operands[0].rename_local_labels(alias_dict)
+
+    def update_local_labels_used(self, labels_used):
+        self.operands[0].update_local_labels_used(labels_used)
 
 
 class BranchInstruction(Instruction):
@@ -818,6 +835,9 @@ class BranchInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
 
+    def update_local_labels_used(self, labels_used):
+        self.operands[0].update_local_labels_used(labels_used)
+
 
 class SelInstruction(Instruction):
     def __init__(self, case_block_offset):
@@ -840,6 +860,9 @@ class SelInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         self.operands[0].offset = rename_local_labels(self.operands[0].offset, alias_dict)
 
+    def update_local_labels_used(self, labels_used):
+        self.operands[0].update_local_labels_used(labels_used)
+
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -859,6 +882,9 @@ class StackInstruction(Instruction):
         print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
 
     def rename_local_labels(self, alias_dict):
+        pass
+
+    def update_local_labels_used(self, labels_used):
         pass
 
     def add_affect(self, affect):
@@ -904,6 +930,9 @@ class ImmediateInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         pass
 
+    def update_local_labels_used(self, labels_used):
+        pass
+
 
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
@@ -924,6 +953,9 @@ class MemoryInstruction(Instruction):
         acme_dump_label(self.opcode, self.operands, rld)
 
     def rename_local_labels(self, alias_dict):
+        pass
+
+    def update_local_labels_used(self, labels_used):
         pass
 
     def data_size(self):
@@ -959,6 +991,9 @@ class FrameInstruction(Instruction):
     def rename_local_labels(self, alias_dict):
         pass
 
+    def update_local_labels_used(self, labels_used):
+        pass
+
     def data_size(self):
         return opdict[self.opcode]['data_size']
 
@@ -984,6 +1019,9 @@ class StringInstruction(Instruction):
         acme_dump_cs(self.opcode, self.operands)
 
     def rename_local_labels(self, alias_dict):
+        pass
+
+    def update_local_labels_used(self, labels_used):
         pass
 
 
@@ -1234,8 +1272,7 @@ def remove_orphaned_labels(bytecode_function):
     changed = False
     labels_used = set()
     for instruction in bytecode_function.ops:
-        if instruction.operands and not isinstance(instruction.operands[0], int) and not instruction.is_local_label(): # SFTODO HACKY isinstance, as is local label check
-            instruction.operands[0].update_local_labels_used(labels_used)
+        instruction.update_local_labels_used(labels_used)
     new_ops = []
     for instruction in bytecode_function.ops:
         if not (instruction.is_local_label() and instruction.operands[0] not in labels_used):
@@ -1468,7 +1505,7 @@ def tail_move(bytecode_function):
         else:
             if instruction.operands and not isinstance(instruction.operands[0], int) and not instruction.is_local_label(): # SFTODO HACKY isinstance, not local label is also hacky
                 labels_used = set()
-                instruction.operands[0].update_local_labels_used(labels_used)
+                instruction.update_local_labels_used(labels_used)
                 for label in labels_used:
                     candidates[label] = None
 
