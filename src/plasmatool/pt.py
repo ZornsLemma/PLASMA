@@ -320,9 +320,6 @@ class Byte(object):
     def human(self):
         return "%d" % (self.value,)
 
-    def update_used_things(self, used_things):
-        pass
-
     @classmethod
     def disassemble(cls, di, i):
         byte = cls(di.labelled_blob[i])
@@ -350,9 +347,6 @@ class Word(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def update_used_things(self, used_things):
-        pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -416,9 +410,6 @@ class Offset(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def update_used_things(self, used_things):
-        pass
-
     def rename_local_labels(self, alias):
         assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_local_labels ABOVE
 
@@ -476,9 +467,6 @@ class CaseBlockOffset(object):
     def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
         return self.offset.value
 
-    def update_used_things(self, used_things):
-        pass
-
     def rename_local_labels(self, alias):
         self.offset = rename_local_labels(self.offset, alias)
 
@@ -509,9 +497,6 @@ class CaseBlock(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def update_used_things(self, used_things):
-        pass
 
     def rename_local_labels(self, alias):
         for i, (value, offset) in enumerate(self.table):
@@ -548,9 +533,6 @@ class String(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def update_used_things(self, used_things):
-        pass
 
     @classmethod
     def disassemble(cls, di, i):
@@ -721,6 +703,9 @@ class ConstantInstruction(Instruction):
     def update_local_labels_used(self, labels_used):
         pass
 
+    def update_used_things(self, used_things):
+        pass
+
 
 class LocalLabelInstruction(Instruction):
     def __init__(self, value):
@@ -741,6 +726,9 @@ class LocalLabelInstruction(Instruction):
         # via this instruction doesn't count.
         pass
 
+    def update_used_things(self, used_things):
+        pass
+
 
 class NopInstruction(Instruction):
     def __init__(self):
@@ -750,6 +738,9 @@ class NopInstruction(Instruction):
         pass
 
     def update_local_labels_used(self, labels_used):
+        pass
+
+    def update_used_things(self, used_things):
         pass
 
 
@@ -766,6 +757,9 @@ class CaseBlockInstruction(Instruction):
 
     def update_local_labels_used(self, labels_used):
         self.operands[0].update_local_labels_used(labels_used)
+
+    def update_used_things(self, used_things):
+        pass
 
 
 class BranchInstruction(Instruction):
@@ -808,6 +802,9 @@ class BranchInstruction(Instruction):
     def update_local_labels_used(self, labels_used):
         self.operands[0].update_local_labels_used(labels_used)
 
+    def update_used_things(self, used_things):
+        pass
+
 
 class SelInstruction(Instruction):
     def __init__(self, case_block_offset):
@@ -832,6 +829,9 @@ class SelInstruction(Instruction):
 
     def update_local_labels_used(self, labels_used):
         self.operands[0].update_local_labels_used(labels_used)
+
+    def update_used_things(self, used_things):
+        pass
 
 
 
@@ -860,6 +860,9 @@ class StackInstruction(Instruction):
     def add_affect(self, affect):
         super(StackInstruction.self).add_affect(affect)
         assert False
+
+    def update_used_things(self, used_things):
+        pass
 
 
 class ImmediateInstruction(Instruction):
@@ -903,6 +906,9 @@ class ImmediateInstruction(Instruction):
     def update_local_labels_used(self, labels_used):
         pass
 
+    def update_used_things(self, used_things):
+        pass
+
 
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
@@ -935,6 +941,9 @@ class MemoryInstruction(Instruction):
         super(MemoryInstruction,self).add_affect(affect)
         for i in range(0, self.data_size()):
             affect.add(self.operands[0] + i)
+
+    def update_used_things(self, used_things):
+        self.operands[0].update_used_things(used_things)
 
 
 # SFTODO: Not sure about this, but let's see how it goes
@@ -972,6 +981,9 @@ class FrameInstruction(Instruction):
         for i in range(0, self.data_size()):
             affect.add(FrameOffset(self.frame_offset + i))
 
+    def update_used_things(self, used_things):
+        pass
+
 
 class StringInstruction(Instruction):
     def __init__(self, s):
@@ -992,6 +1004,9 @@ class StringInstruction(Instruction):
         pass
 
     def update_local_labels_used(self, labels_used):
+        pass
+
+    def update_used_things(self, used_things):
         pass
 
 
@@ -1142,9 +1157,7 @@ class BytecodeFunction(object):
         #print("SFTODO99 %r %r" % (self, len(self.references)))
         #print("SFTODO99 %r" % self.references)
         for instruction in self.ops:
-            for operand in instruction.operands:
-                if not isinstance(operand, int): # SFTODO: HACKY
-                    operand.update_used_things(used_things)
+            instruction.update_used_things(used_things)
 
     def dump(self, rld, esd): # SFTODO: We don't use the esd arg
         if not self.is_init():
