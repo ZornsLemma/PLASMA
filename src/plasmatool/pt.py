@@ -172,6 +172,7 @@ class ESD(object):
 
     def add_entry(self, external_name, reference):
         assert external_name not in self.entry_dict
+        assert isinstance(reference, Label)
         self.entry_dict[external_name] = reference
 
     def get_external_index(self, external_name):
@@ -1866,7 +1867,7 @@ assert new_module.bytecode_functions[-1].is_init()
 used_things = set()
 new_module.bytecode_functions[-1].update_used_things(used_things)
 for external_name, reference in new_esd.entry_dict.items():
-    label_dict[reference.name].update_used_things(used_things)
+    reference.update_used_things(used_things)
 #print('SFTODOXXX %r', used_things)
 #print('SFTODOXXX %r', len(used_things))
 # We preserve the order of things in the input module; this automatically ensure that
