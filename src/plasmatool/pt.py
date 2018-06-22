@@ -99,8 +99,8 @@ class Label(object):
         #print(repr(label_dict[self.name]))
         label_dict[self.name].update_used_things(used_things)
 
-    def rename_local_labels(self, alias):
-        pass
+    #def rename_local_labels(self, alias):
+    #    pass
 
     def update_local_labels_used(self, labels):
         pass
@@ -145,8 +145,8 @@ class ExternalReference(object):
     def update_used_things(self, used_things):
         pass
 
-    def rename_local_labels(self, alias):
-        pass
+    #def rename_local_labels(self, alias):
+    #    pass
 
     def update_local_labels_used(self, labels):
         pass
@@ -335,8 +335,8 @@ class Byte(object):
     def update_used_things(self, used_things):
         pass
 
-    def rename_local_labels(self, alias):
-        pass
+    #def rename_local_labels(self, alias):
+    #    pass
 
     def update_local_labels_used(self, labels):
         pass
@@ -372,8 +372,8 @@ class Word(object):
     def update_used_things(self, used_things):
         pass
 
-    def rename_local_labels(self, alias):
-        pass
+    #def rename_local_labels(self, alias):
+    #    pass
 
     def update_local_labels_used(self, labels):
         pass
@@ -576,8 +576,8 @@ class String(object):
     def update_used_things(self, used_things):
         pass
 
-    def rename_local_labels(self, alias):
-        pass
+    #def rename_local_labels(self, alias):
+    #    pass
 
     def update_local_labels_used(self, labels):
         pass
@@ -707,9 +707,6 @@ class Instruction(object):
         assert self.is_simple_store() or self.is_simple_load()
         pass
 
-    def rename_local_labels(self, alias_dict):
-        pass
-
 
 class ConstantInstruction(Instruction):
     def __init__(self, value):
@@ -759,7 +756,7 @@ class LocalLabelInstruction(Instruction):
         print("%s" % (self.operands[0]))
 
     def rename_local_labels(self, alias_dict):
-        # rename_local_labels() only affects instructions using a label; we don't rename
+        # rename_local_labels() only affects instructions using a label as a target; we don't rename
         # ourself.
         pass
 
