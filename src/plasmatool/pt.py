@@ -45,12 +45,21 @@ class Label(object):
     __next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
+        # We don't need to populate self.owner here; we are either creating a Label object
+        # to be initially associated with the single LabelledBlob corresponding to the whole
+        # input module, which will be sliced up later on, or we are creating Label objects
+        # only as part of dump() in which case no one cares about ownership.
+        self.owner = None
+
         if add_suffix:
             i = Label.__next[prefix]
             self.name = '%s%04d' % (prefix, i)
             Label.__next[prefix] += 1
         else:
             self.name = prefix
+
+    def set_owner(self, owner):
+        self.owner = owner
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -94,10 +103,7 @@ class Label(object):
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
     def update_used_things(self, used_things):
-        # TODO: Use of global label_dict is a bit clunky
-        #print('SFTODOXY %d', len(label_dict))
-        #print(repr(label_dict[self.name]))
-        label_dict[self.name].update_used_things(used_things)
+        self.owner.update_used_things(used_things)
 
     @classmethod
     def disassemble(cls, di, i):
@@ -217,6 +223,9 @@ class LabelledBlob(object):
         # SFTODO: Should use a proper ctor
         b = LabelledBlob(self.blob[start:end])
         b.labels = self.labels[start:end]
+        for label_list in b.labels:
+            for label in label_list:
+                label.set_owner(b)
         b.references = self.references[start:end]
         return b
 
@@ -241,11 +250,6 @@ class LabelledBlob(object):
     def read_u16(self, key):
         # TODO: Best way to write this?!
         return self[key] | (self[key+1] << 8)
-
-    def update_label_dict(self, label_dict):
-        for label_list in self.labels:
-            for label in label_list:
-                label_dict[label.name] = self
 
     def update_used_things(self, used_things):
         if self in used_things:
@@ -1117,6 +1121,8 @@ class BytecodeFunction(object):
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
         self.labels = labelled_blob.labels[0]
+        for label in self.labels:
+            label.set_owner(self)
         self.ops = [] # SFTODO Should perhaps call 'instructions'
         di = DisassemblyInfo(self, labelled_blob)
 
@@ -1144,12 +1150,6 @@ class BytecodeFunction(object):
 
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels)
-
-
-
-    def update_label_dict(self, label_dict):
-        for label in self.labels:
-            label_dict[label.name] = self
 
     def update_used_things(self, used_things):
         if self in used_things:
@@ -1241,7 +1241,7 @@ def branch_optimise3(bytecode_function):
     alias = {k:v.operands[0] for k, v in targets.items()}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        original_operands = copy.deepcopy(instruction.operands) # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
+        original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
         #print('SFTODO899 %r' % original_operands)
         instruction.rename_local_labels(alias)
         changed = changed or (original_operands != instruction.operands)
@@ -1855,13 +1855,6 @@ del blob
 del rld
 del esd
 del defcnt
-
-# TODO: Should the keys in label_dict be the Label objects themselves rather than their names?
-label_dict = {}
-new_module.data_asm_blob.update_label_dict(label_dict)
-for bytecode_function in new_module.bytecode_functions:
-    bytecode_function.update_label_dict(label_dict)
-#print('SFTODOQ1 %r', label_dict)
 
 assert new_module.bytecode_functions[-1].is_init()
 used_things = set()
