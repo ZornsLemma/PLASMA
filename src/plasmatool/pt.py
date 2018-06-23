@@ -102,6 +102,7 @@ class Label(object):
                 "\t!WORD\t%s\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
+    # TODO: This function should probably be renamed (everywhere, not just here)
     def update_used_things(self, used_things):
         self.owner.update_used_things(used_things)
 
@@ -230,13 +231,7 @@ class LabelledBlob(object):
         return b
 
     def label(self, key, lbl):
-        #print('QQQ %s' % (type(key)))
-        #print('YYY %d %s' % (key, lbl.name))
-        #print('AAA %r' % self.labels[key])
         self.labels[key].append(lbl)
-        #print('BBB %r' % self.labels[key])
-        #print('ZZZ %d' % (len(self.labels[key])))
-        #print('QPP %r' % (self.labels))
 
     def label_or_get(self, key, prefix):
         if not self.labels[key]:
@@ -255,8 +250,6 @@ class LabelledBlob(object):
         if self in used_things:
             return
         used_things.add(self)
-        #print("SFTODO99 %r %r" % (self, len(self.references)))
-        #print("SFTODO99 %r" % self.references)
         for reference in self.references:
             if reference:
                 reference.update_used_things(used_things)
@@ -288,14 +281,6 @@ class LabelledBlob(object):
             i += 1
         print("; SFTODO BLOB END")
 
-
-class Opcode(object):
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def length(self):
-        pass
-    
 
 class Byte(object):
     def __init__(self, value):
