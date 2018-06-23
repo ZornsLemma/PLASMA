@@ -999,8 +999,6 @@ class StringInstruction(Instruction):
 
 
 
-# TODO: Possibly the disassembly should turn CN into CB or just a 'CONST' pseudo-opcode (which CW/CFFB/MINUSONE would also turn into) and then when we emit bytecode from the disassembly we'd use the optimal one - I have done this, but it many ways it would be cleaner to turn them all into CW not a CONST pseudo-op, and then optimise CW on output instead of optimising this CONST pseudo-op
-# TODO: We may well want to have a class FrameOffset deriving from Byte and use that for some operands - this would perhaps do nothing more than use the [n] representation in the comments on assembler output, but might be a nice way to get that for little extra effort
 # TODO: Check this table is complete and correct
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
@@ -1138,8 +1136,6 @@ class BytecodeFunction(object):
         if self in used_things:
             return
         used_things.add(self)
-        #print("SFTODO99 %r %r" % (self, len(self.references)))
-        #print("SFTODO99 %r" % self.references)
         for instruction in self.ops:
             instruction.update_used_things(used_things)
 
