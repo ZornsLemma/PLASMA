@@ -307,9 +307,6 @@ class Byte(object):
     def acme(self):
         return "$%02X" % (self.value,)
 
-    def human(self):
-        return "%d" % (self.value,)
-
     @classmethod
     def disassemble(cls, di, i):
         byte = cls(di.labelled_blob[i])
@@ -317,8 +314,7 @@ class Byte(object):
 
 
 class FrameOffset(Byte):
-    def human(self):
-        return "[%d]" % (self.value,)
+    pass
 
 
 
@@ -782,10 +778,7 @@ class BranchInstruction(Instruction):
     def invert_condition(self):
         assert self.is_conditional_branch()
         i = self.conditional_branch_pairs.index(self.opcode)
-        if i % 2 == 0:
-            self._opcode = self.conditional_branch_pairs[i + 1]
-        else:
-            self._opcode = self.conditional_branch_pairs[i - 1]
+        self._opcode = self.conditional_branch_pairs[i ^ 1]
 
     def dump(self, rld):
         # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
