@@ -609,6 +609,9 @@ class Instruction(object):
     def opcode(self):
         return self._opcode
 
+    def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
+        return any(self._opcode == opcode[mnemonic] for mnemonic in mnemonics)
+
     def is_local_label(self):
         return self.opcode == 0xff # SFTODO MAGIC CONSTANT
 
@@ -1098,6 +1101,8 @@ opdict = {
     0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
 }
 
+opcode = {v['opcode']: k for (k, v) in opdict.items()}
+
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
@@ -1180,8 +1185,7 @@ def branch_optimise(bytecode_function):
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
-        # TODO: I hate the way we need to use .value on lhs and nothing on rhs in next line
-        if not (instruction.opcode == 0x50 and next_instruction and next_instruction.is_local_label() and instruction.operands[0] == next_instruction.operands[0]): # SFTODO MAGIC CONST
+        if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_local_label() and instruction.operands[0] == next_instruction.operands[0]):
             new_ops.append(instruction)
         else:
             changed = True
@@ -1199,16 +1203,15 @@ def build_local_label_dictionary(bytecode_function, test):
 
 
 # This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
+# TODO: Not just in this function - I am a bit inconsistent with opcode meaning "BRNCH" and opcode meaning 0x50 - perhaps check terminology, but I think opcode should be a hex value (so the opcode reverse dict is fine, because it gives us the opcode for a name, it's the 'opcode' member of the subdicts in opdict that are wrong, among others)
 def branch_optimise2(bytecode_function):
     changed = False
-    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.opcode in (0x5a, 0x5c)) # SFTODO: MAGIC CONST RET LEAVE
-    for i in range(len(bytecode_function.ops)):
-        instruction = bytecode_function.ops[i]
-        if instruction.opcode == 0x50: # SFTODO MAGIC
-            local_label = instruction.operands[0]
-            #print('SFTODOQ5', local_label)
-            if local_label in targets:
-                bytecode_function.ops[i] = targets[local_label]
+    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
+    for i, instruction in enumerate(bytecode_function.ops):
+        if instruction.is_a('BRNCH'):
+            target = targets.get(instruction.operands[0])
+            if target:
+                bytecode_function.ops[i] = target
                 changed = True
     return changed
 
