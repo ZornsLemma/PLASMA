@@ -338,6 +338,9 @@ class Word(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # TODO: This doesn't have a hash() method but other similar objects e.g. Byte do;
+    # this suggests I may need it here or not need it there.
+
     @classmethod
     def disassemble(cls, di, i):
         assert False
@@ -345,6 +348,7 @@ class Word(object):
         return word, i+2
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
+# TODO: Make bits default to 16 and don't pass it in everywhere?
 def sign_extend(value, bits):
     sign_bit = 1 << (bits - 1)
     return (value & (sign_bit - 1)) - (value & sign_bit)
@@ -376,6 +380,10 @@ def rename_local_labels(offset, alias):
 
 
 # SFTODO: I think I want to rename this LocalLabel, but let's not worry about that just yet.
+# SFTODO: May be worth jumping through some Python hoops (I think essentially involving
+# deriving from namedtuple and setting slots to empty) to make this truly immutable, to avoid
+# the risk ofr confusing myself (given that the same Offset object may be shared by multiple
+# instructions and changes are likely to have the wrong effect).
 class Offset(object):
     def __init__(self, value):
         assert isinstance(value, str)
@@ -453,6 +461,8 @@ class CaseBlockOffset(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # TODO: Does this need a hash(), or do other objects not need it?
+
     @property
     def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
         return self.offset.value
@@ -487,6 +497,8 @@ class CaseBlock(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    # TODO: Does this need a hash(), or do other objects not need it?
 
     def rename_local_labels(self, alias):
         for i, (value, offset) in enumerate(self.table):
@@ -533,9 +545,6 @@ class String(object):
         return String(s), i + length + 1
 
 
-def acme_dump_enter(opcode, operands):
-    print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; ENTER\t%d,%d" % (opcode, operands[0].value, operands[1].value, operands[0].value, operands[1].value))
-
 def acme_dump_branch(opcode, operands):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
     print("\t!WORD\t%s-*" % (operands[0],))
@@ -554,16 +563,6 @@ def acme_dump_cs(opcode, operands):
         t = s[0:8]
         s = s[8:]
         print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
-
-def acme_dump_sel(opcode, operands):
-    print(1/0) # SFTODO THIS FN NOT USED
-    #print("\t!BYTE\t$52\t\t\t; SEL\t%s" % (operands[0].offset.nm(),))
-    #print("\t!WORD\t%s-*" % (operands[0].offset.nm(),))
-    #tail.append(local_label)
-    #tail.append("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(operands[0].table),))
-    #for value, offset in operands[0].table:
-    #    tail.append("\t!WORD\t$%04X" % (value,))
-    #    tail.append("\t!WORD\t%s-*" % (offset.value,))
 
 def acme_dump_caseblock(opcode, operands):
     table = operands[0].table
@@ -605,6 +604,8 @@ class Instruction(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # TODO: Need hash()?
+
     # It may or may not be Pythonic but we use a property here to prevent code accidentally
     # changing the opcode. Doing so would lead to subtle problems because the type of the
     # object wouldn't change.
@@ -645,6 +646,7 @@ class Instruction(object):
         # is called in the compiler does.
         return self.opcode == 0x70 # SFTODO MAGIC 'SB'
 
+    # TODO: Hate this function name...
     def add_affect(self, affect):
         assert self.is_simple_store() or self.is_simple_load()
         pass
@@ -652,6 +654,9 @@ class Instruction(object):
 
 
 
+# TODO: Probably rename Instruction to Op and make corresponding changes in all other class and
+# variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
+# or another all over the code.
 class ConstantInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, int)
