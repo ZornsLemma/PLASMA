@@ -1249,20 +1249,20 @@ def never_immediate_successor(opcode):
     return opdef and opdef.get('nis', False)
 
 def remove_dead_code(bytecode_function):
-    # This relies on remove_orphaned_labels() being called beforehand
-    changed = False
-    new_ops = []
-    i = 0
-    while i < len(bytecode_function.ops):
-        new_ops.append(bytecode_function.ops[i])
-        this_opcode = bytecode_function.ops[i].opcode
-        i += 1
-        if never_immediate_successor(this_opcode):
-            while i < len(bytecode_function.ops) and not bytecode_function.ops[i].is_local_label():
-                i += 1
-                changed = True
-    bytecode_function.ops = new_ops
-    return changed
+    # This works in conjunction with remove_orphaned_labels().
+    def get_blocks(bytecode_function):
+        foo = Foo(bytecode_function)
+        foo.start_before(0, True)
+        for i, instruction in enumerate(bytecode_function.ops):
+            if never_immediate_successor(instruction.opcode):
+                foo.start_after(i, None)
+            elif instruction.is_local_label():
+                foo.start_before(i, True)
+        return foo.get_blocks_and_metadata()
+
+    blocks, block_reachable = get_blocks(bytecode_function)
+    bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
+    return not all(block_reachable)
 
 # A CASEBLOCK instruction is followed by the 'otherwise' instructions. If those instructions
 # are a logically isolated block, the CASEBLOCK+otherwise instructions can be moved to the end
