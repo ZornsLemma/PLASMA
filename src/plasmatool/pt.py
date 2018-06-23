@@ -1250,7 +1250,7 @@ def never_immediate_successor(opcode):
 
 def remove_dead_code(bytecode_function):
     # This works in conjunction with remove_orphaned_labels().
-    def get_blocks(bytecode_function):
+    def get_blocks(bytecode_function): # SFTODO: Don't like name clash with global get_blocks(), rename this
         foo = Foo(bytecode_function)
         foo.start_before(0, True)
         for i, instruction in enumerate(bytecode_function.ops):
@@ -1264,37 +1264,25 @@ def remove_dead_code(bytecode_function):
     bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
     return not all(block_reachable)
 
-# A CASEBLOCK instruction is followed by the 'otherwise' instructions. If those instructions
-# are a logically isolated block, the CASEBLOCK+otherwise instructions can be moved to the end
-# of the function. This may allow a BRNCH instruction which is there just to skip over the
-# CASEBLOCK to be optimised away.
+# A CASEBLOCK instruction is followed by the 'otherwise' instructions. If the 'otherwise'
+# instructions end with a terminator, the CASEBLOCK+otherwise instructions form an isolated
+# block which can be moved around freely. If such a block is predeced by a BRNCH, we move it
+# to the end of the function - this may allow the BRNCH to be optimised away. (It would be
+# correct and mostly harmless to move any isolated CASEBLOCK+otherwise instruction block to
+# the end of the function, but it would introduce unnecessary differences between the input
+# and output.)
 def move_caseblocks(bytecode_function):
+    blocks, block_label = get_blocks(bytecode_function)
+    new_ops = []
     tail = []
-    i = 0
-    while i < len(bytecode_function.ops):
-        if bytecode_function.ops[i].opcode == 0xfb and bytecode_function.ops[i-2].opcode == 0x50: # SFTODO MAGIC CONST CASEBLOCK, BRNCH
-            assert bytecode_function.ops[i-1].is_local_label()
-            j = i
-            while j < len(bytecode_function.ops)-1:
-                j += 1
-                instruction2 = bytecode_function.ops[j]
-                if instruction2.is_local_label():
-                    i = j
-                    break
-                if never_immediate_successor(instruction2.opcode):
-                    for k in range(i-1, j+1):
-                        tail.append(bytecode_function.ops[k])
-                        bytecode_function.ops[k] = NopInstruction()
-                    i = j
-                    break
-        i += 1
-    original_ops = bytecode_function.ops
-    bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1] # SFTODO MAGIC CONSTANT NOP
-    for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].opcode == 0xf1 and bytecode_function.ops[i+1].opcode != 0xf1:
-            break
-    bytecode_function.ops += tail
-    changed = bytecode_function.ops != original_ops 
+    for i, block in enumerate(blocks):
+        if block_label[i] and len(block) > 1 and block[1].opcode == 0xfb and never_immediate_successor(block[-1].opcode) and blocks[i-1][-1].is_a('BRNCH'): # SFTODO MAGIC CONST CASEBLOCK
+            tail.extend(block)
+        else:
+            new_ops.extend(block)
+    new_ops.extend(tail)
+    changed = bytecode_function.ops != new_ops 
+    bytecode_function.ops = new_ops
     return changed
 
 # SFTODO: EXPERIMENTAL
