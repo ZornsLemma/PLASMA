@@ -1182,8 +1182,7 @@ def branch_optimise(bytecode_function):
     # TODO: I don't think it occurs much, but potentially we could replace BRTRU or BRFLS
     # to an immediately following label with a DROP.
     new_ops = []
-    for i in range(len(bytecode_function.ops)):
-        instruction = bytecode_function.ops[i]
+    for i, instruction in enumerate(bytecode_function.ops):
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
         if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_local_label() and instruction.operands[0] == next_instruction.operands[0]):
             new_ops.append(instruction)
@@ -1215,20 +1214,17 @@ def branch_optimise2(bytecode_function):
                 changed = True
     return changed
 
-# This replaces the target of a branch (conditional or not) to a BRNCH with the BRNCH's own target.
+# If we have any kind of branch whose target is a BRNCH, replace the first branch's target with the
+# BRNCH's target (i.e. just branch directly to the final destination in the first branch).
 # TODO: This should also treat CASEBLOCK targets as BRNCH opcodes - which they kind of are. There is at least one case in self-hosted compiled where such a target could be snapped, and it may also then allow the intermediate branch (which follows another unconditional branch) to be removed by the dead code optimisation.
 def branch_optimise3(bytecode_function):
     changed = False
-    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.opcode == 0x50) # SFTODO MAGIC CONSTANT BRNCH
+    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
     alias = {k:v.operands[0] for k, v in targets.items()}
-    for i in range(len(bytecode_function.ops)):
-        instruction = bytecode_function.ops[i]
+    for i, instruction in enumerate(bytecode_function.ops):
         original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
-        #print('SFTODO899 %r' % original_operands)
         instruction.rename_local_labels(alias)
         changed = changed or (original_operands != instruction.operands)
-        #print('SFTODO900 %r' % original_operands)
-        #print('SFTODO901 %r' % instruction.operands)
     return changed
 
 # Remove local labels which have no instructions referencing them; this can occur as a result
