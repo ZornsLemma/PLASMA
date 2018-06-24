@@ -1587,7 +1587,7 @@ def straightline_optimise(bytecode_function, optimisations):
 def calculate_lla_threshold(bytecode_function):
     lla_threshold = 256
     for instruction in bytecode_function.ops:
-        if instruction.opcode == 0x28: # SFTODO MAGIC CONSTANT 'LLA'
+        if instruction.is_a('LLA'):
             lla_threshold = min(instruction.operands[0].value, lla_threshold)
     return lla_threshold
 
