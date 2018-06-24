@@ -1508,12 +1508,12 @@ def peephole_optimise(bytecode_function):
         next_instruction = bytecode_function.ops[i+1]
         next_next_instruction = bytecode_function.ops[i+2]
         # DROP:DROP -> DROP
-        if instruction.opcode == 0x30 and next_instruction.opcode == 0x30: # SFTODO MAGIC 'DROP'
+        if instruction.is_a('DROP') and next_instruction.is_a('DROP'):
             bytecode_function.ops[i] = StackInstruction(0x32) # SFTODO MAGIC DROP2
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
-        elif instruction.is_conditional_branch() and next_instruction.opcode == 0x50 and next_next_instruction.is_local_label() and instruction.operands[0] == next_next_instruction.operands[0]: # SFTODO MAGIC BRNCH
+        elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_local_label() and instruction.operands[0] == next_next_instruction.operands[0]: # SFTODO MAGIC BRNCH
             bytecode_function.ops[i].invert_condition()
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
