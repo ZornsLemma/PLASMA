@@ -1560,29 +1560,27 @@ def is_branch_or_label(instruction):
     # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
     return instruction.is_local_label() or instruction.is_branch()
 
+def get_straightline_blocks(bytecode_function):
+    foo = Foo(bytecode_function)
+    for i, instruction in enumerate(bytecode_function.ops):
+        if i == 0 or is_branch_or_label(instruction) != is_branch_or_label(bytecode_function.ops[i-1]):
+            foo.start_before(i, not is_branch_or_label(instruction))
+    return foo.get_blocks_and_metadata()
+
 def straightline_optimise(bytecode_function, optimisations):
+    blocks, is_straightline_block = get_straightline_blocks(bytecode_function)
     changed = False
-    groups = []
-    group = []
-    for instruction in bytecode_function.ops:
-        if not group or is_branch_or_label(instruction) == is_branch_or_label(group[-1]):
-            group.append(instruction)
-        else:
-            groups.append(group)
-            group = [instruction]
-    if group:
-        groups.append(group)
     new_ops = []
-    for group in groups:
-        if not group[0].is_local_label():
+    for block, is_straightline in zip(blocks, is_straightline_block):
+        if is_straightline:
             for optimisation in optimisations:
-                # optimisation function may modify group in place if it wishes, but it
+                # optimisation function may modify block in place if it wishes, but it
                 # may also be more convenient for it to create a new list so we take a
-                # return value; it can of course just 'return group' if it does everything
+                # return value; it can of course just 'return block' if it does everything
                 # in place.
-                group, changed2 = optimisation(bytecode_function, group)
+                block, changed2 = optimisation(bytecode_function, block)
                 changed = changed or changed2
-        new_ops.extend(group)
+        new_ops.extend(block)
     bytecode_function.ops = new_ops
     return changed
 
