@@ -79,6 +79,11 @@ class Label(object):
         # we can get away with just returning self here - because if it's impossible to
         # represent the concept of "label+1", there is no scope for one bit of code to e.g.
         # LAW label and another bit of code to SAB label+1 and the two to "clash".
+        # SFTODO: I think that is true, *but* it suggests that we may be able to optimise
+        # things (presumably code which wants to access offset from a label may have to do
+        # LA LABEL:ADDI 3:LB and we might be able to turn that into LA LABEL+3 - this is
+        # complete speculation right now, I haven't checked any real code) by allowing the
+        # concept of label+n in this code.
         return self
 
     def nm(self):
@@ -646,6 +651,7 @@ class Instruction(object):
         return self.opcode == 0x70 # SFTODO MAGIC 'SB'
 
     # TODO: Hate this function name...
+    # TODO: Not sure it's good to have this in base class, especially with this implementation...
     def add_affect(self, affect):
         assert self.is_simple_store() or self.is_simple_load()
         pass
@@ -968,7 +974,7 @@ class FrameInstruction(Instruction):
         return opdict[self.opcode]['data_size']
 
     def add_affect(self, affect):
-        super(FrameInstruction,self).add_affect(affect)
+        # SFTODO: DELETE? super(FrameInstruction,self).add_affect(affect)
         for i in range(0, self.data_size()):
             affect.add(FrameOffset(self.frame_offset + i))
 
@@ -1632,6 +1638,80 @@ def load_to_dup(bytecode_function, straightline_ops):
 
     return straightline_ops, changed
 
+
+# bidict taken from Basj's answer at https://stackoverflow.com/questions/3318625/efficient-bidirectional-hash-table-in-python
+class bidict(dict):
+    def __init__(self, *args, **kwargs):
+        super(bidict, self).__init__(*args, **kwargs)
+        self.inverse = {}
+        for key, value in self.iteritems():
+            self.inverse.setdefault(value,[]).append(key) 
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.inverse[self[key]].remove(key) 
+        super(bidict, self).__setitem__(key, value)
+        self.inverse.setdefault(value,[]).append(key)        
+
+    def __delitem__(self, key):
+        self.inverse.setdefault(self[key],[]).remove(key)
+        if self[key] in self.inverse and not self.inverse[self[key]]: 
+            del self.inverse[self[key]]
+        super(bidict, self).__delitem__(key)
+
+
+# SFTODO: Experimental rewrite
+def optimise_load_store3(bytecode_function, straightline_ops):
+    lla_threshold = calculate_lla_threshold(bytecode_function)
+    SFTODO = bidict()
+    for i, instruction in enumerate(straightline_ops):
+        # Note that when 'del SFTODO[address]' removes the last address associated with an
+        # instruction index, the instruction index is removed from the inverse dictionary.
+        # On the other hand, if 'SFTODO[address] = i' replaces the last address associated
+        # with an instruction index, an empty list remains in the inverse dictionary. This
+        # allows us to distinguish the two cases. SFTODO: Is this a bit too subtle??
+	# SFTODO: Part of the point of this rewrite is to allow this to also work on non-frame
+	# instructions but want to get it working first the same as the previous implementation.
+        opdef = opdict.get(instruction.opcode, None)
+	is_store = isinstance(instruction, FrameInstruction) and opdef.get('is_store', False)
+	is_load = isinstance(instruction, FrameInstruction) and opdef.get('is_load', False)
+	is_call = (instruction.opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
+	is_exit = (instruction.opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
+        # SFTODO: Shouldn't this also treat LB/LW like CALL/ICAL? For the moment not doing this as the old impl doesn't either
+        if is_store or is_load:
+            memory_accesses = set()
+            instruction.add_affect(memory_accesses)
+        if is_store: # stores and duplicate-loads
+            for address in memory_accesses:
+                SFTODO[address] = i
+        elif is_load:
+            for address in memory_accesses:
+                if address in SFTODO:
+                    del SFTODO[address]
+        elif is_call:
+            for address in SFTODO.keys():
+                if not (isinstance(address, FrameOffset) and address.value < lla_threshold):
+                    del SFTODO[address]
+	elif is_exit:
+		for address in SFTODO.keys():
+		    SFTODO[address] = i
+
+    changed = False
+    for i, addresses in SFTODO.inverse.items():
+        if len(addresses) == 0:
+            store_instruction = straightline_ops[i]
+            assert store_instruction.is_store()
+            if store_instruction.is_load(): # it's a duplicate-load opcode
+                straightline_ops[i] = NopInstruction()
+            else:
+                straightline_ops[i] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
+            changed = True
+
+    return [op for op in straightline_ops if not isinstance(op, NopInstruction)], changed
+
+
+
+
 def optimise_load_store(bytecode_function, straightline_ops):
     lla_threshold = calculate_lla_threshold(bytecode_function)
 
@@ -1698,6 +1778,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 # but not yet loaded is irrelevant. We model this by storing to every
                 # frame offset.
                 changed = record_store(i, range(0, 256)) or changed
+            # SFTODO: Shouldn't this also treat LB/LW like CALL/ICAL?
 
     return [op for op in straightline_ops if op.opcode != 0xf1], changed
 
@@ -1904,7 +1985,7 @@ for bytecode_function in used_things_ordered[0:-1]:
                 assert SFTODO(bytecode_function.ops)
                 result.append(remove_dead_code(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
                 assert SFTODO(bytecode_function.ops)
                 result.append(move_caseblocks(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
