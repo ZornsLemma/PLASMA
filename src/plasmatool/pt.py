@@ -1661,7 +1661,6 @@ class bidict(dict):
 
 
 # SFTODO: Experimental rewrite - make sure to copy across the explanatory comments from the old implementation before I delete it.
-# SFTODO: The old implementation seems buggy, because this one optimises (correctly AFAICS) some things the old one didn't. Might be good to figure out why and make sure this isn't actually a bug in the new code somehow.
 # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
 def optimise_load_store3(bytecode_function, straightline_ops):
     lla_threshold = calculate_lla_threshold(bytecode_function)
@@ -1987,7 +1986,7 @@ for bytecode_function in used_things_ordered[0:-1]:
                 assert SFTODO(bytecode_function.ops)
                 result.append(remove_dead_code(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
                 assert SFTODO(bytecode_function.ops)
                 result.append(move_caseblocks(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
