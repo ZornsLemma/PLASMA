@@ -1724,7 +1724,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
         changed = False
         for frame_offset in frame_offsets:
             last_store_index = last_store_index_for_offset[frame_offset]
-            if last_store_index and store_index_visibly_affected_bytes[last_store_index] > 0:
+            if last_store_index is not None and store_index_visibly_affected_bytes[last_store_index] > 0:
                 store_index_visibly_affected_bytes[last_store_index] -= 1
                 if store_index_visibly_affected_bytes[last_store_index] == 0:
                     # The stores performed by straightline_ops[last_store_index] are all
@@ -1987,7 +1987,7 @@ for bytecode_function in used_things_ordered[0:-1]:
                 assert SFTODO(bytecode_function.ops)
                 result.append(remove_dead_code(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
                 assert SFTODO(bytecode_function.ops)
                 result.append(move_caseblocks(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
