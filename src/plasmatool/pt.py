@@ -660,7 +660,7 @@ class Instruction(object):
         # SFTODO: Once I actually start supporting loads/stores to absolute addresses,
         # this needs to return True for those just as is_hardware_address() or whatever it
         # is called in the compiler does.
-        return self.opcode == 0x70 # SFTODO MAGIC 'SB'
+        return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T
 
     # TODO: Hate this function name...
     # TODO: Not sure it's good to have this in base class, especially with this implementation...
