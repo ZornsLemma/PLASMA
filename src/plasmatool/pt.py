@@ -1676,9 +1676,6 @@ def optimise_load_store3(bytecode_function, straightline_ops):
         opdef = opdict.get(instruction.opcode, None)
 	is_store = isinstance(instruction, FrameInstruction) and opdef.get('is_store', False)
 	is_load = isinstance(instruction, FrameInstruction) and opdef.get('is_load', False)
-	is_call = (instruction.opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
-	is_exit = (instruction.opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
-        # SFTODO: Shouldn't this also treat LB/LW like CALL/ICAL? For the moment not doing this as the old impl doesn't either
         if is_store or is_load:
             memory_accesses = set()
             instruction.add_affect(memory_accesses)
@@ -1689,11 +1686,11 @@ def optimise_load_store3(bytecode_function, straightline_ops):
             for address in memory_accesses:
                 if address in SFTODO:
                     del SFTODO[address]
-        elif is_call:
+        elif instruction.is_a('CALL', 'ICAL', 'LB', 'LW'):
             for address in SFTODO.keys():
                 if not (isinstance(address, FrameOffset) and address.value < lla_threshold):
                     del SFTODO[address]
-	elif is_exit:
+	elif instruction.is_a('RET', 'LEAVE'):
 		for address in SFTODO.keys():
 		    SFTODO[address] = i
 
