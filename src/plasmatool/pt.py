@@ -683,7 +683,7 @@ class Instruction(object):
         # this needs to return True for those just as is_hardware_address() or whatever it
         # is called in the compiler does.
         # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
-        return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T
+        return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T - CHECK BEFORE REMOVING THIS, BUT I BELIEVE ALL CALLERS OF THIS HAVE ALREADY EXCLUDED 'SB' (AND 'SW' AND 'LB' AND 'LW') BY CHECKING FOR 'SIMPLE' LOAD/STORE, SO I REALLY THINK THIS JUST MEANS ACCESSES (OR MAY ACCESS; WE COULD JUST ASSERT OPCODE IS NOT SB/SW/LB/LW HERE, BUT WE COULD RETURN TRUE FOR THOSE OPCODES ANYWAY - ACTUALLY I GUESS THAT IS WHY WE SPECIAL CASED 'SB' TO START WITH) *HARDWARE ADDRESS* AND NOTHING ELSE
 
     # TODO: Hate this function name...
     # TODO: Not sure it's good to have this in base class, especially with this implementation...
