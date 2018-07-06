@@ -1541,23 +1541,6 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
-        # TODO: Delete the following - it doesn't actually occur, because there's always an 
-        # intervening label which stops this optimisation.
-        #elif instruction.opcode in (0x40, 0x42) and next_instruction.opcode in (0x4c, 0x4e): # SFTODO MAGIC - ISEQ/ISNE, BRFLS/BRTRU
-        #    new_opcode = {(0x40, 0x4c): 0x24, # SFTODO MAGIC BRNE
-        #                  (0x40, 0x4e): 0x22, # SFTODO MAGIC BREQ
-        #                  (0x42, 0x4c): 0x22,
-        #                  (0x42, 0x4e): 0x24}[(instruction.opcode, next_instruction.opcode)]
-        #    bytecode_function.ops[i] = NopInstruction()
-        #    bytecode_function.ops[i+1] = BranchInstruction(new_opcode, bytecode_function.ops[i+1].operands[0].value)
-        #    changed = True
-        # TODO: This optimisation is temporarily disabled as it is a very hacky implementation. I think it may be worth writing a more general version, if nothing else it would likely cause me to think up some useful general predicates ('get affected addresses', perhaps returning a generic list which can handle all kinds of load/store addresses) on the instruction classes. Note that this optimisation will increase use of the expression stack by one, so it should be separately controllable as it just may break code which is pushing the expression stack size.
-        elif False and instruction.opcode == 0x66 and next_instruction.is_store() and instruction == next_next_instruction: # SFTODO: MAGIC CONST LLW - ALSO THIS OPTIMISATION COULD IN PRINCIPLE BE DONE IN A MUCH MORE GENERAL WAY ALLOWING FOR LONGER SERIES OF INTERVENING INSTRUCTIONS ETC, BUT THIS IS A FIRST CUT
-            frame_offset = instruction.frame_offset
-            if not (isinstance(next_instruction, FrameOffset) and abs(frame_offset - next_instruction.frame_offset) < 2): # SFTODO: RIDICULOUSLY OVER-CONSERVATIVE WAY TO CHECK THIS, JUST FOR EXPEDIENCY
-                bytecode_function.ops[i+2] = bytecode_function.ops[i+1]
-                bytecode_function.ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
-                changed = True
         elif instruction.is_simple_store() and not instruction.is_load() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.is_store() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
             dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS
                              0x78: 0x7c,
