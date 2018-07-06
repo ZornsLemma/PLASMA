@@ -130,6 +130,13 @@ class ExternalReference(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.external_name, self.offset))
+
+    def __add__(self, rhs):
+        assert isinstance(rhs, int)
+        return ExternalReference(self.external_name, self.offset + rhs)
         
     def nm(self):
         if self.offset:
@@ -935,7 +942,7 @@ class MemoryInstruction(Instruction):
         return opdict[self.opcode]['data_size']
 
     def add_affect(self, affect):
-        super(MemoryInstruction,self).add_affect(affect)
+        # SFTODO DELETE? super(MemoryInstruction,self).add_affect(affect)
         for i in range(0, self.data_size()):
             affect.add(self.operands[0] + i)
 
@@ -1662,6 +1669,7 @@ class bidict(dict):
 
 # SFTODO: Experimental rewrite - make sure to copy across the explanatory comments from the old implementation before I delete it.
 # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
+# SFTODO: The absolute load/store support in here has not really been tested - it isn't doing anything for the self-hosted compiler, but I haven't found anywhere I think it should.
 def optimise_load_store3(bytecode_function, straightline_ops):
     lla_threshold = calculate_lla_threshold(bytecode_function)
     SFTODO = bidict()
@@ -1673,9 +1681,8 @@ def optimise_load_store3(bytecode_function, straightline_ops):
         # allows us to distinguish the two cases. SFTODO: Is this a bit too subtle??
 	# SFTODO: Part of the point of this rewrite is to allow this to also work on non-frame
 	# instructions but want to get it working first the same as the previous implementation.
-        opdef = opdict.get(instruction.opcode, None)
-	is_store = isinstance(instruction, FrameInstruction) and opdef.get('is_store', False)
-	is_load = isinstance(instruction, FrameInstruction) and opdef.get('is_load', False)
+	is_store = instruction.is_simple_store()
+	is_load = instruction.is_load() and not instruction.is_a('LB', 'LW')
         if is_store or is_load:
             memory_accesses = set()
             instruction.add_affect(memory_accesses)
@@ -1692,7 +1699,8 @@ def optimise_load_store3(bytecode_function, straightline_ops):
                     del SFTODO[address]
 	elif instruction.is_a('RET', 'LEAVE'):
 		for address in SFTODO.keys():
-		    SFTODO[address] = i
+                    if isinstance(address, FrameOffset):
+                        SFTODO[address] = i
 
     changed = False
     for i, addresses in SFTODO.inverse.items():
