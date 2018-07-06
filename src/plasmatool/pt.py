@@ -1597,6 +1597,13 @@ def straightline_optimise(bytecode_function, optimisations):
     bytecode_function.ops = new_ops
     return changed
 
+# Within a bytecode function, we have to assume that any frame offset >= that used by an
+# LLA opcode can be accessed indirectly through the address returned by LLA, e.g. by a
+# function call or LB/SB. If we knew how big the frame object referenced by the LLA was,
+# we could set an upper bound, but we don't have that information. (This assumes that
+# it's not valid to rely on the order in which the compiler allocates frame objects and
+# access the "preceding" object using a negative offer on the LLA result; I don't think
+# this is an unreasonable assumption.)
 def calculate_lla_threshold(bytecode_function):
     lla_threshold = 256
     for instruction in bytecode_function.ops:
@@ -1613,8 +1620,6 @@ def disjoint_affect(lhs, rhs):
 # programs - it should probably be controlled separately (e.g. -O3 only, and/or a
 # --risky-optimisations switch)
 def load_to_dup(bytecode_function, straightline_ops):
-    lla_threshold = calculate_lla_threshold(bytecode_function)
-
     changed = False
     for i in range(len(straightline_ops)):
         instruction = straightline_ops[i]
@@ -1672,15 +1677,19 @@ class bidict(dict):
 # SFTODO: The absolute load/store support in here has not really been tested - it isn't doing anything for the self-hosted compiler, but I haven't found anywhere I think it should.
 def optimise_load_store3(bytecode_function, straightline_ops):
     lla_threshold = calculate_lla_threshold(bytecode_function)
-    SFTODO = bidict()
+
+    # unobserved_stores is a bidirectional dictionary "memory address" <-> "store instruction
+    # index"; it allows us to model the access to memory by straightline_ops to see if any stores
+    # are provably redundant. Note that when 'del unobserved_stores[address]' removes the last
+    # address associated with an instruction index, the instruction index is removed from the
+    # inverse dictionary. On the other hand, if 'unobserved_stores[address] = i' replaces the last
+    # address associated with an instruction index, an empty list remains in the inverse dictionary.
+    # This allows us to distinguish the two cases; the former case indicates a store instruction
+    # has had at least one of its effects observed, the latter indicates a store instruction had
+    # no observable effect and can be removed.
+    unobserved_stores = bidict()
+
     for i, instruction in enumerate(straightline_ops):
-        # Note that when 'del SFTODO[address]' removes the last address associated with an
-        # instruction index, the instruction index is removed from the inverse dictionary.
-        # On the other hand, if 'SFTODO[address] = i' replaces the last address associated
-        # with an instruction index, an empty list remains in the inverse dictionary. This
-        # allows us to distinguish the two cases. SFTODO: Is this a bit too subtle??
-	# SFTODO: Part of the point of this rewrite is to allow this to also work on non-frame
-	# instructions but want to get it working first the same as the previous implementation.
 	is_store = instruction.is_simple_store()
 	is_load = instruction.is_load() and not instruction.is_a('LB', 'LW')
         if is_store or is_load:
@@ -1688,22 +1697,28 @@ def optimise_load_store3(bytecode_function, straightline_ops):
             instruction.add_affect(memory_accesses)
         if is_store: # stores and duplicate-loads
             for address in memory_accesses:
-                SFTODO[address] = i
+                unobserved_stores[address] = i
         elif is_load:
             for address in memory_accesses:
-                if address in SFTODO:
-                    del SFTODO[address]
+                if address in unobserved_stores:
+                    del unobserved_stores[address]
         elif instruction.is_a('CALL', 'ICAL', 'LB', 'LW'):
-            for address in SFTODO.keys():
+            # We have to assume this may observe the value of anything except a frame offset
+            # which hasn't been exposed via LLA.
+            for address in unobserved_stores.keys():
                 if not (isinstance(address, FrameOffset) and address.value < lla_threshold):
-                    del SFTODO[address]
+                    del unobserved_stores[address]
 	elif instruction.is_a('RET', 'LEAVE'):
-		for address in SFTODO.keys():
-                    if isinstance(address, FrameOffset):
-                        SFTODO[address] = i
+            # We're exiting the current function, so any unobserved stores to frame offsets
+            # will never be observed. We model this by treating this instruction as doing
+            # a store to each such offset. (LLA doesn't matter here; once this instruction
+            # executes any pointer obtained by LLA points to deallocated memory.)
+            for address in unobserved_stores.keys():
+                if isinstance(address, FrameOffset):
+                    unobserved_stores[address] = i
 
     changed = False
-    for i, addresses in SFTODO.inverse.items():
+    for i, addresses in unobserved_stores.inverse.items():
         if len(addresses) == 0:
             store_instruction = straightline_ops[i]
             assert store_instruction.is_store()
@@ -1715,78 +1730,6 @@ def optimise_load_store3(bytecode_function, straightline_ops):
 
     return [op for op in straightline_ops if not isinstance(op, NopInstruction)], changed
 
-
-
-
-def optimise_load_store(bytecode_function, straightline_ops):
-    lla_threshold = calculate_lla_threshold(bytecode_function)
-
-    store_index_visibly_affected_bytes = [None] * 256
-    last_store_index_for_offset = [None] * 256
-
-    def record_store(this_store_index, frame_offsets):
-        changed = False
-        for frame_offset in frame_offsets:
-            last_store_index = last_store_index_for_offset[frame_offset]
-            if last_store_index is not None and store_index_visibly_affected_bytes[last_store_index] > 0:
-                store_index_visibly_affected_bytes[last_store_index] -= 1
-                if store_index_visibly_affected_bytes[last_store_index] == 0:
-                    # The stores performed by straightline_ops[last_store_index] are all
-                    # irrelevant, so we don't need to perform them.
-                    store_instruction = straightline_ops[last_store_index]
-                    assert store_instruction.is_store()
-                    if store_instruction.is_load(): # it's a duplicate opcode
-                        straightline_ops[last_store_index] = NopInstruction()
-                    else:
-                        straightline_ops[last_store_index] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
-                    changed = True
-            last_store_index_for_offset[frame_offset] = this_store_index
-        store_index_visibly_affected_bytes[this_store_index] = len(frame_offsets)
-        return changed
-
-    def record_load(frame_offsets):
-        for frame_offset in frame_offsets:
-            last_store_index = last_store_index_for_offset[frame_offset]
-            if last_store_index:
-                store_index_visibly_affected_bytes[last_store_index] = None
-
-    changed = False
-    for i in range(len(straightline_ops)):
-        instruction = straightline_ops[i]
-        opcode, operands = instruction.opcode, instruction.operands
-        opdef = opdict.get(opcode, None)
-        if opdef:
-            is_store = isinstance(instruction, FrameInstruction) and opdef.get('is_store', False)
-            is_load = isinstance(instruction, FrameInstruction) and opdef.get('is_load', False)
-            is_call = (opcode in (0x54, 0x56)) # SFTODO MAGIC CONSTANTS
-            is_exit = (opcode in (0x5a, 0x5c)) # SFTODO MAGIC CONSTANTS
-            if is_store or is_load:
-                # SFTODO: This assertion may well not be valid later on - at the moment only frame instructions are annotated as loads/stores, but I could well imagine annotating things like LAW with is_load. This code may or may not want to consider optimising such stores, but we will need to think about it.
-                assert isinstance(instruction, FrameInstruction)
-                frame_offsets = [instruction.frame_offset]
-                if opdef.get('data_size') == 2:
-                    #print(operands[0])
-                    frame_offsets.append(instruction.frame_offset + 1)
-            if is_store: # stores and duplicates
-                changed = record_store(i, frame_offsets) or changed
-            elif is_load: # load, but not a duplicate
-                record_load(frame_offsets)
-            elif is_call:
-                # A function call has to be assumed to load from any frame offsets which
-                # have been made available via LLA. We assume it's not valid to use a
-                # negative index with the address of a local variable to access another
-                # local variable. If, for example, we see an LLA [4] but no other LLA,
-                # a function call might load via a pointer from offset 4 or 100, but not
-                # offset 3.
-                record_load(range(lla_threshold, 256))
-            elif is_exit:
-                # We're exiting the current function, so anything which has been stored
-                # but not yet loaded is irrelevant. We model this by storing to every
-                # frame offset.
-                changed = record_store(i, range(0, 256)) or changed
-            # SFTODO: Shouldn't this also treat LB/LW like CALL/ICAL?
-
-    return [op for op in straightline_ops if op.opcode != 0xf1], changed
 
 
 class Module(object):
