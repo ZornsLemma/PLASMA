@@ -642,6 +642,11 @@ class Instruction(object):
         # TODO: This is a bit of a hack but let's see how it goes
         return self.is_store() and self.opcode not in (0x70, 0x72) # SFTODO MAGIC SB, SW
 
+    def is_dup_store(self):
+        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
+            return False
+        return opdict[self.opcode].get('is_dup_store', False)
+
     def is_load(self):
         if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
             return False
@@ -1072,16 +1077,16 @@ opdict = {
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
     0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
-    0x6c: {'opcode': 'DLB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0x6e: {'opcode': 'DLW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
+    0x6c: {'opcode': 'DLB', 'is_dup_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
+    0x6e: {'opcode': 'DLW', 'is_dup_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x70: {'opcode': 'SB', 'is_store': True, 'dis': StackInstruction.disassemble},
     0x72: {'opcode': 'SW', 'is_store': True, 'dis': StackInstruction.disassemble},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
     0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
-    0x7c: {'opcode': 'DAB', 'is_load': True, 'is_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0x7e: {'opcode': 'DAW', 'is_load': True, 'is_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
+    0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
+    0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
     0x80: {'opcode': 'LNOT', 'dis': StackInstruction.disassemble},
     0x82: {'opcode': 'ADD', 'dis': StackInstruction.disassemble},
     0x84: {'opcode': 'SUB', 'dis': StackInstruction.disassemble},
@@ -1541,7 +1546,7 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
-        elif instruction.is_simple_store() and not instruction.is_load() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.is_store() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
+        elif instruction.is_simple_store() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
             dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS
                              0x78: 0x7c,
                              0x74: 0x6c,
@@ -1551,7 +1556,7 @@ def peephole_optimise(bytecode_function):
             changed = True
         # "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x" and variations
         # SFTODO: I am using has_side_effects() as a kind of placeholder for "might access memory-mapped I/O" here
-        elif instruction.is_simple_load() and not instruction.is_store() and instruction == next_next_instruction and next_instruction.is_simple_store() and not next_instruction.is_load() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not partial_overlap(instruction, next_instruction):
+        elif instruction.is_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not partial_overlap(instruction, next_instruction):
             dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS, COPY AND PASTE
                              0x78: 0x7c,
                              0x74: 0x6c,
@@ -1632,13 +1637,13 @@ def load_to_dup(bytecode_function, straightline_ops):
     changed = False
     for i in range(len(straightline_ops)):
         instruction = straightline_ops[i]
-        if instruction.is_simple_load() and not instruction.is_store() and not instruction.has_side_effects():
+        if instruction.is_simple_load() and not instruction.has_side_effects():
             stores_affect = set()
             j = i + 1
             while j < len(straightline_ops):
-                if straightline_ops[j].is_simple_store():
+                if straightline_ops[j].is_simple_store() or straightline_ops[i].is_dup_store():
                     straightline_ops[j].add_affect(stores_affect)
-                    if not straightline_ops[j].is_load():
+                    if straightline_ops[j].is_simple_store():
                         j += 1
                         break
                 else:
@@ -1699,12 +1704,12 @@ def optimise_load_store3(bytecode_function, straightline_ops):
     unobserved_stores = bidict()
 
     for i, instruction in enumerate(straightline_ops):
-	is_store = instruction.is_simple_store()
-	is_load = instruction.is_load() and not instruction.is_a('LB', 'LW')
+	is_store = instruction.is_simple_store() or instruction.is_dup_store()
+	is_load = (instruction.is_load() and not instruction.is_a('LB', 'LW'))
         if is_store or is_load:
             memory_accesses = set()
             instruction.add_affect(memory_accesses)
-        if is_store: # stores and duplicate-loads
+        if is_store: # stores and duplicate-stores
             for address in memory_accesses:
                 unobserved_stores[address] = i
         elif is_load:
@@ -1730,8 +1735,8 @@ def optimise_load_store3(bytecode_function, straightline_ops):
     for i, addresses in unobserved_stores.inverse.items():
         if len(addresses) == 0:
             store_instruction = straightline_ops[i]
-            assert store_instruction.is_store()
-            if store_instruction.is_load(): # it's a duplicate-load opcode
+            assert store_instruction.is_store() or store_instruction.is_dup_store()
+            if store_instruction.is_dup_store():
                 straightline_ops[i] = NopInstruction()
             else:
                 straightline_ops[i] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
