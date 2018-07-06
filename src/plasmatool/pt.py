@@ -656,6 +656,12 @@ class Instruction(object):
         # TODO: This is a bit of a hack but let's see how it goes
         return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
 
+    def is_simple_stack_push(self):
+        # TODO: I am using has_side_effects() as a proxy for "doesn't access memory mapped I/O" here
+        # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
+        return (self.is_simple_load() and not self.has_side_effects()) or isinstance(self, ConstantInstruction)
+
+
     def has_side_effects(self):
         # SFTODO: Once I actually start supporting loads/stores to absolute addresses,
         # this needs to return True for those just as is_hardware_address() or whatever it
@@ -1564,6 +1570,11 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i+1] = next_instruction.__class__(dup_for_store[next_instruction.opcode], next_instruction.operands[0])
             bytecode_function.ops[i+2] = NopInstruction()
             changed = True
+        elif instruction.is_simple_stack_push() and next_instruction.is_a('DROP'):
+            # SFTODO: We should probably recognise the case where we have two 'simple stack pushes' foillowed by DROP2. Maybe we should expand DROP2 opcodes into DROP:DROP very early on, and only as a final pass revert this - that might help keep things "transparent" to the optimiser.
+            bytecode_function.ops[i] = NopInstruction()
+            bytecode_function.ops[i+1] = NopInstruction()
+
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
     changed = changed or any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
