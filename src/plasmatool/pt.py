@@ -1510,6 +1510,16 @@ def tail_move(bytecode_function):
 
     return changed
 
+# Used to test for an unlikely case when optimising things like "LLW [n]:SLW [m]:LLW [n]" to
+# "LLW [n]:DLW [m]". If m=n this optimisation is valid, but if m=n+1 the final LLW [n] is
+# loading a different value than the first and the optimisation cannot be performed.
+def partial_overlap(lhs, rhs): # SFTODO: RENAME TO REMOVE no_ PREFIX?
+    lhs_memory = set()
+    lhs.add_affect(lhs_memory)
+    rhs_memory = set()
+    rhs.add_affect(rhs_memory)
+    return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
+
 
 
 def peephole_optimise(bytecode_function):
@@ -1555,6 +1565,16 @@ def peephole_optimise(bytecode_function):
                              0x76: 0x6e}
             bytecode_function.ops[i] = instruction.__class__(dup_for_store[instruction.opcode], instruction.operands[0])
             bytecode_function.ops[i+1] = NopInstruction()
+            changed = True
+        # "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x" and variations
+        # SFTODO: I am using has_side_effects() as a kind of placeholder for "might access memory-mapped I/O" here
+        elif instruction.is_simple_load() and not instruction.is_store() and instruction == next_next_instruction and next_instruction.is_simple_store() and not next_instruction.is_load() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not partial_overlap(instruction, next_instruction):
+            dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS, COPY AND PASTE
+                             0x78: 0x7c,
+                             0x74: 0x6c,
+                             0x76: 0x6e}
+            bytecode_function.ops[i+1] = next_instruction.__class__(dup_for_store[next_instruction.opcode], next_instruction.operands[0])
+            bytecode_function.ops[i+2] = NopInstruction()
             changed = True
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
@@ -1618,7 +1638,13 @@ def disjoint_affect(lhs, rhs):
 
 # TODO: This optimisation will increase expression stack usage, which might break some
 # programs - it should probably be controlled separately (e.g. -O3 only, and/or a
-# --risky-optimisations switch)
+# --risky-optimisations switch). It currently has no effect, as in the self-hosted
+# compiler all the code it touched is preferentially improved by peephole_optimise().
+# If this is retained, we need to be *sure* that it doesn't kick in first, as it can
+# prevent that superior optimisation. I think in general introducing DUP "complicates"
+# the code from an optimisation POV, so we want to do anything which might introduce
+# them only when every other optimisation has failed to change anything. (Then of course
+# we can do a pass round the whole set of optimisations again.)
 def load_to_dup(bytecode_function, straightline_ops):
     changed = False
     for i in range(len(straightline_ops)):
@@ -1934,11 +1960,11 @@ for bytecode_function in used_things_ordered[0:-1]:
                 assert SFTODO(bytecode_function.ops)
                 result.append(remove_dead_code(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
-                assert SFTODO(bytecode_function.ops)
                 result.append(move_caseblocks(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
                 result.append(peephole_optimise(bytecode_function))
+                assert SFTODO(bytecode_function.ops)
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
                 assert SFTODO(bytecode_function.ops)
                 #if SFTODOFOO:
                 #    break
@@ -1974,7 +2000,5 @@ new_rld.dump()
 new_esd.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
-
-# TODO: "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x"? Occurs at least once in self-hosted compiler. I think this is better (where possible) than the expression-stack-use-increasing optimisation I have using DUP. This pattern of observation (provided the loads have no side effects; we aren't optimising away the store so it's fine if it does) applies generally; LOAD foo:STORE bar:LOAD foo can be optimised to LOAD foo:DUPSTORE bar. There's a corner case where foo and bar partially overlap (if they fully overlap it's fine), so we shouldn't optimise if that's the case.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
