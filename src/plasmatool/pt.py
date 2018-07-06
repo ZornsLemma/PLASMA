@@ -1530,7 +1530,7 @@ def peephole_optimise(bytecode_function):
         instruction = bytecode_function.ops[i]
         next_instruction = bytecode_function.ops[i+1]
         next_next_instruction = bytecode_function.ops[i+2]
-        # DROP:DROP -> DROP
+        # DROP:DROP -> DROP2
         if instruction.is_a('DROP') and next_instruction.is_a('DROP'):
             bytecode_function.ops[i] = StackInstruction(0x32) # SFTODO MAGIC DROP2
             bytecode_function.ops[i+1] = NopInstruction()
