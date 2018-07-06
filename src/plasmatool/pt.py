@@ -113,9 +113,13 @@ class Label(object):
 
     @classmethod
     def disassemble(cls, di, i):
+        # SFTODO: Perhaps a bit crap that this is Label.disassemble() but it doesn't
+        # always return a Label...
         label = di.references[i]
-        assert label
-        return label, i+2
+        if label:
+            return label, i+2
+        else:
+            return Address.disassemble(di, i)
 
 class ExternalReference(object):
     def __init__(self, external_name, offset):
@@ -330,12 +334,12 @@ class FrameOffset(Byte):
 
 
 
-class Word(object):
+class Address(object):
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
-        return "Word(%d)" % (self.value,)
+        return "Address($%04X)" % (self.value,)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -346,14 +350,22 @@ class Word(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    # TODO: This doesn't have a hash() method but other similar objects e.g. Byte do;
-    # this suggests I may need it here or not need it there.
+    def __hash__(self):
+        return hash(self.value)
+
+    def __add__(self, rhs):
+        assert isinstance(rhs, int)
+        return Address(self.value + rhs)
+
+    def update_used_things(self, used_things):
+        pass
+
+    # SFTODO: Shouldn't we "need" an acme() method on this, like FrameOffset?
 
     @classmethod
     def disassemble(cls, di, i):
-        assert False
-        word = Word(ord(bytecode_function[i]) | (ord(bytecode_function[i+1]) << 8))
-        return word, i+2
+        return Address(di.labelled_blob.read_u16(i)), i+2
+
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
 # TODO: Make bits default to 16 and don't pass it in everywhere?
@@ -558,10 +570,13 @@ def acme_dump_branch(opcode, operands):
     print("\t!WORD\t%s-*" % (operands[0],))
 
 def acme_dump_label(opcode, operands, rld):
-    print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
-    fixup_label = Label('_F')
-    rld.add_fixup(operands[0], fixup_label)
-    print('%s\t%s' % (fixup_label.name, operands[0].acme_reference2()))
+    if isinstance(operands[0], Address): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
+    else:
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
+        fixup_label = Label('_F')
+        rld.add_fixup(operands[0], fixup_label)
+        print('%s\t%s' % (fixup_label.name, operands[0].acme_reference2()))
 
 def acme_dump_cs(opcode, operands):
     s = operands[0].value
@@ -666,6 +681,7 @@ class Instruction(object):
         # SFTODO: Once I actually start supporting loads/stores to absolute addresses,
         # this needs to return True for those just as is_hardware_address() or whatever it
         # is called in the compiler does.
+        # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
         return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T
 
     # TODO: Hate this function name...
@@ -928,7 +944,8 @@ class ImmediateInstruction(Instruction):
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
         # TODO: For the moment we just assume the only kind of address is a label; need to make this work with absolute addresses as well.
-        assert isinstance(address, Label) or isinstance(address, ExternalReference)
+        # SFTODO: Bit crap that we use 'address' generically here but it's also the name of a class representing a fixed absolute address
+        assert isinstance(address, Label) or isinstance(address, ExternalReference) or isinstance(address, Address)
         super(MemoryInstruction, self).__init__(opcode, [address])
 
     @classmethod
@@ -940,7 +957,7 @@ class MemoryInstruction(Instruction):
         return MemoryInstruction(opcode, label), i
 
     def dump(self, rld):
-        # SFTODO: Probably merge acme_dump_label in here
+        # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or Address (I think; check)
         acme_dump_label(self.opcode, self.operands, rld)
 
     def rename_local_labels(self, alias_dict):
@@ -1697,6 +1714,15 @@ class bidict(dict):
         super(bidict, self).__delitem__(key)
 
 
+def is_hardware_address(address):
+    # SFTODO: Again the 'address as generic term' and 'Address as an absolute address' awkwardness...
+    # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to support a better
+    # compromise (I note the self-hosted compiler's optimiser puts upper bound of 0xd000; this won't
+    # work for Acorn, not that I have "ported" the optimiser yet) and perhaps offer a --platform
+    # command line switch to trigger a tighter definition where platform is known.
+    return isinstance(address, Address) and address.value >= 0xc000
+
+
 # SFTODO: Experimental rewrite - make sure to copy across the explanatory comments from the old implementation before I delete it.
 # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
 # SFTODO: The absolute load/store support in here has not really been tested - it isn't doing anything for the self-hosted compiler, but I haven't found anywhere I think it should.
@@ -1722,7 +1748,8 @@ def optimise_load_store3(bytecode_function, straightline_ops):
             instruction.add_affect(memory_accesses)
         if is_store: # stores and duplicate-stores
             for address in memory_accesses:
-                unobserved_stores[address] = i
+                if not is_hardware_address(address):
+                    unobserved_stores[address] = i
         elif is_load:
             for address in memory_accesses:
                 if address in unobserved_stores:
@@ -1932,7 +1959,7 @@ print("_SUBSEG")
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
 assert used_things_ordered[-1].is_init()
-for bytecode_function in used_things_ordered[0:-1]:
+for bytecode_function in used_things_ordered:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     changed = True
     SFTODOFLAG = True
@@ -1987,7 +2014,6 @@ for bytecode_function in used_things_ordered[0:-1]:
             changed2 = any(result)
         changed = changed1 or changed2
     bytecode_function.dump(new_rld, new_esd)
-used_things_ordered[-1].dump(new_rld, new_esd)
 defcnt = len(used_things_ordered)
 
 print("_DEFCNT = %d" % (defcnt,))
