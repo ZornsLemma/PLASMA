@@ -334,6 +334,7 @@ class FrameOffset(Byte):
 
 
 
+# TODO: Perhaps rename this FixedAddress or AbsoluteAddress? Not too sure about the latter; in some sense a Label or ExternalReference also identifies an absolute address, it's just one which isn't known until the VM has relocated the code.
 class Address(object):
     def __init__(self, value):
         self.value = value
