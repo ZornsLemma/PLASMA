@@ -74,7 +74,7 @@ class Label(object):
         return hash(self.name)
 
     def __add__(self, rhs):
-        # SFTODO: This is a bit odd. We need this for add_affect(). However, I *think* that
+        # SFTODO: This is a bit odd. We need this for memory(). However, I *think* that
         # since we evidently have no need to support the concept of "label+n" anywhere,
         # we can get away with just returning self here - because if it's impossible to
         # represent the concept of "label+1", there is no scope for one bit of code to e.g.
@@ -612,7 +612,7 @@ class DisassemblyInfo(object):
         self.op_offset = []
 
 
-# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an Instruction object is constructed
+# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
 class Instruction(object):
     def __init__(self, opcode, operands):
         assert isinstance(operands, list)
@@ -685,11 +685,6 @@ class Instruction(object):
         # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
         return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T - CHECK BEFORE REMOVING THIS, BUT I BELIEVE ALL CALLERS OF THIS HAVE ALREADY EXCLUDED 'SB' (AND 'SW' AND 'LB' AND 'LW') BY CHECKING FOR 'SIMPLE' LOAD/STORE, SO I REALLY THINK THIS JUST MEANS ACCESSES (OR MAY ACCESS; WE COULD JUST ASSERT OPCODE IS NOT SB/SW/LB/LW HERE, BUT WE COULD RETURN TRUE FOR THOSE OPCODES ANYWAY - ACTUALLY I GUESS THAT IS WHY WE SPECIAL CASED 'SB' TO START WITH) *HARDWARE ADDRESS* AND NOTHING ELSE
 
-    # TODO: Hate this function name...
-    # TODO: Not sure it's good to have this in base class, especially with this implementation...
-    def add_affect(self, affect):
-        assert self.is_simple_store() or self.is_simple_load()
-        pass
 
 
 
@@ -889,10 +884,6 @@ class StackInstruction(Instruction):
     def update_local_labels_used(self, labels_used):
         pass
 
-    def add_affect(self, affect):
-        super(StackInstruction.self).add_affect(affect)
-        assert False
-
     def update_used_things(self, used_things):
         pass
 
@@ -970,10 +961,11 @@ class MemoryInstruction(Instruction):
     def data_size(self):
         return opdict[self.opcode]['data_size']
 
-    def add_affect(self, affect):
-        # SFTODO DELETE? super(MemoryInstruction,self).add_affect(affect)
+    def memory(self):
+        result = set()
         for i in range(0, self.data_size()):
-            affect.add(self.operands[0] + i)
+            result.add(self.operands[0] + i)
+        return result
 
     def update_used_things(self, used_things):
         self.operands[0].update_used_things(used_things)
@@ -1009,10 +1001,11 @@ class FrameInstruction(Instruction):
     def data_size(self):
         return opdict[self.opcode]['data_size']
 
-    def add_affect(self, affect):
-        # SFTODO: DELETE? super(FrameInstruction,self).add_affect(affect)
+    def memory(self):
+        result = set()
         for i in range(0, self.data_size()):
-            affect.add(FrameOffset(self.frame_offset + i))
+            result.add(FrameOffset(self.frame_offset + i))
+        return result
 
     def update_used_things(self, used_things):
         pass
@@ -1543,10 +1536,8 @@ def tail_move(bytecode_function):
 # "LLW [n]:DLW [m]". If m=n this optimisation is valid, but if m=n+1 the final LLW [n] is
 # loading a different value than the first and the optimisation cannot be performed.
 def partial_overlap(lhs, rhs): # SFTODO: RENAME TO REMOVE no_ PREFIX?
-    lhs_memory = set()
-    lhs.add_affect(lhs_memory)
-    rhs_memory = set()
-    rhs.add_affect(rhs_memory)
+    lhs_memory = lhs.memory()
+    rhs_memory = rhs.memory()
     return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
 
 
@@ -1648,10 +1639,6 @@ def calculate_lla_threshold(bytecode_function):
             lla_threshold = min(instruction.operands[0].value, lla_threshold)
     return lla_threshold
 
-def disjoint_affect(lhs, rhs):
-    #print("SFTODOX1 %r", lhs)
-    #print("SFTODOX2 %r", rhs)
-    return len(lhs.intersection(rhs)) == 0
 
 # TODO: This optimisation will increase expression stack usage, which might break some
 # programs - it should probably be controlled separately (e.g. -O3 only, and/or a
@@ -1667,11 +1654,11 @@ def load_to_dup(bytecode_function, straightline_ops):
     for i in range(len(straightline_ops)):
         instruction = straightline_ops[i]
         if instruction.is_simple_load() and not instruction.has_side_effects():
-            stores_affect = set()
+            stores_access = set()
             j = i + 1
             while j < len(straightline_ops):
                 if straightline_ops[j].is_simple_store() or straightline_ops[i].is_dup_store():
-                    straightline_ops[j].add_affect(stores_affect)
+                    stores_access.update(straightline_ops[j].memory())
                     if straightline_ops[j].is_simple_store():
                         j += 1
                         break
@@ -1682,10 +1669,9 @@ def load_to_dup(bytecode_function, straightline_ops):
                 # We have a load, zero or more "dup stores", a store and an identical load.
                 # Provided none of the intervening stores modify the data loaded and the
                 # load has no side effects, we can replace the initial load with a load:DUP
-                # and remove the final load. 
-                loads_affect = set()
-                instruction.add_affect(loads_affect)
-                if disjoint_affect(loads_affect, stores_affect):
+                # and remove the final load.  SFTODO: THIS IS STUPID, I THINK - WE SHOULD INSTEAD REPLACE THE STORE WITH A DUP STORE AND REMOVE THE FINAL LOAD - THIS IS (NEED TO RETHINK TO BE SURE) AN EXTENSION OF THE OPTIMISATION WE ALREADY HAVE IN PEEPHOLE_OPTIMISE
+                loads_access = instruction.memory()
+                if len(loads_access.intersection(stores_access)) == 0:
                     for k in range(j, i+1, -1):
                         straightline_ops[k] = straightline_ops[k-1]
                     straightline_ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
@@ -1724,9 +1710,8 @@ def is_hardware_address(address):
     return isinstance(address, Address) and address.value >= 0xc000
 
 
-# SFTODO: Experimental rewrite - make sure to copy across the explanatory comments from the old implementation before I delete it.
 # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
-def optimise_load_store3(bytecode_function, straightline_ops):
+def optimise_load_store(bytecode_function, straightline_ops):
     lla_threshold = calculate_lla_threshold(bytecode_function)
 
     # unobserved_stores is a bidirectional dictionary "memory address" <-> "store instruction
@@ -1743,15 +1728,12 @@ def optimise_load_store3(bytecode_function, straightline_ops):
     for i, instruction in enumerate(straightline_ops):
 	is_store = instruction.is_simple_store() or instruction.is_dup_store()
 	is_load = (instruction.is_load() and not instruction.is_a('LB', 'LW'))
-        if is_store or is_load:
-            memory_accesses = set()
-            instruction.add_affect(memory_accesses)
         if is_store: # stores and duplicate-stores
-            for address in memory_accesses:
+            for address in instruction.memory():
                 if not is_hardware_address(address):
                     unobserved_stores[address] = i
         elif is_load:
-            for address in memory_accesses:
+            for address in instruction.memory():
                 if address in unobserved_stores:
                     del unobserved_stores[address]
         elif instruction.is_a('CALL', 'ICAL', 'LB', 'LW'):
@@ -1773,7 +1755,7 @@ def optimise_load_store3(bytecode_function, straightline_ops):
     for i, addresses in unobserved_stores.inverse.items():
         if len(addresses) == 0:
             store_instruction = straightline_ops[i]
-            assert store_instruction.is_store() or store_instruction.is_dup_store()
+            assert store_instruction.is_simple_store() or store_instruction.is_dup_store()
             if store_instruction.is_dup_store():
                 straightline_ops[i] = NopInstruction()
             else:
@@ -1990,7 +1972,7 @@ for bytecode_function in used_things_ordered:
                 assert SFTODO(bytecode_function.ops)
                 result.append(peephole_optimise(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(straightline_optimise(bytecode_function, [optimise_load_store3, load_to_dup]))
+                result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
                 assert SFTODO(bytecode_function.ops)
                 #if SFTODOFOO:
                 #    break
@@ -2027,3 +2009,6 @@ new_esd.dump()
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
+
+# TODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
+# early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
