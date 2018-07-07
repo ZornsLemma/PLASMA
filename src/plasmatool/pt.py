@@ -1208,12 +1208,9 @@ def local_label_deduplicate(bytecode_function):
     return changed
 
 
+# Remove a BRNCH to an immediately following label.
 def branch_optimise(bytecode_function):
     changed = False
-    # This removes a BRNCH to an immediately following label.
-    # TODO: There are probably other opportunities for optimisation here but this is a
-    # simple case which seems to occur a bit. (We remove a BRNCH to an immedatiately
-    # following label.)
     # TODO: I don't think it occurs much, but potentially we could replace BRTRU or BRFLS
     # to an immediately following label with a DROP.
     new_ops = []
