@@ -361,7 +361,7 @@ class Address(object):
     def update_used_things(self, used_things):
         pass
 
-    # SFTODO: Shouldn't we "need" an acme() method on this, like FrameOffset?
+    # SFTODO: Shouldn't we "need" an acme() method on this?
 
     @classmethod
     def disassemble(cls, di, i):
@@ -985,7 +985,7 @@ class FrameInstruction(Instruction):
     @classmethod
     def disassemble(cls, disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
-        # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet
+        # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet - OK, I am now thinking it does have value, since memory() returns a set of addresses and these can be mixed together from various instructions, so having a 'type' is handy
         frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
         return FrameInstruction(opcode, frame_offset), i+2
 
