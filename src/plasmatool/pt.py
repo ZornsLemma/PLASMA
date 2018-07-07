@@ -978,10 +978,6 @@ class FrameInstruction(Instruction):
         assert isinstance(frame_offset, FrameOffset)
         super(FrameInstruction, self).__init__(opcode, [frame_offset])
 
-    @property
-    def frame_offset(self):
-        return self.operands[0].value
-
     @classmethod
     def disassemble(cls, disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
@@ -1004,7 +1000,7 @@ class FrameInstruction(Instruction):
     def memory(self):
         result = set()
         for i in range(0, self.data_size()):
-            result.add(FrameOffset(self.frame_offset + i))
+            result.add(FrameOffset(self.operands[0].value + i))
         return result
 
     def update_used_things(self, used_things):
