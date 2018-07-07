@@ -737,6 +737,7 @@ class ConstantInstruction(Instruction):
         pass
 
 
+# SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
 class LocalLabelInstruction(Instruction):
     def __init__(self, value):
         assert isinstance(value, Offset)
@@ -933,6 +934,9 @@ class ImmediateInstruction(Instruction):
         pass
 
 
+# TODO: partly by analogy with 6502 instruction terminology
+# TODO: MemoryInstruction -> AbsoluteInstruction
+# TODO: StackInstruction -> ImpliedInstruction
 class MemoryInstruction(Instruction):
     def __init__(self, opcode, address):
         # TODO: For the moment we just assume the only kind of address is a label; need to make this work with absolute addresses as well.
