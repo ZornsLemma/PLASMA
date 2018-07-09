@@ -615,6 +615,8 @@ class DisassemblyInfo(object):
 
 # TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
 class Instruction(object):
+    conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
+
     def __init__(self, opcode, operands):
         assert isinstance(operands, list)
         self._opcode = opcode
@@ -645,10 +647,21 @@ class Instruction(object):
         return self.opcode == 0xff # SFTODO MAGIC CONSTANT
 
     def is_branch(self):
+        # SFTODO: TRANSITION
+        if self.instruction_class == InstructionClass.BRANCH:
+            return True
         return False
 
     def is_conditional_branch(self):
+        # SFTODO: TRANSITION
+        if self.instruction_class == InstructionClass.BRANCH:
+            return self.opcode in self.conditional_branch_pairs
         return False
+
+    def invert_condition(self):
+        assert self.is_conditional_branch()
+        i = self.conditional_branch_pairs.index(self.opcode)
+        self._opcode = self.conditional_branch_pairs[i ^ 1]
 
     def is_store(self):
         if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
@@ -704,7 +717,7 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH):
             pass
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
@@ -713,6 +726,8 @@ class Instruction(object):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
             pass
+        elif self.instruction_class == InstructionClass.BRANCH:
+            self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -720,6 +735,8 @@ class Instruction(object):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
             pass
+        elif self.instruction_class == InstructionClass.BRANCH:
+            self.operands[0].update_local_labels_used(labels_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -729,6 +746,8 @@ class Instruction(object):
             dump_constant(self, rld)
         elif self.instruction_class == InstructionClass.LOCAL_LABEL:
             dump_local_label(self, rld)
+        elif self.instruction_class == InstructionClass.BRANCH:
+            dump_branch(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -780,11 +799,7 @@ class InstructionClass(enum.Enum):
     CONSTANT = 0
     LOCAL_LABEL = 1
     NOP = 2
-
-# SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
-instruction_class_fns = {
-        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant}
-}
+    BRANCH = 3
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -812,45 +827,15 @@ class CaseBlockInstruction(Instruction):
         pass
 
 
-class BranchInstruction(Instruction):
-    conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
+def disassemble_branch(disassembly_info, i):
+    opcode = disassembly_info.labelled_blob[i]
+    # SFTODO: Validate opcode?? Arguably redundant given how this is called
+    offset, i = Offset.disassemble(disassembly_info, i+1)
+    return Instruction(opcode, [offset]), i
 
-    def __init__(self, opcode, target):
-        # SFTODO: Magic constants - we should perhaps be consulting opdict here instead
-        assert opcode in (0x22, 0x24, 0x4c, 0x4e, 0x50, 0xa0, 0xa2, 0xa4, 0xa8, 0xac, 0xae)
-        assert isinstance(target, Offset)
-        super(BranchInstruction, self).__init__(opcode, [target])
-
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
-        offset, i = Offset.disassemble(disassembly_info, i+1)
-        return BranchInstruction(opcode, offset), i
-
-    def is_branch(self):
-        return True
-
-    def is_conditional_branch(self):
-        return self.opcode in self.conditional_branch_pairs
-
-    def invert_condition(self):
-        assert self.is_conditional_branch()
-        i = self.conditional_branch_pairs.index(self.opcode)
-        self._opcode = self.conditional_branch_pairs[i ^ 1]
-
-    def dump(self, rld):
-        # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
-        acme_dump_branch(self.opcode, self.operands)
-
-    def rename_local_labels(self, alias_dict):
-        self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
-
-    def update_local_labels_used(self, labels_used):
-        self.operands[0].update_local_labels_used(labels_used)
-
-    def update_used_things(self, used_things):
-        pass
+def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
+    # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
+    acme_dump_branch(self.opcode, self.operands)
 
 
 class SelInstruction(Instruction):
@@ -1056,6 +1041,12 @@ class StringInstruction(Instruction):
 
 
 
+# SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
+instruction_class_fns = {
+        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant},
+        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch}
+}
+
 # TODO: Check this table is complete and correct
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
@@ -1077,8 +1068,8 @@ opdict = {
     0x1c: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
     0x1e: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
     0x20: {'opcode': 'MINUS1', 'class': InstructionClass.CONSTANT},
-    0x22: {'opcode': 'BREQ', 'dis': BranchInstruction.disassemble},
-    0x24: {'opcode': 'BRNE', 'dis': BranchInstruction.disassemble},
+    0x22: {'opcode': 'BREQ', 'class': InstructionClass.BRANCH},
+    0x24: {'opcode': 'BRNE', 'class': InstructionClass.BRANCH},
     0x26: {'opcode': 'LA', 'dis': MemoryInstruction.disassemble},
     0x28: {'opcode': 'LLA', 'dis': FrameInstruction.disassemble},
     0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
@@ -1097,9 +1088,9 @@ opdict = {
     0x46: {'opcode': 'ISLT', 'dis': StackInstruction.disassemble},
     0x48: {'opcode': 'ISGE', 'dis': StackInstruction.disassemble},
     0x4a: {'opcode': 'ISLE', 'dis': StackInstruction.disassemble},
-    0x4c: {'opcode': 'BRFLS', 'dis': BranchInstruction.disassemble},
-    0x4e: {'opcode': 'BRTRU', 'dis': BranchInstruction.disassemble},
-    0x50: {'opcode': 'BRNCH', 'dis': BranchInstruction.disassemble, 'nis': True},
+    0x4c: {'opcode': 'BRFLS', 'class': InstructionClass.BRANCH},
+    0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
+    0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
     0x52: {'opcode': 'SEL', 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'dis': StackInstruction.disassemble},
@@ -1139,12 +1130,12 @@ opdict = {
     0x9a: {'opcode': 'SHL', 'dis': StackInstruction.disassemble},
     0x9c: {'opcode': 'SHR', 'dis': StackInstruction.disassemble},
     0x9e: {'opcode': 'IDXW', 'dis': StackInstruction.disassemble},
-    0xa0: {'opcode': 'BRGT', 'dis': BranchInstruction.disassemble},
-    0xa2: {'opcode': 'BRLT', 'dis': BranchInstruction.disassemble},
-    0xa4: {'opcode': 'INCBRLE', 'dis': BranchInstruction.disassemble},
-    0xa8: {'opcode': 'DECBRGE', 'dis': BranchInstruction.disassemble},
-    0xac: {'opcode': 'BRAND', 'dis': BranchInstruction.disassemble},
-    0xae: {'opcode': 'BROR', 'dis': BranchInstruction.disassemble},
+    0xa0: {'opcode': 'BRGT', 'class': InstructionClass.BRANCH},
+    0xa2: {'opcode': 'BRLT', 'class': InstructionClass.BRANCH},
+    0xa4: {'opcode': 'INCBRLE', 'class': InstructionClass.BRANCH},
+    0xa8: {'opcode': 'DECBRGE', 'class': InstructionClass.BRANCH},
+    0xac: {'opcode': 'BRAND', 'class': InstructionClass.BRANCH},
+    0xae: {'opcode': 'BROR', 'class': InstructionClass.BRANCH},
     0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
     0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
     0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
