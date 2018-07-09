@@ -1,6 +1,7 @@
 import abc
 import collections
 import copy # SFTODO TEMP
+import enum
 import itertools
 import struct
 import sys
@@ -675,7 +676,7 @@ class Instruction(object):
     def is_simple_stack_push(self):
         # TODO: I am using has_side_effects() as a proxy for "doesn't access memory mapped I/O" here
         # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
-        return (self.is_simple_load() and not self.has_side_effects()) or isinstance(self, ConstantInstruction)
+        return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
 
 
     def has_side_effects(self):
@@ -685,6 +686,46 @@ class Instruction(object):
         # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
         return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T - CHECK BEFORE REMOVING THIS, BUT I BELIEVE ALL CALLERS OF THIS HAVE ALREADY EXCLUDED 'SB' (AND 'SW' AND 'LB' AND 'LW') BY CHECKING FOR 'SIMPLE' LOAD/STORE, SO I REALLY THINK THIS JUST MEANS ACCESSES (OR MAY ACCESS; WE COULD JUST ASSERT OPCODE IS NOT SB/SW/LB/LW HERE, BUT WE COULD RETURN TRUE FOR THOSE OPCODES ANYWAY - ACTUALLY I GUESS THAT IS WHY WE SPECIAL CASED 'SB' TO START WITH) *HARDWARE ADDRESS* AND NOTHING ELSE
 
+    @property
+    def instruction_class(self):
+        # SFTODO TEMP HACK
+        if self.opcode == CONSTANT_OPCODE:
+            return InstructionClass.CONSTANT
+        if self.opcode & 0x1 == 1:
+            return 999 # SFTODO!!!
+        SFTODO = opdict[self.opcode].get('class', None)
+        if SFTODO:
+            return SFTODO
+        return 99999
+
+    def update_used_things(self, used_things):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class == InstructionClass.CONSTANT:
+            pass
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+            
+    def rename_local_labels(self, alias_dict):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class == InstructionClass.CONSTANT:
+            pass
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def update_local_labels_used(self, labels_used):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class == InstructionClass.CONSTANT:
+            pass
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def dump(self, rld):
+        # SFTODO TEMP HACK FOR TRANSITION - FINAL SHOULD JUST BE ABLE TO USE OUR OWN VTABLE
+        if self.instruction_class == InstructionClass.CONSTANT:
+            dump_constant(self, rld)
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
 
 
 
@@ -692,49 +733,48 @@ class Instruction(object):
 # TODO: Probably rename Instruction to Op and make corresponding changes in all other class and
 # variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
 # or another all over the code.
-class ConstantInstruction(Instruction):
-    def __init__(self, value):
-        assert isinstance(value, int)
-        super(ConstantInstruction, self).__init__(0xfd, [value])
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        if opcode <= 0x1e: # CN opcode
-            return ConstantInstruction(opcode/2), i+1
-        elif opcode == 0x20: # MINUS ONE opcode
-            return ConstantInstruction(-1), i+1
-        elif opcode == 0x2a: # CB opcode
-            return ConstantInstruction(disassembly_info.labelled_blob[i+1]), i+2
-        elif opcode == 0x2c: # CW opcode
-            return ConstantInstruction(sign_extend(disassembly_info.labelled_blob.read_u16(i+1), 16)), i+3
-        elif opcode == 0x5e: # CFFB opcode
-            return ConstantInstruction(0xff00 | disassembly_info.labelled_blob[i+1]), i+2
-        else:
-            print('SFTODO %02x' % opcode)
-            assert False
 
-    def dump(self, rld):
-        value = self.operands[0]
-        if value >= 0 and value < 16:
-            print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
-        elif value >= 0 and value < 256:
-            print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
-        elif value == -1:
-            print("\t!BYTE\t$20\t\t\t; MINUS ONE")
-        elif value & 0xff00 == 0xff00:
-            print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
-        else:
-            print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
+# TODO: Crappy way to define this pseudo-opcode
+CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
 
-    def rename_local_labels(self, alias_dict):
-        pass
+def disassemble_constant(disassembly_info, i):
+    opcode = disassembly_info.labelled_blob[i]
+    if opcode <= 0x1e: # CN opcode
+        return Instruction(CONSTANT_OPCODE, [opcode/2]), i+1
+    elif opcode == 0x20: # MINUS ONE opcode
+        return Instruction(CONSTANT_OPCODE, [-1]), i+1
+    elif opcode == 0x2a: # CB opcode
+        return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
+    elif opcode == 0x2c: # CW opcode
+        return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1), 16)]), i+3
+    elif opcode == 0x5e: # CFFB opcode
+        return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
+    else:
+        print('SFTODO %02x' % opcode)
+        assert False
 
-    def update_local_labels_used(self, labels_used):
-        pass
+def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
+    value = self.operands[0]
+    if value >= 0 and value < 16:
+        print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
+    elif value >= 0 and value < 256:
+        print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
+    elif value == -1:
+        print("\t!BYTE\t$20\t\t\t; MINUS ONE")
+    elif value & 0xff00 == 0xff00:
+        print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
+    else:
+        print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
 
-    def update_used_things(self, used_things):
-        pass
+
+class InstructionClass(enum.Enum):
+    CONSTANT = 0
+
+# SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
+instruction_class_fns = {
+        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant}
+}
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -1041,29 +1081,29 @@ class StringInstruction(Instruction):
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
 opdict = {
-    0x00: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x02: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x04: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x06: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x08: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x0a: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x0c: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x0e: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x10: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x12: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x14: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x16: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x18: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x1a: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x1c: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x1e: {'opcode': 'CN', 'dis': ConstantInstruction.disassemble},
-    0x20: {'opcode': 'MINUS1', 'dis': ConstantInstruction.disassemble},
+    0x00: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x02: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x04: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x06: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x08: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x0a: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x0c: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x0e: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x10: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x12: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x14: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x16: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x18: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x1a: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x1c: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x1e: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
+    0x20: {'opcode': 'MINUS1', 'class': InstructionClass.CONSTANT},
     0x22: {'opcode': 'BREQ', 'dis': BranchInstruction.disassemble},
     0x24: {'opcode': 'BRNE', 'dis': BranchInstruction.disassemble},
     0x26: {'opcode': 'LA', 'dis': MemoryInstruction.disassemble},
     0x28: {'opcode': 'LLA', 'dis': FrameInstruction.disassemble},
-    0x2a: {'opcode': 'CB', 'dis': ConstantInstruction.disassemble},
-    0x2c: {'opcode': 'CW', 'dis': ConstantInstruction.disassemble},
+    0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
+    0x2c: {'opcode': 'CW', 'class': InstructionClass.CONSTANT},
     0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
     0x30: {'opcode': 'DROP', 'dis': StackInstruction.disassemble},
     0x32: {'opcode': 'DROP2', 'dis': StackInstruction.disassemble},
@@ -1087,7 +1127,7 @@ opdict = {
     0x58: {'opcode': 'ENTER', 'dis': ImmediateInstruction.disassemble2},
     0x5c: {'opcode': 'RET', 'nis': True, 'dis': StackInstruction.disassemble},
     0x5a: {'opcode': 'LEAVE', 'nis': True, 'dis': ImmediateInstruction.disassemble1},
-    0x5e: {'opcode': 'CFFB', 'dis': ConstantInstruction.disassemble},
+    0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
     0x60: {'opcode': 'LB', 'is_load': True, 'dis': StackInstruction.disassemble},
     0x62: {'opcode': 'LW', 'is_load': True, 'dis': StackInstruction.disassemble},
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
@@ -1162,8 +1202,14 @@ class BytecodeFunction(object):
                 opcode = labelled_blob[i]
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
-                dis = opdef.get('dis')
-                op, i = dis(di, i)
+                # SFTODO: TEMPORARY HACK TO WORK BOTH WAYS
+                SFTODONEW = opdef.get('class', None)
+                if SFTODONEW:
+                    dis = instruction_class_fns[SFTODONEW]['disassemble']
+                    op, i = dis(di, i)
+                else:
+                    dis = opdef.get('dis')
+                    op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
                 op = CaseBlockInstruction(operand)
