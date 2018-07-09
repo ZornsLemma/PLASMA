@@ -456,7 +456,7 @@ class Offset(object):
             while j < len(di.op_offset):
                 if di.op_offset[j] == target:
                     di.op_offset.insert(j, None)
-                    di.bytecode_function.ops.insert(j, LocalLabelInstruction(local_label))
+                    di.bytecode_function.ops.insert(j, Instruction(LOCAL_LABEL_OPCODE, [local_label]))
                     j = 99999 # SFTODO ULTRA FOUL
                 j += 1
             assert j >= 99999
@@ -691,6 +691,8 @@ class Instruction(object):
         # SFTODO TEMP HACK
         if self.opcode == CONSTANT_OPCODE:
             return InstructionClass.CONSTANT
+        elif self.opcode == LOCAL_LABEL_OPCODE:
+            return InstructionClass.LOCAL_LABEL
         if self.opcode & 0x1 == 1:
             return 999 # SFTODO!!!
         SFTODO = opdict[self.opcode].get('class', None)
@@ -700,21 +702,21 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class == InstructionClass.CONSTANT:
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
             pass
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class == InstructionClass.CONSTANT:
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
             pass
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class == InstructionClass.CONSTANT:
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL):
             pass
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
@@ -723,6 +725,8 @@ class Instruction(object):
         # SFTODO TEMP HACK FOR TRANSITION - FINAL SHOULD JUST BE ABLE TO USE OUR OWN VTABLE
         if self.instruction_class == InstructionClass.CONSTANT:
             dump_constant(self, rld)
+        elif self.instruction_class == InstructionClass.LOCAL_LABEL:
+            dump_local_label(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -737,6 +741,7 @@ class Instruction(object):
 
 # TODO: Crappy way to define this pseudo-opcode
 CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
+LOCAL_LABEL_OPCODE = 0xff
 
 def disassemble_constant(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
@@ -770,6 +775,7 @@ def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
 
 class InstructionClass(enum.Enum):
     CONSTANT = 0
+    LOCAL_LABEL = 1
 
 # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
 instruction_class_fns = {
@@ -778,27 +784,10 @@ instruction_class_fns = {
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
-class LocalLabelInstruction(Instruction):
-    def __init__(self, value):
-        assert isinstance(value, Offset)
-        super(LocalLabelInstruction, self).__init__(0xff, [value])
 
-    def dump(self, rld):
-        assert isinstance(self.operands[0], Offset) # SFTODO TEMP?
-        print("%s" % (self.operands[0]))
-
-    def rename_local_labels(self, alias_dict):
-        # rename_local_labels() only affects instructions using a label as a target; we don't rename
-        # ourself.
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        # update_local_labels_used() only counts labels used as a target; defining a local label
-        # via this instruction doesn't count.
-        pass
-
-    def update_used_things(self, used_things):
-        pass
+def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
+    assert isinstance(self.operands[0], Offset) # SFTODO TEMP?
+    print("%s" % (self.operands[0]))
 
 
 class NopInstruction(Instruction):
@@ -1194,7 +1183,7 @@ class BytecodeFunction(object):
             # the function, but those are different.
             assert i == 0 or not labelled_blob.labels[i]
             for t in di.local_target[i]:
-                self.ops.append(LocalLabelInstruction(t))
+                self.ops.append(Instruction(LOCAL_LABEL_OPCODE, [t]))
                 di.op_offset.append(None)
             di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = di.special[i]
