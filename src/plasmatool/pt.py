@@ -693,6 +693,8 @@ class Instruction(object):
             return InstructionClass.CONSTANT
         elif self.opcode == LOCAL_LABEL_OPCODE:
             return InstructionClass.LOCAL_LABEL
+        elif self.opcode == NOP_OPCODE:
+            return InstructionClass.NOP
         if self.opcode & 0x1 == 1:
             return 999 # SFTODO!!!
         SFTODO = opdict[self.opcode].get('class', None)
@@ -742,6 +744,7 @@ class Instruction(object):
 # TODO: Crappy way to define this pseudo-opcode
 CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
 LOCAL_LABEL_OPCODE = 0xff
+NOP_OPCODE = 0xf1
 
 def disassemble_constant(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
@@ -776,6 +779,7 @@ def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
 class InstructionClass(enum.Enum):
     CONSTANT = 0
     LOCAL_LABEL = 1
+    NOP = 2
 
 # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
 instruction_class_fns = {
@@ -788,20 +792,6 @@ instruction_class_fns = {
 def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
     assert isinstance(self.operands[0], Offset) # SFTODO TEMP?
     print("%s" % (self.operands[0]))
-
-
-class NopInstruction(Instruction):
-    def __init__(self):
-        super(NopInstruction, self).__init__(0xf1, [])
-
-    def rename_local_labels(self, alias_dict):
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        pass
-
-    def update_used_things(self, used_things):
-        pass
 
 
 class CaseBlockInstruction(Instruction):
@@ -1495,6 +1485,10 @@ def block_move(bytecode_function):
     return changed
 
 
+# SFTODO TEMPORARY (?) PSEUDO-CTOR FOR TRANSITION
+def NopInstruction():
+    return Instruction(NOP_OPCODE, [])
+
 
 # If the same instruction occurs before all unconditional branches to a label, and there are
 # no conditional branches to the label, the instruction can be moved immediately after the
@@ -1794,7 +1788,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
                 straightline_ops[i] = StackInstruction(0x30) # SFTODO MAGIC CONSTANT DROP
             changed = True
 
-    return [op for op in straightline_ops if not isinstance(op, NopInstruction)], changed
+    return [op for op in straightline_ops if not op.instruction_class == InstructionClass.NOP], changed
 
 
 
