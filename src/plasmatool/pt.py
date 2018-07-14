@@ -470,6 +470,7 @@ class Offset(object):
 
 
 
+# SFTODO: It might be nice if this derived from Offset but not at all sure about that
 class CaseBlockOffset(object):
     def __init__(self, offset):
         self.offset = offset
@@ -855,7 +856,7 @@ def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
 
 def disassemble_sel(disassembly_info, i):
     case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
-    return Instruction(0x52, [case_block_offset]), i
+    return Instruction('SEL', [case_block_offset]), i
 
 def dump_sel(self, rld):
     # SFTODO: Fold acme_dump_branch() in here?
