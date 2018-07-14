@@ -618,8 +618,13 @@ class Instruction(object):
     conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
 
     def __init__(self, opcode, operands):
+        self.set(opcode, operands)
+
+    def set(self, opcode2, operands): # SFTODO OPCODE2 - CRAP
         assert isinstance(operands, list)
-        self._opcode = opcode
+        if isinstance(opcode2, str):
+            opcode2 = opcode[opcode2]
+        self._opcode = opcode2
         self.operands = operands
 
     def __eq__(self, other):
@@ -1498,7 +1503,7 @@ def peephole_optimise(bytecode_function):
         next_next_instruction = bytecode_function.ops[i+2]
         # DROP:DROP -> DROP2
         if instruction.is_a('DROP') and next_instruction.is_a('DROP'):
-            bytecode_function.ops[i] = Instruction(0x32, []) # SFTODO MAGIC DROP2
+            bytecode_function.ops[i] = Instruction('DROP2', [])
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
