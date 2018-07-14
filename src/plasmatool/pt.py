@@ -713,21 +713,7 @@ class Instruction(object):
 
     @property
     def instruction_class(self):
-        # SFTODO TEMP HACK
-        if self.opcode == CONSTANT_OPCODE:
-            return InstructionClass.CONSTANT
-        elif self.opcode == LOCAL_LABEL_OPCODE:
-            return InstructionClass.LOCAL_LABEL
-        elif self.opcode == NOP_OPCODE:
-            return InstructionClass.NOP
-        elif self.opcode == CASE_BLOCK_OPCODE:
-            return InstructionClass.CASE_BLOCK
-        if self.opcode & 0x1 == 1:
-            assert False
-        SFTODO = opdict[self.opcode].get('class', None)
-        if SFTODO:
-            return SFTODO
-        return 99999
+        return opdict[self.opcode]['class']
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
@@ -1085,9 +1071,13 @@ opdict = {
     0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
     0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
     0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    CONSTANT_OPCODE: {'pseudo': True, 'class': InstructionClass.CONSTANT},
+    LOCAL_LABEL_OPCODE: {'pseudo': True, 'class': InstructionClass.LOCAL_LABEL},
+    NOP_OPCODE: {'pseudo': True, 'class': InstructionClass.NOP},
+    CASE_BLOCK_OPCODE: {'pseudo': True, 'class': InstructionClass.CASE_BLOCK},
 }
 
-opcode = {v['opcode']: k for (k, v) in opdict.items()}
+opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', False)}
 
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
@@ -1113,14 +1103,9 @@ class BytecodeFunction(object):
                 opcode = labelled_blob[i]
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
-                # SFTODO: TEMPORARY HACK TO WORK BOTH WAYS
-                SFTODONEW = opdef.get('class', None)
-                if SFTODONEW:
-                    dis = instruction_class_fns[SFTODONEW]['disassemble']
-                    op, i = dis(di, i)
-                else:
-                    dis = opdef.get('dis')
-                    op, i = dis(di, i)
+                assert not opdef.get('pseudo')
+                dis = instruction_class_fns[opdef['class']]['disassemble']
+                op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
                 op = Instruction(CASE_BLOCK_OPCODE, [operand])
