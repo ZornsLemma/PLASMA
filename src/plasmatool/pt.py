@@ -708,6 +708,8 @@ class Instruction(object):
             return InstructionClass.LOCAL_LABEL
         elif self.opcode == NOP_OPCODE:
             return InstructionClass.NOP
+        elif self.opcode == 0xfb: # SFTODO MAGIC
+            return InstructionClass.CASE_BLOCK
         if self.opcode & 0x1 == 1:
             return 999 # SFTODO!!!
         SFTODO = opdict[self.opcode].get('class', None)
@@ -717,7 +719,7 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             pass
         elif self.instruction_class == InstructionClass.MEMORY:
             self.operands[0].update_used_things(used_things)
@@ -732,6 +734,8 @@ class Instruction(object):
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
             self.operands[0].offset = rename_local_labels(self.operands[0].offset, alias_dict)
+        elif self.instruction_class == InstructionClass.CASE_BLOCK:
+            self.operands[0].rename_local_labels(alias_dict)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -742,6 +746,8 @@ class Instruction(object):
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0].update_local_labels_used(labels_used)
         elif self.instruction_class == InstructionClass.SEL:
+            self.operands[0].update_local_labels_used(labels_used)
+        elif self.instruction_class == InstructionClass.CASE_BLOCK:
             self.operands[0].update_local_labels_used(labels_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
@@ -784,6 +790,8 @@ class Instruction(object):
             dump_string_instruction(self, rld)
         elif self.instruction_class == InstructionClass.SEL:
             dump_sel(self, rld)
+        elif self.instruction_class == InstructionClass.CASE_BLOCK:
+            dump_case_block(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -843,6 +851,7 @@ class InstructionClass(enum.Enum):
     FRAME = 8
     STRING = 9
     SEL = 10
+    CASE_BLOCK = 11
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -852,22 +861,9 @@ def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
     print("%s" % (self.operands[0]))
 
 
-class CaseBlockInstruction(Instruction):
-    def __init__(self, value):
-        assert isinstance(value, CaseBlock) # SFTODO: 'CaseBlock' MAY EVENTUALLY FOLD INTO THIS, NOT AT ALL SURE YET
-        super(CaseBlockInstruction, self).__init__(0xfb, [value])
+def dump_case_block(self, rld): # SFTODO RENAME SELF
+    acme_dump_caseblock(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
 
-    def dump(self, rld):
-        acme_dump_caseblock(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
-
-    def rename_local_labels(self, alias_dict):
-        self.operands[0].rename_local_labels(alias_dict)
-
-    def update_local_labels_used(self, labels_used):
-        self.operands[0].update_local_labels_used(labels_used)
-
-    def update_used_things(self, used_things):
-        pass
 
 
 def disassemble_branch(disassembly_info, i):
@@ -976,6 +972,7 @@ instruction_class_fns = {
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction},
         InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel},
+        InstructionClass.CASE_BLOCK: {'dump': dump_case_block},
 }
 
 # TODO: Check this table is complete and correct
@@ -1113,7 +1110,7 @@ class BytecodeFunction(object):
                     op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
-                op = CaseBlockInstruction(operand)
+                op = Instruction(0xfb, [operand]) # SFTODO MAGIC CONSTANT
             self.ops.append(op)
 
     def is_init(self):
