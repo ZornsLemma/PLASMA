@@ -660,7 +660,8 @@ class Instruction(object):
 
     # It may or may not be Pythonic but we use a property here to prevent code accidentally
     # changing the opcode. Doing so would lead to subtle problems because the type of the
-    # object wouldn't change.
+    # object wouldn't change. SFTODO: Quite possibly will leave this as it is, but now we
+    # don't have derived classes the type changing issue doesn't arise.
     @property
     def opcode(self):
         return self._opcode
@@ -691,8 +692,6 @@ class Instruction(object):
         self._opcode = self.conditional_branch_pairs[i ^ 1]
 
     def is_store(self):
-        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
-            return False
         return opdict[self.opcode].get('is_store', False)
 
     def is_simple_store(self):
@@ -700,13 +699,9 @@ class Instruction(object):
         return self.is_store() and not self.is_a('SB', 'SW')
 
     def is_dup_store(self):
-        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
-            return False
         return opdict[self.opcode].get('is_dup_store', False)
 
     def is_load(self):
-        if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
-            return False
         return opdict[self.opcode].get('is_load', False)
 
     def is_simple_load(self):
@@ -762,13 +757,11 @@ class Instruction(object):
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def memory(self):
-        if self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME):
-            result = set()
-            for i in range(0, self.data_size()):
-                result.add(self.operands[0] + i)
-            return result
-        else:
-            assert False
+        assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
+        result = set()
+        for i in range(0, self.data_size()):
+            result.add(self.operands[0] + i)
+        return result
 
     def data_size(self):
         assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
