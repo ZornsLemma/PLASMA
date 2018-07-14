@@ -1210,7 +1210,7 @@ def branch_optimise3(bytecode_function):
     changed = False
     targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
     alias = {k:v.operands[0] for k, v in targets.items()}
-    for i, instruction in enumerate(bytecode_function.ops):
+    for instruction in bytecode_function.ops:
         original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
         instruction.rename_local_labels(alias)
         changed = changed or (original_operands != instruction.operands)
