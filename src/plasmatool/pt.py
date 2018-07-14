@@ -620,12 +620,19 @@ class Instruction(object):
     def __init__(self, opcode, operands):
         self.set(opcode, operands)
 
-    def set(self, opcode2, operands): # SFTODO OPCODE2 - CRAP
-        assert isinstance(operands, list)
-        if isinstance(opcode2, str):
-            opcode2 = opcode[opcode2]
-        self._opcode = opcode2
-        self.operands = operands
+    def set(self, opcode2, operands = None): # SFTODO OPCODE2 - CRAP
+        if isinstance(opcode2, Instruction):
+            assert not operands
+            self._opcode = opcode2._opcode
+            self.operands = opcode2.operands
+        else:
+            assert isinstance(operands, list)
+            if isinstance(opcode2, str):
+                opcode2 = opcode[opcode2]
+            else:
+                assert isinstance(opcode2, int)
+            self._opcode = opcode2
+            self.operands = operands
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -1188,11 +1195,11 @@ def build_local_label_dictionary(bytecode_function, test):
 def branch_optimise2(bytecode_function):
     changed = False
     targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
-    for i, instruction in enumerate(bytecode_function.ops):
+    for instruction in bytecode_function.ops:
         if instruction.is_a('BRNCH'):
             target = targets.get(instruction.operands[0])
             if target:
-                bytecode_function.ops[i] = target
+                instruction.set(target)
                 changed = True
     return changed
 
