@@ -1523,7 +1523,7 @@ def peephole_optimise(bytecode_function):
                              0x78: 0x7c,
                              0x74: 0x6c,
                              0x76: 0x6e}
-            bytecode_function.ops[i] = instruction.__class__(dup_for_store[instruction.opcode], instruction.operands)
+            bytecode_function.ops[i] = Instruction(dup_for_store[instruction.opcode], instruction.operands)
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x" and variations
