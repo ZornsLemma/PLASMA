@@ -648,7 +648,7 @@ class Instruction(object):
 
     def is_branch(self):
         # SFTODO: TRANSITION
-        if self.instruction_class == InstructionClass.BRANCH:
+        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL):
             return True
         return False
 
@@ -717,7 +717,7 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL):
             pass
         elif self.instruction_class == InstructionClass.MEMORY:
             self.operands[0].update_used_things(used_things)
@@ -730,6 +730,8 @@ class Instruction(object):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
+        elif self.instruction_class == InstructionClass.SEL:
+            self.operands[0].offset = rename_local_labels(self.operands[0].offset, alias_dict)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -738,6 +740,8 @@ class Instruction(object):
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
+            self.operands[0].update_local_labels_used(labels_used)
+        elif self.instruction_class == InstructionClass.SEL:
             self.operands[0].update_local_labels_used(labels_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
@@ -778,6 +782,8 @@ class Instruction(object):
             dump_frame_instruction(self, rld)
         elif self.instruction_class == InstructionClass.STRING:
             dump_string_instruction(self, rld)
+        elif self.instruction_class == InstructionClass.SEL:
+            dump_sel(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -836,6 +842,7 @@ class InstructionClass(enum.Enum):
     MEMORY = 7
     FRAME = 8
     STRING = 9
+    SEL = 10
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -874,32 +881,13 @@ def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
     acme_dump_branch(self.opcode, self.operands)
 
 
-class SelInstruction(Instruction):
-    def __init__(self, case_block_offset):
-        # SFTODO: Perhaps we should not have CaseBlockOffset any more but let's minimise changes for now
-        assert isinstance(case_block_offset, CaseBlockOffset)
-        super(SelInstruction, self).__init__(0x52, [case_block_offset])
+def disassemble_sel(disassembly_info, i):
+    case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
+    return Instruction(0x52, [case_block_offset]), i
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
-        return SelInstruction(case_block_offset), i
-
-    def is_branch(self):
-        return True
-
-    def dump(self, rld):
-        # SFTODO: Fold acme_dump_branch() in here?
-        acme_dump_branch(self.opcode, self.operands)
-
-    def rename_local_labels(self, alias_dict):
-        self.operands[0].offset = rename_local_labels(self.operands[0].offset, alias_dict)
-
-    def update_local_labels_used(self, labels_used):
-        self.operands[0].update_local_labels_used(labels_used)
-
-    def update_used_things(self, used_things):
-        pass
+def dump_sel(self, rld):
+    # SFTODO: Fold acme_dump_branch() in here?
+    acme_dump_branch(self.opcode, self.operands)
 
 
 
@@ -987,6 +975,7 @@ instruction_class_fns = {
         InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction},
+        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel},
 }
 
 # TODO: Check this table is complete and correct
@@ -1033,7 +1022,7 @@ opdict = {
     0x4c: {'opcode': 'BRFLS', 'class': InstructionClass.BRANCH},
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
     0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
-    0x52: {'opcode': 'SEL', 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
+    0x52: {'opcode': 'SEL', 'class': InstructionClass.SEL},
     0x54: {'opcode': 'CALL', 'class': InstructionClass.MEMORY}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.STACK},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
