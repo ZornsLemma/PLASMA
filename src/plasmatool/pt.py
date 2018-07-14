@@ -808,6 +808,7 @@ class Instruction(object):
 CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
 LOCAL_LABEL_OPCODE = 0xff
 NOP_OPCODE = 0xf1
+CASE_BLOCK_OPCODE = 0xfb
 
 def disassemble_constant(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
@@ -1110,7 +1111,7 @@ class BytecodeFunction(object):
                     op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
-                op = Instruction(0xfb, [operand]) # SFTODO MAGIC CONSTANT
+                op = Instruction(CASE_BLOCK_OPCODE, [operand])
             self.ops.append(op)
 
     def is_init(self):
@@ -1252,7 +1253,7 @@ def move_caseblocks(bytecode_function):
     new_ops = []
     tail = []
     for i, block in enumerate(blocks):
-        if block_label[i] and len(block) > 1 and block[1].opcode == 0xfb and never_immediate_successor(block[-1].opcode) and blocks[i-1][-1].is_a('BRNCH'): # SFTODO MAGIC CONST CASEBLOCK
+        if block_label[i] and len(block) > 1 and block[1].opcode == CASE_BLOCK_OPCODE and never_immediate_successor(block[-1].opcode) and blocks[i-1][-1].is_a('BRNCH'):
             tail.extend(block)
         else:
             new_ops.extend(block)
