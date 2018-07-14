@@ -677,6 +677,8 @@ class Instruction(object):
             return True
         return False
 
+    # SFTODO: Somewhat confusing name - while what we do is correct, INCBRLE for example is *not*
+    # a conditional branch according to this.
     def is_conditional_branch(self):
         # SFTODO: TRANSITION
         if self.instruction_class == InstructionClass.BRANCH:
@@ -772,30 +774,8 @@ class Instruction(object):
         assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
         return opdict[self.opcode]['data_size']
 
-    def dump(self, rld):
-        # SFTODO TEMP HACK FOR TRANSITION - FINAL SHOULD JUST BE ABLE TO USE OUR OWN VTABLE
-        if self.instruction_class == InstructionClass.CONSTANT:
-            dump_constant(self, rld)
-        elif self.instruction_class == InstructionClass.LOCAL_LABEL:
-            dump_local_label(self, rld)
-        elif self.instruction_class == InstructionClass.BRANCH:
-            dump_branch(self, rld)
-        elif self.instruction_class == InstructionClass.STACK:
-            dump_stack_instruction(self, rld)
-        elif self.instruction_class in (InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
-            dump_immediate_instruction(self, rld)
-        elif self.instruction_class == InstructionClass.MEMORY:
-            dump_memory_instruction(self, rld)
-        elif self.instruction_class == InstructionClass.FRAME:
-            dump_frame_instruction(self, rld)
-        elif self.instruction_class == InstructionClass.STRING:
-            dump_string_instruction(self, rld)
-        elif self.instruction_class == InstructionClass.SEL:
-            dump_sel(self, rld)
-        elif self.instruction_class == InstructionClass.CASE_BLOCK:
-            dump_case_block(self, rld)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+    def dump(self, rld): # SFTODO: RENAME SELF
+        instruction_class_fns[self.instruction_class]['dump'](self, rld)
 
 
 
