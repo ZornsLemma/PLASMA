@@ -1391,12 +1391,11 @@ def block_move(bytecode_function):
     # In order to avoid gratuitously moving chunks of code around (which makes it
     # harder to verify the transformations performed by this valid), we remove any
     # redundant branches to the immediately following instruction first.
-    branch_optimise(bytecode_function)
+    changed = branch_optimise(bytecode_function)
 
     blocks, blocks_metadata, block_label_only = get_blocks2(bytecode_function)
 
     # Merge blocks where possible.
-    changed = False
     for i, block in enumerate(blocks):
         if block and block[-1].opcode == 0x50: # SFTODO MAGIC BRNCH
             target_label = block[-1].operands[0]
