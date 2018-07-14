@@ -717,14 +717,16 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME):
             pass
+        elif self.instruction_class == InstructionClass.MEMORY:
+            self.operands[0].update_used_things(used_things)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
@@ -733,12 +735,30 @@ class Instruction(object):
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0].update_local_labels_used(labels_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def memory(self):
+        if self.instruction_class == InstructionClass.MEMORY:
+            result = set()
+            for i in range(0, self.data_size()):
+                result.add(self.operands[0] + i)
+            return result
+        elif self.instruction_class == InstructionClass.FRAME:
+            result = set()
+            for i in range(0, self.data_size()):
+                result.add(FrameOffset(self.operands[0].value + i))
+            return result
+        else:
+            assert False
+
+    def data_size(self):
+        assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
+        return opdict[self.opcode]['data_size']
 
     def dump(self, rld):
         # SFTODO TEMP HACK FOR TRANSITION - FINAL SHOULD JUST BE ABLE TO USE OUR OWN VTABLE
@@ -752,6 +772,10 @@ class Instruction(object):
             dump_stack_instruction(self, rld)
         elif self.instruction_class in (InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
             dump_immediate_instruction(self, rld)
+        elif self.instruction_class == InstructionClass.MEMORY:
+            dump_memory_instruction(self, rld)
+        elif self.instruction_class == InstructionClass.FRAME:
+            dump_frame_instruction(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -807,6 +831,8 @@ class InstructionClass(enum.Enum):
     STACK = 4 # SFTODO: RENAME IMPLIED?
     IMMEDIATE1 = 5
     IMMEDIATE2 = 6
+    MEMORY = 7
+    FRAME = 8
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -913,78 +939,29 @@ def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
 # TODO: partly by analogy with 6502 instruction terminology
 # TODO: MemoryInstruction -> AbsoluteInstruction
 # TODO: StackInstruction -> ImpliedInstruction
-class MemoryInstruction(Instruction):
-    def __init__(self, opcode, address):
-        # TODO: For the moment we just assume the only kind of address is a label; need to make this work with absolute addresses as well.
-        # SFTODO: Bit crap that we use 'address' generically here but it's also the name of a class representing a fixed absolute address
-        assert isinstance(address, Label) or isinstance(address, ExternalReference) or isinstance(address, Address)
-        super(MemoryInstruction, self).__init__(opcode, [address])
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
-        i += 1
-        label, i = Label.disassemble(disassembly_info, i)
-        return MemoryInstruction(opcode, label), i
+def disassemble_memory_instruction(disassembly_info, i):
+    opcode = disassembly_info.labelled_blob[i]
+    # SFTODO: Validate opcode?? Arguably redundant given how this is called
+    i += 1
+    label, i = Label.disassemble(disassembly_info, i)
+    return Instruction(opcode, [label]), i
 
-    def dump(self, rld):
-        # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or Address (I think; check)
-        acme_dump_label(self.opcode, self.operands, rld)
-
-    def rename_local_labels(self, alias_dict):
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        pass
-
-    def data_size(self):
-        return opdict[self.opcode]['data_size']
-
-    def memory(self):
-        result = set()
-        for i in range(0, self.data_size()):
-            result.add(self.operands[0] + i)
-        return result
-
-    def update_used_things(self, used_things):
-        self.operands[0].update_used_things(used_things)
+def dump_memory_instruction(self, rld): # SFTODO RENAME SELF
+    # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or Address (I think; check)
+    acme_dump_label(self.opcode, self.operands, rld)
 
 
-# SFTODO: Not sure about this, but let's see how it goes
-class FrameInstruction(Instruction):
-    def __init__(self, opcode, frame_offset):
-        # SFTODO: WE SHOULD PROBABLY ASSERT - MAYBE USING opdict - THAT THIS IS A FRAME INSTRUCTION
-        assert isinstance(frame_offset, FrameOffset)
-        super(FrameInstruction, self).__init__(opcode, [frame_offset])
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet - OK, I am now thinking it does have value, since memory() returns a set of addresses and these can be mixed together from various instructions, so having a 'type' is handy
-        frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
-        return FrameInstruction(opcode, frame_offset), i+2
+def disassemble_frame_instruction(disassembly_info, i):
+    opcode = disassembly_info.labelled_blob[i]
+    # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet - OK, I am now thinking it does have value, since memory() returns a set of addresses and these can be mixed together from various instructions, so having a 'type' is handy
+    frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
+    return Instruction(opcode, [frame_offset]), i+2
 
-    def dump(self, rld):
-        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+def dump_frame_instruction(self, rld): # SFTODO RENAME SELF
+    print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
 
-    def rename_local_labels(self, alias_dict):
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        pass
-
-    def data_size(self):
-        return opdict[self.opcode]['data_size']
-
-    def memory(self):
-        result = set()
-        for i in range(0, self.data_size()):
-            result.add(FrameOffset(self.operands[0].value + i))
-        return result
-
-    def update_used_things(self, used_things):
-        pass
 
 
 class StringInstruction(Instruction):
@@ -1020,6 +997,8 @@ instruction_class_fns = {
         InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction},
         InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction},
         InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction},
+        InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction},
+        InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction},
 }
 
 # TODO: Check this table is complete and correct
@@ -1045,8 +1024,8 @@ opdict = {
     0x20: {'opcode': 'MINUS1', 'class': InstructionClass.CONSTANT},
     0x22: {'opcode': 'BREQ', 'class': InstructionClass.BRANCH},
     0x24: {'opcode': 'BRNE', 'class': InstructionClass.BRANCH},
-    0x26: {'opcode': 'LA', 'dis': MemoryInstruction.disassemble},
-    0x28: {'opcode': 'LLA', 'dis': FrameInstruction.disassemble},
+    0x26: {'opcode': 'LA', 'class': InstructionClass.MEMORY},
+    0x28: {'opcode': 'LLA', 'class': InstructionClass.FRAME},
     0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
     0x2c: {'opcode': 'CW', 'class': InstructionClass.CONSTANT},
     0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
@@ -1067,7 +1046,7 @@ opdict = {
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
     0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
     0x52: {'opcode': 'SEL', 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
-    0x54: {'opcode': 'CALL', 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
+    0x54: {'opcode': 'CALL', 'class': InstructionClass.MEMORY}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.STACK},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
     0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.STACK},
@@ -1075,20 +1054,20 @@ opdict = {
     0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
     0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.STACK},
     0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.STACK},
-    0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
-    0x6c: {'opcode': 'DLB', 'is_dup_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0x6e: {'opcode': 'DLW', 'is_dup_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
+    0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
+    0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
+    0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
+    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0x6c: {'opcode': 'DLB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
+    0x6e: {'opcode': 'DLW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
     0x70: {'opcode': 'SB', 'is_store': True, 'class': InstructionClass.STACK},
     0x72: {'opcode': 'SW', 'is_store': True, 'class': InstructionClass.STACK},
-    0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
-    0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
+    0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
+    0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
+    0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
+    0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
+    0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
     0x80: {'opcode': 'LNOT', 'class': InstructionClass.STACK},
     0x82: {'opcode': 'ADD', 'class': InstructionClass.STACK},
     0x84: {'opcode': 'SUB', 'class': InstructionClass.STACK},
@@ -1111,14 +1090,14 @@ opdict = {
     0xa8: {'opcode': 'DECBRGE', 'class': InstructionClass.BRANCH},
     0xac: {'opcode': 'BRAND', 'class': InstructionClass.BRANCH},
     0xae: {'opcode': 'BROR', 'class': InstructionClass.BRANCH},
-    0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0xb6: {'opcode': 'ADDAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
-    0xb8: {'opcode': 'IDXLB', 'is_load': True, 'data_size': 1, 'dis': FrameInstruction.disassemble},
-    0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'dis': FrameInstruction.disassemble},
-    0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'dis': MemoryInstruction.disassemble},
-    0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'dis': MemoryInstruction.disassemble},
+    0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
+    0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
+    0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
+    0xb6: {'opcode': 'ADDAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0xb8: {'opcode': 'IDXLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
+    0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
+    0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
+    0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
 }
 
 opcode = {v['opcode']: k for (k, v) in opdict.items()}
@@ -1558,7 +1537,7 @@ def peephole_optimise(bytecode_function):
                              0x78: 0x7c,
                              0x74: 0x6c,
                              0x76: 0x6e}
-            bytecode_function.ops[i] = instruction.__class__(dup_for_store[instruction.opcode], instruction.operands[0])
+            bytecode_function.ops[i] = instruction.__class__(dup_for_store[instruction.opcode], instruction.operands)
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x" and variations
@@ -1568,7 +1547,7 @@ def peephole_optimise(bytecode_function):
                              0x78: 0x7c,
                              0x74: 0x6c,
                              0x76: 0x6e}
-            bytecode_function.ops[i+1] = next_instruction.__class__(dup_for_store[next_instruction.opcode], next_instruction.operands[0])
+            bytecode_function.ops[i+1] = Instruction(dup_for_store[next_instruction.opcode], next_instruction.operands)
             bytecode_function.ops[i+2] = NopInstruction()
             changed = True
         elif instruction.is_simple_stack_push() and next_instruction.is_a('DROP'):
