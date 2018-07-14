@@ -410,7 +410,7 @@ def rename_local_labels(offset, alias):
 # SFTODO: I think I want to rename this LocalLabel, but let's not worry about that just yet.
 # SFTODO: May be worth jumping through some Python hoops (I think essentially involving
 # deriving from namedtuple and setting slots to empty) to make this truly immutable, to avoid
-# the risk ofr confusing myself (given that the same Offset object may be shared by multiple
+# the risk of confusing myself (given that the same Offset object may be shared by multiple
 # instructions and changes are likely to have the wrong effect).
 class Offset(object):
     def __init__(self, value):
@@ -469,46 +469,6 @@ class Offset(object):
         return local_label, i+2
 
 
-
-# SFTODO: It might be nice if this derived from Offset but not at all sure about that
-class CaseBlockOffset(object):
-    def __init__(self, offset):
-        self.offset = offset
-
-    def __repr__(self):
-        return "CaseBlockOffset(%r)" % (self.offset,)
-
-    def __str__(self):
-        return str(self.offset)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.offset == other.offset
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    # TODO: Does this need a hash(), or do other objects not need it?
-
-    @property
-    def value(self): # SFTODO BIT OF A HACKY TO MAKE THIS USABLE WITH acme_dump_branch
-        return self.offset.value
-
-    def rename_local_labels(self, alias):
-        self.offset = rename_local_labels(self.offset, alias)
-
-    def update_local_labels_used(self, labels):
-        self.offset.update_local_labels_used(labels)
-
-    @classmethod
-    def disassemble(cls, di, i):
-        cbo = di.labelled_blob.read_u16(i)
-        j = i + cbo
-        offset, i = Offset.disassemble(di, i)
-        di.special[j] = True # SFTODO HACKY?
-        return CaseBlockOffset(offset), i
 
 
 class CaseBlock(object):
@@ -742,7 +702,7 @@ class Instruction(object):
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
-            self.operands[0].offset = rename_local_labels(self.operands[0].offset, alias_dict)
+            self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
             self.operands[0].rename_local_labels(alias_dict)
         else:
@@ -854,9 +814,11 @@ def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
     acme_dump_branch(self.opcode, self.operands)
 
 
-def disassemble_sel(disassembly_info, i):
-    case_block_offset, i = CaseBlockOffset.disassemble(disassembly_info, i+1)
-    return Instruction('SEL', [case_block_offset]), i
+def disassemble_sel(di, i):
+    i += 1
+    di.special[i + di.labelled_blob.read_u16(i)] = True
+    offset, i = Offset.disassemble(di, i)
+    return Instruction('SEL', [offset]), i
 
 def dump_sel(self, rld):
     # SFTODO: Fold acme_dump_branch() in here?
@@ -950,7 +912,7 @@ instruction_class_fns = {
         InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction, 'operands': 1, 'operand_type': SFTODOBASE},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
-        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': CaseBlockOffset},
+        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': Offset},
         InstructionClass.CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
 }
 
