@@ -1631,6 +1631,7 @@ def load_to_dup(bytecode_function, straightline_ops):
                 if len(loads_access.intersection(stores_access)) == 0:
                     for k in range(j, i+1, -1):
                         straightline_ops[k] = straightline_ops[k-1]
+                    # SFTODO: This code is obviously never exercised as I have removed StackInstruction...
                     straightline_ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
                     changed = True
 
@@ -1716,7 +1717,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
             if store_instruction.is_dup_store():
                 straightline_ops[i] = NopInstruction()
             else:
-                straightline_ops[i] = Instruction(0x30, []) # SFTODO MAGIC CONSTANT DROP
+                straightline_ops[i] = Instruction('DROP', [])
             changed = True
 
     return [op for op in straightline_ops if not op.instruction_class == InstructionClass.NOP], changed
