@@ -717,7 +717,7 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.MEMORY:
             self.operands[0].update_used_things(used_things)
@@ -726,7 +726,7 @@ class Instruction(object):
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
@@ -735,7 +735,7 @@ class Instruction(object):
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0].update_local_labels_used(labels_used)
@@ -776,6 +776,8 @@ class Instruction(object):
             dump_memory_instruction(self, rld)
         elif self.instruction_class == InstructionClass.FRAME:
             dump_frame_instruction(self, rld)
+        elif self.instruction_class == InstructionClass.STRING:
+            dump_string_instruction(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -833,6 +835,7 @@ class InstructionClass(enum.Enum):
     IMMEDIATE2 = 6
     MEMORY = 7
     FRAME = 8
+    STRING = 9
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -964,29 +967,13 @@ def dump_frame_instruction(self, rld): # SFTODO RENAME SELF
 
 
 
-class StringInstruction(Instruction):
-    def __init__(self, s):
-        # SFTODO: NOT SURE IF WE WANT TO RETAIN THE 'String' CLASS OR FOLD IT IN HERE, BUT LET'S KEEP IT MINIMAL CHANGE FOR NOW
-        assert isinstance(s, String)
-        super(StringInstruction, self).__init__(0x2e, [s])
+def disassemble_string_instruction(disassembly_info, i):
+    s, i = String.disassemble(disassembly_info, i+1)
+    return Instruction(0x2e, [s]), i
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i):
-        s, i = String.disassemble(disassembly_info, i+1)
-        return StringInstruction(s), i
-
-    def dump(self, rld):
-        # SFTODO: Fold acme_dump_cs in here
-        acme_dump_cs(self.opcode, self.operands)
-
-    def rename_local_labels(self, alias_dict):
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        pass
-
-    def update_used_things(self, used_things):
-        pass
+def dump_string_instruction(self, rld): # SFTODO RENAME SELF
+    # SFTODO: Fold acme_dump_cs in here
+    acme_dump_cs(self.opcode, self.operands)
 
 
 
@@ -999,6 +986,7 @@ instruction_class_fns = {
         InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction},
         InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction},
+        InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction},
 }
 
 # TODO: Check this table is complete and correct
@@ -1028,7 +1016,7 @@ opdict = {
     0x28: {'opcode': 'LLA', 'class': InstructionClass.FRAME},
     0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
     0x2c: {'opcode': 'CW', 'class': InstructionClass.CONSTANT},
-    0x2e: {'opcode': 'CS', 'dis': StringInstruction.disassemble},
+    0x2e: {'opcode': 'CS', 'class': InstructionClass.STRING},
     0x30: {'opcode': 'DROP', 'class': InstructionClass.STACK},
     0x32: {'opcode': 'DROP2', 'class': InstructionClass.STACK},
     0x34: {'opcode': 'DUP', 'class': InstructionClass.STACK},
