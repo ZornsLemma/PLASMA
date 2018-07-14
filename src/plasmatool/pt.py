@@ -617,7 +617,7 @@ class DisassemblyInfo(object):
 class Instruction(object):
     conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
 
-    def __init__(self, opcode, operands):
+    def __init__(self, opcode, operands = None):
         self.set(opcode, operands)
 
     def set(self, opcode2, operands = None): # SFTODO OPCODE2 - CRAP
@@ -626,13 +626,13 @@ class Instruction(object):
             self._opcode = opcode2._opcode
             self.operands = opcode2.operands
         else:
-            assert isinstance(operands, list)
+            assert operands is None or isinstance(operands, list)
             if isinstance(opcode2, str):
                 opcode2 = opcode[opcode2]
             else:
                 assert isinstance(opcode2, int)
             self._opcode = opcode2
-            self.operands = operands
+            self.operands = operands if operands else []
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -720,10 +720,10 @@ class Instruction(object):
             return InstructionClass.LOCAL_LABEL
         elif self.opcode == NOP_OPCODE:
             return InstructionClass.NOP
-        elif self.opcode == 0xfb: # SFTODO MAGIC
+        elif self.opcode == CASE_BLOCK_OPCODE:
             return InstructionClass.CASE_BLOCK
         if self.opcode & 0x1 == 1:
-            return 999 # SFTODO!!!
+            assert False
         SFTODO = opdict[self.opcode].get('class', None)
         if SFTODO:
             return SFTODO
@@ -1397,7 +1397,7 @@ def block_move(bytecode_function):
 
     # Merge blocks where possible.
     for i, block in enumerate(blocks):
-        if block and block[-1].opcode == 0x50: # SFTODO MAGIC BRNCH
+        if block and block[-1].is_a('BRNCH'):
             target_label = block[-1].operands[0]
             if target_label in blocks_metadata:
                 target_block_index = blocks_metadata.index(target_label)
@@ -1485,7 +1485,7 @@ def tail_move(bytecode_function):
                     if candidate:
                         new_ops[i-1] = NopInstruction()
             i += 1
-        bytecode_function.ops = [op for op in new_ops if op.opcode != 0xf1]
+        bytecode_function.ops = [op for op in new_ops if op.opcode != NOP_OPCODE]
 
     return changed
 
@@ -1509,11 +1509,11 @@ def peephole_optimise(bytecode_function):
         next_next_instruction = bytecode_function.ops[i+2]
         # DROP:DROP -> DROP2
         if instruction.is_a('DROP') and next_instruction.is_a('DROP'):
-            bytecode_function.ops[i] = Instruction('DROP2', [])
+            bytecode_function.ops[i] = Instruction('DROP2')
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
-        elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_local_label() and instruction.operands[0] == next_next_instruction.operands[0]: # SFTODO MAGIC BRNCH
+        elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_local_label() and instruction.operands[0] == next_next_instruction.operands[0]:
             bytecode_function.ops[i].invert_condition()
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
@@ -1543,8 +1543,8 @@ def peephole_optimise(bytecode_function):
 
         i += 1
     bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
-    changed = changed or any(op.opcode == 0xf1 for op in bytecode_function.ops) # SFTODO MAGIC
-    bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != 0xf1]
+    changed = changed or any(op.opcode == NOP_OPCODE for op in bytecode_function.ops)
+    bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != NOP_OPCODE]
     return changed
 
 
@@ -1717,7 +1717,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
             if store_instruction.is_dup_store():
                 straightline_ops[i] = NopInstruction()
             else:
-                straightline_ops[i] = Instruction('DROP', [])
+                straightline_ops[i] = Instruction('DROP')
             changed = True
 
     return [op for op in straightline_ops if not op.instruction_class == InstructionClass.NOP], changed
