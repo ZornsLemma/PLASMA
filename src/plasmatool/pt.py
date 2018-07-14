@@ -42,7 +42,11 @@ def dci_bytes(s):
 
 # TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
 
-class Label(object):
+# TODO: Not sure about this base class, it's just here to allow assertions on type of operands at the moment!
+class SFTODOBASE(object):
+    pass
+
+class Label(SFTODOBASE):
     __next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
@@ -122,7 +126,7 @@ class Label(object):
         else:
             return Address.disassemble(di, i)
 
-class ExternalReference(object):
+class ExternalReference(SFTODOBASE):
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
@@ -336,7 +340,7 @@ class FrameOffset(Byte):
 
 
 # TODO: Perhaps rename this FixedAddress or AbsoluteAddress? Not too sure about the latter; in some sense a Label or ExternalReference also identifies an absolute address, it's just one which isn't known until the VM has relocated the code.
-class Address(object):
+class Address(SFTODOBASE):
     def __init__(self, value):
         self.value = value
 
@@ -589,7 +593,7 @@ def acme_dump_cs(opcode, operands):
         s = s[8:]
         print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
-def acme_dump_caseblock(opcode, operands):
+def acme_dump_case_block(opcode, operands):
     table = operands[0].table
     print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),))
     for value, offset in table:
@@ -620,7 +624,7 @@ class Instruction(object):
     def __init__(self, opcode, operands = None):
         self.set(opcode, operands)
 
-    def set(self, opcode2, operands = None): # SFTODO OPCODE2 - CRAP
+    def set(self, opcode2, operands = None): # SFTODO OPCODE2 - CRAP NAME TO AVOID CLASH
         if isinstance(opcode2, Instruction):
             assert not operands
             self._opcode = opcode2._opcode
@@ -633,6 +637,13 @@ class Instruction(object):
                 assert isinstance(opcode2, int)
             self._opcode = opcode2
             self.operands = operands if operands else []
+        ic = instruction_class_fns[self.instruction_class]
+        # SFTODO: Might be nice if (perhaps via a property or something) we performed the
+        # following validation after any direct update to the operands as well - code just
+        # updates self.operands directly at the moment without this class's code getting
+        # involved.
+        assert len(self.operands) == ic['operands']
+        assert all(isinstance(operand, ic['operand_type']) for operand in self.operands)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -861,7 +872,7 @@ def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
 
 
 def dump_case_block(self, rld): # SFTODO RENAME SELF
-    acme_dump_caseblock(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
+    acme_dump_case_block(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
 
 
 
@@ -962,16 +973,18 @@ def dump_string_instruction(self, rld): # SFTODO RENAME SELF
 
 # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
 instruction_class_fns = {
-        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant},
-        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch},
-        InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction},
-        InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction},
-        InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction},
-        InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction},
-        InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction},
-        InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction},
-        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel},
-        InstructionClass.CASE_BLOCK: {'dump': dump_case_block},
+        InstructionClass.NOP: {'operands': 0},
+        InstructionClass.LOCAL_LABEL: {'dump': dump_local_label, 'operands': 1, 'operand_type': Offset},
+        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
+        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Offset},
+        InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction, 'operands': 0},
+        InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
+        InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
+        InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction, 'operands': 1, 'operand_type': SFTODOBASE},
+        InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
+        InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
+        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': CaseBlockOffset},
+        InstructionClass.CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
 }
 
 # TODO: Check this table is complete and correct
@@ -1245,7 +1258,7 @@ def remove_dead_code(bytecode_function):
 # correct and mostly harmless to move any isolated CASEBLOCK+otherwise instruction block to
 # the end of the function, but it would introduce unnecessary differences between the input
 # and output.)
-def move_caseblocks(bytecode_function):
+def move_case_blocks(bytecode_function):
     blocks, block_label = get_blocks(bytecode_function)
     new_ops = []
     tail = []
@@ -1911,7 +1924,7 @@ for bytecode_function in used_things_ordered:
                 assert SFTODO(bytecode_function.ops)
                 result.append(remove_dead_code(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
-                result.append(move_caseblocks(bytecode_function))
+                result.append(move_case_blocks(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
                 result.append(peephole_optimise(bytecode_function))
                 assert SFTODO(bytecode_function.ops)
