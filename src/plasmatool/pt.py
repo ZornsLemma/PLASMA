@@ -335,7 +335,9 @@ class Byte(object):
 
 
 class FrameOffset(Byte):
-    pass
+    def __add__(self, rhs):
+        assert isinstance(rhs, int)
+        return FrameOffset(self.value + rhs)
 
 
 
@@ -758,15 +760,10 @@ class Instruction(object):
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def memory(self):
-        if self.instruction_class == InstructionClass.MEMORY:
+        if self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME):
             result = set()
             for i in range(0, self.data_size()):
                 result.add(self.operands[0] + i)
-            return result
-        elif self.instruction_class == InstructionClass.FRAME:
-            result = set()
-            for i in range(0, self.data_size()):
-                result.add(FrameOffset(self.operands[0].value + i))
             return result
         else:
             assert False
