@@ -752,11 +752,7 @@ class Instruction(object):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
             pass
-        elif self.instruction_class == InstructionClass.BRANCH:
-            self.operands[0].update_local_labels_used(labels_used)
-        elif self.instruction_class == InstructionClass.SEL:
-            self.operands[0].update_local_labels_used(labels_used)
-        elif self.instruction_class == InstructionClass.CASE_BLOCK:
+        elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             self.operands[0].update_local_labels_used(labels_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
