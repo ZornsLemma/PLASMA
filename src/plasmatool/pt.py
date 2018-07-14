@@ -656,7 +656,7 @@ class Instruction(object):
         return any(self._opcode == opcode[mnemonic] for mnemonic in mnemonics)
 
     def is_local_label(self):
-        return self.opcode == 0xff # SFTODO MAGIC CONSTANT
+        return self.opcode == LOCAL_LABEL_OPCODE
 
     def is_branch(self):
         # SFTODO: TRANSITION
@@ -682,7 +682,7 @@ class Instruction(object):
 
     def is_simple_store(self):
         # TODO: This is a bit of a hack but let's see how it goes
-        return self.is_store() and self.opcode not in (0x70, 0x72) # SFTODO MAGIC SB, SW
+        return self.is_store() and not self.is_a('SB', 'SW')
 
     def is_dup_store(self):
         if self.opcode % 2 == 1: # SFTODO: BIT OF A HACK
@@ -1432,7 +1432,7 @@ def tail_move(bytecode_function):
     candidates = {}
     for i in range(len(bytecode_function.ops)):
         instruction = bytecode_function.ops[i]
-        if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
+        if i > 0 and instruction.is_a('BRNCH'):
             previous_instruction = bytecode_function.ops[i-1]
             if never_immediate_successor(previous_instruction.opcode):
                 # This branch can never actually be reached; it will be optimised away
@@ -1478,7 +1478,7 @@ def tail_move(bytecode_function):
         i = 0
         while i < len(new_ops):
             instruction = new_ops[i]
-            if i > 0 and instruction.opcode == 0x50: # SFTODO MAGIC BRNCH
+            if i > 0 and instruction.is_a('BRNCH'):
                 label = instruction.operands[0]
                 if label in candidates:
                     candidate = candidates[label]
@@ -1632,7 +1632,7 @@ def load_to_dup(bytecode_function, straightline_ops):
                     for k in range(j, i+1, -1):
                         straightline_ops[k] = straightline_ops[k-1]
                     # SFTODO: This code is obviously never exercised as I have removed StackInstruction...
-                    straightline_ops[i+1] = StackInstruction(0x34) # SFTODO MAGIC DUP
+                    straightline_ops[i+1] = Instruction('DUP')
                     changed = True
 
     return straightline_ops, changed
