@@ -717,14 +717,14 @@ class Instruction(object):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
             pass
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
@@ -733,7 +733,7 @@ class Instruction(object):
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0].update_local_labels_used(labels_used)
@@ -750,6 +750,8 @@ class Instruction(object):
             dump_branch(self, rld)
         elif self.instruction_class == InstructionClass.STACK:
             dump_stack_instruction(self, rld)
+        elif self.instruction_class in (InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2):
+            dump_immediate_instruction(self, rld)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -803,6 +805,8 @@ class InstructionClass(enum.Enum):
     NOP = 2
     BRANCH = 3
     STACK = 4 # SFTODO: RENAME IMPLIED?
+    IMMEDIATE1 = 5
+    IMMEDIATE2 = 6
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
@@ -881,49 +885,29 @@ def dump_stack_instruction(self, rld): # SFTODO: RENAME SELF
 
 
 
-class ImmediateInstruction(Instruction):
-    def __init__(self, opcode, operands):
-        assert isinstance(operands, list)
-        assert len(operands) > 0
-        # SFTODO: We may or may not want to retain the Byte type rather than using raw ints eventually but let's keep it for now to minimise changes
-        assert all(isinstance(x, Byte) for x in operands)
-        super(ImmediateInstruction, self).__init__(opcode, operands)
+def disassemble_immediate_instruction(disassembly_info, i, operand_count):
+    opcode = disassembly_info.labelled_blob[i]
+    # SFTODO: Validate opcode?? Arguably redundant given how this is called
+    i += 1
+    operands = []
+    for j in range(operand_count):
+        operand, i = Byte.disassemble(disassembly_info, i)
+        operands.append(operand)
+    return Instruction(opcode, operands), i
 
-    @classmethod
-    def disassemble(cls, disassembly_info, i, operand_count):
-        opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
-        i += 1
-        operands = []
-        for j in range(operand_count):
-            operand, i = Byte.disassemble(disassembly_info, i)
-            operands.append(operand)
-        return ImmediateInstruction(opcode, operands), i
+def disassemble_immediate_instruction1(disassembly_info, i):
+    return disassemble_immediate_instruction(disassembly_info, i, 1)
 
-    @classmethod
-    def disassemble1(cls, disassembly_info, i):
-        return cls.disassemble(disassembly_info, i, 1)
+def disassemble_immediate_instruction2(disassembly_info, i):
+    return disassemble_immediate_instruction(disassembly_info, i, 2)
 
-    @classmethod
-    def disassemble2(cls, disassembly_info, i):
-        return cls.disassemble(disassembly_info, i, 2)
-
-    def dump(self, rld):
-        if len(self.operands) == 1:
-            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
-        elif len(self.operands) == 2:
-            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (self.opcode, self.operands[0].value, self.operands[1].value, opdict[self.opcode]['opcode'], self.operands[0].value, self.operands[1].value))
-        else:
-            assert False
-
-    def rename_local_labels(self, alias_dict):
-        pass
-
-    def update_local_labels_used(self, labels_used):
-        pass
-
-    def update_used_things(self, used_things):
-        pass
+def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
+    if len(self.operands) == 1:
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+    elif len(self.operands) == 2:
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (self.opcode, self.operands[0].value, self.operands[1].value, opdict[self.opcode]['opcode'], self.operands[0].value, self.operands[1].value))
+    else:
+        assert False
 
 
 # TODO: partly by analogy with 6502 instruction terminology
@@ -1033,7 +1017,9 @@ class StringInstruction(Instruction):
 instruction_class_fns = {
         InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant},
         InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch},
-        InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction}
+        InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction},
+        InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction},
+        InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction},
 }
 
 # TODO: Check this table is complete and correct
@@ -1067,10 +1053,10 @@ opdict = {
     0x30: {'opcode': 'DROP', 'class': InstructionClass.STACK},
     0x32: {'opcode': 'DROP2', 'class': InstructionClass.STACK},
     0x34: {'opcode': 'DUP', 'class': InstructionClass.STACK},
-    0x38: {'opcode': 'ADDI', 'dis': ImmediateInstruction.disassemble1},
-    0x3a: {'opcode': 'SUBI', 'dis': ImmediateInstruction.disassemble1},
-    0x3c: {'opcode': 'ANDI', 'dis': ImmediateInstruction.disassemble1},
-    0x3e: {'opcode': 'ORI', 'dis': ImmediateInstruction.disassemble1},
+    0x38: {'opcode': 'ADDI', 'class': InstructionClass.IMMEDIATE1},
+    0x3a: {'opcode': 'SUBI', 'class': InstructionClass.IMMEDIATE1},
+    0x3c: {'opcode': 'ANDI', 'class': InstructionClass.IMMEDIATE1},
+    0x3e: {'opcode': 'ORI', 'class': InstructionClass.IMMEDIATE1},
     0x40: {'opcode': 'ISEQ', 'class': InstructionClass.STACK},
     0x42: {'opcode': 'ISNE', 'class': InstructionClass.STACK},
     0x44: {'opcode': 'ISGT', 'class': InstructionClass.STACK},
@@ -1083,9 +1069,9 @@ opdict = {
     0x52: {'opcode': 'SEL', 'dis': SelInstruction.disassemble}, # SFTODO: THIS IS GOING TO NEED MORE CARE, BECAUSE THE OPERAND IDENTIFIES A JUMP TABLE WHICH WE WILL NEED TO HANDLE CORRECTLY WHEN DISASSEMBLY REACHES IT
     0x54: {'opcode': 'CALL', 'dis': MemoryInstruction.disassemble}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.STACK},
-    0x58: {'opcode': 'ENTER', 'dis': ImmediateInstruction.disassemble2},
+    0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
     0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.STACK},
-    0x5a: {'opcode': 'LEAVE', 'nis': True, 'dis': ImmediateInstruction.disassemble1},
+    0x5a: {'opcode': 'LEAVE', 'nis': True, 'class': InstructionClass.IMMEDIATE1},
     0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
     0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.STACK},
     0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.STACK},
