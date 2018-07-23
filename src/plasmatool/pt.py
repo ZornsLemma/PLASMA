@@ -1,7 +1,6 @@
 import abc
 import collections
 import copy # SFTODO TEMP
-import enum
 import itertools
 import struct
 import sys
@@ -776,7 +775,7 @@ def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
         print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
 
 
-class InstructionClass(enum.Enum):
+class InstructionClass:
     CONSTANT = 0
     LOCAL_LABEL = 1
     NOP = 2
