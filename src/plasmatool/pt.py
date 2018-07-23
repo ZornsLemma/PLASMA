@@ -1118,7 +1118,7 @@ def remove_dead_code(bytecode_function):
 
 # A CASEBLOCK instruction is followed by the 'otherwise' instructions. If the 'otherwise'
 # instructions end with a terminator, the CASEBLOCK+otherwise instructions form an isolated
-# block which can be moved around freely. If such a block is predeced by a BRNCH, we move it
+# block which can be moved around freely. If such a block is preceded by a BRNCH, we move it
 # to the end of the function - this may allow the BRNCH to be optimised away. (It would be
 # correct and mostly harmless to move any isolated CASEBLOCK+otherwise instruction block to
 # the end of the function, but it would introduce unnecessary differences between the input
