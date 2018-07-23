@@ -1068,7 +1068,6 @@ def branch_optimise2(bytecode_function):
 
 # If we have any kind of branch whose target is a BRNCH, replace the first branch's target with the
 # BRNCH's target (i.e. just branch directly to the final destination in the first branch).
-# TODO: This should also treat CASEBLOCK targets as BRNCH opcodes - which they kind of are. There is at least one case in self-hosted compiled where such a target could be snapped, and it may also then allow the intermediate branch (which follows another unconditional branch) to be removed by the dead code optimisation.
 def branch_optimise3(bytecode_function):
     changed = False
     targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
