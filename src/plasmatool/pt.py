@@ -375,8 +375,7 @@ class Address(SFTODOBASE):
 
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
-# TODO: Make bits default to 16 and don't pass it in everywhere?
-def sign_extend(value, bits):
+def sign_extend(value, bits=16):
     sign_bit = 1 << (bits - 1)
     return (value & (sign_bit - 1)) - (value & sign_bit)
 
@@ -448,7 +447,7 @@ class Offset(object):
         if not current_pos:
             current_pos = i
         value = di.labelled_blob.read_u16(i)
-        value = sign_extend(value, 16)
+        value = sign_extend(value)
         target = i + value
         global local_label_count
         local_label = Offset('_L%04d' % (local_label_count,))
@@ -754,7 +753,7 @@ def disassemble_constant(disassembly_info, i):
     elif opcode == 0x2a: # CB opcode
         return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
     elif opcode == 0x2c: # CW opcode
-        return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1), 16)]), i+3
+        return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
     elif opcode == 0x5e: # CFFB opcode
         return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
     else:
