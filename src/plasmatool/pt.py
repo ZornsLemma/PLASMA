@@ -1251,7 +1251,7 @@ def block_deduplicate(bytecode_function):
 # label and see if we can move those blocks to avoid the need to BRNCH to them.
 def block_move(bytecode_function):
     # In order to avoid gratuitously moving chunks of code around (which makes it
-    # harder to verify the transformations performed by this valid), we remove any
+    # harder to verify the transformations performed by this function are valid), we remove any
     # redundant branches to the immediately following instruction first.
     changed = branch_optimise(bytecode_function)
 
