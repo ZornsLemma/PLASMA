@@ -1031,8 +1031,6 @@ def local_label_deduplicate(bytecode_function):
 # Remove a BRNCH to an immediately following label.
 def branch_optimise(bytecode_function):
     changed = False
-    # TODO: I don't think it occurs much, but potentially we could replace BRTRU or BRFLS
-    # to an immediately following label with a DROP.
     new_ops = []
     for i, instruction in enumerate(bytecode_function.ops):
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
