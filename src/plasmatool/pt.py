@@ -125,7 +125,7 @@ class Label(SFTODOBASE, ComparisonMixin):
     def disassemble(cls, di, i):
         # SFTODO: Perhaps a bit crap that this is Label.disassemble() but it doesn't
         # always return a Label...
-        label = di.references[i]
+        label = di.labelled_blob.references[i]
         if label:
             return label, i+2
         else:
@@ -519,7 +519,6 @@ class DisassemblyInfo(object):
     def __init__(self, bytecode_function, labelled_blob):
         self.bytecode_function = bytecode_function
         self.labelled_blob = labelled_blob
-        self.references = labelled_blob.references # SFTODO!? IF THIS LIVES, WE CAN ACCESS IT VIA SELF.LABELLED_BLOB
         self.local_target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
         self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
         self.op_offset = []
