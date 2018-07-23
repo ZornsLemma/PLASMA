@@ -41,11 +41,26 @@ def dci_bytes(s):
 
 # TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
 
+# SFTODO: Experimental
+class ComparisonMixin(object):
+    def __hash__(self):
+        return hash(self.keys())
+
+    def __eq__(self, other):
+        if type(self) == type(other):
+            return self.keys() == other.keys()
+        return False
+
+    def __ne__(self, other):
+        return not self == other
+
+
+
 # TODO: Not sure about this base class, it's just here to allow assertions on type of operands at the moment!
 class SFTODOBASE(object):
     pass
 
-class Label(SFTODOBASE):
+class Label(SFTODOBASE, ComparisonMixin):
     __next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
@@ -65,17 +80,8 @@ class Label(SFTODOBASE):
     def set_owner(self, owner):
         self.owner = owner
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.name == other.name
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.name)
+    def keys(self):
+        return (self.name,)
 
     def __add__(self, rhs):
         # SFTODO: This is a bit odd. We need this for memory(). However, I *think* that
@@ -125,22 +131,13 @@ class Label(SFTODOBASE):
         else:
             return Address.disassemble(di, i)
 
-class ExternalReference(SFTODOBASE):
+class ExternalReference(SFTODOBASE, ComparisonMixin):
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.external_name == other.external_name and self.offset == other.offset
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash((self.external_name, self.offset))
+    def keys(self):
+        return (self.external_name, self.offset)
 
     def __add__(self, rhs):
         assert isinstance(rhs, int)
@@ -302,7 +299,7 @@ class LabelledBlob(object):
         print("; SFTODO BLOB END")
 
 
-class Byte(object):
+class Byte(ComparisonMixin):
     def __init__(self, value):
         self.value = value
 
@@ -312,17 +309,8 @@ class Byte(object):
     def __repr__(self):
         return "Byte(%d)" % (self.value,)
 
-    def __hash__(self):
-        return hash(self.value)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value == other.value
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def keys(self):
+        return (self.value,)
 
     def acme(self):
         return "$%02X" % (self.value,)
@@ -341,24 +329,15 @@ class FrameOffset(Byte):
 
 
 # TODO: Perhaps rename this FixedAddress or AbsoluteAddress? Not too sure about the latter; in some sense a Label or ExternalReference also identifies an absolute address, it's just one which isn't known until the VM has relocated the code.
-class Address(SFTODOBASE):
+class Address(SFTODOBASE, ComparisonMixin):
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
         return "Address($%04X)" % (self.value,)
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value == other.value
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.value)
+    def __keys__(self):
+        return (self.value,)
 
     def __add__(self, rhs):
         assert isinstance(rhs, int)
@@ -402,7 +381,7 @@ def rename_local_labels(offset, alias):
 # deriving from namedtuple and setting slots to empty) to make this truly immutable, to avoid
 # the risk of confusing myself (given that the same Offset object may be shared by multiple
 # instructions and changes are likely to have the wrong effect).
-class Offset(object):
+class Offset(ComparisonMixin):
     def __init__(self, value):
         assert isinstance(value, str)
         self._value = value
@@ -413,18 +392,8 @@ class Offset(object):
     def __repr__(self):
         return "Offset(%s)" % (self._value,)
 
-    def __hash__(self):
-        return hash(self._value)
-
-    def __eq__(self, other):
-        assert isinstance(self._value, str) # SFTODO TEMP
-        if isinstance(other, self.__class__):
-            return self._value == other._value
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def keys(self):
+        return (self._value,)
 
     def rename_local_labels(self, alias):
         assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_local_labels ABOVE
@@ -461,23 +430,15 @@ class Offset(object):
 
 
 
-class CaseBlock(object):
+class CaseBlock(ComparisonMixin):
     def __init__(self, table):
         self.table = table
 
     def __repr__(self):
         return "CaseBlock(%d)" % (len(self.table),)
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.table == other.table
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    # TODO: Does this need a hash(), or do other objects not need it?
+    def keys(self):
+        return (self.table,)
 
     def rename_local_labels(self, alias):
         for i, (value, offset) in enumerate(self.table):
@@ -499,21 +460,15 @@ class CaseBlock(object):
         return CaseBlock(table), i+1+4*count
 
 
-class String(object):
+class String(ComparisonMixin):
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
         return "String(%r)" % (self.value,)
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.value == other.value
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def keys(self):
+        return (self.value,)
 
     @classmethod
     def disassemble(cls, di, i):
@@ -571,7 +526,7 @@ class DisassemblyInfo(object):
 
 
 # TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
-class Instruction(object):
+class Instruction(ComparisonMixin):
     conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
 
     def __init__(self, opcode, operands = None):
@@ -598,16 +553,8 @@ class Instruction(object):
         assert len(self.operands) == ic['operands']
         assert all(isinstance(operand, ic['operand_type']) for operand in self.operands)
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self._opcode == other._opcode and self.operands == other.operands
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    # TODO: Need hash()?
+    def keys(self):
+        return (self._opcode, self.operands)
 
     # It may or may not be Pythonic but we use a property here to prevent code accidentally
     # changing the opcode. Doing so would lead to subtle problems because the type of the
