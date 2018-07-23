@@ -1713,7 +1713,7 @@ for external_name, reference in new_esd.entry_dict.items():
 #print('SFTODOXXX %r', len(used_things))
 # We preserve the order of things in the input module; this automatically ensure that
 # the data/asm blob comes first and init comes last, and it also avoids gratuitous
-# reordering which makes comparig the input and output difficult.
+# reordering which makes comparing the input and output difficult.
 used_things_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
 if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
     #print('SFTODOXY %r' % len(used_things_ordered),)
