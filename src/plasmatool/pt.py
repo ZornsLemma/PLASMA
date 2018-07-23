@@ -392,16 +392,8 @@ local_label_count = 0
 # a member but we have to remember to use this in some places.
 def rename_local_labels(offset, alias):
     assert isinstance(offset, Offset)
-    if not alias:
-        return offset
-    # SFTODO: This is foul but I'm just trying to get things working as part of refactoring
-    # and then I can decide how best to handle this properly.
-    string_case1 = all(isinstance(k, str) for k,v in alias.items())
-    string_case2 = all(isinstance(v, str) for k,v in alias.items())
-    offset_case1 = all(isinstance(k, Offset) for k,v in alias.items())
-    offset_case2 = all(isinstance(v, Offset) for k,v in alias.items())
-    #print string_case1, string_case2, offset_case1, offset_case2
-    assert not string_case1 and not string_case2 and offset_case1 and offset_case2
+    assert isinstance(alias, dict)
+    assert all(isinstance(k, Offset) and isinstance(v, Offset) for k,v in alias.items())
     return Offset(alias.get(offset, offset)._value)
 
 
