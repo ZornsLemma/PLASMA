@@ -182,7 +182,7 @@ class RLD(object):
 
         # TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
         # the fast fixup case inside reloc() can handle them all sequentially. This may not make
-        # a huge load time different, but it's probably a good idea - especially as output from
+        # a huge load time difference, but it's probably a good idea - especially as output from
         # the standard compiler probably does this anyway.
         for reference, fixup_label in self.fixups:
             print(reference.acme_rld(fixup_label, new_esd))
@@ -315,6 +315,7 @@ class Byte(ComparisonMixin):
     def acme(self):
         return "$%02X" % (self.value,)
 
+    # TODO: Why does Byte need a disassemble method but FrameOffset doesn't?
     @classmethod
     def disassemble(cls, di, i):
         byte = cls(di.labelled_blob[i])
@@ -478,6 +479,8 @@ class String(ComparisonMixin):
             s += chr(di.labelled_blob[i + j + 1])
         return String(s), i + length + 1
 
+
+# TODO: Seems wrong to have these random free functions
 
 def acme_dump_branch(opcode, operands):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
@@ -682,6 +685,8 @@ LOCAL_LABEL_OPCODE = 0xff
 NOP_OPCODE = 0xf1
 CASE_BLOCK_OPCODE = 0xfb
 
+# TODO: More probably unsatisfactory free functions
+
 def disassemble_constant(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     if opcode <= 0x1e: # CN opcode
@@ -728,6 +733,8 @@ class InstructionClass:
 
 
 # SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
+
+# TODO: More random free functions
 
 def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
     assert isinstance(self.operands[0], Offset) # SFTODO TEMP?
