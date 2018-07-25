@@ -358,8 +358,6 @@ def sign_extend(value, bits=16):
     sign_bit = 1 << (bits - 1)
     return (value & (sign_bit - 1)) - (value & sign_bit)
 
-local_label_count = 0
-
 # SFTODO: Experimental - this can't be a member of Offset because now Offset is used
 # for both local label instructions and branch instruction operands, the (unavoidable,
 # given how I want to write the code) copying of operands between instructions means
@@ -382,7 +380,12 @@ def rename_local_labels(offset, alias):
 # the risk of confusing myself (given that the same Offset object may be shared by multiple
 # instructions and changes are likely to have the wrong effect).
 class Offset(ComparisonMixin):
-    def __init__(self, value):
+    __next = 0
+
+    def __init__(self, value=None):
+        if not value:
+            value = '_L%04d' % (Offset.__next,)
+            Offset.__next += 1
         assert isinstance(value, str)
         self._value = value
 
@@ -410,10 +413,7 @@ class Offset(ComparisonMixin):
         value = di.labelled_blob.read_u16(i)
         value = sign_extend(value)
         target = i + value
-        global local_label_count
-        local_label = Offset('_L%04d' % (local_label_count,))
-        #print("; SFTODO ASSIGNING LOCAL LABEL %s" % (local_label,))
-        local_label_count += 1
+        local_label = Offset()
         if target > current_pos:
             di.local_target[target].append(local_label)
         elif target < current_pos:
@@ -626,7 +626,7 @@ class Instruction(ComparisonMixin):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             pass
         elif self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].update_used_things(used_things)
@@ -635,7 +635,7 @@ class Instruction(ComparisonMixin):
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
@@ -648,7 +648,7 @@ class Instruction(ComparisonMixin):
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             self.operands[0].update_local_labels_used(labels_used)
@@ -721,7 +721,7 @@ class InstructionClass:
     LOCAL_LABEL = 1
     NOP = 2
     BRANCH = 3
-    STACK = 4 # SFTODO: RENAME IMPLIED?
+    IMPLIED = 4 # SFTODO: RENAME IMPLIED?
     IMMEDIATE1 = 5
     IMMEDIATE2 = 6
     ABSOLUTE = 7
@@ -769,12 +769,12 @@ def dump_sel(self, rld):
 
 
 # SFTODO: Perhaps rename this ImpliedInstruction? I use it for things like RET which don't really use the stack as such, but are similar in the sense that the data (if any) is implied, not explicit.
-def disassemble_stack_instruction(disassembly_info, i):
+def disassemble_implied_instruction(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     # SFTODO: Validate opcode?? Arguably redundant given how this is called
     return Instruction(opcode, []), i+1
 
-def dump_stack_instruction(self, rld): # SFTODO: RENAME SELF
+def dump_implied_instruction(self, rld): # SFTODO: RENAME SELF
     print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
 
 
@@ -848,7 +848,7 @@ instruction_class_fns = {
         InstructionClass.LOCAL_LABEL: {'dump': dump_local_label, 'operands': 1, 'operand_type': Offset},
         InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
         InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Offset},
-        InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction, 'operands': 0},
+        InstructionClass.IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operands': 0},
         InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
         InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
         InstructionClass.ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
@@ -886,61 +886,61 @@ opdict = {
     0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
     0x2c: {'opcode': 'CW', 'class': InstructionClass.CONSTANT},
     0x2e: {'opcode': 'CS', 'class': InstructionClass.STRING},
-    0x30: {'opcode': 'DROP', 'class': InstructionClass.STACK},
-    0x32: {'opcode': 'DROP2', 'class': InstructionClass.STACK},
-    0x34: {'opcode': 'DUP', 'class': InstructionClass.STACK},
+    0x30: {'opcode': 'DROP', 'class': InstructionClass.IMPLIED},
+    0x32: {'opcode': 'DROP2', 'class': InstructionClass.IMPLIED},
+    0x34: {'opcode': 'DUP', 'class': InstructionClass.IMPLIED},
     0x38: {'opcode': 'ADDI', 'class': InstructionClass.IMMEDIATE1},
     0x3a: {'opcode': 'SUBI', 'class': InstructionClass.IMMEDIATE1},
     0x3c: {'opcode': 'ANDI', 'class': InstructionClass.IMMEDIATE1},
     0x3e: {'opcode': 'ORI', 'class': InstructionClass.IMMEDIATE1},
-    0x40: {'opcode': 'ISEQ', 'class': InstructionClass.STACK},
-    0x42: {'opcode': 'ISNE', 'class': InstructionClass.STACK},
-    0x44: {'opcode': 'ISGT', 'class': InstructionClass.STACK},
-    0x46: {'opcode': 'ISLT', 'class': InstructionClass.STACK},
-    0x48: {'opcode': 'ISGE', 'class': InstructionClass.STACK},
-    0x4a: {'opcode': 'ISLE', 'class': InstructionClass.STACK},
+    0x40: {'opcode': 'ISEQ', 'class': InstructionClass.IMPLIED},
+    0x42: {'opcode': 'ISNE', 'class': InstructionClass.IMPLIED},
+    0x44: {'opcode': 'ISGT', 'class': InstructionClass.IMPLIED},
+    0x46: {'opcode': 'ISLT', 'class': InstructionClass.IMPLIED},
+    0x48: {'opcode': 'ISGE', 'class': InstructionClass.IMPLIED},
+    0x4a: {'opcode': 'ISLE', 'class': InstructionClass.IMPLIED},
     0x4c: {'opcode': 'BRFLS', 'class': InstructionClass.BRANCH},
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
     0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
     0x52: {'opcode': 'SEL', 'class': InstructionClass.SEL},
     0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
-    0x56: {'opcode': 'ICAL', 'class': InstructionClass.STACK},
+    0x56: {'opcode': 'ICAL', 'class': InstructionClass.IMPLIED},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
-    0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.STACK},
+    0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.IMPLIED},
     0x5a: {'opcode': 'LEAVE', 'nis': True, 'class': InstructionClass.IMMEDIATE1},
     0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
-    0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.STACK},
-    0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.STACK},
+    0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.IMPLIED},
+    0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.IMPLIED},
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
     0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
     0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     0x6c: {'opcode': 'DLB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x6e: {'opcode': 'DLW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
-    0x70: {'opcode': 'SB', 'is_store': True, 'class': InstructionClass.STACK},
-    0x72: {'opcode': 'SW', 'is_store': True, 'class': InstructionClass.STACK},
+    0x70: {'opcode': 'SB', 'is_store': True, 'class': InstructionClass.IMPLIED},
+    0x72: {'opcode': 'SW', 'is_store': True, 'class': InstructionClass.IMPLIED},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
     0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
     0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
     0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
-    0x80: {'opcode': 'LNOT', 'class': InstructionClass.STACK},
-    0x82: {'opcode': 'ADD', 'class': InstructionClass.STACK},
-    0x84: {'opcode': 'SUB', 'class': InstructionClass.STACK},
-    0x86: {'opcode': 'MUL', 'class': InstructionClass.STACK},
-    0x88: {'opcode': 'DIV', 'class': InstructionClass.STACK},
-    0x8a: {'opcode': 'MOD', 'class': InstructionClass.STACK},
-    0x8c: {'opcode': 'INCR', 'class': InstructionClass.STACK},
-    0x8e: {'opcode': 'DECR', 'class': InstructionClass.STACK},
-    0x90: {'opcode': 'NEG', 'class': InstructionClass.STACK},
-    0x92: {'opcode': 'COMP', 'class': InstructionClass.STACK},
-    0x94: {'opcode': 'BAND', 'class': InstructionClass.STACK},
-    0x96: {'opcode': 'IOR', 'class': InstructionClass.STACK},
-    0x98: {'opcode': 'XOR', 'class': InstructionClass.STACK},
-    0x9a: {'opcode': 'SHL', 'class': InstructionClass.STACK},
-    0x9c: {'opcode': 'SHR', 'class': InstructionClass.STACK},
-    0x9e: {'opcode': 'IDXW', 'class': InstructionClass.STACK},
+    0x80: {'opcode': 'LNOT', 'class': InstructionClass.IMPLIED},
+    0x82: {'opcode': 'ADD', 'class': InstructionClass.IMPLIED},
+    0x84: {'opcode': 'SUB', 'class': InstructionClass.IMPLIED},
+    0x86: {'opcode': 'MUL', 'class': InstructionClass.IMPLIED},
+    0x88: {'opcode': 'DIV', 'class': InstructionClass.IMPLIED},
+    0x8a: {'opcode': 'MOD', 'class': InstructionClass.IMPLIED},
+    0x8c: {'opcode': 'INCR', 'class': InstructionClass.IMPLIED},
+    0x8e: {'opcode': 'DECR', 'class': InstructionClass.IMPLIED},
+    0x90: {'opcode': 'NEG', 'class': InstructionClass.IMPLIED},
+    0x92: {'opcode': 'COMP', 'class': InstructionClass.IMPLIED},
+    0x94: {'opcode': 'BAND', 'class': InstructionClass.IMPLIED},
+    0x96: {'opcode': 'IOR', 'class': InstructionClass.IMPLIED},
+    0x98: {'opcode': 'XOR', 'class': InstructionClass.IMPLIED},
+    0x9a: {'opcode': 'SHL', 'class': InstructionClass.IMPLIED},
+    0x9c: {'opcode': 'SHR', 'class': InstructionClass.IMPLIED},
+    0x9e: {'opcode': 'IDXW', 'class': InstructionClass.IMPLIED},
     0xa0: {'opcode': 'BRGT', 'class': InstructionClass.BRANCH},
     0xa2: {'opcode': 'BRLT', 'class': InstructionClass.BRANCH},
     0xa4: {'opcode': 'INCBRLE', 'class': InstructionClass.BRANCH},
