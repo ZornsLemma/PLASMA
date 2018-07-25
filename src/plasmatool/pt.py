@@ -59,7 +59,15 @@ class ComparisonMixin(object):
 # TODO: Not sure about this base class, it's just here to allow assertions on type of operands at the moment!
 class AbsoluteAddress(object):
     """Base class for operands which represent an absolute memory address"""
-    pass
+
+    @classmethod
+    def disassemble(cls, di, i):
+        label = di.labelled_blob.references[i] # SFTODO: label is a Label or ExternalReference, which makes the name of this variable a tiny bit annoying
+        if label:
+            return label, i+2
+        else:
+            return FixedAddress.disassemble(di, i)
+
 
 class Label(AbsoluteAddress, ComparisonMixin):
     __next = collections.defaultdict(int)
@@ -121,16 +129,6 @@ class Label(AbsoluteAddress, ComparisonMixin):
     # TODO: This function should probably be renamed (everywhere, not just here)
     def update_used_things(self, used_things):
         self.owner.update_used_things(used_things)
-
-    @classmethod
-    def disassemble(cls, di, i):
-        # SFTODO: Perhaps a bit crap that this is Label.disassemble() but it doesn't
-        # always return a Label... Can we move this onto the base class?
-        label = di.labelled_blob.references[i]
-        if label:
-            return label, i+2
-        else:
-            return FixedAddress.disassemble(di, i)
 
 class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def __init__(self, external_name, offset):
@@ -813,8 +811,8 @@ def disassemble_absolute_instruction(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     # SFTODO: Validate opcode?? Arguably redundant given how this is called
     i += 1
-    label, i = Label.disassemble(disassembly_info, i)
-    return Instruction(opcode, [label]), i
+    address, i = AbsoluteAddress.disassemble(disassembly_info, i)
+    return Instruction(opcode, [address]), i
 
 def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
     # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or FixedAddress (I think; check)
