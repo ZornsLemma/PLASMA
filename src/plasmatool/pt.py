@@ -57,10 +57,11 @@ class ComparisonMixin(object):
 
 
 # TODO: Not sure about this base class, it's just here to allow assertions on type of operands at the moment!
-class SFTODOBASE(object):
+class AbsoluteAddress(object):
+    """Base class for operands which represent an absolute memory address"""
     pass
 
-class Label(SFTODOBASE, ComparisonMixin):
+class Label(AbsoluteAddress, ComparisonMixin):
     __next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
@@ -124,14 +125,14 @@ class Label(SFTODOBASE, ComparisonMixin):
     @classmethod
     def disassemble(cls, di, i):
         # SFTODO: Perhaps a bit crap that this is Label.disassemble() but it doesn't
-        # always return a Label...
+        # always return a Label... Can we move this onto the base class?
         label = di.labelled_blob.references[i]
         if label:
             return label, i+2
         else:
-            return Address.disassemble(di, i)
+            return FixedAddress.disassemble(di, i)
 
-class ExternalReference(SFTODOBASE, ComparisonMixin):
+class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def __init__(self, external_name, offset):
         self.external_name = external_name
         self.offset = offset
@@ -329,20 +330,19 @@ class FrameOffset(Byte):
 
 
 
-# TODO: Perhaps rename this FixedAddress or AbsoluteAddress? Not too sure about the latter; in some sense a Label or ExternalReference also identifies an absolute address, it's just one which isn't known until the VM has relocated the code.
-class Address(SFTODOBASE, ComparisonMixin):
+class FixedAddress(AbsoluteAddress, ComparisonMixin):
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
-        return "Address($%04X)" % (self.value,)
+        return "FixedAddress($%04X)" % (self.value,)
 
     def __keys__(self):
         return (self.value,)
 
     def __add__(self, rhs):
         assert isinstance(rhs, int)
-        return Address(self.value + rhs)
+        return FixedAddress(self.value + rhs)
 
     def update_used_things(self, used_things):
         pass
@@ -351,7 +351,7 @@ class Address(SFTODOBASE, ComparisonMixin):
 
     @classmethod
     def disassemble(cls, di, i):
-        return Address(di.labelled_blob.read_u16(i)), i+2
+        return FixedAddress(di.labelled_blob.read_u16(i)), i+2
 
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
@@ -487,7 +487,7 @@ def acme_dump_branch(opcode, operands):
     print("\t!WORD\t%s-*" % (operands[0],))
 
 def acme_dump_label(opcode, operands, rld):
-    if isinstance(operands[0], Address): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
+    if isinstance(operands[0], FixedAddress): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
     else:
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
@@ -629,14 +629,14 @@ class Instruction(ComparisonMixin):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             pass
-        elif self.instruction_class == InstructionClass.MEMORY:
+        elif self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].update_used_things(used_things)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
     def rename_local_labels(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
@@ -649,7 +649,7 @@ class Instruction(ComparisonMixin):
 
     def update_local_labels_used(self, labels_used):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.MEMORY, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.STACK, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             self.operands[0].update_local_labels_used(labels_used)
@@ -657,14 +657,14 @@ class Instruction(ComparisonMixin):
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def memory(self):
-        assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
+        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
         result = set()
         for i in range(0, self.data_size()):
             result.add(self.operands[0] + i)
         return result
 
     def data_size(self):
-        assert self.instruction_class in (InstructionClass.MEMORY, InstructionClass.FRAME)
+        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
         return opdict[self.opcode]['data_size']
 
     def dump(self, rld): # SFTODO: RENAME SELF
@@ -725,7 +725,7 @@ class InstructionClass:
     STACK = 4 # SFTODO: RENAME IMPLIED?
     IMMEDIATE1 = 5
     IMMEDIATE2 = 6
-    MEMORY = 7
+    ABSOLUTE = 7
     FRAME = 8
     STRING = 9
     SEL = 10
@@ -809,15 +809,15 @@ def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
 # TODO: MemoryInstruction -> AbsoluteInstruction
 # TODO: StackInstruction -> ImpliedInstruction
 
-def disassemble_memory_instruction(disassembly_info, i):
+def disassemble_absolute_instruction(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     # SFTODO: Validate opcode?? Arguably redundant given how this is called
     i += 1
     label, i = Label.disassemble(disassembly_info, i)
     return Instruction(opcode, [label]), i
 
-def dump_memory_instruction(self, rld): # SFTODO RENAME SELF
-    # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or Address (I think; check)
+def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
+    # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or FixedAddress (I think; check)
     acme_dump_label(self.opcode, self.operands, rld)
 
 
@@ -852,7 +852,7 @@ instruction_class_fns = {
         InstructionClass.STACK: {'disassemble': disassemble_stack_instruction, 'dump': dump_stack_instruction, 'operands': 0},
         InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
         InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
-        InstructionClass.MEMORY: {'disassemble': disassemble_memory_instruction, 'dump': dump_memory_instruction, 'operands': 1, 'operand_type': SFTODOBASE},
+        InstructionClass.ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
         InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': Offset},
@@ -882,7 +882,7 @@ opdict = {
     0x20: {'opcode': 'MINUS1', 'class': InstructionClass.CONSTANT},
     0x22: {'opcode': 'BREQ', 'class': InstructionClass.BRANCH},
     0x24: {'opcode': 'BRNE', 'class': InstructionClass.BRANCH},
-    0x26: {'opcode': 'LA', 'class': InstructionClass.MEMORY},
+    0x26: {'opcode': 'LA', 'class': InstructionClass.ABSOLUTE},
     0x28: {'opcode': 'LLA', 'class': InstructionClass.FRAME},
     0x2a: {'opcode': 'CB', 'class': InstructionClass.CONSTANT},
     0x2c: {'opcode': 'CW', 'class': InstructionClass.CONSTANT},
@@ -904,7 +904,7 @@ opdict = {
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
     0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
     0x52: {'opcode': 'SEL', 'class': InstructionClass.SEL},
-    0x54: {'opcode': 'CALL', 'class': InstructionClass.MEMORY}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
+    0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.STACK},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
     0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.STACK},
@@ -914,18 +914,18 @@ opdict = {
     0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.STACK},
     0x64: {'opcode': 'LLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x66: {'opcode': 'LLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
-    0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
-    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0x68: {'opcode': 'LAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
+    0x6a: {'opcode': 'LAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     0x6c: {'opcode': 'DLB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x6e: {'opcode': 'DLW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
     0x70: {'opcode': 'SB', 'is_store': True, 'class': InstructionClass.STACK},
     0x72: {'opcode': 'SW', 'is_store': True, 'class': InstructionClass.STACK},
     0x74: {'opcode': 'SLB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0x76: {'opcode': 'SLW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.FRAME},
-    0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
-    0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
-    0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
-    0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0x78: {'opcode': 'SAB', 'is_store': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
+    0x7a: {'opcode': 'SAW', 'is_store': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
+    0x7c: {'opcode': 'DAB', 'is_dup_store': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
+    0x7e: {'opcode': 'DAW', 'is_dup_store': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     0x80: {'opcode': 'LNOT', 'class': InstructionClass.STACK},
     0x82: {'opcode': 'ADD', 'class': InstructionClass.STACK},
     0x84: {'opcode': 'SUB', 'class': InstructionClass.STACK},
@@ -950,12 +950,12 @@ opdict = {
     0xae: {'opcode': 'BROR', 'class': InstructionClass.BRANCH},
     0xb0: {'opcode': 'ADDLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0xb2: {'opcode': 'ADDLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
-    0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
-    0xb6: {'opcode': 'ADDAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0xb4: {'opcode': 'ADDAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
+    0xb6: {'opcode': 'ADDAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     0xb8: {'opcode': 'IDXLB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.FRAME},
     0xba: {'opcode': 'IDXLW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.FRAME},
-    0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.MEMORY},
-    0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.MEMORY},
+    0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
+    0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     CONSTANT_OPCODE: {'pseudo': True, 'class': InstructionClass.CONSTANT},
     LOCAL_LABEL_OPCODE: {'pseudo': True, 'class': InstructionClass.LOCAL_LABEL},
     NOP_OPCODE: {'pseudo': True, 'class': InstructionClass.NOP},
@@ -1527,12 +1527,12 @@ class bidict(dict):
 
 
 def is_hardware_address(address):
-    # SFTODO: Again the 'address as generic term' and 'Address as an absolute address' awkwardness...
+    # SFTODO: Again the 'address as generic term' and 'FixedAddress as an absolute address' awkwardness...
     # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to support a better
     # compromise (I note the self-hosted compiler's optimiser puts upper bound of 0xd000; this won't
     # work for Acorn, not that I have "ported" the optimiser yet) and perhaps offer a --platform
     # command line switch to trigger a tighter definition where platform is known.
-    return isinstance(address, Address) and address.value >= 0xc000
+    return isinstance(address, FixedAddress) and address.value >= 0xc000
 
 
 # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
