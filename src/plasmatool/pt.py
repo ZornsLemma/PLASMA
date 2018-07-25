@@ -62,9 +62,10 @@ class AbsoluteAddress(object):
 
     @classmethod
     def disassemble(cls, di, i):
-        label = di.labelled_blob.references[i] # SFTODO: label is a Label or ExternalReference, which makes the name of this variable a tiny bit annoying
-        if label:
-            return label, i+2
+        address = di.labelled_blob.references[i]
+        if address:
+            assert isinstance(address, Label) or isinstance(address, ExternalReference)
+            return address, i+2
         else:
             return FixedAddress.disassemble(di, i)
 
