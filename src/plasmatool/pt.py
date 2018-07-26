@@ -89,11 +89,11 @@ class Label(AbsoluteAddress, ComparisonMixin):
         else:
             self.name = prefix
 
-    def set_owner(self, owner):
-        self.owner = owner
-
     def keys(self):
         return (self.name,)
+
+    def set_owner(self, owner):
+        self.owner = owner
 
     def __add__(self, rhs):
         # SFTODO: This is a bit odd. We need this for memory(). However, I *think* that
@@ -107,9 +107,6 @@ class Label(AbsoluteAddress, ComparisonMixin):
         # complete speculation right now, I haven't checked any real code) by allowing the
         # concept of label+n in this code.
         return self
-
-    def nm(self):
-        return self.name
 
     def acme_reference(self, comment=True):
         return "!WORD\t%s" % (self.name,)
@@ -127,6 +124,11 @@ class Label(AbsoluteAddress, ComparisonMixin):
     def add_dependencies(self, dependencies):
         self.owner.add_dependencies(dependencies)
 
+    def dump(self, opcode, rld):
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self.name))
+        acme_dump_fixup(rld, self, False) # no comment, previous line shows this info
+
+
 class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def __init__(self, external_name, offset):
         self.external_name = external_name
@@ -139,7 +141,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
         assert isinstance(rhs, int)
         return ExternalReference(self.external_name, self.offset + rhs)
         
-    def nm(self):
+    def _name(self):
         if self.offset:
             return "%s+%d" % (self.external_name, self.offset)
         else:
@@ -147,7 +149,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
 
     def acme_reference(self, comment=True):
         if comment:
-            return "!WORD\t%d\t\t\t; %s" % (self.offset, self.nm())
+            return "!WORD\t%d\t\t\t; %s" % (self.offset, self._name())
         else:
             return "!WORD\t%d" % (self.offset,)
 
@@ -158,6 +160,10 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
 
     def add_dependencies(self, dependencies):
         pass
+
+    def dump(self, opcode, rld):
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()))
+        acme_dump_fixup(rld, self, False) # no comment, previous line shows this info
 
 class RLD(object):
     def __init__(self):
@@ -346,6 +352,9 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
     def disassemble(cls, di, i):
         return FixedAddress(di.labelled_blob.read_u16(i)), i+2
 
+    def dump(self, opcode, rld):
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
+
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
 def sign_extend(value, bits=16):
@@ -478,12 +487,8 @@ def acme_dump_branch(opcode, operands):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
     print("\t!WORD\t%s-*" % (operands[0],))
 
-def acme_dump_label(opcode, operands, rld): # SFTODO: RENAME THIS FN??
-    if isinstance(operands[0], FixedAddress): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
-        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
-    else:
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
-        acme_dump_fixup(rld, operands[0], False) # no comment, previous line shows this info
+def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
+    self.operands[0].dump(self.opcode, rld)
 
 def acme_dump_fixup(rld, reference, comment=True):
     fixup_label = Label('_F')
@@ -804,10 +809,6 @@ def disassemble_absolute_instruction(disassembly_info, i):
     i += 1
     address, i = AbsoluteAddress.disassemble(disassembly_info, i)
     return Instruction(opcode, [address]), i
-
-def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
-    # SFTODO: Probably merge acme_dump_label in here - actually we probably need to rename it now, since it is actually dumping a Label or ExternalReference or FixedAddress (I think; check)
-    acme_dump_label(self.opcode, self.operands, rld)
 
 
 
