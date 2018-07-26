@@ -8,7 +8,7 @@ import sys
 # TODO: I'm using assert where I should probably use something else
 
 # TODO: I imagine it may be quite easy to remove non-exported functions which are never called
-# from a module. (Probably it's fine, but do check that if we take the address of a function
+# from a module - and we now do this. (Probably it's fine, but do check that if we take the address of a function
 # and call it *only* via a pointer, that doesn't trigger removal. I imagine this will "just work"
 # because what will count will be having a reference to the function's label, regardless of
 # whether that reference appears with a CALL opcode or not.)
@@ -43,8 +43,7 @@ def dci_bytes(s):
 
 # SFTODO: Experimental
 class ComparisonMixin(object):
-    def __hash__(self):
-        return hash(self.keys())
+    """Mixin class which uses a keys() method to implement __eq__(), __ne__() and __hash__()"""
 
     def __eq__(self, other):
         if type(self) == type(other):
@@ -54,9 +53,12 @@ class ComparisonMixin(object):
     def __ne__(self, other):
         return not self == other
 
+    def __hash__(self):
+        return hash(self.keys())
 
 
-# TODO: Not sure about this base class, it's just here to allow assertions on type of operands at the moment!
+
+
 class AbsoluteAddress(object):
     """Base class for operands which represent an absolute memory address"""
 
@@ -763,7 +765,6 @@ def dump_sel(self, rld):
 
 
 
-# SFTODO: Perhaps rename this ImpliedInstruction? I use it for things like RET which don't really use the stack as such, but are similar in the sense that the data (if any) is implied, not explicit.
 def disassemble_implied_instruction(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     # SFTODO: Validate opcode?? Arguably redundant given how this is called
@@ -799,9 +800,6 @@ def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
         assert False
 
 
-# TODO: partly by analogy with 6502 instruction terminology
-# TODO: MemoryInstruction -> AbsoluteInstruction
-# TODO: StackInstruction -> ImpliedInstruction
 
 def disassemble_absolute_instruction(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
