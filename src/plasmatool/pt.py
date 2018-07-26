@@ -127,9 +127,8 @@ class Label(AbsoluteAddress, ComparisonMixin):
                 "\t!WORD\t%s\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
-    # TODO: This function should probably be renamed (everywhere, not just here)
-    def update_used_things(self, used_things):
-        self.owner.update_used_things(used_things)
+    def add_dependencies(self, dependencies):
+        self.owner.add_dependencies(dependencies)
 
 class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def __init__(self, external_name, offset):
@@ -160,7 +159,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
                 "\t!WORD\t%s-_SEGBEGIN\n" +
                 "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_external_index(self.external_name), self.external_name)
 
-    def update_used_things(self, used_things):
+    def add_dependencies(self, dependencies):
         pass
 
 class RLD(object):
@@ -263,13 +262,13 @@ class LabelledBlob(object):
         # TODO: Best way to write this?!
         return self[key] | (self[key+1] << 8)
 
-    def update_used_things(self, used_things):
-        if self in used_things:
+    def add_dependencies(self, dependencies):
+        if self in dependencies:
             return
-        used_things.add(self)
+        dependencies.add(self)
         for reference in self.references:
             if reference:
-                reference.update_used_things(used_things)
+                reference.add_dependencies(dependencies)
 
     # TODO: This will probably need to evolve quite a bit and may not be used
     # eventually once we have nicer output formats (I imagine one output format
@@ -342,7 +341,7 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
         assert isinstance(rhs, int)
         return FixedAddress(self.value + rhs)
 
-    def update_used_things(self, used_things):
+    def add_dependencies(self, dependencies):
         pass
 
     # SFTODO: Shouldn't we "need" an acme() method on this?
@@ -622,12 +621,12 @@ class Instruction(ComparisonMixin):
     def instruction_class(self):
         return opdict[self.opcode]['class']
 
-    def update_used_things(self, used_things):
+    def add_dependencies(self, dependencies):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             pass
         elif self.instruction_class == InstructionClass.ABSOLUTE:
-            self.operands[0].update_used_things(used_things)
+            self.operands[0].add_dependencies(dependencies)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
@@ -995,12 +994,12 @@ class BytecodeFunction(object):
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels)
 
-    def update_used_things(self, used_things):
-        if self in used_things:
+    def add_dependencies(self, dependencies):
+        if self in dependencies:
             return
-        used_things.add(self)
+        dependencies.add(self)
         for instruction in self.ops:
-            instruction.update_used_things(used_things)
+            instruction.add_dependencies(dependencies)
 
     def dump(self, rld, esd): # SFTODO: We don't use the esd arg
         if not self.is_init():
@@ -1709,20 +1708,16 @@ assert new_module.bytecode_functions[-1].is_init()
 # SFTODO: We really should do the "used thing" determination *after* we've optimised the
 # individual functions; it is possible (if unlikely?) that we will eliminate dead code
 # containing the only reference to something and thereby allow it to be dropped.
-used_things = set()
-new_module.bytecode_functions[-1].update_used_things(used_things)
+dependencies = set()
+new_module.bytecode_functions[-1].add_dependencies(dependencies)
 for external_name, reference in new_esd.entry_dict.items():
-    reference.update_used_things(used_things)
-#print('SFTODOXXX %r', used_things)
-#print('SFTODOXXX %r', len(used_things))
+    reference.add_dependencies(dependencies)
 # We preserve the order of things in the input module; this automatically ensure that
 # the data/asm blob comes first and init comes last, and it also avoids gratuitous
 # reordering which makes comparing the input and output difficult.
-used_things_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
+dependencies_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
 if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
-    #print('SFTODOXY %r' % len(used_things_ordered),)
-    #print('SFTODOXY2 %r' % len(set(used_things_ordered)),)
-    used_things_ordered = [x for x in used_things_ordered if x in used_things]
+    dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
 
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
@@ -1741,15 +1736,15 @@ for import_name in import_names:
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
 new_rld = RLD()
-if used_things_ordered[0] == new_module.data_asm_blob:
+if dependencies_ordered[0] == new_module.data_asm_blob:
     new_module.data_asm_blob.dump(new_rld, new_esd)
-    used_things_ordered.pop(0)
+    dependencies_ordered.pop(0)
 print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
-assert used_things_ordered[-1].is_init()
-for bytecode_function in used_things_ordered:
+assert dependencies_ordered[-1].is_init()
+for bytecode_function in dependencies_ordered:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     changed = True
     while changed:
@@ -1789,7 +1784,7 @@ for bytecode_function in used_things_ordered:
             changed2 = any(result)
         changed = changed1 or changed2
     bytecode_function.dump(new_rld, new_esd)
-defcnt = len(used_things_ordered)
+defcnt = len(dependencies_ordered)
 
 print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
