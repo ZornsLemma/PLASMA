@@ -281,7 +281,6 @@ class LabelledBlob(object):
         fixup_count = 0
         while i < len(self.blob):
             if not self.references[i]:
-                #print('SFTODO XXX %d %d %d' % (i, len(self.labels), len(self.labels[i])))
                 for label in self.labels[i]:
                     print('%s' % label.name)
                 print('\t!BYTE\t$%02X' % (self[i],))
@@ -358,34 +357,37 @@ def sign_extend(value, bits=16):
     sign_bit = 1 << (bits - 1)
     return (value & (sign_bit - 1)) - (value & sign_bit)
 
-# SFTODO: Experimental - this can't be a member of Offset because now Offset is used
-# for both local label instructions and branch instruction operands, the (unavoidable,
+# SFTODO: Experimental - this can't be a member of Target because now Target is used
+# for both target instructions and branch instruction operands, the (unavoidable,
 # given how I want to write the code) copying of operands between instructions means
-# that local labels and branches end up sharing a single Offset object. We therefore
-# must not mutate an Offset object as it affects everything holding a reference to it;
-# we must replace the Offset object we're interested in with another one with the
+# that target instructions and branches end up sharing a single Target object. We therefore
+# must not mutate an Target object as it affects everything holding a reference to it;
+# we must replace the Target object we're interested in with another one with the
 # relevant change. This has been hacked in to test this change, and it does seem to
-# work, but it's pretty messy the way some objects *do* have rename_local_labels() as
+# work, but it's pretty messy the way some objects *do* have rename_targets() as
 # a member but we have to remember to use this in some places.
-def rename_local_labels(offset, alias):
-    assert isinstance(offset, Offset)
+def rename_targets(target, alias):
+    assert isinstance(target, Target)
     assert isinstance(alias, dict)
-    assert all(isinstance(k, Offset) and isinstance(v, Offset) for k,v in alias.items())
-    return Offset(alias.get(offset, offset)._value)
+    assert all(isinstance(k, Target) and isinstance(v, Target) for k,v in alias.items())
+    return Target(alias.get(target, target)._value)
 
 
-# SFTODO: I think I want to rename this LocalLabel, but let's not worry about that just yet.
 # SFTODO: May be worth jumping through some Python hoops (I think essentially involving
 # deriving from namedtuple and setting slots to empty) to make this truly immutable, to avoid
-# the risk of confusing myself (given that the same Offset object may be shared by multiple
+# the risk of confusing myself (given that the same Target object may be shared by multiple
 # instructions and changes are likely to have the wrong effect).
-class Offset(ComparisonMixin):
+class Target(ComparisonMixin):
+    """Class representing a branch target within a bytecode function; these could also be
+       called (local) labels, but we use this distinct name to distinguish them from Label
+       objects, which exist at the module level."""
+
     __next = 0
 
     def __init__(self, value=None):
         if not value:
-            value = '_L%04d' % (Offset.__next,)
-            Offset.__next += 1
+            value = '_L%04d' % (Target.__next,)
+            Target.__next += 1
         assert isinstance(value, str)
         self._value = value
 
@@ -393,39 +395,35 @@ class Offset(ComparisonMixin):
         return self._value
 
     def __repr__(self):
-        return "Offset(%s)" % (self._value,)
+        return "Target(%s)" % (self._value,)
 
     def keys(self):
         return (self._value,)
 
-    def rename_local_labels(self, alias):
-        assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_local_labels ABOVE
+    def rename_targets(self, alias):
+        assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_targets ABOVE
 
-    def update_local_labels_used(self, labels):
-        # SFTODO: Should this add self._value? I am still trying to figure it out but for the
-        # moment I want to un-break things
-        labels.add(self)
+    def update_targets_used(self, targets):
+        targets.add(self)
 
     @classmethod
     def disassemble(cls, di, i, current_pos = None):
         if not current_pos:
             current_pos = i
-        value = di.labelled_blob.read_u16(i)
-        value = sign_extend(value)
-        target = i + value
-        local_label = Offset()
-        if target > current_pos:
-            di.local_target[target].append(local_label)
-        elif target < current_pos:
+        target_pos = i + sign_extend(di.labelled_blob.read_u16(i))
+        target = Target()
+        if target_pos > current_pos:
+            di.target[target_pos].append(target)
+        elif target_pos < current_pos:
             j = 0
-            while j < len(di.op_offset):
-                if di.op_offset[j] == target:
+            while j < len(di.op_offset): # SFTODO: rename op_offset????
+                if di.op_offset[j] == target_pos:
                     di.op_offset.insert(j, None)
-                    di.bytecode_function.ops.insert(j, Instruction(LOCAL_LABEL_OPCODE, [local_label]))
+                    di.bytecode_function.ops.insert(j, Instruction(TARGET_OPCODE, [target]))
                     j = 99999 # SFTODO ULTRA FOUL
                 j += 1
             assert j >= 99999
-        return local_label, i+2
+        return target, i+2
 
 
 
@@ -440,13 +438,13 @@ class CaseBlock(ComparisonMixin):
     def keys(self):
         return (self.table,)
 
-    def rename_local_labels(self, alias):
-        for i, (value, offset) in enumerate(self.table):
-            self.table[i] = (self.table[i][0], rename_local_labels(self.table[i][1], alias))
+    def rename_targets(self, alias):
+        for i, (value, target) in enumerate(self.table):
+            self.table[i] = (self.table[i][0], rename_targets(self.table[i][1], alias))
 
-    def update_local_labels_used(self, labels):
-        for value, offset in self.table:
-            offset.update_local_labels_used(labels)
+    def update_targets_used(self, targets):
+        for value, target in self.table:
+            target.update_targets_used(targets)
 
     @classmethod
     def disassemble(cls, di, i):
@@ -455,8 +453,8 @@ class CaseBlock(ComparisonMixin):
         for j in range(count):
             k = i + 1 + 4*j
             value = di.labelled_blob.read_u16(k)
-            offset, _ = Offset.disassemble(di, k+2, i)
-            table.append((value, offset))
+            target, _ = Target.disassemble(di, k+2, i)
+            table.append((value, target))
         return CaseBlock(table), i+1+4*count
 
 
@@ -485,7 +483,7 @@ def acme_dump_branch(opcode, operands):
     print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
     print("\t!WORD\t%s-*" % (operands[0],))
 
-def acme_dump_label(opcode, operands, rld):
+def acme_dump_label(opcode, operands, rld): # SFTODO: RENAME THIS FN??
     if isinstance(operands[0], FixedAddress): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
     else:
@@ -506,9 +504,9 @@ def acme_dump_cs(opcode, operands):
 def acme_dump_case_block(opcode, operands):
     table = operands[0].table
     print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),))
-    for value, offset in table:
+    for value, target in table:
         print("\t!WORD\t$%04X" % (value,))
-        print("\t!WORD\t%s-*" % (offset,))
+        print("\t!WORD\t%s-*" % (target,))
 
 
 
@@ -521,12 +519,12 @@ class DisassemblyInfo(object):
     def __init__(self, bytecode_function, labelled_blob):
         self.bytecode_function = bytecode_function
         self.labelled_blob = labelled_blob
-        self.local_target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
+        self.target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
         self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
         self.op_offset = []
 
 
-# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_local_label() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
+# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_target() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
 class Instruction(ComparisonMixin):
     conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
 
@@ -568,8 +566,8 @@ class Instruction(ComparisonMixin):
     def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
         return any(self._opcode == opcode[mnemonic] for mnemonic in mnemonics)
 
-    def is_local_label(self):
-        return self.opcode == LOCAL_LABEL_OPCODE
+    def is_target(self):
+        return self.opcode == TARGET_OPCODE
 
     def is_branch(self):
         # SFTODO: TRANSITION
@@ -626,32 +624,32 @@ class Instruction(ComparisonMixin):
 
     def update_used_things(self, used_things):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             pass
         elif self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].update_used_things(used_things)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
-    def rename_local_labels(self, alias_dict):
+    def rename_targets(self, alias_dict):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class == InstructionClass.BRANCH:
-            self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
+            self.operands[0] = rename_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
-            self.operands[0] = rename_local_labels(self.operands[0], alias_dict)
+            self.operands[0] = rename_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
-            self.operands[0].rename_local_labels(alias_dict)
+            self.operands[0].rename_targets(alias_dict)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
-    def update_local_labels_used(self, labels_used):
+    def update_targets_used(self, targets):
         # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.LOCAL_LABEL, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
-            self.operands[0].update_local_labels_used(labels_used)
+            self.operands[0].update_targets_used(targets)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -680,7 +678,7 @@ class Instruction(ComparisonMixin):
 
 # TODO: Crappy way to define this pseudo-opcode
 CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
-LOCAL_LABEL_OPCODE = 0xff
+TARGET_OPCODE = 0xff
 NOP_OPCODE = 0xf1
 CASE_BLOCK_OPCODE = 0xfb
 
@@ -718,10 +716,10 @@ def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
 
 class InstructionClass:
     CONSTANT = 0
-    LOCAL_LABEL = 1
+    TARGET = 1
     NOP = 2
     BRANCH = 3
-    IMPLIED = 4 # SFTODO: RENAME IMPLIED?
+    IMPLIED = 4
     IMMEDIATE1 = 5
     IMMEDIATE2 = 6
     ABSOLUTE = 7
@@ -731,12 +729,10 @@ class InstructionClass:
     CASE_BLOCK = 11
 
 
-# SFTODO: Should I rename LocalLabel (and variants) to BranchTarget? I like the term local label in itself, but it maybe invites confusion with Label (which is a whole-module concept, not a function-level concept)
-
 # TODO: More random free functions
 
-def dump_local_label(self, rld): # SFTODO: RENAME FIRST ARG
-    assert isinstance(self.operands[0], Offset) # SFTODO TEMP?
+def dump_target(self, rld): # SFTODO: RENAME FIRST ARG
+    assert isinstance(self.operands[0], Target) # SFTODO TEMP?
     print("%s" % (self.operands[0]))
 
 
@@ -748,8 +744,8 @@ def dump_case_block(self, rld): # SFTODO RENAME SELF
 def disassemble_branch(disassembly_info, i):
     opcode = disassembly_info.labelled_blob[i]
     # SFTODO: Validate opcode?? Arguably redundant given how this is called
-    offset, i = Offset.disassemble(disassembly_info, i+1)
-    return Instruction(opcode, [offset]), i
+    target, i = Target.disassemble(disassembly_info, i+1)
+    return Instruction(opcode, [target]), i
 
 def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
     # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
@@ -759,8 +755,8 @@ def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
 def disassemble_sel(di, i):
     i += 1
     di.special[i + di.labelled_blob.read_u16(i)] = True
-    offset, i = Offset.disassemble(di, i)
-    return Instruction('SEL', [offset]), i
+    target, i = Target.disassemble(di, i)
+    return Instruction('SEL', [target]), i
 
 def dump_sel(self, rld):
     # SFTODO: Fold acme_dump_branch() in here?
@@ -845,16 +841,16 @@ def dump_string_instruction(self, rld): # SFTODO RENAME SELF
 # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
 instruction_class_fns = {
         InstructionClass.NOP: {'operands': 0},
-        InstructionClass.LOCAL_LABEL: {'dump': dump_local_label, 'operands': 1, 'operand_type': Offset},
+        InstructionClass.TARGET: {'dump': dump_target, 'operands': 1, 'operand_type': Target},
         InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
-        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Offset},
+        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
         InstructionClass.IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operands': 0},
         InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
         InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
         InstructionClass.ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
-        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': Offset},
+        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': Target},
         InstructionClass.CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
 }
 
@@ -956,7 +952,7 @@ opdict = {
     0xbc: {'opcode': 'IDXAB', 'is_load': True, 'data_size': 1, 'class': InstructionClass.ABSOLUTE},
     0xbe: {'opcode': 'IDXAW', 'is_load': True, 'data_size': 2, 'class': InstructionClass.ABSOLUTE},
     CONSTANT_OPCODE: {'pseudo': True, 'class': InstructionClass.CONSTANT},
-    LOCAL_LABEL_OPCODE: {'pseudo': True, 'class': InstructionClass.LOCAL_LABEL},
+    TARGET_OPCODE: {'pseudo': True, 'class': InstructionClass.TARGET},
     NOP_OPCODE: {'pseudo': True, 'class': InstructionClass.NOP},
     CASE_BLOCK_OPCODE: {'pseudo': True, 'class': InstructionClass.CASE_BLOCK},
 }
@@ -975,11 +971,12 @@ class BytecodeFunction(object):
         i = 0
         while i < len(labelled_blob):
             # There should be no labels within a bytecode function. We will later
-            # create branch-target labels based on the branch instructions within
+            # create branch targets based on the branch instructions within
             # the function, but those are different.
             assert i == 0 or not labelled_blob.labels[i]
-            for t in di.local_target[i]:
-                self.ops.append(Instruction(LOCAL_LABEL_OPCODE, [t]))
+
+            for t in di.target[i]:
+                self.ops.append(Instruction(TARGET_OPCODE, [t]))
                 di.op_offset.append(None)
             di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
             special = di.special[i]
@@ -1014,33 +1011,33 @@ class BytecodeFunction(object):
         for instruction in self.ops:
             instruction.dump(rld)
 
-# Remove all but the first of each group of consecutive labels; this makes it easier to spot other
+# Remove all but the first of each group of consecutive targets; this makes it easier to spot other
 # optimisations.
-def local_label_deduplicate(bytecode_function):
+def target_deduplicate(bytecode_function):
     alias = {}
     new_ops = []
     previous_instruction = None
     changed = False
     for instruction in bytecode_function.ops:
-        if instruction.is_local_label() and previous_instruction and previous_instruction.is_local_label():
+        if instruction.is_target() and previous_instruction and previous_instruction.is_target():
             alias[instruction.operands[0]] = previous_instruction.operands[0]
             changed = True
         else:
             previous_instruction = instruction
             new_ops.append(instruction)
     for instruction in new_ops:
-        instruction.rename_local_labels(alias)
+        instruction.rename_targets(alias)
     bytecode_function.ops = new_ops
     return changed
 
 
-# Remove a BRNCH to an immediately following label.
+# Remove a BRNCH to an immediately following target.
 def branch_optimise(bytecode_function):
     changed = False
     new_ops = []
     for i, instruction in enumerate(bytecode_function.ops):
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
-        if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_local_label() and instruction.operands[0] == next_instruction.operands[0]):
+        if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_target() and instruction.operands[0] == next_instruction.operands[0]):
             new_ops.append(instruction)
         else:
             changed = True
@@ -1048,10 +1045,10 @@ def branch_optimise(bytecode_function):
     return changed
 
 
-def build_local_label_dictionary(bytecode_function, test):
+def build_target_dictionary(bytecode_function, test):
     result = {}
     for i in range(len(bytecode_function.ops)-1):
-        if bytecode_function.ops[i].is_local_label() and test(bytecode_function.ops[i+1]):
+        if bytecode_function.ops[i].is_target() and test(bytecode_function.ops[i+1]):
             result[bytecode_function.ops[i].operands[0]] = bytecode_function.ops[i+1]
     return result
 
@@ -1061,7 +1058,7 @@ def build_local_label_dictionary(bytecode_function, test):
 # TODO: Not just in this function - I am a bit inconsistent with opcode meaning "BRNCH" and opcode meaning 0x50 - perhaps check terminology, but I think opcode should be a hex value (so the opcode reverse dict is fine, because it gives us the opcode for a name, it's the 'opcode' member of the subdicts in opdict that are wrong, among others)
 def branch_optimise2(bytecode_function):
     changed = False
-    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
+    targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
     for instruction in bytecode_function.ops:
         if instruction.is_a('BRNCH'):
             target = targets.get(instruction.operands[0])
@@ -1074,24 +1071,24 @@ def branch_optimise2(bytecode_function):
 # BRNCH's target (i.e. just branch directly to the final destination in the first branch).
 def branch_optimise3(bytecode_function):
     changed = False
-    targets = build_local_label_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
+    targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
     alias = {k:v.operands[0] for k, v in targets.items()}
     for instruction in bytecode_function.ops:
         original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
-        instruction.rename_local_labels(alias)
+        instruction.rename_targets(alias)
         changed = changed or (original_operands != instruction.operands)
     return changed
 
-# Remove local labels which have no instructions referencing them; this can occur as a result
+# Remove targets which have no instructions referencing them; this can occur as a result
 # of other optimisations and is useful in opening up further optimisations.
-def remove_orphaned_labels(bytecode_function):
+def remove_orphaned_targets(bytecode_function):
     changed = False
-    labels_used = set()
+    targets_used = set()
     for instruction in bytecode_function.ops:
-        instruction.update_local_labels_used(labels_used)
+        instruction.update_targets_used(targets_used)
     new_ops = []
     for instruction in bytecode_function.ops:
-        if not (instruction.is_local_label() and instruction.operands[0] not in labels_used):
+        if not (instruction.is_target() and instruction.operands[0] not in targets_used):
             new_ops.append(instruction)
         else:
             changed = True
@@ -1099,19 +1096,19 @@ def remove_orphaned_labels(bytecode_function):
     return changed
 
 # SFTODO: Rename this to is_terminator() and change all comments to use the same terminology
-def never_immediate_successor(opcode):
+def is_terminator(opcode):
     opdef = opdict.get(opcode, None)
     return opdef and opdef.get('nis', False)
 
 def remove_dead_code(bytecode_function):
-    # This works in conjunction with remove_orphaned_labels().
+    # This works in conjunction with remove_orphaned_targets().
     def get_blocks(bytecode_function): # SFTODO: Don't like name clash with global get_blocks(), rename this
         foo = Foo(bytecode_function)
         foo.start_before(0, True)
         for i, instruction in enumerate(bytecode_function.ops):
-            if never_immediate_successor(instruction.opcode):
+            if is_terminator(instruction.opcode):
                 foo.start_after(i, None)
-            elif instruction.is_local_label():
+            elif instruction.is_target():
                 foo.start_before(i, True)
         return foo.get_blocks_and_metadata()
 
@@ -1127,11 +1124,11 @@ def remove_dead_code(bytecode_function):
 # the end of the function, but it would introduce unnecessary differences between the input
 # and output.)
 def move_case_blocks(bytecode_function):
-    blocks, block_label = get_blocks(bytecode_function)
+    blocks, block_target = get_blocks(bytecode_function)
     new_ops = []
     tail = []
     for i, block in enumerate(blocks):
-        if block_label[i] and len(block) > 1 and block[1].opcode == CASE_BLOCK_OPCODE and never_immediate_successor(block[-1].opcode) and blocks[i-1][-1].is_a('BRNCH'):
+        if block_target[i] and len(block) > 1 and block[1].opcode == CASE_BLOCK_OPCODE and is_terminator(block[-1].opcode) and blocks[i-1][-1].is_a('BRNCH'):
             tail.extend(block)
         else:
             new_ops.extend(block)
@@ -1175,61 +1172,61 @@ class Foo(object):
 
 
 # SFTODO: In following fns and their callers, should I stop saying 'metadata' and say
-# 'label', because that's what it is in these cases? It may turn out that Foo() is used
+# 'target', because that's what it is in these cases? It may turn out that Foo() is used
 # in cases where the metadata is something else, so that's fine, but the below do
-# specifically use labels.
+# specifically use targets.
 
 
 # SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
 def get_blocks(bytecode_function):
     foo = Foo(bytecode_function)
     for i, instruction in enumerate(bytecode_function.ops):
-        if instruction.is_local_label():
+        if instruction.is_target():
             foo.start_before(i, instruction.operands[0])
-        elif never_immediate_successor(instruction.opcode):
+        elif is_terminator(instruction.opcode):
             foo.start_after(i, None)
     return foo.get_blocks_and_metadata()
 
 # Split a function up into blocks:
-# - blocks which start with a local label, contain a series of non-label
-#   instructions and end with an instruction transferring control elsewhere.
+# - blocks which start with a target, contain a series of non-target
+#   instructions and end with terminator.
 # - anonymous blocks which don't satisfy that condition
-# We also classify named blocks such that block_label_only[i] is True iff
-# control only reaches that block via its label (not by falling off the end
+# We also classify named blocks such that block_target_only[i] is True iff
+# control only reaches that block via its target (not by falling off the end
 # of the previous block); such blocks can be freely moved around.
 def get_blocks2(bytecode_function): # SFTODO POOR NAME
     blocks, blocks_metadata = get_blocks(bytecode_function)
-    block_label_only = [False] * len(blocks)
+    block_target_only = [False] * len(blocks)
     for i, block in enumerate(blocks):
         assert block # SFTODO: I think the split code can never generate an empty block - if so we can remove the following if...
         if block:
-            if not never_immediate_successor(block[-1].opcode):
+            if not is_terminator(block[-1].opcode):
                 blocks_metadata[i] = None
             else:
-                block_label_only[i] = i > 0 and blocks[i-1] and never_immediate_successor(blocks[i-1][-1].opcode)
-    return blocks, blocks_metadata, block_label_only
+                block_target_only[i] = i > 0 and blocks[i-1] and is_terminator(blocks[i-1][-1].opcode)
+    return blocks, blocks_metadata, block_target_only
 
 def block_deduplicate(bytecode_function):
-    blocks, blocks_metadata, block_label_only = get_blocks2(bytecode_function)
+    blocks, blocks_metadata, block_target_only = get_blocks2(bytecode_function)
 
-    # Compare each pair of non-anonymous blocks (ignoring the initial local
-    # label); if two are identical and one of them is never entered by falling
+    # Compare each pair of non-anonymous blocks (ignoring the initial target
+    # instruction); if two are identical and one of them is never entered by falling
     # through from the previous block, we can delete that one and replace all
-    # references to its label with the label of the other block.
+    # references to its target with the target of the other block.
     alias = {}
     unwanted = set()
     for i in range(len(blocks)):
         for j in range(i+1, len(blocks)):
             if blocks_metadata[i] and blocks_metadata[j] and blocks[i][1:] == blocks[j][1:]:
-                assert blocks[i][0].is_local_label()
-                assert blocks[j][0].is_local_label()
+                assert blocks[i][0].is_target()
+                assert blocks[j][0].is_target()
                 replace = None
                 # SFTODO: Isn't this code subtly wrong? In the 'if' case, for example,
-                # what if block[j] is in unwanted? We'd generate calls to its label
+                # what if block[j] is in unwanted? We'd generate calls to its target
                 # even though it's being removed.
-                if blocks_metadata[i] not in unwanted and block_label_only[i]:
+                if blocks_metadata[i] not in unwanted and block_target_only[i]:
                     replace = (blocks_metadata[i], blocks_metadata[j])
-                elif blocks_metadata[j] not in unwanted and block_label_only[j]:
+                elif blocks_metadata[j] not in unwanted and block_target_only[j]:
                     replace = (blocks_metadata[j], blocks_metadata[i])
                 if replace:
                     alias[replace[0]] = replace[1]
@@ -1242,7 +1239,7 @@ def block_deduplicate(bytecode_function):
     for i, block in enumerate(blocks):
         if blocks_metadata[i] not in unwanted:
             for instruction in block:
-                instruction.rename_local_labels(alias)
+                instruction.rename_targets(alias)
                 new_ops.append(instruction)
         else:
             changed = True
@@ -1252,22 +1249,22 @@ def block_deduplicate(bytecode_function):
 
 
 # Look for blocks of code within a function which cannot be entered except via their
-# label and see if we can move those blocks to avoid the need to BRNCH to them.
+# target and see if we can move those blocks to avoid the need to BRNCH to them.
 def block_move(bytecode_function):
     # In order to avoid gratuitously moving chunks of code around (which makes it
     # harder to verify the transformations performed by this function are valid), we remove any
     # redundant branches to the immediately following instruction first.
     changed = branch_optimise(bytecode_function)
 
-    blocks, blocks_metadata, block_label_only = get_blocks2(bytecode_function)
+    blocks, blocks_metadata, block_target_only = get_blocks2(bytecode_function)
 
     # Merge blocks where possible.
     for i, block in enumerate(blocks):
         if block and block[-1].is_a('BRNCH'):
-            target_label = block[-1].operands[0]
-            if target_label in blocks_metadata:
-                target_block_index = blocks_metadata.index(target_label)
-                if target_block_index != i and block_label_only[target_block_index]:
+            target = block[-1].operands[0]
+            if target in blocks_metadata:
+                target_block_index = blocks_metadata.index(target)
+                if target_block_index != i and block_target_only[target_block_index]:
                     blocks[i] = blocks[i][:-1] + blocks[target_block_index]
                     blocks[target_block_index] = []
                     blocks_metadata[target_block_index] = None
@@ -1287,11 +1284,11 @@ def NopInstruction():
     return Instruction(NOP_OPCODE, [])
 
 
-# If the same instruction occurs before all unconditional branches to a label, and there are
-# no conditional branches to the label, the instruction can be moved immediately after the
-# label.
+# If the same instruction occurs before all unconditional branches to a target, and there are
+# no conditional branches to the target, the instruction can be moved immediately after the
+# target.
 def tail_move(bytecode_function):
-    # For every local label, set candidates[label] to:
+    # For every target, set candidates[target] to:
     # - the unique preceding instruction for all unconditional branches to it, provided it has
     #   no conditional branches to it, or
     # - None otherwise.
@@ -1300,37 +1297,37 @@ def tail_move(bytecode_function):
         instruction = bytecode_function.ops[i]
         if i > 0 and instruction.is_a('BRNCH'):
             previous_instruction = bytecode_function.ops[i-1]
-            if never_immediate_successor(previous_instruction.opcode):
+            if is_terminator(previous_instruction.opcode):
                 # This branch can never actually be reached; it will be optimised away
                 # eventually (it probably already has and this case won't occur) but
                 # it's not correct to move the preceding instruction on the assumption
                 # this branch will be unconditionally taken.
                 continue
-            label = instruction.operands[0]
-            if candidates.setdefault(label, previous_instruction) != previous_instruction:
-                candidates[label] = None
+            target = instruction.operands[0]
+            if candidates.setdefault(target, previous_instruction) != previous_instruction:
+                candidates[target] = None
         else:
-            labels_used = set()
-            instruction.update_local_labels_used(labels_used)
-            for label in labels_used:
-                candidates[label] = None
+            targets_used = set()
+            instruction.update_targets_used(targets_used)
+            for target in targets_used:
+                candidates[target] = None
 
-    # Now check the immediately preceding instruction before every local label with a
+    # Now check the immediately preceding instruction before every target with a
     # candidate. If it's not a terminator and it doesn't match the candidate, the
-    # candidate must be discarded. Otherwise we insert the candidate after the label
-    # and remove any copy of the candidate immediately preceding the label. (We don't
+    # candidate must be discarded. Otherwise we insert the candidate after the target 
+    # and remove any copy of the candidate immediately preceding the target. (We don't
     # remove instances of the candidate before unconditional branches here, because
     # until we've finished this loop we can't be sure a candidate won't be discarded.)
     new_ops = []
     changed = False
     for instruction in bytecode_function.ops:
         new_ops.append(instruction)
-        if len(new_ops) >= 2 and instruction.is_local_label():
+        if len(new_ops) >= 2 and instruction.is_target():
             candidate = candidates.get(instruction.operands[0], None)
             if candidate:
                 previous_instruction = new_ops[-2]
-                assert not previous_instruction.is_local_label()
-                if not never_immediate_successor(previous_instruction.opcode):
+                assert not previous_instruction.is_target()
+                if not is_terminator(previous_instruction.opcode):
                     if previous_instruction != candidate:
                         candidates[instruction.operands[0]] = None
                         continue
@@ -1345,9 +1342,9 @@ def tail_move(bytecode_function):
         while i < len(new_ops):
             instruction = new_ops[i]
             if i > 0 and instruction.is_a('BRNCH'):
-                label = instruction.operands[0]
-                if label in candidates:
-                    candidate = candidates[label]
+                target = instruction.operands[0]
+                if target in candidates:
+                    candidate = candidates[target]
                     if candidate:
                         new_ops[i-1] = NopInstruction()
             i += 1
@@ -1379,7 +1376,7 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
-        elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_local_label() and instruction.operands[0] == next_next_instruction.operands[0]:
+        elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_target() and instruction.operands[0] == next_next_instruction.operands[0]:
             bytecode_function.ops[i].invert_condition()
             bytecode_function.ops[i].operands = next_instruction.operands
             bytecode_function.ops[i+1] = NopInstruction()
@@ -1420,15 +1417,15 @@ def peephole_optimise(bytecode_function):
 
 
 
-def is_branch_or_label(instruction):
+def is_branch_or_target(instruction):
     # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
-    return instruction.is_local_label() or instruction.is_branch()
+    return instruction.is_target() or instruction.is_branch()
 
 def get_straightline_blocks(bytecode_function):
     foo = Foo(bytecode_function)
     for i, instruction in enumerate(bytecode_function.ops):
-        if i == 0 or is_branch_or_label(instruction) != is_branch_or_label(bytecode_function.ops[i-1]):
-            foo.start_before(i, not is_branch_or_label(instruction))
+        if i == 0 or is_branch_or_target(instruction) != is_branch_or_target(bytecode_function.ops[i-1]):
+            foo.start_before(i, not is_branch_or_target(instruction))
     return foo.get_blocks_and_metadata()
 
 def straightline_optimise(bytecode_function, optimisations):
@@ -1740,22 +1737,6 @@ for import_name in import_names:
     print("\t!BYTE\t%s" % dci_bytes(import_name))
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
-SFTODOFLAG = True
-def SFTODO(ops):
-    return True# SFTODO!?
-    global SFTODOFLAG
-    if len(ops) < 4:
-        return True
-    i = 0
-    while i < len(ops) - 3:
-        if isinstance(ops[i], LocalLabelInstruction) and ops[i].operands[0] == Offset('_L0426'):
-            pass #print('SFTODOqqq')
-        if isinstance(ops[i], ConstantInstruction) and ops[i].operands[0] == -1 and ops[i+1].opcode == 0x5c and isinstance(ops[i+2], ConstantInstruction) and ops[i+2].operands[0] == -1 and ops[i+3].opcode == 0x5c:
-            return False 
-        i += 1
-    SFTODOFLAG = False 
-    return True
-
 new_rld = RLD()
 if used_things_ordered[0] == new_module.data_asm_blob:
     new_module.data_asm_blob.dump(new_rld, new_esd)
@@ -1768,8 +1749,6 @@ assert used_things_ordered[-1].is_init()
 for bytecode_function in used_things_ordered:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     changed = True
-    SFTODOFLAG = True
-    assert SFTODO(bytecode_function.ops)
     while changed:
         changed1 = True
         while changed1:
@@ -1779,25 +1758,16 @@ for bytecode_function in used_things_ordered:
             result = []
             if True: # SFTODO TEMP
                 #SFTODO = copy.deepcopy(bytecode_function.ops)
-                result.append(local_label_deduplicate(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
+                result.append(target_deduplicate(bytecode_function))
                 #assert result[-1] or (SFTODO == bytecode_function.ops)
                 result.append(branch_optimise(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
                 result.append(branch_optimise2(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
                 result.append(branch_optimise3(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
-                result.append(remove_orphaned_labels(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
+                result.append(remove_orphaned_targets(bytecode_function))
                 result.append(remove_dead_code(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
                 result.append(move_case_blocks(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
                 result.append(peephole_optimise(bytecode_function))
-                assert SFTODO(bytecode_function.ops)
                 result.append(straightline_optimise(bytecode_function, [optimise_load_store, load_to_dup]))
-                assert SFTODO(bytecode_function.ops)
                 #if SFTODOFOO:
                 #    break
             changed1 = any(result)
@@ -1810,13 +1780,9 @@ for bytecode_function in used_things_ordered:
         # this is actually still true.
         while changed2:
             result = []
-            assert SFTODO(bytecode_function.ops)
             result.append(block_deduplicate(bytecode_function))
-            assert SFTODO(bytecode_function.ops)
             result.append(block_move(bytecode_function))
-            assert SFTODO(bytecode_function.ops)
             result.append(tail_move(bytecode_function))
-            assert SFTODO(bytecode_function.ops)
             changed2 = any(result)
         changed = changed1 or changed2
     bytecode_function.dump(new_rld, new_esd)
