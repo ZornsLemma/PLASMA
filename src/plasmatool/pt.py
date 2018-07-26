@@ -119,9 +119,7 @@ class Label(AbsoluteAddress, ComparisonMixin):
                 "\t!WORD\t%s-_SEGBEGIN\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
 
-    # TODO: Seems wrong to need this variant function, but let's just get
-    # things going for the moment
-    def acme_rld2(self, fixup_label, esd):
+    def acme_def(self, fixup_label):
         return ("\t!BYTE\t$02\t\t\t; CODE TABLE FIXUP\n" +
                 "\t!WORD\t%s\n" +
                 "\t!BYTE\t$00") % (fixup_label.name,)
@@ -175,8 +173,9 @@ class RLD(object):
         self.fixups.append((reference, fixup_label))
 
     def dump(self): # SFTODO: SHOULD PROB TAKE ESD ARG INSTEAD OF USING GLOBAL new_esd
+        # The first part of the RLD is called the "DeFinition Dictionary" by cmd.pla.
         for bytecode_function_label in self.bytecode_function_labels:
-            print(bytecode_function_label.acme_rld2(bytecode_function_label, None))
+            print(bytecode_function_label.acme_def(bytecode_function_label))
 
         # TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
         # the fast fixup case inside reloc() can handle them all sequentially. This may not make
@@ -184,6 +183,7 @@ class RLD(object):
         # the standard compiler probably does this anyway.
         for reference, fixup_label in self.fixups:
             print(reference.acme_rld(fixup_label, new_esd))
+
         print("\t!BYTE\t$00\t\t\t; END OF RLD")
 
 
