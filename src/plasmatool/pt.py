@@ -1704,47 +1704,10 @@ del rld
 del esd
 del defcnt
 
-assert new_module.bytecode_functions[-1].is_init()
-# SFTODO: We really should do the "used thing" determination *after* we've optimised the
-# individual functions; it is possible (if unlikely?) that we will eliminate dead code
-# containing the only reference to something and thereby allow it to be dropped.
-dependencies = set()
-new_module.bytecode_functions[-1].add_dependencies(dependencies)
-for external_name, reference in new_esd.entry_dict.items():
-    reference.add_dependencies(dependencies)
-# We preserve the order of things in the input module; this automatically ensure that
-# the data/asm blob comes first and init comes last, and it also avoids gratuitous
-# reordering which makes comparing the input and output difficult.
-dependencies_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
-if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
-    dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
-
-#blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
-#new_module.bytecode_blob.label(0, Label("_SUBSEG"))
-
-print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
-print("_SEGBEGIN")
-print("\t!WORD\t$6502\t\t\t; MAGIC #")
-print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (sysflags,))
-print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
-print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
-print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
-
-for import_name in import_names:
-    print("\t; DCI STRING: %s" % (import_name,))
-    print("\t!BYTE\t%s" % dci_bytes(import_name))
-print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
-
-new_rld = RLD()
-if dependencies_ordered[0] == new_module.data_asm_blob:
-    new_module.data_asm_blob.dump(new_rld, new_esd)
-    dependencies_ordered.pop(0)
-print("_SUBSEG")
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
-assert dependencies_ordered[-1].is_init()
-for bytecode_function in dependencies_ordered:
+for bytecode_function in new_module.bytecode_functions:
     # TODO: The order here has not been thought through at all carefully and may be sub-optimal
     changed = True
     while changed:
@@ -1783,6 +1746,49 @@ for bytecode_function in dependencies_ordered:
             result.append(tail_move(bytecode_function))
             changed2 = any(result)
         changed = changed1 or changed2
+
+# In order to remove unused objects from the module, we determine the set of
+# dependencies, i.e. the data/asm LabelledBlob and the BytecodeFunctions,
+# starting with _INIT and any exported symbols and recursively adding their
+# dependencies. It is possible (though unlikely; TODO: test this) that this
+# will remove the data/asm LabelledBlob, but it is more likely to remove
+# BytecodeFunctions. We do this after optimising to take advantage of any dead
+# code removal.
+assert new_module.bytecode_functions[-1].is_init()
+dependencies = set()
+new_module.bytecode_functions[-1].add_dependencies(dependencies)
+for external_name, reference in new_esd.entry_dict.items():
+    reference.add_dependencies(dependencies)
+# dependencies now contains only objects which are needed. We preserve the
+# order of things in the input module; this automatically ensure that the
+# data/asm blob comes first and _INIT comes last, and it also avoids gratuitous
+# reordering which makes comparing the input and output difficult.
+dependencies_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
+if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
+    dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
+
+#blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
+#new_module.bytecode_blob.label(0, Label("_SUBSEG"))
+
+print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
+print("_SEGBEGIN")
+print("\t!WORD\t$6502\t\t\t; MAGIC #")
+print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (sysflags,))
+print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
+print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
+print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
+
+for import_name in import_names:
+    print("\t; DCI STRING: %s" % (import_name,))
+    print("\t!BYTE\t%s" % dci_bytes(import_name))
+print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
+
+new_rld = RLD()
+if dependencies_ordered[0] == new_module.data_asm_blob:
+    new_module.data_asm_blob.dump(new_rld, new_esd)
+    dependencies_ordered.pop(0)
+print("_SUBSEG")
+for bytecode_function in dependencies_ordered:
     bytecode_function.dump(new_rld, new_esd)
 defcnt = len(dependencies_ordered)
 
