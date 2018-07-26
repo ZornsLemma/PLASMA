@@ -172,7 +172,7 @@ class RLD(object):
     def add_fixup(self, reference, fixup_label):
         self.fixups.append((reference, fixup_label))
 
-    def dump(self): # SFTODO: SHOULD PROB TAKE ESD ARG INSTEAD OF USING GLOBAL new_esd
+    def dump(self, esd):
         # The first part of the RLD is called the "DeFinition Dictionary" by cmd.pla.
         for bytecode_function_label in self.bytecode_function_labels:
             print(bytecode_function_label.acme_def(bytecode_function_label))
@@ -182,7 +182,7 @@ class RLD(object):
         # a huge load time difference, but it's probably a good idea - especially as output from
         # the standard compiler probably does this anyway.
         for reference, fixup_label in self.fixups:
-            print(reference.acme_rld(fixup_label, new_esd))
+            print(reference.acme_rld(fixup_label, esd))
 
         print("\t!BYTE\t$00\t\t\t; END OF RLD")
 
@@ -1791,7 +1791,7 @@ print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 
-new_rld.dump()
+new_rld.dump(new_esd)
 
 new_esd.dump()
 
