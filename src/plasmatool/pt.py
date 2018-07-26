@@ -1,4 +1,4 @@
-import abc
+# SFTODO NOT USED import abc
 import collections
 import copy # SFTODO TEMP
 import itertools
