@@ -112,7 +112,7 @@ class Label(AbsoluteAddress, ComparisonMixin):
         return self.name
 
     def acme_reference(self, comment=True):
-        return "!WORD\t%s+0" % (self.name,) # SFTODO: GET RID OF +0?
+        return "!WORD\t%s" % (self.name,)
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$81\t\t\t; INTERNAL FIXUP\n" +
