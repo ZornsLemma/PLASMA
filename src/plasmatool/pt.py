@@ -1706,6 +1706,9 @@ del esd
 del defcnt
 
 assert new_module.bytecode_functions[-1].is_init()
+# SFTODO: We really should do the "used thing" determination *after* we've optimised the
+# individual functions; it is possible (if unlikely?) that we will eliminate dead code
+# containing the only reference to something and thereby allow it to be dropped.
 used_things = set()
 new_module.bytecode_functions[-1].update_used_things(used_things)
 for external_name, reference in new_esd.entry_dict.items():
