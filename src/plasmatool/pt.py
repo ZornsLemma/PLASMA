@@ -111,11 +111,8 @@ class Label(AbsoluteAddress, ComparisonMixin):
     def nm(self):
         return self.name
 
-    def acme_reference(self):
-        return "\t!WORD\t%s+0" % (self.name,)
-
-    def acme_reference2(self): # SFTODO: HORRIBLE NAMING ETC ETC
-        return "!WORD\t%s+0" % (self.name,)
+    def acme_reference(self, comment=True):
+        return "!WORD\t%s+0" % (self.name,) # SFTODO: GET RID OF +0?
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$81\t\t\t; INTERNAL FIXUP\n" +
@@ -150,11 +147,11 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
         else:
             return self.external_name
 
-    def acme_reference(self):
-        return "\t!WORD\t%d\t\t\t; %s+%d" % (self.offset, self.external_name, self.offset)
-
-    def acme_reference2(self): # SFTODO: HORRIBLE NAMING ETC ETC
-        return "!WORD\t%d" % (self.offset,)
+    def acme_reference(self, comment=True):
+        if comment:
+            return "!WORD\t%d\t\t\t; %sd" % (self.offset, self.nm())
+        else:
+            return "!WORD\t%d" % (self.offset,)
 
     def acme_rld(self, fixup_label, esd):
         return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
@@ -220,6 +217,7 @@ class ESD(object):
             print("\t!BYTE\t$10\t\t\t; EXTERNAL SYMBOL FLAG")
             print("\t!WORD\t%d\t\t\t; ESD INDEX" % (esd_index,))
         for external_name, reference in self.entry_dict.items():
+            assert isinstance(reference, Label)
             print("\t; DCI STRING: %s" % external_name)
             print("\t!BYTE\t%s" % dci_bytes(external_name))
             print("\t!BYTE\t$08\t\t\t; ENTRY SYMBOL FLAG")
@@ -491,7 +489,7 @@ def acme_dump_label(opcode, operands, rld): # SFTODO: RENAME THIS FN??
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
         fixup_label = Label('_F')
         rld.add_fixup(operands[0], fixup_label)
-        print('%s\t%s' % (fixup_label.name, operands[0].acme_reference2()))
+        print('%s\t%s' % (fixup_label.name, operands[0].acme_reference(False)))
 
 def acme_dump_cs(opcode, operands):
     s = operands[0].value
