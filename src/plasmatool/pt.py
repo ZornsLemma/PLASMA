@@ -277,7 +277,6 @@ class LabelledBlob(object):
     def dump(self, rld, esd):
         #print("; SFTODO BLOB START %r" % self)
         i = 0
-        fixup_count = 0
         while i < len(self.blob):
             if not self.references[i]:
                 for label in self.labels[i]:
@@ -286,10 +285,7 @@ class LabelledBlob(object):
             else:
                 reference = self.references[i]
                 assert not self.labels[i]
-                fixup_label = Label('_F')
-                fixup_count += 1
-                rld.add_fixup(reference, fixup_label)
-                print('%s\t%s' % (fixup_label.name, reference.acme_reference()))
+                acme_dump_fixup(rld, reference)
                 i += 1
                 assert not self.labels[i]
                 assert not self.references[i]
@@ -487,9 +483,12 @@ def acme_dump_label(opcode, operands, rld): # SFTODO: RENAME THIS FN??
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
     else:
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
-        fixup_label = Label('_F')
-        rld.add_fixup(operands[0], fixup_label)
-        print('%s\t%s' % (fixup_label.name, operands[0].acme_reference(False)))
+        acme_dump_fixup(rld, operands[0], False) # no comment, previous line shows this info
+
+def acme_dump_fixup(rld, reference, comment=True):
+    fixup_label = Label('_F')
+    rld.add_fixup(reference, fixup_label)
+    print('%s\t%s' % (fixup_label.name, reference.acme_reference(comment)))
 
 def acme_dump_cs(opcode, operands):
     s = operands[0].value
