@@ -149,7 +149,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
 
     def acme_reference(self, comment=True):
         if comment:
-            return "!WORD\t%d\t\t\t; %sd" % (self.offset, self.nm())
+            return "!WORD\t%d\t\t\t; %s" % (self.offset, self.nm())
         else:
             return "!WORD\t%d" % (self.offset,)
 
