@@ -486,7 +486,7 @@ def acme_dump_label(opcode, operands, rld): # SFTODO: RENAME THIS FN??
     if isinstance(operands[0], FixedAddress): # SFTODO: Bit crap - shouldn't this be a polymorphic thing?
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
     else:
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s+0" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0].nm()))
         fixup_label = Label('_F')
         rld.add_fixup(operands[0], fixup_label)
         print('%s\t%s' % (fixup_label.name, operands[0].acme_reference2()))
