@@ -416,7 +416,7 @@ class Target(ComparisonMixin):
         return (self._value,)
 
     def rename_targets(self, alias):
-        assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_targets ABOVE
+        raise TypeError("Target is immutable") # use non-member rename_targets() instead
 
     def add_targets_used(self, targets_used):
         targets_used.add(self)
