@@ -480,10 +480,6 @@ class String(ComparisonMixin):
 
 # TODO: Seems wrong to have these random free functions
 
-def acme_dump_branch(opcode, operands):
-    print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
-    print("\t!WORD\t%s-*" % (operands[0],))
-
 def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
     self.operands[0].dump(self.opcode, rld)
 
@@ -692,6 +688,9 @@ def disassemble_constant(disassembly_info, i):
     elif opcode == 0x2a: # CB opcode
         return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
     elif opcode == 0x2c: # CW opcode
+        # SFTODO: Should I sign-extend here? It's not *wrong* but it may cause us to fail
+        # to recognise that two constants are identical and it just seems a bit
+        # inconsistent. Or, alternatively, CFFB *should* sign-extend for consistency.
         return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
     elif opcode == 0x5e: # CFFB opcode
         return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
@@ -747,8 +746,10 @@ def disassemble_branch(disassembly_info, i):
     return Instruction(opcode, [target]), i
 
 def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
-    # SFTODO: Fold acme_dump_branch() in here? Also used in SelInstruction tho...
-    acme_dump_branch(self.opcode, self.operands)
+    opcode = self.opcode
+    operands = self.operands
+    print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
+    print("\t!WORD\t%s-*" % (operands[0],))
 
 
 def disassemble_sel(di, i):
@@ -756,10 +757,6 @@ def disassemble_sel(di, i):
     di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
     target, i = Target.disassemble(di, i)
     return Instruction('SEL', [target]), i
-
-def dump_sel(self, rld):
-    # SFTODO: Fold acme_dump_branch() in here?
-    acme_dump_branch(self.opcode, self.operands)
 
 
 
@@ -841,7 +838,7 @@ instruction_class_fns = {
         InstructionClass.ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
         InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
         InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
-        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_sel, 'operands': 1, 'operand_type': Target},
+        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
         InstructionClass.CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
 }
 
