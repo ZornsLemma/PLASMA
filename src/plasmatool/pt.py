@@ -247,6 +247,7 @@ class ESD(object):
 
         print("\t!BYTE\t$00\t\t\t; END OF ESD")
 
+
 class LabelledBlob(object):
     def __init__(self, blob):
         self.blob = blob
@@ -254,20 +255,24 @@ class LabelledBlob(object):
         self.references = [None] * len(self.blob)
 
     def __getitem__(self, key):
-        return ord(self.blob[key])
+        if isinstance(key, slice):
+            start = key.start
+            stop = key.stop
+            assert key.step is None
+            # SFTODO: SHOULD USE A PROPER CTOR RATHER THAN CREATING B THEN PATCHING UP
+            # LABELS AND REFERENCES MEMBERS
+            b = LabelledBlob(self.blob[start:stop])
+            b.labels = self.labels[start:stop]
+            for label_list in b.labels:
+                for label in label_list:
+                    label.set_owner(b)
+            b.references = self.references[start:stop]
+            return b
+        else:
+            return ord(self.blob[key])
 
     def __len__(self):
         return len(self.blob)
-
-    def slice(self, start, end):
-        # SFTODO: Should use a proper ctor
-        b = LabelledBlob(self.blob[start:end])
-        b.labels = self.labels[start:end]
-        for label_list in b.labels:
-            for label in label_list:
-                label.set_owner(b)
-        b.references = self.references[start:end]
-        return b
 
     def label(self, key, lbl):
         self.labels[key].append(lbl)
@@ -1703,13 +1708,11 @@ init_offset = init_abs - org - blob_offset
 blob.label(init_offset, Label("_INIT", False))
 
 new_module = Module()
-# TODO: Should probably support proper [a:b] slice overload instead of having slice() fn
-new_module.data_asm_blob = blob.slice(0, subseg_abs - org - blob_offset)
+new_module.data_asm_blob = blob[0:subseg_abs - org - blob_offset]
 
-#new_module.bytecode_blob = blob.slice(subseg_abs - org - blob_offset, len(blob))
 offsets = bytecode_function_offsets + [init_offset, len(blob)]
 for start, end in zip(offsets, offsets[1:]):
-    bytecode_function_blob = blob.slice(start, end)
+    bytecode_function_blob = blob[start:end]
     new_module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
 
 del blob
