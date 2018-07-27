@@ -165,6 +165,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()))
         acme_dump_fixup(rld, self, False) # no comment, previous line shows this info
 
+
 class RLD(object):
     def __init__(self):
         self.bytecode_function_labels = []
@@ -179,16 +180,25 @@ class RLD(object):
         self.fixups.append((reference, fixup_label))
 
     def dump(self, esd):
-        # The first part of the RLD is called the "DeFinition Dictionary" by cmd.pla.
+        # The first part of the RLD must be what cmd.pla calls the "DeFinition Dictionary".
         for bytecode_function_label in self.bytecode_function_labels:
             print(bytecode_function_label.acme_def(bytecode_function_label))
 
-        # TODO: It *may* be the case that all the non-bytecode fixups should come together, so that
-        # the fast fixup case inside reloc() can handle them all sequentially. This may not make
-        # a huge load time difference, but it's probably a good idea - especially as output from
-        # the standard compiler probably does this anyway.
+        # Although the PLASMA VM doesn't strictly care what order the internal and
+        # external fixups appear in in the rest of the RLD, cmd.pla's reloc() function
+        # special-cases internal fixups to non-bytecode addresses and handles them
+        # internally without returning to the caller. I haven't actually tried to measure
+        # this, but this means that if we group all the internal fixups to non-bytecode
+        # addresses together we should get an improvement (perhaps a negligible one) in the
+        # time taken to load the module.
+        pending = []
         for reference, fixup_label in self.fixups:
-            print(reference.acme_rld(fixup_label, esd))
+            rld_str = reference.acme_rld(fixup_label, esd)
+            if isinstance(reference, Label) and isinstance(reference.owner, LabelledBlob):
+                print(rld_str)
+            else:
+                pending.append(rld_str)
+        print("\n".join(pending))
 
         print("\t!BYTE\t$00\t\t\t; END OF RLD")
 
