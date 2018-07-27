@@ -249,25 +249,23 @@ class ESD(object):
 
 
 class LabelledBlob(object):
-    def __init__(self, blob):
+    def __init__(self, blob, labels=None, references=None):
         self.blob = blob
-        self.labels = {}
-        self.references = {}
+        self.labels = labels if labels else {}
+        self.references = references if references else {}
+        for label_list in self.labels.values():
+            for label in label_list:
+                label.set_owner(self)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start = key.start
             stop = key.stop
             assert key.step is None
-            # SFTODO: SHOULD USE A PROPER CTOR RATHER THAN CREATING B THEN PATCHING UP
-            # LABELS AND REFERENCES MEMBERS
-            b = LabelledBlob(self.blob[start:stop])
-            b.labels = {k-start: v for k, v in self.labels.items() if start<=k<stop}
-            for label_list in b.labels.values():
-                for label in label_list:
-                    label.set_owner(b)
-            b.references = {k-start: v for k, v in self.references.items() if start<=k<=stop}
-            return b
+            return LabelledBlob(
+                self.blob[start:stop],
+                {k-start: v for k, v in self.labels.items() if start<=k<stop},
+                {k-start: v for k, v in self.references.items() if start<=k<=stop})
         else:
             return ord(self.blob[key])
 
