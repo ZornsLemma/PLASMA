@@ -73,7 +73,7 @@ class AbsoluteAddress(object):
 
 
 class Label(AbsoluteAddress, ComparisonMixin):
-    __next = collections.defaultdict(int)
+    _next = collections.defaultdict(int)
 
     def __init__(self, prefix, add_suffix = True):
         # We don't need to populate self.owner here; we are either creating a Label object
@@ -83,9 +83,9 @@ class Label(AbsoluteAddress, ComparisonMixin):
         self.owner = None
 
         if add_suffix:
-            i = Label.__next[prefix]
+            i = Label._next[prefix]
             self.name = '%s%04d' % (prefix, i)
-            Label.__next[prefix] += 1
+            Label._next[prefix] += 1
         else:
             self.name = prefix
 
@@ -360,7 +360,8 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
         return FixedAddress(di.labelled_blob.read_u16(i)), i+2
 
     def dump(self, opcode, rld):
-        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, operands[0].value & 0xff, (operands[0].value & 0xff00) >> 8, opdict[opcode]['opcode'], operands[0].value))
+        value = operands[0].value
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value))
 
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
@@ -393,12 +394,12 @@ class Target(ComparisonMixin):
        called (local) labels, but we use this distinct name to distinguish them from Label
        objects, which exist at the module level."""
 
-    __next = 0
+    _next = 0
 
     def __init__(self, value=None):
         if not value:
-            value = '_L%04d' % (Target.__next,)
-            Target.__next += 1
+            value = '_L%04d' % (Target._next,)
+            Target._next += 1
         assert isinstance(value, str)
         self._value = value
 
@@ -414,8 +415,8 @@ class Target(ComparisonMixin):
     def rename_targets(self, alias):
         assert False # SFTODO: THIS IS WRONG/DANGEROUS - SEE COMMENT ON rename_targets ABOVE
 
-    def update_targets_used(self, targets):
-        targets.add(self)
+    def add_targets_used(self, targets_used):
+        targets_used.add(self)
 
     @classmethod
     def disassemble(cls, di, i, current_pos = None):
@@ -453,9 +454,9 @@ class CaseBlock(ComparisonMixin):
         for i, (value, target) in enumerate(self.table):
             self.table[i] = (self.table[i][0], rename_targets(self.table[i][1], alias))
 
-    def update_targets_used(self, targets):
+    def add_targets_used(self, targets_used):
         for value, target in self.table:
-            target.update_targets_used(targets)
+            target.add_targets_used(targets_used)
 
     @classmethod
     def disassemble(cls, di, i):
@@ -654,12 +655,12 @@ class Instruction(ComparisonMixin):
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
-    def update_targets_used(self, targets):
+    def add_targets_used(self, targets_used):
         # SFTODO TEMP HACK FOR TRANSITION
         if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
             pass
         elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
-            self.operands[0].update_targets_used(targets)
+            self.operands[0].add_targets_used(targets_used)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
@@ -1087,7 +1088,7 @@ def remove_orphaned_targets(bytecode_function):
     changed = False
     targets_used = set()
     for instruction in bytecode_function.ops:
-        instruction.update_targets_used(targets_used)
+        instruction.add_targets_used(targets_used)
     new_ops = []
     for instruction in bytecode_function.ops:
         if not (instruction.is_target() and instruction.operands[0] not in targets_used):
@@ -1310,7 +1311,7 @@ def tail_move(bytecode_function):
                 candidates[target] = None
         else:
             targets_used = set()
-            instruction.update_targets_used(targets_used)
+            instruction.add_targets_used(targets_used)
             for target in targets_used:
                 candidates[target] = None
 
