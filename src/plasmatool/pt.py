@@ -517,7 +517,7 @@ class DisassemblyInfo(object):
         self.bytecode_function = bytecode_function
         self.labelled_blob = labelled_blob
         self.target = collections.defaultdict(list)
-        self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
+        self.case_block_offsets = set()
 
 
 # TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_target() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
@@ -750,7 +750,7 @@ def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
 
 def disassemble_sel(di, i):
     i += 1
-    di.special[i + di.labelled_blob.read_u16(i)] = True
+    di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
     target, i = Target.disassemble(di, i)
     return Instruction('SEL', [target]), i
 
@@ -966,8 +966,7 @@ class BytecodeFunction(object):
 
             op_offset.append(i)
 
-            special = di.special[i]
-            if not special:
+            if i not in di.case_block_offsets:
                 opcode = labelled_blob[i]
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
