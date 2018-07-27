@@ -330,9 +330,6 @@ class Byte(ComparisonMixin):
     def keys(self):
         return (self.value,)
 
-    def acme(self):
-        return "$%02X" % (self.value,)
-
 
 class FrameOffset(Byte):
     def __add__(self, rhs):
@@ -357,8 +354,6 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
 
     def add_dependencies(self, dependencies):
         pass
-
-    # SFTODO: Shouldn't we "need" an acme() method on this?
 
     @classmethod
     def disassemble(cls, di, i):
