@@ -337,7 +337,6 @@ class FrameOffset(Byte):
         return FrameOffset(self.value + rhs)
 
 
-
 class FixedAddress(AbsoluteAddress, ComparisonMixin):
     def __init__(self, value):
         self.value = value
@@ -385,10 +384,6 @@ def rename_targets(target, alias):
     return Target(alias.get(target, target)._value)
 
 
-# SFTODO: May be worth jumping through some Python hoops (I think essentially involving
-# deriving from namedtuple and setting slots to empty) to make this truly immutable, to avoid
-# the risk of confusing myself (given that the same Target object may be shared by multiple
-# instructions and changes are likely to have the wrong effect).
 class Target(ComparisonMixin):
     """Class representing a branch target within a bytecode function; these could also be
        called (local) labels, but we use this distinct name to distinguish them from Label
@@ -401,7 +396,15 @@ class Target(ComparisonMixin):
             value = '_L%04d' % (Target._next,)
             Target._next += 1
         assert isinstance(value, str)
-        self._value = value
+        object.__setattr__(self, "_value", value) # avoid using our throwing __setattr__()
+
+    def __setattr__(self, *args):
+        # The same Target object is likely shared by multiple instructions, both TARGET
+        # pseudo-instructions which define its location and branch instructions which
+        # reference it. Accidentally modifying a Target object in place rather than
+        # replacing it with a different Target object will therefore affect more than just
+        # the instruction we intended to modify, so we go out of our way to prevent this.
+        raise TypeError("Target is immutable")
 
     def __str__(self):
         return self._value
