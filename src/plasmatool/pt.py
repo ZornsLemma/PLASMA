@@ -285,7 +285,6 @@ class LabelledBlob(object):
         self.references[key] = reference 
 
     def read_u16(self, key):
-        # TODO: Best way to write this?!
         return self[key] | (self[key+1] << 8)
 
     def add_dependencies(self, dependencies):
@@ -333,12 +332,6 @@ class Byte(ComparisonMixin):
 
     def acme(self):
         return "$%02X" % (self.value,)
-
-    # TODO: Why does Byte need a disassemble method but FrameOffset doesn't?
-    @classmethod
-    def disassemble(cls, di, i):
-        byte = cls(di.labelled_blob[i])
-        return byte, i+1
 
 
 class FrameOffset(Byte):
@@ -802,8 +795,8 @@ def disassemble_immediate_instruction(disassembly_info, i, operand_count):
     i += 1
     operands = []
     for j in range(operand_count):
-        operand, i = Byte.disassemble(disassembly_info, i)
-        operands.append(operand)
+        operands.append(Byte(disassembly_info.labelled_blob[i]))
+        i += 1
     return Instruction(opcode, operands), i
 
 def disassemble_immediate_instruction1(disassembly_info, i):
