@@ -251,7 +251,7 @@ class ESD(object):
 class LabelledBlob(object):
     def __init__(self, blob):
         self.blob = blob
-        self.labels = [[] for _ in range(len(self.blob))]
+        self.labels = {}
         self.references = [None] * len(self.blob)
 
     def __getitem__(self, key):
@@ -262,8 +262,8 @@ class LabelledBlob(object):
             # SFTODO: SHOULD USE A PROPER CTOR RATHER THAN CREATING B THEN PATCHING UP
             # LABELS AND REFERENCES MEMBERS
             b = LabelledBlob(self.blob[start:stop])
-            b.labels = self.labels[start:stop]
-            for label_list in b.labels:
+            b.labels = {k-start: v for k, v in self.labels.items() if start<=k<stop}
+            for label_list in b.labels.values():
                 for label in label_list:
                     label.set_owner(b)
             b.references = self.references[start:stop]
@@ -275,11 +275,11 @@ class LabelledBlob(object):
         return len(self.blob)
 
     def label(self, key, lbl):
-        self.labels[key].append(lbl)
+        self.labels.setdefault(key, []).append(lbl)
 
     def label_or_get(self, key, prefix):
-        if not self.labels[key]:
-            self.labels[key].append(Label(prefix))
+        if key not in self.labels:
+            self.labels[key] = [Label(prefix)]
         return self.labels[key][0]
 
     def reference(self, key, reference):
@@ -307,15 +307,15 @@ class LabelledBlob(object):
         i = 0
         while i < len(self.blob):
             if not self.references[i]:
-                for label in self.labels[i]:
+                for label in self.labels.get(i, []):
                     print('%s' % label.name)
                 print('\t!BYTE\t$%02X' % (self[i],))
             else:
                 reference = self.references[i]
-                assert not self.labels[i]
+                assert i not in self.labels
                 acme_dump_fixup(rld, reference)
                 i += 1
-                assert not self.labels[i]
+                assert i not in self.labels
                 assert not self.references[i]
             i += 1
         print("; SFTODO BLOB END")
@@ -979,7 +979,7 @@ opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', Fal
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
         assert isinstance(labelled_blob, LabelledBlob)
-        self.labels = labelled_blob.labels[0]
+        self.labels = labelled_blob.labels.get(0, [])
         for label in self.labels:
             label.set_owner(self)
         self.ops = [] # SFTODO Should perhaps call 'instructions'
@@ -990,7 +990,7 @@ class BytecodeFunction(object):
             # There should be no labels within a bytecode function. We will later
             # create branch targets based on the branch instructions within
             # the function, but those are different.
-            assert i == 0 or not labelled_blob.labels[i]
+            assert i == 0 or i not in labelled_blob.labels
 
             for t in di.target[i]:
                 self.ops.append(Instruction(TARGET_OPCODE, [t]))
@@ -1822,3 +1822,5 @@ new_esd.dump()
 
 # TODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
 # early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
+
+# vi: tw=90
