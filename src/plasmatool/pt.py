@@ -516,7 +516,7 @@ class DisassemblyInfo(object):
     def __init__(self, bytecode_function, labelled_blob):
         self.bytecode_function = bytecode_function
         self.labelled_blob = labelled_blob
-        self.target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
+        self.target = collections.defaultdict(list)
         self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
 
 
@@ -981,7 +981,7 @@ class BytecodeFunction(object):
 
         self.ops = []
         for i, op in enumerate(ops):
-            for t in di.target[op_offset[i]]:
+            for t in di.target.get(op_offset[i], []):
                 self.ops.append(Instruction(TARGET_OPCODE, [t]))
             self.ops.append(op)
 
