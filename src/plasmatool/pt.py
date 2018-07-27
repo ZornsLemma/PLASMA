@@ -419,25 +419,11 @@ class Target(ComparisonMixin):
         targets_used.add(self)
 
     @classmethod
-    def disassemble(cls, di, i, current_pos = None):
-        if not current_pos:
-            current_pos = i
+    def disassemble(cls, di, i):
         target_pos = i + sign_extend(di.labelled_blob.read_u16(i))
         target = Target()
-        if target_pos > current_pos:
-            di.target[target_pos].append(target)
-        elif target_pos < current_pos:
-            j = 0
-            while j < len(di.op_offset): # SFTODO: rename op_offset????
-                if di.op_offset[j] == target_pos:
-                    di.op_offset.insert(j, None)
-                    di.bytecode_function.ops.insert(j, Instruction(TARGET_OPCODE, [target]))
-                    j = 99999 # SFTODO ULTRA FOUL
-                j += 1
-            assert j >= 99999
+        di.target[target_pos].append(target)
         return target, i+2
-
-
 
 
 class CaseBlock(ComparisonMixin):
@@ -465,7 +451,7 @@ class CaseBlock(ComparisonMixin):
         for j in range(count):
             k = i + 1 + 4*j
             value = di.labelled_blob.read_u16(k)
-            target, _ = Target.disassemble(di, k+2, i)
+            target, _ = Target.disassemble(di, k+2)
             table.append((value, target))
         return CaseBlock(table), i+1+4*count
 
@@ -532,7 +518,6 @@ class DisassemblyInfo(object):
         self.labelled_blob = labelled_blob
         self.target = [[] for _ in range(len(labelled_blob))] # SFTODO VERY EXPERIMENTAL
         self.special = [None] * len(labelled_blob) # SFTODO: COULD USE FALSE? OR JUST HAVE A DICT?
-        self.op_offset = []
 
 
 # TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_target() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
@@ -968,20 +953,19 @@ class BytecodeFunction(object):
         self.labels = labelled_blob.labels.get(0, [])
         for label in self.labels:
             label.set_owner(self)
-        self.ops = [] # SFTODO Should perhaps call 'instructions'
+        ops = [] # SFTODO Should perhaps call 'instructions'
         di = DisassemblyInfo(self, labelled_blob)
 
         i = 0
+        op_offset = []
         while i < len(labelled_blob):
             # There should be no labels within a bytecode function. We will later
             # create branch targets based on the branch instructions within
             # the function, but those are different.
             assert i == 0 or i not in labelled_blob.labels
 
-            for t in di.target[i]:
-                self.ops.append(Instruction(TARGET_OPCODE, [t]))
-                di.op_offset.append(None)
-            di.op_offset.append(i) # SFTODO SHOULD WE DO THIS EVEN IF SPECIAL?
+            op_offset.append(i)
+
             special = di.special[i]
             if not special:
                 opcode = labelled_blob[i]
@@ -993,6 +977,12 @@ class BytecodeFunction(object):
             else:
                 operand, i = CaseBlock.disassemble(di, i)
                 op = Instruction(CASE_BLOCK_OPCODE, [operand])
+            ops.append(op)
+
+        self.ops = []
+        for i, op in enumerate(ops):
+            for t in di.target[op_offset[i]]:
+                self.ops.append(Instruction(TARGET_OPCODE, [t]))
             self.ops.append(op)
 
     def is_init(self):
