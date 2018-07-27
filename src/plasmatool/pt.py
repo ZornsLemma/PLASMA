@@ -64,7 +64,7 @@ class AbsoluteAddress(object):
 
     @classmethod
     def disassemble(cls, di, i):
-        address = di.labelled_blob.references[i]
+        address = di.labelled_blob.references.get(i)
         if address:
             assert isinstance(address, Label) or isinstance(address, ExternalReference)
             return address, i+2
@@ -252,7 +252,7 @@ class LabelledBlob(object):
     def __init__(self, blob):
         self.blob = blob
         self.labels = {}
-        self.references = [None] * len(self.blob)
+        self.references = {}
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -266,7 +266,7 @@ class LabelledBlob(object):
             for label_list in b.labels.values():
                 for label in label_list:
                     label.set_owner(b)
-            b.references = self.references[start:stop]
+            b.references = {k-start: v for k, v in self.references.items() if start<=k<=stop}
             return b
         else:
             return ord(self.blob[key])
@@ -283,7 +283,7 @@ class LabelledBlob(object):
         return self.labels[key][0]
 
     def reference(self, key, reference):
-        assert not self.references[key]
+        assert key not in self.references
         self.references[key] = reference 
 
     def read_u16(self, key):
@@ -294,9 +294,8 @@ class LabelledBlob(object):
         if self in dependencies:
             return
         dependencies.add(self)
-        for reference in self.references:
-            if reference:
-                reference.add_dependencies(dependencies)
+        for reference in self.references.values():
+            reference.add_dependencies(dependencies)
 
     # TODO: This will probably need to evolve quite a bit and may not be used
     # eventually once we have nicer output formats (I imagine one output format
@@ -306,17 +305,17 @@ class LabelledBlob(object):
         #print("; SFTODO BLOB START %r" % self)
         i = 0
         while i < len(self.blob):
-            if not self.references[i]:
+            reference = self.references.get(i)
+            if not reference:
                 for label in self.labels.get(i, []):
                     print('%s' % label.name)
                 print('\t!BYTE\t$%02X' % (self[i],))
             else:
-                reference = self.references[i]
                 assert i not in self.labels
                 acme_dump_fixup(rld, reference)
                 i += 1
                 assert i not in self.labels
-                assert not self.references[i]
+                assert i not in self.references
             i += 1
         print("; SFTODO BLOB END")
 
