@@ -827,6 +827,10 @@ def dump_string_instruction(self, rld): # SFTODO RENAME SELF
 
 
 # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
+# SFTODO: MAYBE MAKE THIS DICT AND THE FUNCTIONS IT REFERENCES ALL MEMBERS OF
+# InstructionClass - THAT WAY WE CAN GET RID OF THE INSTRUCTIONCLASS PREFIX AND IT WILL
+# PROVIDE SOME GROUPING OF THEM - THEN PERHAPS WE CAN HAVE @classmethod
+# Instruction.disassemble() WHICH WILL USE InstructionClass OR SOMETHING
 instruction_class_fns = {
         InstructionClass.NOP: {'operands': 0},
         InstructionClass.TARGET: {'dump': dump_target, 'operands': 1, 'operand_type': Target},
