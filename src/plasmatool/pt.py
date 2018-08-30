@@ -480,9 +480,6 @@ class String(ComparisonMixin):
 
 # TODO: Seems wrong to have these random free functions
 
-def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
-    self.operands[0].dump(self.opcode, rld)
-
 def acme_dump_fixup(rld, reference, comment=True):
     fixup_label = Label('_F')
     rld.add_fixup(reference, fixup_label)
@@ -677,38 +674,6 @@ CASE_BLOCK_OPCODE = 0xfb
 
 # TODO: More probably unsatisfactory free functions
 
-def disassemble_constant(disassembly_info, i):
-    opcode = disassembly_info.labelled_blob[i]
-    if opcode <= 0x1e: # CN opcode
-        return Instruction(CONSTANT_OPCODE, [opcode/2]), i+1
-    elif opcode == 0x20: # MINUS ONE opcode
-        return Instruction(CONSTANT_OPCODE, [-1]), i+1
-    elif opcode == 0x2a: # CB opcode
-        return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
-    elif opcode == 0x2c: # CW opcode
-        # SFTODO: Should I sign-extend here? It's not *wrong* but it may cause us to fail
-        # to recognise that two constants are identical and it just seems a bit
-        # inconsistent. Or, alternatively, CFFB *should* sign-extend for consistency.
-        return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
-    elif opcode == 0x5e: # CFFB opcode
-        return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
-    else:
-        print('SFTODO %02x' % opcode)
-        assert False
-
-def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
-    value = self.operands[0]
-    if value >= 0 and value < 16:
-        print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
-    elif value >= 0 and value < 256:
-        print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
-    elif value == -1:
-        print("\t!BYTE\t$20\t\t\t; MINUS ONE")
-    elif value & 0xff00 == 0xff00:
-        print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
-    else:
-        print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
-
 
 class InstructionClass:
     CONSTANT = 0
@@ -818,6 +783,41 @@ class InstructionClass:
     def dump_string_instruction(self, rld): # SFTODO RENAME SELF
         # SFTODO: Fold acme_dump_cs in here
         acme_dump_cs(self.opcode, self.operands)
+
+    def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
+        self.operands[0].dump(self.opcode, rld)
+
+    def disassemble_constant(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        if opcode <= 0x1e: # CN opcode
+            return Instruction(CONSTANT_OPCODE, [opcode/2]), i+1
+        elif opcode == 0x20: # MINUS ONE opcode
+            return Instruction(CONSTANT_OPCODE, [-1]), i+1
+        elif opcode == 0x2a: # CB opcode
+            return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
+        elif opcode == 0x2c: # CW opcode
+            # SFTODO: Should I sign-extend here? It's not *wrong* but it may cause us to fail
+            # to recognise that two constants are identical and it just seems a bit
+            # inconsistent. Or, alternatively, CFFB *should* sign-extend for consistency.
+            return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
+        elif opcode == 0x5e: # CFFB opcode
+            return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
+        else:
+            print('SFTODO %02x' % opcode)
+            assert False
+
+    def dump_constant(self, rld): # SFTODO: SHOULD RENAME FIRST ARG
+        value = self.operands[0]
+        if value >= 0 and value < 16:
+            print("\t!BYTE\t$%02X\t\t\t; CN\t%d" % (value << 1, value))
+        elif value >= 0 and value < 256:
+            print("\t!BYTE\t$2A,$%02X\t\t\t; CB\t%d" % (value, value))
+        elif value == -1:
+            print("\t!BYTE\t$20\t\t\t; MINUS ONE")
+        elif value & 0xff00 == 0xff00:
+            print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value))
+        else:
+            print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value))
 
     # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
     # SFTODO: MAYBE MAKE THIS DICT AND THE FUNCTIONS IT REFERENCES ALL MEMBERS OF
