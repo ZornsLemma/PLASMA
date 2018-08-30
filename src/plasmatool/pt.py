@@ -522,10 +522,16 @@ class Instruction(ComparisonMixin):
                 assert isinstance(opcode2, int)
             self._opcode = opcode2
             self.operands = operands if operands else []
-        # SFTODO: Might be nice if (perhaps via a property or something) we performed the
-        # following validation after any direct update to the operands as well - code just
-        # updates self.operands directly at the moment without this class's code getting
-        # involved.
+
+    # operands is a property so we can validate the instruction whenever it is updated.
+
+    @property
+    def operands(self):
+        return self._operands
+
+    @operands.setter
+    def operands(self, value):
+        self._operands = value
         InstructionClass.validate_instruction(self)
 
     def keys(self):
@@ -843,7 +849,7 @@ class InstructionClass:
         InstructionClass.instruction_class_fns[instruction.instruction_class]['dump'](instruction, rld)
 
     @staticmethod
-    def validate_instruction(instruction):
+    def validate_instruction(instruction): # SFTODO: RENAME TO validate_operands?
         ic = InstructionClass.instruction_class_fns[instruction.instruction_class]
         assert len(instruction.operands) == ic['operands']
         assert all(isinstance(operand, ic['operand_type']) for operand in instruction.operands)
