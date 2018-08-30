@@ -5,8 +5,8 @@ import itertools
 import struct
 import sys
 
-# This is a pretty large file and ideally some of the classes would in fact be independent
-# modules. However, since this is just a small utility within the PLASMA distribution I
+# This is a pretty large file and ideally some of the classes would be independent modules
+# instead. However, since this is just a small utility within the PLASMA distribution I
 # want to avoid splitting it across multiple files.
 
 # TODO: I'm using assert where I should probably use something else
@@ -1177,20 +1177,20 @@ class Module(object):
         init_offset = init_abs - org - blob_offset
         blob.label(init_offset, Label("_INIT", False))
 
-        new_module = Module(sysflags, import_names, new_esd)
-        new_module.data_asm_blob = blob[0:subseg_abs - org - blob_offset]
+        module = Module(sysflags, import_names, new_esd)
+        module.data_asm_blob = blob[0:subseg_abs - org - blob_offset]
 
         offsets = bytecode_function_offsets + [init_offset, len(blob)]
         for start, end in zip(offsets, offsets[1:]):
             bytecode_function_blob = blob[start:end]
-            new_module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
+            module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
 
         del blob
         del rld
         del esd
         del defcnt
 
-        return new_module
+        return module
 
     def dump(self):
         print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
@@ -1777,10 +1777,10 @@ class Optimiser(object):
         return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
 
     @classmethod
-    def optimise(cls, new_module): # SFTODO: RENAME ARG TO JUST module
+    def optimise(cls, module): # SFTODO: RENAME ARG TO JUST module
         # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
         # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
-        for bytecode_function in new_module.bytecode_functions:
+        for bytecode_function in module.bytecode_functions:
             # TODO: The order here has not been thought through at all carefully and may be sub-optimal
             changed = True
             while changed:
@@ -1827,31 +1827,31 @@ class Optimiser(object):
         # will remove the data/asm LabelledBlob, but it is more likely to remove
         # BytecodeFunctions. We do this after optimising to take advantage of any dead
         # code removal.
-        assert new_module.bytecode_functions[-1].is_init()
+        assert module.bytecode_functions[-1].is_init()
         dependencies = set()
-        new_module.bytecode_functions[-1].add_dependencies(dependencies)
-        for external_name, reference in new_module.esd.entry_dict.items():
+        module.bytecode_functions[-1].add_dependencies(dependencies)
+        for external_name, reference in module.esd.entry_dict.items():
             reference.add_dependencies(dependencies)
         # dependencies now contains only objects which are needed. We preserve the
         # order of things in the input module; this automatically ensure that the
         # data/asm blob comes first and _INIT comes last, and it also avoids gratuitous
         # reordering which makes comparing the input and output difficult.
-        dependencies_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
+        dependencies_ordered = [module.data_asm_blob] + module.bytecode_functions
         if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
             dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
             # SFTODO: THIS IS UGLY BUT IT'S A START
-            if dependencies_ordered[0] != new_module.data_asm_blob:
-                new_module.data_asm_blob = None # SFTODO TEST, IF CAN OCCUR!
+            if dependencies_ordered[0] != module.data_asm_blob:
+                module.data_asm_blob = None # SFTODO TEST, IF CAN OCCUR!
             else:
                 dependencies_ordered.pop(0)
-            new_module.bytecode_functions = dependencies_ordered
+            module.bytecode_functions = dependencies_ordered
 
 
 
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
-new_module = Module.load(input_file)
-Optimiser.optimise(new_module)
-new_module.dump()
+module = Module.load(input_file)
+Optimiser.optimise(module)
+module.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
