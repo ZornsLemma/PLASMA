@@ -180,6 +180,8 @@ class RLD(object):
         self.fixups.append((reference, fixup_label))
 
     def dump(self, esd):
+        print(";\n; RE-LOCATEABLE DICTIONARY\n;")
+
         # The first part of the RLD must be what cmd.pla calls the "DeFinition Dictionary".
         for bytecode_function_label in self.bytecode_function_labels:
             print(bytecode_function_label.acme_def(bytecode_function_label))
@@ -1729,18 +1731,14 @@ class Module(object):
         print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
         new_rld = RLD() # SFTODO: RENAME new_rld TO JUST rld?
-        # SFTODO: USE OF GLOBAL dependencies_ordered IS VERY UGLY
-        if dependencies_ordered[0] == self.data_asm_blob:
-            new_module.data_asm_blob.dump(new_rld, self.esd)
-            dependencies_ordered.pop(0)
+        if self.data_asm_blob is not None:
+            self.data_asm_blob.dump(new_rld, self.esd)
         print("_SUBSEG")
-        for bytecode_function in dependencies_ordered:
+        for bytecode_function in self.bytecode_functions:
             bytecode_function.dump(new_rld, self.esd)
-        defcnt = len(dependencies_ordered)
-
+        defcnt = len(self.bytecode_functions)
         print("_DEFCNT = %d" % (defcnt,))
         print("_SEGEND")
-        print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 
         new_rld.dump(self.esd)
 
@@ -1812,6 +1810,12 @@ for external_name, reference in new_module.esd.entry_dict.items():
 dependencies_ordered = [new_module.data_asm_blob] + new_module.bytecode_functions
 if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
     dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
+    # SFTODO: THIS IS UGLY BUT IT'S A START
+    if dependencies_ordered[0] != new_module.data_asm_blob:
+        new_module.data_asm_blob = None # SFTODO TEST, IF CAN OCCUR!
+    else:
+        dependencies_ordered.pop(0)
+    new_module.bytecode_functions = dependencies_ordered
 
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
