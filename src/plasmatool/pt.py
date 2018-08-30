@@ -493,7 +493,7 @@ def acme_dump_fixup(rld, reference, comment=True):
 
 
 class DisassemblyInfo(object):
-    """Collection of temporary information needing while disassembling a bytecode
+    """Collection of temporary information needed while disassembling a bytecode
        function; can be discarded once disassembly is complete."""
     def __init__(self, bytecode_function, labelled_blob):
         self.bytecode_function = bytecode_function
