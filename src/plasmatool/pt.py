@@ -539,7 +539,7 @@ class Instruction(ComparisonMixin):
                 assert isinstance(opcode2, int)
             self._opcode = opcode2
             self.operands = operands if operands else []
-        ic = instruction_class_fns[self.instruction_class]
+        ic = InstructionClass.instruction_class_fns[self.instruction_class]
         # SFTODO: Might be nice if (perhaps via a property or something) we performed the
         # following validation after any direct update to the operands as well - code just
         # updates self.operands directly at the moment without this class's code getting
@@ -660,7 +660,7 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode]['data_size']
 
     def dump(self, rld): # SFTODO: RENAME SELF
-        instruction_class_fns[self.instruction_class]['dump'](self, rld)
+        InstructionClass.instruction_class_fns[self.instruction_class]['dump'](self, rld)
 
 
 
@@ -726,125 +726,123 @@ class InstructionClass:
     SEL = 10
     CASE_BLOCK = 11
 
-
-# TODO: More random free functions
-
-def dump_target(self, rld): # SFTODO: RENAME FIRST ARG
-    assert isinstance(self.operands[0], Target) # SFTODO TEMP?
-    print("%s" % (self.operands[0]))
+    def dump_target(self, rld): # SFTODO: RENAME FIRST ARG
+        assert isinstance(self.operands[0], Target) # SFTODO TEMP?
+        print("%s" % (self.operands[0]))
 
 
-def dump_case_block(self, rld): # SFTODO RENAME SELF
-    acme_dump_case_block(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
+    def dump_case_block(self, rld): # SFTODO RENAME SELF
+        acme_dump_case_block(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
 
 
+    def disassemble_branch(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        target, i = Target.disassemble(disassembly_info, i+1)
+        return Instruction(opcode, [target]), i
 
-def disassemble_branch(disassembly_info, i):
-    opcode = disassembly_info.labelled_blob[i]
-    # SFTODO: Validate opcode?? Arguably redundant given how this is called
-    target, i = Target.disassemble(disassembly_info, i+1)
-    return Instruction(opcode, [target]), i
-
-def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
-    opcode = self.opcode
-    operands = self.operands
-    print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
-    print("\t!WORD\t%s-*" % (operands[0],))
-
-
-def disassemble_sel(di, i):
-    i += 1
-    di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
-    target, i = Target.disassemble(di, i)
-    return Instruction('SEL', [target]), i
+    def dump_branch(self, rld): # SFTODO RENAME FIRST ARG
+        opcode = self.opcode
+        operands = self.operands
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]))
+        print("\t!WORD\t%s-*" % (operands[0],))
 
 
-
-def disassemble_implied_instruction(disassembly_info, i):
-    opcode = disassembly_info.labelled_blob[i]
-    # SFTODO: Validate opcode?? Arguably redundant given how this is called
-    return Instruction(opcode, []), i+1
-
-def dump_implied_instruction(self, rld): # SFTODO: RENAME SELF
-    print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
-
-
-
-def disassemble_immediate_instruction(disassembly_info, i, operand_count):
-    opcode = disassembly_info.labelled_blob[i]
-    # SFTODO: Validate opcode?? Arguably redundant given how this is called
-    i += 1
-    operands = []
-    for j in range(operand_count):
-        operands.append(Byte(disassembly_info.labelled_blob[i]))
+    def disassemble_sel(di, i):
         i += 1
-    return Instruction(opcode, operands), i
-
-def disassemble_immediate_instruction1(disassembly_info, i):
-    return disassemble_immediate_instruction(disassembly_info, i, 1)
-
-def disassemble_immediate_instruction2(disassembly_info, i):
-    return disassemble_immediate_instruction(disassembly_info, i, 2)
-
-def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
-    if len(self.operands) == 1:
-        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
-    elif len(self.operands) == 2:
-        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (self.opcode, self.operands[0].value, self.operands[1].value, opdict[self.opcode]['opcode'], self.operands[0].value, self.operands[1].value))
-    else:
-        assert False
+        di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
+        target, i = Target.disassemble(di, i)
+        return Instruction('SEL', [target]), i
 
 
 
-def disassemble_absolute_instruction(disassembly_info, i):
-    opcode = disassembly_info.labelled_blob[i]
-    # SFTODO: Validate opcode?? Arguably redundant given how this is called
-    i += 1
-    address, i = AbsoluteAddress.disassemble(disassembly_info, i)
-    return Instruction(opcode, [address]), i
+    def disassemble_implied_instruction(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        return Instruction(opcode, []), i+1
+
+    def dump_implied_instruction(self, rld): # SFTODO: RENAME SELF
+        print("\t!BYTE\t$%02X\t\t\t; %s" % (self.opcode, opdict[self.opcode]['opcode']))
 
 
 
-def disassemble_frame_instruction(disassembly_info, i):
-    opcode = disassembly_info.labelled_blob[i]
-    # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet - OK, I am now thinking it does have value, since memory() returns a set of addresses and these can be mixed together from various instructions, so having a 'type' is handy
-    frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
-    return Instruction(opcode, [frame_offset]), i+2
+    @staticmethod
+    def disassemble_immediate_instruction(disassembly_info, i, operand_count):
+        opcode = disassembly_info.labelled_blob[i]
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        i += 1
+        operands = []
+        for j in range(operand_count):
+            operands.append(Byte(disassembly_info.labelled_blob[i]))
+            i += 1
+        return Instruction(opcode, operands), i
 
-def dump_frame_instruction(self, rld): # SFTODO RENAME SELF
-    print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+    def disassemble_immediate_instruction1(disassembly_info, i):
+        return InstructionClass.disassemble_immediate_instruction(disassembly_info, i, 1)
+
+    def disassemble_immediate_instruction2(disassembly_info, i):
+        return InstructionClass.disassemble_immediate_instruction(disassembly_info, i, 2)
+
+    def dump_immediate_instruction(self, rld): # SFTODO: RENAME SELF
+        if len(self.operands) == 1:
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+        elif len(self.operands) == 2:
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (self.opcode, self.operands[0].value, self.operands[1].value, opdict[self.opcode]['opcode'], self.operands[0].value, self.operands[1].value))
+        else:
+            assert False
 
 
 
-def disassemble_string_instruction(disassembly_info, i):
-    s, i = String.disassemble(disassembly_info, i+1)
-    return Instruction(0x2e, [s]), i
-
-def dump_string_instruction(self, rld): # SFTODO RENAME SELF
-    # SFTODO: Fold acme_dump_cs in here
-    acme_dump_cs(self.opcode, self.operands)
-
+    def disassemble_absolute_instruction(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        # SFTODO: Validate opcode?? Arguably redundant given how this is called
+        i += 1
+        address, i = AbsoluteAddress.disassemble(disassembly_info, i)
+        return Instruction(opcode, [address]), i
 
 
-# SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
-# SFTODO: MAYBE MAKE THIS DICT AND THE FUNCTIONS IT REFERENCES ALL MEMBERS OF
-# InstructionClass - THAT WAY WE CAN GET RID OF THE INSTRUCTIONCLASS PREFIX AND IT WILL
-# PROVIDE SOME GROUPING OF THEM - THEN PERHAPS WE CAN HAVE @classmethod
-# Instruction.disassemble() WHICH WILL USE InstructionClass OR SOMETHING
-instruction_class_fns = {
-        InstructionClass.NOP: {'operands': 0},
-        InstructionClass.TARGET: {'dump': dump_target, 'operands': 1, 'operand_type': Target},
-        InstructionClass.CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
-        InstructionClass.BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
-        InstructionClass.IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operands': 0},
-        InstructionClass.IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
-        InstructionClass.IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
-        InstructionClass.ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
-        InstructionClass.FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
-        InstructionClass.STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
-        InstructionClass.SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
-        InstructionClass.CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
-}
+
+    def disassemble_frame_instruction(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        # TODO: I think FrameOffset probably adds very little and we should just use a raw int here, but let's not try to get rid of it just yet - OK, I am now thinking it does have value, since memory() returns a set of addresses and these can be mixed together from various instructions, so having a 'type' is handy
+        frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
+        return Instruction(opcode, [frame_offset]), i+2
+
+    def dump_frame_instruction(self, rld): # SFTODO RENAME SELF
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (self.opcode, self.operands[0].value, opdict[self.opcode]['opcode'], self.operands[0].value))
+
+
+
+    def disassemble_string_instruction(disassembly_info, i):
+        s, i = String.disassemble(disassembly_info, i+1)
+        return Instruction(0x2e, [s]), i
+
+    def dump_string_instruction(self, rld): # SFTODO RENAME SELF
+        # SFTODO: Fold acme_dump_cs in here
+        acme_dump_cs(self.opcode, self.operands)
+
+    # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
+    # SFTODO: MAYBE MAKE THIS DICT AND THE FUNCTIONS IT REFERENCES ALL MEMBERS OF
+    # InstructionClass - THAT WAY WE CAN GET RID OF THE INSTRUCTIONCLASS PREFIX AND IT WILL
+    # PROVIDE SOME GROUPING OF THEM - THEN PERHAPS WE CAN HAVE @classmethod
+    # Instruction.disassemble() WHICH WILL USE InstructionClass OR SOMETHING
+    instruction_class_fns = {
+            NOP: {'operands': 0},
+            TARGET: {'dump': dump_target, 'operands': 1, 'operand_type': Target},
+            CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
+            BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
+            IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operands': 0},
+            IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
+            IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
+            ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
+            FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
+            STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
+            SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
+            CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
+    }
+
+
+
 
 # TODO: Check this table is complete and correct
 # TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
@@ -975,7 +973,7 @@ class BytecodeFunction(object):
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 assert not opdef.get('pseudo')
-                dis = instruction_class_fns[opdef['class']]['disassemble']
+                dis = InstructionClass.instruction_class_fns[opdef['class']]['disassemble']
                 op, i = dis(di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
