@@ -539,13 +539,11 @@ class Instruction(ComparisonMixin):
                 assert isinstance(opcode2, int)
             self._opcode = opcode2
             self.operands = operands if operands else []
-        ic = InstructionClass.instruction_class_fns[self.instruction_class]
         # SFTODO: Might be nice if (perhaps via a property or something) we performed the
         # following validation after any direct update to the operands as well - code just
         # updates self.operands directly at the moment without this class's code getting
         # involved.
-        assert len(self.operands) == ic['operands']
-        assert all(isinstance(operand, ic['operand_type']) for operand in self.operands)
+        InstructionClass.validate_instruction(self)
 
     def keys(self):
         return (self._opcode, self.operands)
@@ -660,7 +658,7 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode]['data_size']
 
     def dump(self, rld): # SFTODO: RENAME SELF
-        InstructionClass.instruction_class_fns[self.instruction_class]['dump'](self, rld)
+        InstructionClass.dump(self.instruction_class, self, rld)
 
 
 
@@ -841,6 +839,21 @@ class InstructionClass:
             CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
     }
 
+    @staticmethod
+    def disassemble(instruction_class, di, i):
+        dis = InstructionClass.instruction_class_fns[instruction_class]['disassemble']
+        return dis(di, i)
+
+    @staticmethod
+    def dump(instruction_class, instruction, rld):
+        InstructionClass.instruction_class_fns[instruction_class]['dump'](instruction, rld)
+
+    @staticmethod
+    def validate_instruction(instruction):
+        ic = InstructionClass.instruction_class_fns[instruction.instruction_class]
+        assert len(instruction.operands) == ic['operands']
+        assert all(isinstance(operand, ic['operand_type']) for operand in instruction.operands)
+
 
 
 
@@ -973,8 +986,7 @@ class BytecodeFunction(object):
                 #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 assert not opdef.get('pseudo')
-                dis = InstructionClass.instruction_class_fns[opdef['class']]['disassemble']
-                op, i = dis(di, i)
+                op, i = InstructionClass.disassemble(opdef['class'], di, i)
             else:
                 operand, i = CaseBlock.disassemble(di, i)
                 op = Instruction(CASE_BLOCK_OPCODE, [operand])
