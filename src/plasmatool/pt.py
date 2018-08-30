@@ -658,7 +658,7 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode]['data_size']
 
     def dump(self, rld): # SFTODO: RENAME SELF
-        InstructionClass.dump(self.instruction_class, self, rld)
+        InstructionClass.dump(self, rld)
 
 
 
@@ -845,8 +845,8 @@ class InstructionClass:
         return dis(di, i)
 
     @staticmethod
-    def dump(instruction_class, instruction, rld):
-        InstructionClass.instruction_class_fns[instruction_class]['dump'](instruction, rld)
+    def dump(instruction, rld):
+        InstructionClass.instruction_class_fns[instruction.instruction_class]['dump'](instruction, rld)
 
     @staticmethod
     def validate_instruction(instruction):
