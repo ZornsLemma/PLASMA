@@ -1594,121 +1594,130 @@ def optimise_load_store(bytecode_function, straightline_ops):
 
 
 class Module(object):
-    def __init__(self):
-        self.sysflags = 0 # SFTODO!?
+    def __init__(self, sysflags, import_names, esd):
+        self.sysflags = sysflags # SFTODO!?
+        self.import_names = import_names # SFTODO!?
         self.data_asm_blob = None # SFTODO!?
         self.bytecode_functions = []
+        self.esd = esd # SFTODO!?
+
+    @classmethod
+    def load(cls, input_file):
+        with open(input_file, 'rb') as f:
+            seg_size = read_u16(f)
+            magic = read_u16(f)
+            assert magic == 0x6502
+            sysflags = read_u16(f)
+            subseg_abs = read_u16(f)
+            defcnt = read_u16(f)
+            init_abs = read_u16(f)
+
+            import_names = []
+            while True:
+                import_name = read_dci(f)
+                if not import_name:
+                    break
+                import_names.append(import_name)
+
+            blob_offset = f.tell()
+            blob_size = (seg_size + 2) - blob_offset
+            blob = LabelledBlob(f.read(blob_size))
+
+            rld = []
+            while True:
+                c = read_u8(f)
+                if c == 0:
+                    break
+                rld_type = c
+                rld_word = read_u16(f)
+                rld_byte = read_u8(f)
+                rld.append((rld_type, rld_word, rld_byte))
+
+            esd = []
+            while True:
+                esd_name = read_dci(f)
+                if not esd_name:
+                    break
+                esd_flag = read_u8(f)
+                esd_index = read_u16(f)
+                esd.append((esd_name, esd_flag, esd_index))
+
+            #print(seg_size)
+            #print(import_names)
+            #print(rld)
+            #print(esd)
+
+        org = 4094
+
+        new_esd = ESD()
+        # TODO: esd_index is misnamed in the case of these 'ENTRY' flags
+        for esd_name, esd_flag, esd_index in esd:
+            if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
+                blob_index = esd_index - org - blob_offset
+                label = Label('_X')
+                blob.label(blob_index, label)
+                new_esd.add_entry(esd_name, label)
+
+        doing_code_table_fixups = True
+        #bytecode_function_labels = []
+        bytecode_function_offsets = []
+        for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
+            if rld_type == 0x02: # code table fixup
+                assert doing_code_table_fixups
+                assert rld_byte == 0
+                blob_index = rld_word - org - blob_offset
+                bytecode_function_offsets.append(blob_index)
+                #label = Label('_C%03d' % i)
+                #bytecode_function_labels.append(label)
+                #blob.label(blob_index, label)
+                #print blob[blob_index]
+            else:
+                doing_code_table_fixups = False
+                addr = (rld_word + 2) - blob_offset
+                star_addr = blob.read_u16(addr) # TODO: terrible name...
+                # cmd.pla just checks rld_type & 0x10, but let's be paranoid and check
+                # for precise values for now.
+                if rld_type == 0x91: # external fixup
+                    target_esd_index = rld_byte
+                    reference = None
+                    for esd_name, esd_flag, esd_index in esd: # TODO: We could have a dictionary keyed on esd_index
+                        if esd_index == target_esd_index:
+                            reference = ExternalReference(esd_name, star_addr)
+                            break
+                    assert reference
+                    blob.reference(addr, reference)
+                elif rld_type == 0x81: # internal fixup
+                    assert rld_byte == 0
+                    blob_index = star_addr - org - blob_offset
+                    # TODO? label would be _C or _D in compiler output, we can't tell
+                    # and don't strictly care (I think).
+                    label = blob.label_or_get(blob_index, '_I')
+                    blob.reference(addr, label)
+                else:
+                    assert False
+
+        init_offset = init_abs - org - blob_offset
+        blob.label(init_offset, Label("_INIT", False))
+
+        new_module = Module(sysflags, import_names, new_esd)
+        new_module.data_asm_blob = blob[0:subseg_abs - org - blob_offset]
+
+        offsets = bytecode_function_offsets + [init_offset, len(blob)]
+        for start, end in zip(offsets, offsets[1:]):
+            bytecode_function_blob = blob[start:end]
+            new_module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
+
+        del blob
+        del rld
+        del esd
+        del defcnt
+
+        return new_module
+
+
 
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
-with open(input_file, 'rb') as f:
-    seg_size = read_u16(f)
-    magic = read_u16(f)
-    assert magic == 0x6502
-    sysflags = read_u16(f)
-    subseg_abs = read_u16(f)
-    defcnt = read_u16(f)
-    init_abs = read_u16(f)
-
-    import_names = []
-    while True:
-        import_name = read_dci(f)
-        if not import_name:
-            break
-        import_names.append(import_name)
-
-    blob_offset = f.tell()
-    blob_size = (seg_size + 2) - blob_offset
-    blob = LabelledBlob(f.read(blob_size))
-
-    rld = []
-    while True:
-        c = read_u8(f)
-        if c == 0:
-            break
-        rld_type = c
-        rld_word = read_u16(f)
-        rld_byte = read_u8(f)
-        rld.append((rld_type, rld_word, rld_byte))
-
-    esd = []
-    while True:
-        esd_name = read_dci(f)
-        if not esd_name:
-            break
-        esd_flag = read_u8(f)
-        esd_index = read_u16(f)
-        esd.append((esd_name, esd_flag, esd_index))
-
-    #print(seg_size)
-    #print(import_names)
-    #print(rld)
-    #print(esd)
-
-org = 4094
-
-new_esd = ESD()
-# TODO: esd_index is misnamed in the case of these 'ENTRY' flags
-for esd_name, esd_flag, esd_index in esd:
-    if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
-        blob_index = esd_index - org - blob_offset
-        label = Label('_X')
-        blob.label(blob_index, label)
-        new_esd.add_entry(esd_name, label)
-
-doing_code_table_fixups = True
-#bytecode_function_labels = []
-bytecode_function_offsets = []
-for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
-    if rld_type == 0x02: # code table fixup
-        assert doing_code_table_fixups
-        assert rld_byte == 0
-        blob_index = rld_word - org - blob_offset
-        bytecode_function_offsets.append(blob_index)
-        #label = Label('_C%03d' % i)
-        #bytecode_function_labels.append(label)
-        #blob.label(blob_index, label)
-        #print blob[blob_index]
-    else:
-        doing_code_table_fixups = False
-        addr = (rld_word + 2) - blob_offset
-        star_addr = blob.read_u16(addr) # TODO: terrible name...
-        # cmd.pla just checks rld_type & 0x10, but let's be paranoid and check
-        # for precise values for now.
-        if rld_type == 0x91: # external fixup
-            target_esd_index = rld_byte
-            reference = None
-            for esd_name, esd_flag, esd_index in esd: # TODO: We could have a dictionary keyed on esd_index
-                if esd_index == target_esd_index:
-                    reference = ExternalReference(esd_name, star_addr)
-                    break
-            assert reference
-            blob.reference(addr, reference)
-        elif rld_type == 0x81: # internal fixup
-            assert rld_byte == 0
-            blob_index = star_addr - org - blob_offset
-            # TODO? label would be _C or _D in compiler output, we can't tell
-            # and don't strictly care (I think).
-            label = blob.label_or_get(blob_index, '_I')
-            blob.reference(addr, label)
-        else:
-            assert False
-
-init_offset = init_abs - org - blob_offset
-blob.label(init_offset, Label("_INIT", False))
-
-new_module = Module()
-new_module.data_asm_blob = blob[0:subseg_abs - org - blob_offset]
-
-offsets = bytecode_function_offsets + [init_offset, len(blob)]
-for start, end in zip(offsets, offsets[1:]):
-    bytecode_function_blob = blob[start:end]
-    new_module.bytecode_functions.append(BytecodeFunction(bytecode_function_blob))
-
-del blob
-del rld
-del esd
-del defcnt
-
+new_module = Module.load(input_file)
 #new_module.bytecode_blob.dump(new_rld, new_esd)
 # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
 # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
@@ -1762,7 +1771,7 @@ for bytecode_function in new_module.bytecode_functions:
 assert new_module.bytecode_functions[-1].is_init()
 dependencies = set()
 new_module.bytecode_functions[-1].add_dependencies(dependencies)
-for external_name, reference in new_esd.entry_dict.items():
+for external_name, reference in new_module.esd.entry_dict.items():
     reference.add_dependencies(dependencies)
 # dependencies now contains only objects which are needed. We preserve the
 # order of things in the input module; this automatically ensure that the
@@ -1778,32 +1787,32 @@ if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
 print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
 print("_SEGBEGIN")
 print("\t!WORD\t$6502\t\t\t; MAGIC #")
-print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (sysflags,))
+print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (new_module.sysflags,))
 print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
 print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
 print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
 
-for import_name in import_names:
+for import_name in new_module.import_names:
     print("\t; DCI STRING: %s" % (import_name,))
     print("\t!BYTE\t%s" % dci_bytes(import_name))
 print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
 
 new_rld = RLD()
 if dependencies_ordered[0] == new_module.data_asm_blob:
-    new_module.data_asm_blob.dump(new_rld, new_esd)
+    new_module.data_asm_blob.dump(new_rld, new_module.esd)
     dependencies_ordered.pop(0)
 print("_SUBSEG")
 for bytecode_function in dependencies_ordered:
-    bytecode_function.dump(new_rld, new_esd)
+    bytecode_function.dump(new_rld, new_module.esd)
 defcnt = len(dependencies_ordered)
 
 print("_DEFCNT = %d" % (defcnt,))
 print("_SEGEND")
 print(";\n; RE-LOCATEABLE DICTIONARY\n;")
 
-new_rld.dump(new_esd)
+new_rld.dump(new_module.esd)
 
-new_esd.dump()
+new_module.esd.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
