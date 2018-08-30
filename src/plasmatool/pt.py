@@ -485,21 +485,7 @@ def acme_dump_fixup(rld, reference, comment=True):
     rld.add_fixup(reference, fixup_label)
     print('%s\t%s' % (fixup_label.name, reference.acme_reference(comment)))
 
-def acme_dump_cs(opcode, operands):
-    s = operands[0].value
-    print("\t!BYTE\t$2E\t\t\t; CS\t%r" % (s,)) # SFTODO: REPR NOT PERFECT BUT WILL DO - IT CAN USE SINGLE QUOTES TO WRAP THE STRING WHICH ISN'T IDEAL
-    print("\t!BYTE\t$%02X" % (len(s),))
-    while s:
-        t = s[0:8]
-        s = s[8:]
-        print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
-def acme_dump_case_block(opcode, operands):
-    table = operands[0].table
-    print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),))
-    for value, target in table:
-        print("\t!WORD\t$%04X" % (value,))
-        print("\t!WORD\t%s-*" % (target,))
 
 
 
@@ -672,7 +658,6 @@ TARGET_OPCODE = 0xff
 NOP_OPCODE = 0xf1
 CASE_BLOCK_OPCODE = 0xfb
 
-# TODO: More probably unsatisfactory free functions
 
 
 class InstructionClass:
@@ -695,7 +680,11 @@ class InstructionClass:
 
 
     def dump_case_block(self, rld): # SFTODO RENAME SELF
-        acme_dump_case_block(self.opcode, self.operands) # SFTODO FOLD INTO HERE?
+        table = self.operands[0].table
+        print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),))
+        for value, target in table:
+            print("\t!WORD\t$%04X" % (value,))
+            print("\t!WORD\t%s-*" % (target,))
 
 
     def disassemble_branch(disassembly_info, i):
@@ -781,8 +770,13 @@ class InstructionClass:
         return Instruction(0x2e, [s]), i
 
     def dump_string_instruction(self, rld): # SFTODO RENAME SELF
-        # SFTODO: Fold acme_dump_cs in here
-        acme_dump_cs(self.opcode, self.operands)
+        s = self.operands[0].value
+        print("\t!BYTE\t$2E\t\t\t; CS\t%r" % (s,)) # SFTODO: REPR NOT PERFECT BUT WILL DO - IT CAN USE SINGLE QUOTES TO WRAP THE STRING WHICH ISN'T IDEAL
+        print("\t!BYTE\t$%02X" % (len(s),))
+        while s:
+            t = s[0:8]
+            s = s[8:]
+            print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t))
 
     def dump_absolute_instruction(self, rld): # SFTODO RENAME SELF
         self.operands[0].dump(self.opcode, rld)
