@@ -1714,6 +1714,38 @@ class Module(object):
 
         return new_module
 
+    def dump(self):
+        print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
+        print("_SEGBEGIN")
+        print("\t!WORD\t$6502\t\t\t; MAGIC #")
+        print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (self.sysflags,))
+        print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
+        print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
+        print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
+
+        for import_name in self.import_names:
+            print("\t; DCI STRING: %s" % (import_name,))
+            print("\t!BYTE\t%s" % dci_bytes(import_name))
+        print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
+
+        new_rld = RLD() # SFTODO: RENAME new_rld TO JUST rld?
+        # SFTODO: USE OF GLOBAL dependencies_ordered IS VERY UGLY
+        if dependencies_ordered[0] == self.data_asm_blob:
+            new_module.data_asm_blob.dump(new_rld, self.esd)
+            dependencies_ordered.pop(0)
+        print("_SUBSEG")
+        for bytecode_function in dependencies_ordered:
+            bytecode_function.dump(new_rld, self.esd)
+        defcnt = len(dependencies_ordered)
+
+        print("_DEFCNT = %d" % (defcnt,))
+        print("_SEGEND")
+        print(";\n; RE-LOCATEABLE DICTIONARY\n;")
+
+        new_rld.dump(self.esd)
+
+        self.esd.dump()
+
 
 
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
@@ -1784,35 +1816,7 @@ if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
 #blob.label(subseg_abs - org - blob_offset, Label("_SUBSEG"))
 #new_module.bytecode_blob.label(0, Label("_SUBSEG"))
 
-print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT")
-print("_SEGBEGIN")
-print("\t!WORD\t$6502\t\t\t; MAGIC #")
-print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (new_module.sysflags,))
-print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT")
-print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT")
-print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE")
-
-for import_name in new_module.import_names:
-    print("\t; DCI STRING: %s" % (import_name,))
-    print("\t!BYTE\t%s" % dci_bytes(import_name))
-print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES")
-
-new_rld = RLD()
-if dependencies_ordered[0] == new_module.data_asm_blob:
-    new_module.data_asm_blob.dump(new_rld, new_module.esd)
-    dependencies_ordered.pop(0)
-print("_SUBSEG")
-for bytecode_function in dependencies_ordered:
-    bytecode_function.dump(new_rld, new_module.esd)
-defcnt = len(dependencies_ordered)
-
-print("_DEFCNT = %d" % (defcnt,))
-print("_SEGEND")
-print(";\n; RE-LOCATEABLE DICTIONARY\n;")
-
-new_rld.dump(new_module.esd)
-
-new_module.esd.dump()
+new_module.dump()
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
