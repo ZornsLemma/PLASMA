@@ -140,3 +140,18 @@ We could probably re-use the three bytes at the start of the VM code which do "J
 The PLASM self-hosted compiler sometimes seems to leave files open if an OS error occurs - can't blam eit because these currently throw() right out of its code into the main VM. However, one way or another it would be good if I could fix this up (if I do make fileio use except() to catch OS errors and turn them into error return values it would probably work, but I am dithering about doing that as it might effectively throw away useful information for the user)
 
 Assuming I eventually port the JIT, make sure to port the 'sysflags nojitc' in various library modules from the Apple code (and add it to any Acorn-only code where it's appropriate)
+
+Could we introduce some mechanism to allow constants to be shared between asm and PLASMA code? The VM source code has some duplication of constants, e.g. Apple II 'jitmod' address. Perhaps this might be as simple as a preprocessor which is run during the build to extract suitably labelled constants from ACME code and emit a trivial file suitable for including from PLASMA code.
+
+See Dave's e-mail 15/05/18 - I could probably use his idea and have the heap start at the 'init' code, provided I arrange that any code which needs to do a heap allocation lives in a separate function. When running on a second processor this couldn't be done as we need to be able to re-init on BREAK, but that's probably fine - the 2P case is already handled differently for some other need-the-code-to-be-available-on-BREAK issue, I think.
+
+Could the code density be improved with 8-bit displacement branch opcodes? Would need an optimiser capable of generating these. There are quite a few different branch instructions so may not be very practical, but maybe a few branch instructions account for most of the branches.
+
+
+
+Short term notes:
+- can I avoid use of dinterp()/iinterp()/jitinterp() functions in cmd.pla?
+- (slighly related) use of *$415 and *$417 to communicate dinterp()/iinterp() to JIT could probably be tidier
+- make JIT conditionally compiled
+- PLAS128 JIT - apart from technical issues, am I going to have four binaries or can I provide any sensible defaults? I suspect there's no clear right answer (it varies depending on what the program to be run needs - data memory, code memory, speed) but think about it.
+- I don't have JMPTMP at a fixed address (unlike Apple II), there is a hack in the JIT to handle this, can I fix this better? Quite happy not to have it at a fixed address if I can do it without hacks...
