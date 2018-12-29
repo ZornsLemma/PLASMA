@@ -1896,10 +1896,11 @@ transferred_function = module.bytecode_functions.pop(0)
 second_module.bytecode_functions = [transferred_function]
 external_reference = ExternalReference('SFTODO99X', 0)
 for bytecode_function in module.bytecode_functions:
-    for label in transferred_function.labels:
-        for instruction in bytecode_function.ops:
-            instruction.SFTODORENAMEORDELETE(label, external_reference)
-        #module.rld.SFTODORENAMEORDELETE(label, external_reference)
+    assert len(transferred_function.labels) == 1
+    label = transferred_function.labels[0]
+    for instruction in bytecode_function.ops:
+        instruction.SFTODORENAMEORDELETE(label, external_reference)
+    #module.rld.SFTODORENAMEORDELETE(label, external_reference)
 #label2 = Label('_S')
 #transferred_function.add_label(label2)
 second_module.esd.add_entry('SFTODO99X', transferred_function.labels[0])
