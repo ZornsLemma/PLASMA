@@ -7,6 +7,11 @@ import itertools
 import struct
 import sys
 
+# SFTODO: SHOULD BE DONE CONDITIONALLY SO WE DON'T REQUIRE THESE PACKAGES FOR JUST
+# OPTIMISATION
+import networkx as nx
+import metis
+
 # This is a pretty large file and ideally some of the classes would be independent modules
 # instead. However, since this is just a small utility within the PLASMA distribution I
 # want to avoid splitting it across multiple files.
@@ -1028,10 +1033,6 @@ class BytecodeFunction(object):
                 self.ops.append(Instruction(TARGET_OPCODE, [t]))
             self.ops.append(op)
 
-    def add_label(self, label): # SFTODO: TEMP EXPERIMENTAL - DELETE IF NOT USED
-        self.labels.append(label)
-        label.set_owner(self)
-
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels)
 
@@ -1218,10 +1219,16 @@ class Module(object):
     # TODO: I need to be careful to cope correctly if the function being transferred is an
     # exported one
     def transfer_function(self, function_index, other_module):
-        transferred_function = self.bytecode_functions.pop(function_index)
+        transferred_function = self.bytecode_functions[function_index]
+        self.bytecode_functions[function_index] = None
         other_module.bytecode_functions = [transferred_function]
-        external_reference = ExternalReference('SFTODO99X', 0)
+        global SFTODOHACKCOUNT
+        external_name = 'SFTODO%d' % SFTODOHACKCOUNT
+        SFTODOHACKCOUNT += 1
+        external_reference = ExternalReference(external_name, 0)
         for bytecode_function in self.bytecode_functions:
+            if bytecode_function is None:
+                continue
             assert len(transferred_function.labels) == 1
             label = transferred_function.labels[0]
             for instruction in bytecode_function.ops:
@@ -1229,7 +1236,7 @@ class Module(object):
             #self.rld.SFTODORENAMEORDELETE(label, external_reference)
         #label2 = Label('_S')
         #transferred_function.add_label(label2)
-        other_module.esd.add_entry('SFTODO99X', transferred_function.labels[0])
+        other_module.esd.add_entry(external_name, transferred_function.labels[0])
 
     def dump(self, outfile):
         print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT", file=outfile)
@@ -1905,9 +1912,48 @@ Optimiser.optimise(module)
 second_module = Module(module.sysflags, module.import_names, ESD())
 module.import_names = ['PLASM3']
 
+# TODO: Experimental
+graph = nx.Graph()
+for bytecode_function in module.bytecode_functions:
+    # SFTODO: If we really only ever have one label on a bytecode function, I should stop
+    # using a list for its labels member... (general point, not just here)
+    graph.add_node(bytecode_function.labels[0].name)
+graph.add_nodes_from(module.esd.external_dict.keys())
+for bytecode_function in module.bytecode_functions:
+    for instruction in bytecode_function.ops:
+        if instruction.instruction_class == InstructionClass.ABSOLUTE:
+            # SFTODO: Use polymorphism here??
+            if isinstance(instruction.operands[0], Label):
+                graph.add_edge(bytecode_function.labels[0].name, instruction.operands[0].name)
+            elif isinstance(instruction.operands[0], ExternalReference):
+                #graph.add_edge(bytecode_function.labels[0].name, instruction.operands[0].external_name)
+                pass
+            else:
+                assert isinstance(instruction.operands[0], FixedAddress)
+nx.nx_pydot.write_dot(graph, 'example.dot')
+(edgecuts, parts) = metis.part_graph(graph, 2, contig=True) # TODO: Do we need contig=True?
+colors = ['red','blue']
+module_contents = [[], []]
+for i, node in enumerate(graph.nodes()):
+    graph.node[node]['color'] = colors[parts[i]]
+    module_contents[parts[i]].append(node)
+nx.nx_pydot.write_dot(graph, 'example2.dot')
+print(module_contents[0])
+print(module_contents[1])
+if '_INIT' in module_contents[1]:
+    module_contents[0], module_contents[1] = module_contents[1], module_contents[0]
+
+SFTODOHACKCOUNT = 0
+for i, bytecode_function in enumerate(module.bytecode_functions):
+    if bytecode_function.labels[0].name in module_contents[1]:
+        print('SFTODOQ43', i)
+        module.transfer_function(i, second_module)
+module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
+
+
 # TODO: Experimental, this should be done via a helper routine - plus note we need to be
 # careful to do this without introducing cyclical dependencies between the two modules
-module.transfer_function(0, second_module)
+#module.transfer_function(0, second_module)
 
 with open('znew', 'w') as outfile:
     module.dump(outfile)
@@ -1920,5 +1966,3 @@ with open('znew2', 'w') as outfile:
 
 # TODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
 # early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
-
-# vi: tw=90
