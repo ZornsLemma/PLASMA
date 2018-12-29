@@ -1853,7 +1853,8 @@ class Optimiser(object):
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
 module = Module.load(input_file)
 Optimiser.optimise(module)
-module.dump(sys.stdout)
+with open('znew', 'w') as output_handle:
+    module.dump(output_handle)
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
