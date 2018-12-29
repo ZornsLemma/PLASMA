@@ -220,8 +220,8 @@ class RLD(object):
 
 
 class ESD(object):
-    def __init__(self, entry_dict=None):
-        self.entry_dict = {} if entry_dict is None else entry_dict
+    def __init__(self):
+        self.entry_dict = {}
         self.external_dict = {}
 
     def add_entry(self, external_name, reference):
@@ -235,14 +235,6 @@ class ESD(object):
             esd_entry = len(self.external_dict)
             self.external_dict[external_name] = esd_entry
         return esd_entry
-
-    # SFTODO: DELETE IF NOT USED - I SUSPECT EVENTUALLY IT WON'T BE AS WE WILL NOT WANT TO
-    # COPY ESD
-    def copy(self):
-        new_esd = ESD()
-        new_esd.entry_dict = self.entry_dict.copy()
-        # SFTODO? new_esd.external_dict = self.external_dict.copy()
-        return new_esd
 
     def dump(self, outfile):
         # Although the PLASMA VM doesn't care:
@@ -1892,13 +1884,7 @@ class Optimiser(object):
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
 module = Module.load(input_file)
 Optimiser.optimise(module)
-# TODO: Cloning the import_names from the original module into second_module is safe and
-# not a big deal; can we do better? We don't have the actual imported modules on hand to
-# see which symbols come from which. *But* we could potentially change 'module' to just
-# import second_module, to avoid unnecessary duplication.
-# TODO: Cloning the ESD is harmless but wasteful; see comment in ESD::dump() about
-# avoiding dumping unused ESD entries
-#second_module = Module(module.sysflags, module.import_names, ESD(module.esd.entry_dict.copy()))
+
 second_module = Module(module.sysflags, module.import_names, ESD())
 module.import_names = ['PLASM3']
 
