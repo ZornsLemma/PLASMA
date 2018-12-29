@@ -1214,6 +1214,23 @@ class Module(object):
 
         return module
 
+
+    # TODO: I need to be careful to cope correctly if the function being transferred is an
+    # exported one
+    def transfer_function(self, function_index, other_module):
+        transferred_function = self.bytecode_functions.pop(function_index)
+        other_module.bytecode_functions = [transferred_function]
+        external_reference = ExternalReference('SFTODO99X', 0)
+        for bytecode_function in self.bytecode_functions:
+            assert len(transferred_function.labels) == 1
+            label = transferred_function.labels[0]
+            for instruction in bytecode_function.ops:
+                instruction.SFTODORENAMEORDELETE(label, external_reference)
+            #self.rld.SFTODORENAMEORDELETE(label, external_reference)
+        #label2 = Label('_S')
+        #transferred_function.add_label(label2)
+        other_module.esd.add_entry('SFTODO99X', transferred_function.labels[0])
+
     def dump(self, outfile):
         print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT", file=outfile)
         print("_SEGBEGIN", file=outfile)
@@ -1890,20 +1907,7 @@ module.import_names = ['PLASM3']
 
 # TODO: Experimental, this should be done via a helper routine - plus note we need to be
 # careful to do this without introducing cyclical dependencies between the two modules
-# TODO: I need to be careful to cope correctly if the function being transferred is an
-# exported one
-transferred_function = module.bytecode_functions.pop(0)
-second_module.bytecode_functions = [transferred_function]
-external_reference = ExternalReference('SFTODO99X', 0)
-for bytecode_function in module.bytecode_functions:
-    assert len(transferred_function.labels) == 1
-    label = transferred_function.labels[0]
-    for instruction in bytecode_function.ops:
-        instruction.SFTODORENAMEORDELETE(label, external_reference)
-    #module.rld.SFTODORENAMEORDELETE(label, external_reference)
-#label2 = Label('_S')
-#transferred_function.add_label(label2)
-second_module.esd.add_entry('SFTODO99X', transferred_function.labels[0])
+module.transfer_function(0, second_module)
 
 with open('znew', 'w') as outfile:
     module.dump(outfile)
