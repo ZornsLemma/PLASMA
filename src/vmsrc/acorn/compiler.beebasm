@@ -4,6 +4,8 @@ putfile "rel/acorn/CONIO", "CONIO", &0000
 putfile "rel/acorn/FILEIO", "FILEIO", &0000
 putfile "rel/PLASM#FE1000", "PLASM", &0000
 putfile "rel/PLASM2#FE1000", "PLASM2", &0000 ; SFTODO: temp while testing pt.py
+putfile "rel/PLASM3#FE1000", "PLASM3", &0000 ; SFTODO: temp while testing pt.py
+putfile "rel/acorn/MODNAME", "MODNAME", &0000 ; SFTODO: temp while testing pt.py
 putfile "rel/ARGS#FE1000", "ARGS", &0000
 ;puttext "samplesrc/hellotmp.pla", "P.HELLO", &0000
 puttext "samplesrc/hello.pla", "P.HELLO", &0000

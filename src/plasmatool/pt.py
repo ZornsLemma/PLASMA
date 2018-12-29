@@ -185,6 +185,14 @@ class RLD(object):
     def add_fixup(self, reference, fixup_label):
         self.fixups.append((reference, fixup_label))
 
+    def SFTODORENAMEORDELETE(self, old_reference, new_reference):
+        assert isinstance(old_reference, Label)
+        assert isinstance(new_reference, ExternalReference)
+        for i, (reference, fixup_label) in self.fixups:
+            if reference == old_reference:
+                self.fixups[i] = (new_reference, fixup_label)
+                print('SFTODOQ4554')
+
     def dump(self, outfile, esd):
         print(";\n; RE-LOCATEABLE DICTIONARY\n;", file=outfile)
 
@@ -212,8 +220,8 @@ class RLD(object):
 
 
 class ESD(object):
-    def __init__(self):
-        self.entry_dict = {}
+    def __init__(self, entry_dict=None):
+        self.entry_dict = {} if entry_dict is None else entry_dict
         self.external_dict = {}
 
     def add_entry(self, external_name, reference):
@@ -227,6 +235,14 @@ class ESD(object):
             esd_entry = len(self.external_dict)
             self.external_dict[external_name] = esd_entry
         return esd_entry
+
+    # SFTODO: DELETE IF NOT USED - I SUSPECT EVENTUALLY IT WON'T BE AS WE WILL NOT WANT TO
+    # COPY ESD
+    def copy(self):
+        new_esd = ESD()
+        new_esd.entry_dict = self.entry_dict.copy()
+        # SFTODO? new_esd.external_dict = self.external_dict.copy()
+        return new_esd
 
     def dump(self, outfile):
         # Although the PLASMA VM doesn't care:
@@ -306,6 +322,7 @@ class LabelledBlob(object):
     # eventually once we have nicer output formats (I imagine one output format
     # even in final vsn will be suitable for passing to ACME to generate a
     # module)
+    # TODO: esd arg is not used
     def dump(self, outfile, rld, esd):
         #print("; SFTODO BLOB START %r" % self)
         i = 0
@@ -639,6 +656,13 @@ class Instruction(ComparisonMixin):
             self.operands[0].rename_targets(alias_dict)
         else:
             assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def SFTODORENAMEORDELETE(self, old_label, new_label):
+        # SFTODO TEMP HACK
+        if self.instruction_class in (InstructionClass.ABSOLUTE,):
+            if self.operands[0] is old_label:
+                self.operands[0] = new_label
+                print('SFTODOX109')
 
     def add_targets_used(self, targets_used):
         # SFTODO TEMP HACK FOR TRANSITION
@@ -1012,6 +1036,10 @@ class BytecodeFunction(object):
                 self.ops.append(Instruction(TARGET_OPCODE, [t]))
             self.ops.append(op)
 
+    def add_label(self, label): # SFTODO: TEMP EXPERIMENTAL - DELETE IF NOT USED
+        self.labels.append(label)
+        label.set_owner(self)
+
     def is_init(self):
         return any(x.name == '_INIT' for x in self.labels)
 
@@ -1201,7 +1229,10 @@ class Module(object):
         print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (self.sysflags,), file=outfile)
         print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT", file=outfile)
         print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT", file=outfile)
-        print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE", file=outfile)
+        if self.bytecode_functions[-1].is_init():
+            print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE", file=outfile)
+        else:
+            print("\t!WORD\t0\t\t\t; MODULE INITIALIZATION ROUTINE", file=outfile)
 
         for import_name in self.import_names:
             print("\t; DCI STRING: %s" % (import_name,), file=outfile)
@@ -1209,6 +1240,14 @@ class Module(object):
         print("\t!BYTE\t$00\t\t\t; END OF MODULE DEPENDENCIES", file=outfile)
 
         rld = RLD()
+
+        # TODO: Either here or as an earlier "optimisation", we could prune things from
+        # self.esd which are not actually referenced (or avoid outputting them; maybe
+        # dump() shouldn't modify self.esd - but nothing wrong with an optimise step
+        # modifying it earlier, if that's easier). This wouldn't affect the memory
+        # used at run time (except for temporarily during module loading) but would
+        # fractionally speed up loading due to less searching and would shrink the size on
+        # disc.
 
         if self.data_asm_blob is not None:
             self.data_asm_blob.dump(outfile, rld, self.esd)
@@ -1853,8 +1892,36 @@ class Optimiser(object):
 input_file = '../rel/PLASM#FE1000' if len(sys.argv) < 2 else sys.argv[1]
 module = Module.load(input_file)
 Optimiser.optimise(module)
-with open('znew', 'w') as output_handle:
-    module.dump(output_handle)
+# TODO: Cloning the import_names from the original module into second_module is safe and
+# not a big deal; can we do better? We don't have the actual imported modules on hand to
+# see which symbols come from which. *But* we could potentially change 'module' to just
+# import second_module, to avoid unnecessary duplication.
+# TODO: Cloning the ESD is harmless but wasteful; see comment in ESD::dump() about
+# avoiding dumping unused ESD entries
+#second_module = Module(module.sysflags, module.import_names, ESD(module.esd.entry_dict.copy()))
+second_module = Module(module.sysflags, module.import_names, ESD())
+module.import_names = ['PLASM3']
+
+# TODO: Experimental, this should be done via a helper routine - plus note we need to be
+# careful to do this without introducing cyclical dependencies between the two modules
+# TODO: I need to be careful to cope correctly if the function being transferred is an
+# exported one
+transferred_function = module.bytecode_functions.pop(0)
+second_module.bytecode_functions = [transferred_function]
+external_reference = ExternalReference('SFTODO99X', 0)
+for bytecode_function in module.bytecode_functions:
+    for label in transferred_function.labels:
+        for instruction in bytecode_function.ops:
+            instruction.SFTODORENAMEORDELETE(label, external_reference)
+        #module.rld.SFTODORENAMEORDELETE(label, external_reference)
+#label2 = Label('_S')
+#transferred_function.add_label(label2)
+second_module.esd.add_entry('SFTODO99X', transferred_function.labels[0])
+
+with open('znew', 'w') as outfile:
+    module.dump(outfile)
+with open('znew2', 'w') as outfile:
+    second_module.dump(outfile)
 
 # TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 

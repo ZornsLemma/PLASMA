@@ -130,6 +130,8 @@ $(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CON
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/compiler.beebasm -do rel/acorn/compiler.ssd -title "PLASMA COMP"
+	# SFTODO: Temp hack
+	/bin/cp -a rel/acorn/compiler.ssd ~/shared/bbc-discs-tmp/
 
 all: apple c64 acorn
 
@@ -161,11 +163,11 @@ $(PLASM): $(OBJS) $(INCS)
 $(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py
 	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
 	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
-	(cd plasmatool; python pt.py > z; acme --setpc 4094 -o ../rel/PLASM2\#FE1000 z)
+	#(cd plasmatool; python pt.py > z; acme --setpc 4094 -o ../rel/PLASM2\#FE1000 z)
 
 # SFTODO: TEMP HACK
 $(PLASMAPLASM2): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py $(PLASMAPLASM)
-	(cd plasmatool; python pt.py > z; acme --setpc 4094 -o ../$(PLASMAPLASM2) z)
+	(cd plasmatool; python pt.py; acme --setpc 4094 -o ../$(PLASMAPLASM2) znew; acme --setpc 4094 -o ../rel/PLASM3\#FE1000 znew2)
 
 $(CODEOPT): toolsrc/codeopt.pla toolsrc/codeseq.plh
 	./$(PLASM) -AMOW < toolsrc/codeopt.pla > toolsrc/codeopt.a
