@@ -2022,6 +2022,26 @@ while True:
         break
 
 
+# TODO: Move this function if it lives
+def compact_int(i):
+    """Return a short string representation encoding an integer"""
+    assert i >= 0
+    # TODO: These larger character sets don't work - the modules fail to load due to missing
+    # symbols - but I can't see why.
+    #character_set = [chr(x) for x in range(33, 127)]
+    #character_set = [chr(x) for x in range(33, 127) if x not in range(ord('a'), ord('z')+1) ]
+    character_set = [chr(x) for x in range(33, 97)]
+    if i == 0:
+        return character_set[0]
+    base = len(character_set)
+    result = ''
+    while i > 0:
+        result += character_set[i % base]
+        i = i // base
+    return result
+
+
+
 
 # TODO: Move this into a function?
 # Patch up the two modules so we have correct external references following the function moves.
@@ -2054,7 +2074,9 @@ for export in callee_module_new_exports:
             del caller_module.esd.entry_dict[esd_external_name]
             break
     if external_name is None:
-        external_name = 'SFTODO%d' % SFTODOHACKCOUNT
+        # TODO: Using a shorter and better external name would reduce the on-disc size of the modules which would be helpful in terms of loading them on machines with less main RAM...
+        # TODO: The '!' character used here should be overridable on the command line just in case.
+        external_name = '!%s' % compact_int(SFTODOHACKCOUNT)
         SFTODOHACKCOUNT += 1
     external_reference = ExternalReference(external_name, 0)
     for bytecode_function in caller_module.bytecode_functions:
