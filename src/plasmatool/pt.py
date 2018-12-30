@@ -2002,13 +2002,25 @@ print(second_module_contents)
 
 caller_module = module
 callee_module = second_module
-for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-    if bytecode_function.callees().issubset(callee_module.bytecode_function_labels()):
-        print('SFTODOQ43', i)
-        callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
-        caller_module.bytecode_functions[i] = None
-caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
-    
+data_asm_blob_labels = set()
+for SFTODO in callee_module.data_asm_blob.labels.values():
+    for SFTODO2 in SFTODO:
+        data_asm_blob_labels.add(SFTODO2)
+while True:
+    print('SFTODOFF4')
+    changed = False
+    for i, bytecode_function in enumerate(caller_module.bytecode_functions):
+        if i == 0:
+            print('SFTODOQQX', [x.name for x in bytecode_function.callees()])
+        if bytecode_function.callees().issubset(callee_module.bytecode_function_labels().union(data_asm_blob_labels)):
+            print('SFTODOQ43', i)
+            callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
+            caller_module.bytecode_functions[i] = None
+            changed = True
+    caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
+    if not changed:
+        break
+
 
 
 # TODO: Move this into a function?
@@ -2030,9 +2042,7 @@ while True:
     else:
         break
 callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
-for SFTODO in callee_module.data_asm_blob.labels.values():
-    for SFTODO2 in SFTODO:
-        callee_module_new_exports.add(SFTODO2)
+callee_module_new_exports.update(data_asm_blob_labels)
 print('SFTODOQE3', len(callee_module_new_exports))
 SFTODOHACKCOUNT = 0
 for export in callee_module_new_exports:
