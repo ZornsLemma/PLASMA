@@ -1043,6 +1043,17 @@ class BytecodeFunction(object):
         for instruction in self.ops:
             instruction.add_dependencies(dependencies)
 
+    # TODO: Bad name
+    # TODO: Delete if not used
+    def callees(self):
+        result = set()
+        for instruction in self.ops:
+            if instruction.instruction_class == InstructionClass.ABSOLUTE:
+                operand = instruction.operands[0]
+                if isinstance(operand, Label):
+                    result.add(operand)
+        return result
+
     def dump(self, outfile, rld, esd): # SFTODO: We don't use the esd arg
         if not self.is_init():
             label = rld.get_bytecode_function_label()
@@ -1243,11 +1254,7 @@ class Module(object):
     def callees(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
-            for instruction in bytecode_function.ops:
-                if instruction.instruction_class == InstructionClass.ABSOLUTE:
-                    operand = instruction.operands[0]
-                    if isinstance(operand, Label):
-                        result.add(operand)
+            result.update(bytecode_function.callees())
         return result
 
     # TODO: New experimental stuff delete if not used
@@ -1941,12 +1948,6 @@ for bytecode_function in module.bytecode_functions:
     # using a list for its labels member... (general point, not just here)
     pass # SFTODO graph.add_node(bytecode_function.labels[0].name)
 
-def add_node(name):
-    as_caller = name + '_CALLER'
-    as_callee = name + '_CALLEE'
-    graph.add_node(as_caller)
-    graph.add_node(as_callee)
-    graph.add_edge(as_caller, as_callee, weight=1000000)
 graph.add_nodes_from(module.esd.external_dict.keys())
 for bytecode_function in module.bytecode_functions:
     for instruction in bytecode_function.ops:
@@ -1955,17 +1956,16 @@ for bytecode_function in module.bytecode_functions:
             if isinstance(instruction.operands[0], Label):
                 caller = bytecode_function.labels[0].name
                 callee = instruction.operands[0].name
-                add_node(caller)
-                add_node(callee)
-                graph.add_edge(caller + '_CALLER', callee + '_CALLEE', weight=1)
-                graph.add_edge(caller + '_CALLEE', callee + '_CALLER', weight=1000000)
+                graph.add_node(caller)
+                graph.add_node(callee)
+                graph.add_edge(caller, callee)
             elif isinstance(instruction.operands[0], ExternalReference):
                 #graph.add_edge(bytecode_function.labels[0].name, instruction.operands[0].external_name)
                 pass
             else:
                 assert isinstance(instruction.operands[0], FixedAddress)
 nx.nx_pydot.write_dot(graph, 'example.dot')
-(edgecuts, parts) = metis.part_graph(graph, 2, contig=True) # TODO: Do we need contig=True?
+(edgecuts, parts) = metis.part_graph(graph, 2) # TODO: Do we need contig=True?
 colors = ['red','blue']
 module_contents = [[], []]
 for i, node in enumerate(graph.nodes()):
@@ -1974,7 +1974,7 @@ for i, node in enumerate(graph.nodes()):
 nx.nx_pydot.write_dot(graph, 'example2.dot')
 print(module_contents[0])
 print(module_contents[1])
-if '_INIT_CALLER' in module_contents[1]:
+if '_INIT' in module_contents[1]:
     second_module_contents = module_contents[0]
 else:
     second_module_contents = module_contents[1]
@@ -1989,16 +1989,27 @@ print(second_module_contents)
 #        module.transfer_function(i, second_module)
 #module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
 
-for i, bytecode_function in enumerate(module.bytecode_functions):
-    if bytecode_function.labels[0].name in second_module_contents:
-        print('SFTODOQ43', i)
-        second_module.bytecode_functions.append(module.bytecode_functions[i])
-        module.bytecode_functions[i] = None
-module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
+#for i, bytecode_function in enumerate(module.bytecode_functions):
+#    if bytecode_function.labels[0].name in second_module_contents:
+#        print('SFTODOQ43', i)
+#        second_module.bytecode_functions.append(module.bytecode_functions[i])
+#        module.bytecode_functions[i] = None
+#module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
 
 # TODO: Experimental, this should be done via a helper routine - plus note we need to be
 # careful to do this without introducing cyclical dependencies between the two modules
 #second_module.bytecode_functions.append(module.bytecode_functions.pop(0))
+
+caller_module = module
+callee_module = second_module
+for i, bytecode_function in enumerate(caller_module.bytecode_functions):
+    if bytecode_function.callees().issubset(callee_module.bytecode_function_labels()):
+        print('SFTODOQ43', i)
+        callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
+        caller_module.bytecode_functions[i] = None
+caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
+    
+
 
 # TODO: Move this into a function?
 # Patch up the two modules so we have correct external references following the function moves.
