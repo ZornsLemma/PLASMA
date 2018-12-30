@@ -1218,6 +1218,7 @@ class Module(object):
 
     # TODO: I need to be careful to cope correctly if the function being transferred is an
     # exported one
+    # TODO: Delete if not used
     def transfer_function(self, function_index, other_module):
         transferred_function = self.bytecode_functions[function_index]
         self.bytecode_functions[function_index] = None
@@ -1237,6 +1238,25 @@ class Module(object):
         #label2 = Label('_S')
         #transferred_function.add_label(label2)
         other_module.esd.add_entry(external_name, transferred_function.labels[0])
+
+    # TODO: New experimental stuff delete if not used
+    def callees(self):
+        result = set()
+        for bytecode_function in self.bytecode_functions:
+            for instruction in bytecode_function.ops:
+                if instruction.instruction_class == InstructionClass.ABSOLUTE:
+                    operand = instruction.operands[0]
+                    if isinstance(operand, Label):
+                        result.add(operand)
+        return result
+
+    # TODO: New experimental stuff delete if not used
+    def bytecode_function_labels(self):
+        result = set()
+        for bytecode_function in self.bytecode_functions:
+            assert len(bytecode_function.labels) == 1
+            result.add(bytecode_function.labels[0])
+        return result
 
     def dump(self, outfile):
         print("\t!WORD\t_SEGEND-_SEGBEGIN\t; LENGTH OF HEADER + CODE/DATA + BYTECODE SEGMENT", file=outfile)
@@ -1962,17 +1982,49 @@ print(second_module_contents)
 second_module_contents = list(set(x.split('_C')[0] for x in second_module_contents))
 print(second_module_contents)
 
-SFTODOHACKCOUNT = 0
-for i, bytecode_function in enumerate(module.bytecode_functions):
-    if bytecode_function.labels[0].name in second_module_contents:
-        print('SFTODOQ43', i)
-        module.transfer_function(i, second_module)
-module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
+#SFTODOHACKCOUNT = 0
+#for i, bytecode_function in enumerate(module.bytecode_functions):
+#    if bytecode_function.labels[0].name in second_module_contents:
+#        print('SFTODOQ43', i)
+#        module.transfer_function(i, second_module)
+#module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
 
 
 # TODO: Experimental, this should be done via a helper routine - plus note we need to be
 # careful to do this without introducing cyclical dependencies between the two modules
-#module.transfer_function(0, second_module)
+second_module.bytecode_functions.append(module.bytecode_functions.pop(0))
+
+# TODO: Move this into a function?
+# Patch up the two modules so we have correct external references following the function moves.
+caller_module = module
+callee_module = second_module
+# SFTODO: callees() should probably be renamed and it should probably return all labels referenced
+while True:
+    callees_in_caller_module = callee_module.callees().intersection(caller_module.bytecode_function_labels())
+    print('SFTODOX1033', len(callees_in_caller_module))
+    if len(callees_in_caller_module) > 0:
+        for i, bytecode_function in enumerate(caller_module.bytecode_functions):
+            if bytecode_function.labels[0] in callees_in_caller_module:
+                callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
+                caller_module.bytecode_functions[i] = None
+                callees_in_caller_module.remove(bytecode_function.labels[0])
+        assert len(callees_in_caller_module) == 0
+        caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
+    else:
+        break
+callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
+print('SFTODOQE3', len(callee_module_new_exports))
+SFTODOHACKCOUNT = 0
+for export in callee_module_new_exports:
+    external_name = 'SFTODO%d' % SFTODOHACKCOUNT
+    external_reference = ExternalReference(external_name, 0)
+    SFTODOHACKCOUNT += 1
+    for bytecode_function in caller_module.bytecode_functions:
+        # SFTODO: Make the following loop a member function of BytecodeFunction?
+        for instruction in bytecode_function.ops:
+            instruction.SFTODORENAMEORDELETE(export, external_reference)
+    caller_module.esd.add_entry(external_name, export)
+# SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
 
 with open('znew', 'w') as outfile:
     module.dump(outfile)
