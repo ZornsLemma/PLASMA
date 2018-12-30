@@ -1985,3 +1985,5 @@ with open('znew2', 'w') as outfile:
 
 # TODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
 # early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
+
+# On a B/B+ in non-shadow mode 7 with DFS and ADFS installed, PLAS128 has approximately $415A bytes of main RAM free - so "smaller than this" is the goal for the individual split modules of the compiler, in order to allow them to be loaded into main RAM (before being split up and relocation data discarded and bytecode moved into sideways RAM).
