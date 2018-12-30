@@ -2013,17 +2013,28 @@ while True:
     else:
         break
 callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
+for SFTODO in callee_module.data_asm_blob.labels.values():
+    for SFTODO2 in SFTODO:
+        callee_module_new_exports.add(SFTODO2)
 print('SFTODOQE3', len(callee_module_new_exports))
 SFTODOHACKCOUNT = 0
 for export in callee_module_new_exports:
-    external_name = 'SFTODO%d' % SFTODOHACKCOUNT
+    # SFTODO: Inefficient
+    external_name = None
+    for esd_external_name, reference in caller_module.esd.entry_dict.items():
+        if export == reference:
+            external_name = esd_external_name
+            del caller_module.esd.entry_dict[esd_external_name]
+            break
+    if external_name is None:
+        external_name = 'SFTODO%d' % SFTODOHACKCOUNT
+        SFTODOHACKCOUNT += 1
     external_reference = ExternalReference(external_name, 0)
-    SFTODOHACKCOUNT += 1
     for bytecode_function in caller_module.bytecode_functions:
         # SFTODO: Make the following loop a member function of BytecodeFunction?
         for instruction in bytecode_function.ops:
             instruction.SFTODORENAMEORDELETE(export, external_reference)
-    caller_module.esd.add_entry(external_name, export)
+    callee_module.esd.add_entry(external_name, export)
 # SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
 
 with open('znew', 'w') as outfile:
