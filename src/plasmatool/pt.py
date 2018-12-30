@@ -1989,10 +1989,16 @@ print(second_module_contents)
 #        module.transfer_function(i, second_module)
 #module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
 
+for i, bytecode_function in enumerate(module.bytecode_functions):
+    if bytecode_function.labels[0].name in second_module_contents:
+        print('SFTODOQ43', i)
+        second_module.bytecode_functions.append(module.bytecode_functions[i])
+        module.bytecode_functions[i] = None
+module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
 
 # TODO: Experimental, this should be done via a helper routine - plus note we need to be
 # careful to do this without introducing cyclical dependencies between the two modules
-second_module.bytecode_functions.append(module.bytecode_functions.pop(0))
+#second_module.bytecode_functions.append(module.bytecode_functions.pop(0))
 
 # TODO: Move this into a function?
 # Patch up the two modules so we have correct external references following the function moves.
