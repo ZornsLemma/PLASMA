@@ -1911,20 +1911,34 @@ Optimiser.optimise(module)
 
 second_module = Module(module.sysflags, module.import_names, ESD())
 module.import_names = ['PLASM3']
+second_module.data_asm_blob = module.data_asm_blob
+module.data_asm_blob = None
 
 # TODO: Experimental
 graph = nx.Graph()
 for bytecode_function in module.bytecode_functions:
     # SFTODO: If we really only ever have one label on a bytecode function, I should stop
     # using a list for its labels member... (general point, not just here)
-    graph.add_node(bytecode_function.labels[0].name)
+    pass # SFTODO graph.add_node(bytecode_function.labels[0].name)
+
+def add_node(name):
+    as_caller = name + '_CALLER'
+    as_callee = name + '_CALLEE'
+    graph.add_node(as_caller)
+    graph.add_node(as_callee)
+    graph.add_edge(as_caller, as_callee, weight=1000000)
 graph.add_nodes_from(module.esd.external_dict.keys())
 for bytecode_function in module.bytecode_functions:
     for instruction in bytecode_function.ops:
         if instruction.instruction_class == InstructionClass.ABSOLUTE:
             # SFTODO: Use polymorphism here??
             if isinstance(instruction.operands[0], Label):
-                graph.add_edge(bytecode_function.labels[0].name, instruction.operands[0].name)
+                caller = bytecode_function.labels[0].name
+                callee = instruction.operands[0].name
+                add_node(caller)
+                add_node(callee)
+                graph.add_edge(caller + '_CALLER', callee + '_CALLEE', weight=1)
+                graph.add_edge(caller + '_CALLEE', callee + '_CALLER', weight=1000000)
             elif isinstance(instruction.operands[0], ExternalReference):
                 #graph.add_edge(bytecode_function.labels[0].name, instruction.operands[0].external_name)
                 pass
@@ -1940,12 +1954,17 @@ for i, node in enumerate(graph.nodes()):
 nx.nx_pydot.write_dot(graph, 'example2.dot')
 print(module_contents[0])
 print(module_contents[1])
-if '_INIT' in module_contents[1]:
-    module_contents[0], module_contents[1] = module_contents[1], module_contents[0]
+if '_INIT_CALLER' in module_contents[1]:
+    second_module_contents = module_contents[0]
+else:
+    second_module_contents = module_contents[1]
+print(second_module_contents)
+second_module_contents = list(set(x.split('_C')[0] for x in second_module_contents))
+print(second_module_contents)
 
 SFTODOHACKCOUNT = 0
 for i, bytecode_function in enumerate(module.bytecode_functions):
-    if bytecode_function.labels[0].name in module_contents[1]:
+    if bytecode_function.labels[0].name in second_module_contents:
         print('SFTODOQ43', i)
         module.transfer_function(i, second_module)
 module.bytecode_functions = [x for x in module.bytecode_functions if x is not None]
