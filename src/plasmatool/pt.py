@@ -21,6 +21,14 @@ import sys
 # because what will count will be having a reference to the function's label, regardless of
 # whether that reference appears with a CALL opcode or not.)
 
+def die(s):
+    sys.stderr.write(s + '\n')
+    sys.exit(1)
+
+def verbose(level, s):
+    if args.verbose >= level:
+        sys.stderr.write(s + '\n')
+
 def read_u8(f):
     return struct.unpack('<B', f.read(1))[0]
 
@@ -1114,7 +1122,8 @@ class Module(object):
     def load(cls, f):
         seg_size = read_u16(f)
         magic = read_u16(f)
-        assert magic == 0x6502
+        if magic != 0x6502:
+            die("Input file is not a valid PLASMA module")
         sysflags = read_u16(f)
         subseg_abs = read_u16(f)
         defcnt = read_u16(f)
@@ -1929,6 +1938,7 @@ class Optimiser(object):
 
 
 parser = argparse.ArgumentParser(description='PLASMA module tool; disassembles and optimises compiled PLASMA modules.')
+parser.add_argument('-v', '--verbose', action='count', help='show what this tool is doing')
 parser.add_argument('-O', '--optimise', action='store_true', help='enable optimiser')
 parser.add_argument('-2', '--second-module-name', dest='name', help="name for second module when splitting (defaults to basename of OUTPUT2)")
 parser.add_argument('input', metavar='INPUT', type=argparse.FileType('rb'), help="input file (compiled PLASMA module)")
@@ -1948,9 +1958,10 @@ if args.output2 is not None:
     else:
         second_module_name = os.path.splitext(os.path.basename(args.output2.name))[0]
     second_module_name = second_module_name.upper()
-    print('SFTODOQ1', second_module_name)
+    verbose(1, "Splitting module; second output module name is %s" % second_module_name)
     # TODO: We could validate second_module_name (not too long, no odd characters)
 
+    # TODO: All the following should be moved into a function
     second_module = Module(module.sysflags, module.import_names, ESD())
     module.import_names = [second_module_name]
     second_module.data_asm_blob = module.data_asm_blob
