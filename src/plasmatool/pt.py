@@ -1232,29 +1232,6 @@ class Module(object):
         return module
 
 
-    # TODO: I need to be careful to cope correctly if the function being transferred is an
-    # exported one
-    # TODO: Delete if not used
-    def transfer_function(self, function_index, other_module):
-        transferred_function = self.bytecode_functions[function_index]
-        self.bytecode_functions[function_index] = None
-        other_module.bytecode_functions = [transferred_function]
-        global SFTODOHACKCOUNT
-        external_name = 'SFTODO%d' % SFTODOHACKCOUNT
-        SFTODOHACKCOUNT += 1
-        external_reference = ExternalReference(external_name, 0)
-        for bytecode_function in self.bytecode_functions:
-            if bytecode_function is None:
-                continue
-            assert len(transferred_function.labels) == 1
-            label = transferred_function.labels[0]
-            for instruction in bytecode_function.ops:
-                instruction.SFTODORENAMEORDELETE(label, external_reference)
-            #self.rld.SFTODORENAMEORDELETE(label, external_reference)
-        #label2 = Label('_S')
-        #transferred_function.add_label(label2)
-        other_module.esd.add_entry(external_name, transferred_function.labels[0])
-
     # TODO: New experimental stuff delete if not used
     def callees(self):
         result = set()
@@ -1266,6 +1243,8 @@ class Module(object):
     def bytecode_function_labels(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
+            if len(bytecode_function.labels) > 1:
+                print('SFTODO911', [x.name for x in bytecode_function.labels])
             assert len(bytecode_function.labels) == 1
             result.add(bytecode_function.labels[0])
         return result
