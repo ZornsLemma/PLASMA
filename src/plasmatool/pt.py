@@ -1311,6 +1311,101 @@ class Module(object):
 
         self.esd.dump(outfile)
 
+    def split(self):
+        second_module = Module(module.sysflags, module.import_names, ESD())
+        module.import_names = [second_module_name]
+        second_module.data_asm_blob = module.data_asm_blob
+        module.data_asm_blob = None
+
+        caller_module = module
+        callee_module = second_module
+        data_asm_blob_labels = set()
+        for SFTODO in callee_module.data_asm_blob.labels.values():
+            for SFTODO2 in SFTODO:
+                data_asm_blob_labels.add(SFTODO2)
+        while True:
+            print('SFTODOFF4')
+            changed = False
+            for i, bytecode_function in enumerate(caller_module.bytecode_functions):
+                if i == 0:
+                    print('SFTODOQQX', [x.name for x in bytecode_function.callees()])
+                if bytecode_function.callees().issubset(callee_module.bytecode_function_labels().union(data_asm_blob_labels)):
+                    print('SFTODOQ43', i)
+                    callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
+                    caller_module.bytecode_functions[i] = None
+                    changed = True
+            caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
+            if not changed:
+                break
+
+
+        # TODO: Move this function if it lives
+        def compact_int(i):
+            """Return a short string representation encoding an integer"""
+            assert i >= 0
+            # TODO: These larger character sets don't work - the modules fail to load due to missing
+            # symbols - but I can't see why.
+            #character_set = [chr(x) for x in range(33, 127)]
+            #character_set = [chr(x) for x in range(33, 127) if x not in range(ord('a'), ord('z')+1) ]
+            character_set = [chr(x) for x in range(33, 97)]
+            if i == 0:
+                return character_set[0]
+            base = len(character_set)
+            result = ''
+            while i > 0:
+                result += character_set[i % base]
+                i = i // base
+            return result
+
+
+
+
+        # TODO: Move this into a function?
+        # Patch up the two modules so we have correct external references following the function moves.
+        caller_module = module
+        callee_module = second_module
+        # SFTODO: callees() should probably be renamed and it should probably return all labels referenced
+        while True:
+            callees_in_caller_module = callee_module.callees().intersection(caller_module.bytecode_function_labels())
+            print('SFTODOX1033', len(callees_in_caller_module))
+            if len(callees_in_caller_module) > 0:
+                for i, bytecode_function in enumerate(caller_module.bytecode_functions):
+                    if bytecode_function.labels[0] in callees_in_caller_module:
+                        callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
+                        caller_module.bytecode_functions[i] = None
+                        callees_in_caller_module.remove(bytecode_function.labels[0])
+                assert len(callees_in_caller_module) == 0
+                caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
+            else:
+                break
+        callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
+        callee_module_new_exports.update(data_asm_blob_labels)
+        print('SFTODOQE3', len(callee_module_new_exports))
+        SFTODOHACKCOUNT = 0
+        for export in callee_module_new_exports:
+            # SFTODO: Inefficient
+            external_name = None
+            for esd_external_name, reference in caller_module.esd.entry_dict.items():
+                if export == reference:
+                    external_name = esd_external_name
+                    del caller_module.esd.entry_dict[esd_external_name]
+                    break
+            if external_name is None:
+                # TODO: Using a shorter and better external name would reduce the on-disc size of the modules which would be helpful in terms of loading them on machines with less main RAM...
+                # TODO: The '!' character used here should be overridable on the command line just in case.
+                external_name = '!%s' % compact_int(SFTODOHACKCOUNT)
+                SFTODOHACKCOUNT += 1
+            external_reference = ExternalReference(external_name, 0)
+            for bytecode_function in caller_module.bytecode_functions:
+                # SFTODO: Make the following loop a member function of BytecodeFunction?
+                for instruction in bytecode_function.ops:
+                    instruction.SFTODORENAMEORDELETE(export, external_reference)
+            callee_module.esd.add_entry(external_name, export)
+        # SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
+
+        return second_module
+
+
 
 # SFTODO: EXPERIMENTAL
 class Foo(object):
@@ -1962,96 +2057,7 @@ if args.output2 is not None:
     # TODO: We could validate second_module_name (not too long, no odd characters)
 
     # TODO: All the following should be moved into a function
-    second_module = Module(module.sysflags, module.import_names, ESD())
-    module.import_names = [second_module_name]
-    second_module.data_asm_blob = module.data_asm_blob
-    module.data_asm_blob = None
-
-    caller_module = module
-    callee_module = second_module
-    data_asm_blob_labels = set()
-    for SFTODO in callee_module.data_asm_blob.labels.values():
-        for SFTODO2 in SFTODO:
-            data_asm_blob_labels.add(SFTODO2)
-    while True:
-        print('SFTODOFF4')
-        changed = False
-        for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-            if i == 0:
-                print('SFTODOQQX', [x.name for x in bytecode_function.callees()])
-            if bytecode_function.callees().issubset(callee_module.bytecode_function_labels().union(data_asm_blob_labels)):
-                print('SFTODOQ43', i)
-                callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
-                caller_module.bytecode_functions[i] = None
-                changed = True
-        caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
-        if not changed:
-            break
-
-
-    # TODO: Move this function if it lives
-    def compact_int(i):
-        """Return a short string representation encoding an integer"""
-        assert i >= 0
-        # TODO: These larger character sets don't work - the modules fail to load due to missing
-        # symbols - but I can't see why.
-        #character_set = [chr(x) for x in range(33, 127)]
-        #character_set = [chr(x) for x in range(33, 127) if x not in range(ord('a'), ord('z')+1) ]
-        character_set = [chr(x) for x in range(33, 97)]
-        if i == 0:
-            return character_set[0]
-        base = len(character_set)
-        result = ''
-        while i > 0:
-            result += character_set[i % base]
-            i = i // base
-        return result
-
-
-
-
-    # TODO: Move this into a function?
-    # Patch up the two modules so we have correct external references following the function moves.
-    caller_module = module
-    callee_module = second_module
-    # SFTODO: callees() should probably be renamed and it should probably return all labels referenced
-    while True:
-        callees_in_caller_module = callee_module.callees().intersection(caller_module.bytecode_function_labels())
-        print('SFTODOX1033', len(callees_in_caller_module))
-        if len(callees_in_caller_module) > 0:
-            for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-                if bytecode_function.labels[0] in callees_in_caller_module:
-                    callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
-                    caller_module.bytecode_functions[i] = None
-                    callees_in_caller_module.remove(bytecode_function.labels[0])
-            assert len(callees_in_caller_module) == 0
-            caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
-        else:
-            break
-    callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
-    callee_module_new_exports.update(data_asm_blob_labels)
-    print('SFTODOQE3', len(callee_module_new_exports))
-    SFTODOHACKCOUNT = 0
-    for export in callee_module_new_exports:
-        # SFTODO: Inefficient
-        external_name = None
-        for esd_external_name, reference in caller_module.esd.entry_dict.items():
-            if export == reference:
-                external_name = esd_external_name
-                del caller_module.esd.entry_dict[esd_external_name]
-                break
-        if external_name is None:
-            # TODO: Using a shorter and better external name would reduce the on-disc size of the modules which would be helpful in terms of loading them on machines with less main RAM...
-            # TODO: The '!' character used here should be overridable on the command line just in case.
-            external_name = '!%s' % compact_int(SFTODOHACKCOUNT)
-            SFTODOHACKCOUNT += 1
-        external_reference = ExternalReference(external_name, 0)
-        for bytecode_function in caller_module.bytecode_functions:
-            # SFTODO: Make the following loop a member function of BytecodeFunction?
-            for instruction in bytecode_function.ops:
-                instruction.SFTODORENAMEORDELETE(export, external_reference)
-        callee_module.esd.add_entry(external_name, export)
-    # SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
+    second_module = module.split()
 
 module.dump(args.output)
 if args.output2 is not None:

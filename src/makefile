@@ -167,7 +167,7 @@ $(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/code
 
 # SFTODO: TEMP HACK
 $(PLASMAPLASM2): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py $(PLASMAPLASM)
-	(cd plasmatool; python pt.py; acme --setpc 4094 -o ../$(PLASMAPLASM2) znew; acme --setpc 4094 -o ../rel/PLASM3\#FE1000 znew2)
+	(cd plasmatool; python pt.py -O -2 PLASM3 ../rel/PLASM\#FE1000 znew znew2; acme --setpc 4094 -o ../$(PLASMAPLASM2) znew; acme --setpc 4094 -o ../rel/PLASM3\#FE1000 znew2)
 
 $(CODEOPT): toolsrc/codeopt.pla toolsrc/codeseq.plh
 	./$(PLASM) -AMOW < toolsrc/codeopt.pla > toolsrc/codeopt.a
