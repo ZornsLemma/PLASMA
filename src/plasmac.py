@@ -461,6 +461,7 @@ def build_standalone(ordered_modules, top_level_modules):
 
 
 
+# TODO: Might be nicer to use the type=argparse.FileType('r') feature of argparse
 parser = argparse.ArgumentParser(description='PLASMA build tool; transforms PLASMA source code (foo.pla) into PLASMA modules (foo.mo) or standalone executables. The output can optionally be written to an Acorn DFS disc image (foo.ssd).')
 parser.add_argument('inputs', metavar='FILE', nargs='+', help="input file (.pla or .mo)")
 # TODO: Have a "this tool arguments" group???
