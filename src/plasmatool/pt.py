@@ -329,16 +329,14 @@ class LabelledBlob(object):
         #print("; SFTODO BLOB START %r" % self)
         i = 0
         while i < len(self.blob):
+            for label in self.labels.get(i, []):
+                print('%s' % (label.name,), file=outfile)
             reference = self.references.get(i)
-            if not reference:
-                for label in self.labels.get(i, []):
-                    print('%s' % (label.name,), file=outfile)
+            if reference is None:
                 print('\t!BYTE\t$%02X' % (self[i],), file=outfile)
             else:
                 #print('SFTODOQ11x', self.labels)
                 #print('SFTODOQ11y', i)
-                # TODO: Addition of 'i == 0 or' to following asserts is a bit experimental
-                assert i == 0 or i not in self.labels
                 acme_dump_fixup(outfile, rld, reference)
                 i += 1
                 assert i not in self.labels
@@ -1178,6 +1176,7 @@ class Module(object):
             if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
                 blob_index = esd_index - org - blob_offset
                 label = Label('_X')
+                print('SFTODOXX19s', label.name, blob_index) 
                 blob.label(blob_index, label)
                 new_esd.add_entry(esd_name, label)
 
@@ -2056,7 +2055,5 @@ if args.output2 is not None:
 # early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
 
 # TODO: On a B/B+ in non-shadow mode 7 with DFS and ADFS installed, PLAS128 has approximately $415A bytes of main RAM free - so "smaller than this" is the goal for the individual split modules of the compiler, in order to allow them to be loaded into main RAM (before being split up and relocation data discarded and bytecode moved into sideways RAM).
-
-# TODO: Currently disassembling TESTLIB fails
 
 # TODO: Currently splitting the self-hosted compiler with no optimisation fails
