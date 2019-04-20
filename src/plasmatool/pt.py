@@ -57,7 +57,6 @@ def dci_bytes(s):
 
 # TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
 
-# SFTODO: Experimental
 class ComparisonMixin(object):
     """Mixin class which uses a keys() method to implement __eq__(), __ne__() and __hash__()"""
 
@@ -320,13 +319,7 @@ class LabelledBlob(object):
         for reference in self.references.values():
             reference.add_dependencies(dependencies)
 
-    # TODO: This will probably need to evolve quite a bit and may not be used
-    # eventually once we have nicer output formats (I imagine one output format
-    # even in final vsn will be suitable for passing to ACME to generate a
-    # module)
-    # TODO: esd arg is not used
-    def dump(self, outfile, rld, esd):
-        #print("; SFTODO BLOB START %r" % self)
+    def dump(self, outfile, rld):
         i = 0
         while i < len(self.blob):
             for label in self.labels.get(i, []):
@@ -335,14 +328,11 @@ class LabelledBlob(object):
             if reference is None:
                 print('\t!BYTE\t$%02X' % (self[i],), file=outfile)
             else:
-                #print('SFTODOQ11x', self.labels)
-                #print('SFTODOQ11y', i)
                 acme_dump_fixup(outfile, rld, reference)
                 i += 1
                 assert i not in self.labels
                 assert i not in self.references
             i += 1
-        print("; SFTODO BLOB END", file=outfile)
 
 
 class Byte(ComparisonMixin):
@@ -1063,7 +1053,7 @@ class BytecodeFunction(object):
                     result.add(operand)
         return result
 
-    def dump(self, outfile, rld, esd): # SFTODO: We don't use the esd arg
+    def dump(self, outfile, rld):
         if not self.is_init():
             label = rld.get_bytecode_function_label()
             print(label.name, file=outfile)
@@ -1244,14 +1234,10 @@ class Module(object):
             result.update(bytecode_function.callees())
         return result
 
-    # TODO: New experimental stuff delete if not used
     def bytecode_function_labels(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
-            print('SFTODO804', len(bytecode_function.labels))
-            if len(bytecode_function.labels) > 1:
-                print('SFTODO911', [x.name for x in bytecode_function.labels])
-                assert False
+            assert len(bytecode_function.labels) <= 1
             # Bytecode functions which aren't exported and never called don't have any
             # labels; the optimiser will get rid of these, but it may not be enabled.
             if len(bytecode_function.labels) > 0:
@@ -1286,11 +1272,11 @@ class Module(object):
         # disc.
 
         if self.data_asm_blob is not None:
-            self.data_asm_blob.dump(outfile, rld, self.esd)
+            self.data_asm_blob.dump(outfile, rld)
 
         print("_SUBSEG", file=outfile)
         for bytecode_function in self.bytecode_functions:
-            bytecode_function.dump(outfile, rld, self.esd)
+            bytecode_function.dump(outfile, rld)
         defcnt = len(self.bytecode_functions)
         print("_DEFCNT = %d" % (defcnt,), file=outfile)
         print("_SEGEND", file=outfile)
