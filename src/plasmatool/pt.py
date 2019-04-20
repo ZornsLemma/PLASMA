@@ -601,7 +601,7 @@ class Instruction(ComparisonMixin):
 
     def is_terminator(self):
         opdef = opdict.get(self.opcode, None)
-        return opdef and opdef.get('nis', False)
+        return opdef and opdef.get('terminator', False)
 
 
 
@@ -914,13 +914,13 @@ opdict = {
     0x4a: {'opcode': 'ISLE', 'class': InstructionClass.IMPLIED},
     0x4c: {'opcode': 'BRFLS', 'class': InstructionClass.BRANCH},
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
-    0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'nis': True},
+    0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'terminator': True},
     0x52: {'opcode': 'SEL', 'class': InstructionClass.SEL},
     0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.IMPLIED},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
-    0x5c: {'opcode': 'RET', 'nis': True, 'class': InstructionClass.IMPLIED},
-    0x5a: {'opcode': 'LEAVE', 'nis': True, 'class': InstructionClass.IMMEDIATE1},
+    0x5c: {'opcode': 'RET', 'terminator': True, 'class': InstructionClass.IMPLIED},
+    0x5a: {'opcode': 'LEAVE', 'terminator': True, 'class': InstructionClass.IMMEDIATE1},
     0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
     0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.IMPLIED},
     0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.IMPLIED},
