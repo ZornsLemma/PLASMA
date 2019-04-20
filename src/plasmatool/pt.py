@@ -1677,6 +1677,7 @@ class Optimiser(object):
                 bytecode_function.ops[i].operands = next_instruction.operands
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
+            # SLW [n]:LLW [n] -> DLW [n] and variations
             elif instruction.is_simple_store() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
                 dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS
                                  0x78: 0x7c,
