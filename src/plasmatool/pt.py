@@ -1722,7 +1722,6 @@ class Optimiser(object):
         return changed
 
 
-    # SFTODO: When I extend this to absolute loads/stores, I need to be careful not to optimise away memory mapped I/O. I *think* it's not possible for a Label or ExternalRef to refer to such memory (they always refer to compiler-allocated data) but need to document that in case it turns out I am wrong. Once I extend this tool to cope with the case (which doesn't occur in the self-hosted compiler, which is my current and only test case) of an actual absolute address (e.g. SAB &FFE0), it will need to be careful not to optimise away stores to such addresses.
     @staticmethod
     def optimise_load_store(bytecode_function, straightline_ops):
         lla_threshold = Optimiser.calculate_lla_threshold(bytecode_function)
