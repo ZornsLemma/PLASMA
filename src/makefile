@@ -159,7 +159,7 @@ clean:
 $(PLASM): $(OBJS) $(INCS)
 	cc $(OBJS) -o $(PLASM)
 
-# SFTODO: dependency on pt.py is temp
+# SFTODO: dependency on pt.py is temp - though really it does make sense since a change in pt.py should trigger a rebuild - and I should prob add dependencies on the other plasmatool/*.py files too - but should prob wrap all of them up into a variable
 $(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py
 	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
 	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
