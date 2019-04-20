@@ -1692,7 +1692,7 @@ class Optimiser(object):
                 bytecode_function.ops[i+1] = NopInstruction()
 
             i += 1
-        bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOP
+        bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOPs
         changed = changed or any(op.opcode == NOP_OPCODE for op in bytecode_function.ops)
         bytecode_function.ops = [op for op in bytecode_function.ops if op.opcode != NOP_OPCODE]
         return changed
