@@ -1701,7 +1701,6 @@ class Optimiser(object):
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
             # LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW [m] and variations
-            # SFTODO: I am using has_side_effects() as a kind of placeholder for "might access memory-mapped I/O" here
             elif instruction.is_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not Optimiser.partial_overlap(instruction, next_instruction):
                 dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS, COPY AND PASTE
                                  0x78: 0x7c,
@@ -1830,49 +1829,6 @@ class Optimiser(object):
                 lla_threshold = min(instruction.operands[0].value, lla_threshold)
         return lla_threshold
 
-
-    # TODO: This optimisation will increase expression stack usage, which might break some
-    # programs - it should probably be controlled separately (e.g. -O3 only, and/or a
-    # --risky-optimisations switch). It currently has no effect, as in the self-hosted
-    # compiler all the code it touched is preferentially improved by peephole_optimise().
-    # If this is retained, we need to be *sure* that it doesn't kick in first, as it can
-    # prevent that superior optimisation. I think in general introducing DUP "complicates"
-    # the code from an optimisation POV, so we want to do anything which might introduce
-    # them only when every other optimisation has failed to change anything. (Then of course
-    # we can do a pass round the whole set of optimisations again.)
-    # SFTODO: Does this handle hardware addresses correctly or not??
-    @staticmethod
-    def load_to_dup(bytecode_function, straightline_ops):
-        changed = False
-        for i in range(len(straightline_ops)):
-            instruction = straightline_ops[i]
-            if instruction.is_simple_load() and not instruction.has_side_effects():
-                stores_access = set()
-                j = i + 1
-                while j < len(straightline_ops):
-                    if straightline_ops[j].is_simple_store() or straightline_ops[i].is_dup_store():
-                        stores_access.update(straightline_ops[j].memory())
-                        if straightline_ops[j].is_simple_store():
-                            j += 1
-                            break
-                    else:
-                        break
-                    j += 1
-                if j < len(straightline_ops) and instruction == straightline_ops[j]:
-                    # We have a load, zero or more "dup stores", a store and an identical load.
-                    # Provided none of the intervening stores modify the data loaded and the
-                    # load has no side effects, we can replace the initial load with a load:DUP
-                    # and remove the final load.  SFTODO: THIS IS STUPID, I THINK - WE SHOULD INSTEAD REPLACE THE STORE WITH A DUP STORE AND REMOVE THE FINAL LOAD - THIS IS (NEED TO RETHINK TO BE SURE) AN EXTENSION OF THE OPTIMISATION WE ALREADY HAVE IN PEEPHOLE_OPTIMISE
-                    loads_access = instruction.memory()
-                    if len(loads_access.intersection(stores_access)) == 0:
-                        for k in range(j, i+1, -1):
-                            straightline_ops[k] = straightline_ops[k-1]
-                        # SFTODO: This code is obviously never exercised as I have removed StackInstruction...
-                        straightline_ops[i+1] = Instruction('DUP')
-                        changed = True
-
-        return straightline_ops, changed
-
     # If the same instruction occurs before all unconditional branches to a target, and there are
     # no conditional branches to the target, the instruction can be moved immediately after the
     # target.
@@ -1975,7 +1931,7 @@ class Optimiser(object):
                         result.append(Optimiser.remove_dead_code(bytecode_function))
                         result.append(Optimiser.move_case_blocks(bytecode_function))
                         result.append(Optimiser.peephole_optimise(bytecode_function))
-                        result.append(Optimiser.straightline_optimise(bytecode_function, [Optimiser.optimise_load_store, Optimiser.load_to_dup]))
+                        result.append(Optimiser.straightline_optimise(bytecode_function, [Optimiser.optimise_load_store]))
                         #if SFTODOFOO:
                         #    break
                     changed1 = any(result)
@@ -2063,3 +2019,9 @@ if args.output2 is not None:
 # TODO: On a B/B+ in non-shadow mode 7 with DFS and ADFS installed, PLAS128 has approximately $415A bytes of main RAM free - so "smaller than this" is the goal for the individual split modules of the compiler, in order to allow them to be loaded into main RAM (before being split up and relocation data discarded and bytecode moved into sideways RAM).
 
 # TODO: Currently splitting the self-hosted compiler with no optimisation fails
+
+# TODO: The peephole optimiser can do things like "LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW
+# [m]", but we could also do things like "LLW [n]:DLW [m]:SLW [o]:LLW [n] -> LLW
+# [m]:DLW [m]:DLW [o]". An arbitrary number of dup-stores after the first LLW would be
+# acceptable, not just one; the current peephole optimiser will not do anything if there
+# are any dup-stores after the first load instruction.
