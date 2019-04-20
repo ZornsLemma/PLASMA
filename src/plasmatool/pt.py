@@ -598,7 +598,6 @@ class Instruction(ComparisonMixin):
         # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
         return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
 
-    # SFTODO: Rename this to is_terminator() and change all comments to use the same terminology
     def is_terminator(self):
         opdef = opdict.get(self.opcode, None)
         return opdef and opdef.get('nis', False)
