@@ -1026,7 +1026,7 @@ class BytecodeFunction(object):
         for instruction in self.ops:
             instruction.add_dependencies(dependencies)
 
-    # TODO: Bad name
+    # TODO: Bad name (I think because it's more "things we reference some way or other", not "functions we call" - they may be global variables)
     # TODO: Delete if not used
     def callees(self):
         result = set()
@@ -1078,10 +1078,9 @@ class bidict(dict):
 
 def is_hardware_address(address):
     # SFTODO: Again the 'address as generic term' and 'FixedAddress as an absolute address' awkwardness...
-    # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to support a better
-    # compromise (I note the self-hosted compiler's optimiser puts upper bound of 0xd000; this won't
-    # work for Acorn, not that I have "ported" the optimiser yet) and perhaps offer a --platform
-    # command line switch to trigger a tighter definition where platform is known.
+    # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to
+    # support a better compromise and perhaps offer a --platform command line
+    # switch to trigger a tighter definition where platform is known.
     return isinstance(address, FixedAddress) and address.value >= 0xc000
 
 

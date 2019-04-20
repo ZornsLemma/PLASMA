@@ -147,6 +147,8 @@ See Dave's e-mail 15/05/18 - I could probably use his idea and have the heap sta
 
 Could the code density be improved with 8-bit displacement branch opcodes? Would need an optimiser capable of generating these. There are quite a few different branch instructions so may not be very practical, but maybe a few branch instructions account for most of the branches.
 
+Self-hosted optimiser has assumption that no memory-mapped hardware exists above $D000; this will need fixing for Acorn port.
+
 
 
 Short term notes:
