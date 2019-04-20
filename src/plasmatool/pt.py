@@ -44,7 +44,7 @@ def dci_bytes(s):
     result += '$%02X' % ord(s[-1])
     return result
 
-# TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly), and they should probably take a 'file' object which they write to, rather than the current mix of returning strings and just doing direct print() statements
+# TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly)
 
 class ComparisonMixin(object):
     """Mixin class which uses a keys() method to implement __eq__(), __ne__() and __hash__()"""
@@ -168,6 +168,32 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def dump(self, outfile, opcode, rld):
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()), file=outfile)
         acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
+
+
+class FixedAddress(AbsoluteAddress, ComparisonMixin):
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "FixedAddress($%04X)" % (self.value,)
+
+    def keys(self):
+        return (self.value,)
+
+    def __add__(self, rhs):
+        assert isinstance(rhs, int)
+        return FixedAddress(self.value + rhs)
+
+    def add_dependencies(self, dependencies):
+        pass
+
+    @classmethod
+    def disassemble(cls, di, i):
+        return FixedAddress(di.labelled_blob.read_u16(i)), i+2
+
+    def dump(self, outfile, opcode, rld):
+        value = self.value
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value), file=outfile)
 
 
 class RLD(object):
@@ -342,32 +368,6 @@ class FrameOffset(Byte):
     def __add__(self, rhs):
         assert isinstance(rhs, int)
         return FrameOffset(self.value + rhs)
-
-
-class FixedAddress(AbsoluteAddress, ComparisonMixin):
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return "FixedAddress($%04X)" % (self.value,)
-
-    def __keys__(self):
-        return (self.value,)
-
-    def __add__(self, rhs):
-        assert isinstance(rhs, int)
-        return FixedAddress(self.value + rhs)
-
-    def add_dependencies(self, dependencies):
-        pass
-
-    @classmethod
-    def disassemble(cls, di, i):
-        return FixedAddress(di.labelled_blob.read_u16(i)), i+2
-
-    def dump(self, outfile, opcode, rld):
-        value = operands[0].value
-        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value), file=outfile)
 
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
@@ -607,7 +607,7 @@ class Instruction(ComparisonMixin):
 
 
     def has_side_effects(self):
-        # SFTODO: Once I actually start supporting loads/stores to absolute addresses,
+        # SFTODO: Once I actually start supporting loads/stores to absolute addresses (I do now),
         # this needs to return True for those just as is_hardware_address() or whatever it
         # is called in the compiler does.
         # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
