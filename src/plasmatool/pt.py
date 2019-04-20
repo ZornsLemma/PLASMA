@@ -1902,7 +1902,7 @@ class Optimiser(object):
     # "LLW [n]:DLW [m]". If m=n this optimisation is valid, but if m=n+1 the final LLW [n] is
     # loading a different value than the first and the optimisation cannot be performed.
     @staticmethod
-    def partial_overlap(lhs, rhs): # SFTODO: RENAME TO REMOVE no_ PREFIX?
+    def partial_overlap(lhs, rhs):
         lhs_memory = lhs.memory()
         rhs_memory = rhs.memory()
         return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
@@ -1951,12 +1951,11 @@ class Optimiser(object):
                 changed = changed1 or changed2
 
         # In order to remove unused objects from the module, we determine the set of
-        # dependencies, i.e. the data/asm LabelledBlob and the BytecodeFunctions,
-        # starting with _INIT and any exported symbols and recursively adding their
-        # dependencies. It is possible (though unlikely; TODO: test this) that this
-        # will remove the data/asm LabelledBlob, but it is more likely to remove
-        # BytecodeFunctions. We do this after optimising to take advantage of any dead
-        # code removal.
+        # dependencies, i.e. the data/asm LabelledBlob and the BytecodeFunctions, starting
+        # with _INIT and any exported symbols and recursively adding their dependencies.
+        # If the data/asm blob is present but unused (unlikely) we will (correctly) remove
+        # it, but the main reason for doing this is to remove unused bytecode functions.
+        # We do this after optimising to take advantage of any dead code removal.
         assert module.bytecode_functions[-1].is_init()
         dependencies = set()
         module.bytecode_functions[-1].add_dependencies(dependencies)
