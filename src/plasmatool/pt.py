@@ -1718,8 +1718,12 @@ class Optimiser(object):
             is_store = instruction.is_simple_store() or instruction.is_dup_store()
             is_load = (instruction.is_load() and not instruction.is_a('LB', 'LW'))
             if is_store: # stores and duplicate-stores
-                for address in instruction.memory():
-                    if not is_hardware_address(address):
+                memory = instruction.memory()
+                # It is possible (if unlikely) a word store will touch a hardware address and
+                # a non-hardware address; if this does happen we must never consider it for
+                # removal.
+                if not any(is_hardware_address(address) for address in memory):
+                    for address in memory:
                         unobserved_stores[address] = i
             elif is_load:
                 for address in instruction.memory():
