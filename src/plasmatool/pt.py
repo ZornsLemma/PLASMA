@@ -6,7 +6,7 @@ import os
 import sys
 
 from optimiser import Optimiser
-from bytecode import *
+from plasma import *
 
 # This is a pretty large file and ideally some of the classes would be independent modules
 # instead. However, since this is just a small utility within the PLASMA distribution I

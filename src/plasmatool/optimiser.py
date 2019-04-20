@@ -1,6 +1,6 @@
 import itertools
 
-from bytecode import *
+from plasma import *
 
 # TODO: Own module for bidict?
 # bidict taken from Basj's answer at https://stackoverflow.com/questions/3318625/efficient-bidirectional-hash-table-in-python
