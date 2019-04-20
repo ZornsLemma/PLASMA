@@ -607,6 +607,14 @@ class Instruction(ComparisonMixin):
 
 
     def has_side_effects(self):
+        if not (self.is_load() or self.is_store() or self.is_dup_store()):
+            return False
+        if self.instruction_class == InstructionClass.IMPLIED:
+            # Loads/stores which take addresses from the stack could access any address,
+            # so we play it safe and assume they have side effects.
+            return True
+        # A Label or ExternalReference can never refer to hardware addresses, only memory
+        # allocated by the PLASMA compiler.
         return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
 
     @property
@@ -1686,7 +1694,7 @@ class Optimiser(object):
                 bytecode_function.ops[i] = Instruction(dup_for_store[instruction.opcode], instruction.operands)
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
-            # "LLW [n]:SAW x:LLW [n]" -> "LLW [n]:DAW x" and variations
+            # LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW [m] and variations
             # SFTODO: I am using has_side_effects() as a kind of placeholder for "might access memory-mapped I/O" here
             elif instruction.is_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not Optimiser.partial_overlap(instruction, next_instruction):
                 dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS, COPY AND PASTE
