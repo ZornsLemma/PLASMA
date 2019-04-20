@@ -2,22 +2,9 @@ from __future__ import print_function
 
 import collections
 
-import plasma
+#SFTODO!?import plasma
 from utils import *
 
-class ComparisonMixin(object):
-    """Mixin class which uses a keys() method to implement __eq__(), __ne__() and __hash__()"""
-
-    def __eq__(self, other):
-        if type(self) == type(other):
-            return self.keys() == other.keys()
-        return False
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __hash__(self):
-        return hash(self.keys())
 
 
 class Byte(ComparisonMixin):
@@ -96,7 +83,7 @@ class CaseBlock(ComparisonMixin):
 
     def rename_targets(self, alias):
         for i, (value, target) in enumerate(self.table):
-            self.table[i] = (self.table[i][0], plasma.rename_targets(self.table[i][1], alias))
+            self.table[i] = (self.table[i][0], rename_targets(self.table[i][1], alias))
 
     def add_targets_used(self, targets_used):
         for value, target in self.table:
@@ -199,9 +186,11 @@ class Label(AbsoluteAddress, ComparisonMixin):
     def add_dependencies(self, dependencies):
         self.owner.add_dependencies(dependencies)
 
-    def dump(self, outfile, opcode, rld):
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, plasma.opdict[opcode]['opcode'], self.name), file=outfile)
-        plasma.acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
+    # TODO: I really don't like having to pass opdict into this function but the way I'm
+    # decomposing it into seperate modules seems to leave me no better option.
+    def dump(self, outfile, opcode, rld, opdict):
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self.name), file=outfile)
+        acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
 
 
 class ExternalReference(AbsoluteAddress, ComparisonMixin):
@@ -236,9 +225,11 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def add_dependencies(self, dependencies):
         pass
 
-    def dump(self, outfile, opcode, rld):
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, plasma.opdict[opcode]['opcode'], self._name()), file=outfile)
-        plasma.acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
+    # TODO: I really don't like having to pass opdict into this function but the way I'm
+    # decomposing it into seperate modules seems to leave me no better option.
+    def dump(self, outfile, opcode, rld, opdict):
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()), file=outfile)
+        acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
 
 
 class FixedAddress(AbsoluteAddress, ComparisonMixin):
@@ -266,3 +257,28 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
         value = self.value
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value), file=outfile)
 
+
+
+# SFTODO: Experimental - this can't be a member of Target because now Target is used
+# for both target instructions and branch instruction operands, the (unavoidable,
+# given how I want to write the code) copying of operands between instructions means
+# that target instructions and branches end up sharing a single Target object. We therefore
+# must not mutate an Target object as it affects everything holding a reference to it;
+# we must replace the Target object we're interested in with another one with the
+# relevant change. This has been hacked in to test this change, and it does seem to
+# work, but it's pretty messy the way some objects *do* have rename_targets() as
+# a member but we have to remember to use this in some places.
+def rename_targets(target, alias):
+    assert isinstance(target, Target)
+    assert isinstance(alias, dict)
+    assert all(isinstance(k, Target) and isinstance(v, Target) for k,v in alias.items())
+    return Target(alias.get(target, target)._value)
+
+
+
+# TODO: Seems wrong to have these random free functions
+
+def acme_dump_fixup(outfile, rld, reference, comment=True):
+    fixup_label = Label('_F')
+    rld.add_fixup(reference, fixup_label)
+    print('%s\t%s' % (fixup_label.name, reference.acme_reference(comment)), file=outfile)

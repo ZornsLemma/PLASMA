@@ -4,10 +4,11 @@ import argparse
 import os
 import sys
 
-from optimiser import Optimiser
-from plasma import *
+from module import *
+from optimiser import *
 
-# TODO: I'm using assert where I should probably use something else
+# TODO: I'm using assert where I should probably use something else; where I'm doing
+# "assert False" I could perhaps call die().
 
 def die(s):
     sys.stderr.write(s + '\n')
