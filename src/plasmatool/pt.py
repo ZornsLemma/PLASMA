@@ -1966,14 +1966,13 @@ class Optimiser(object):
         # data/asm blob comes first and _INIT comes last, and it also avoids gratuitous
         # reordering which makes comparing the input and output difficult.
         dependencies_ordered = [module.data_asm_blob] + module.bytecode_functions
-        if True: # SFTODO: SHOULD BE A COMMAND LINE OPTION, I THINK
-            dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
-            # SFTODO: THIS IS UGLY BUT IT'S A START
-            if dependencies_ordered[0] != module.data_asm_blob:
-                module.data_asm_blob = None # SFTODO TEST, IF CAN OCCUR!
-            else:
-                dependencies_ordered.pop(0)
-            module.bytecode_functions = dependencies_ordered
+        dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
+        # SFTODO: THIS IS UGLY BUT IT'S A START
+        if dependencies_ordered[0] != module.data_asm_blob:
+            module.data_asm_blob = None # SFTODO TEST, IF CAN OCCUR!
+        else:
+            dependencies_ordered.pop(0)
+        module.bytecode_functions = dependencies_ordered
 
 
 
