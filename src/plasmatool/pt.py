@@ -1211,6 +1211,7 @@ class Module(object):
 
 
     # TODO: New experimental stuff delete if not used
+    # TODO: Poor name just as the callees() function it calls
     def callees(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
@@ -1268,7 +1269,21 @@ class Module(object):
 
         self.esd.dump(outfile)
 
+    # This is very crude; it just moves the data/asm blob into a second module, then
+    # repeatedly moves functions in this module which only reference things in the second
+    # module into the second module themselves until it runs out of things to move. It
+    # makes no attempt to intelligently move blocks of functions, or to hit any size
+    # targets on the two modules. (I did experiment with using graph partitioning
+    # algorithms in scipy to help with this, but I couldn't see how to model the
+    # constraint that nothing in the second module can call into this module.) The main
+    # use for this is to allow the self-hosted compiler to be split so it can run under
+    # PLAS128 on Acorn machines; PLAS128 has a limit of (just under) 16K for any single
+    # module, and it just so happens that this crude algorithm produces two suitably sized
+    # modules when run on the current version of the self-hosted compiler.
     def split(self):
+        """Return a new module which has had some of the contents of the current module
+           moved into it; the current module has the new module added as a dependency."""
+
         second_module = Module(module.sysflags, module.import_names, ESD())
         module.import_names = [second_module_name]
         second_module.data_asm_blob = module.data_asm_blob
