@@ -1248,10 +1248,14 @@ class Module(object):
     def bytecode_function_labels(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
+            print('SFTODO804', len(bytecode_function.labels))
             if len(bytecode_function.labels) > 1:
                 print('SFTODO911', [x.name for x in bytecode_function.labels])
-            assert len(bytecode_function.labels) == 1
-            result.add(bytecode_function.labels[0])
+                assert False
+            # Bytecode functions which aren't exported and never called don't have any
+            # labels; the optimiser will get rid of these, but it may not be enabled.
+            if len(bytecode_function.labels) > 0:
+                result.add(bytecode_function.labels[0])
         return result
 
     def dump(self, outfile):
