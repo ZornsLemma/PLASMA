@@ -34,10 +34,7 @@ def read_dci(f):
         if (c & 0x80) == 0:
             break
         s += chr(c & 0x7f)
-    # TODO: Handling 0 like this is a bit of a hack really, but it makes things
-    # easier.
-    if c != 0:
-        s += chr(c)
+    s += chr(c)
     return s
 
 def dci_bytes(s):
@@ -1118,7 +1115,7 @@ class Module(object):
         import_names = []
         while True:
             import_name = read_dci(f)
-            if not import_name:
+            if import_name == '\0':
                 break
             import_names.append(import_name)
 
@@ -1139,7 +1136,7 @@ class Module(object):
         esd = []
         while True:
             esd_name = read_dci(f)
-            if not esd_name:
+            if esd_name == '\0':
                 break
             esd_flag = read_u8(f)
             esd_index = read_u16(f)
