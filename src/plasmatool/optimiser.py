@@ -25,6 +25,7 @@ class bidict(dict):
 
 
 # SFTODO TEMPORARY (?) PSEUDO-CTOR FOR TRANSITION
+# SFTODO: IF THIS LIVES SHOULD IT BE IN plasma.py?
 def NopInstruction():
     return Instruction(NOP_OPCODE, [])
 
@@ -62,6 +63,7 @@ class Foo(object):
 
 
 
+# SFTODO: DO WE STILL NEED THIS TO BE A CLASS NOW WE ARE IN AN OPTIMISER MODULE?
 class Optimiser(object):
     # Remove all but the first of each group of consecutive targets; this makes it easier to spot other
     # optimisations.
