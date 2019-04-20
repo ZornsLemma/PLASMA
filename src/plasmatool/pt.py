@@ -595,7 +595,6 @@ class Instruction(ComparisonMixin):
         return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
 
     def is_simple_stack_push(self):
-        # TODO: I am using has_side_effects() as a proxy for "doesn't access memory mapped I/O" here
         # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
         return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
 
@@ -607,11 +606,7 @@ class Instruction(ComparisonMixin):
 
 
     def has_side_effects(self):
-        # SFTODO: Once I actually start supporting loads/stores to absolute addresses (I do now),
-        # this needs to return True for those just as is_hardware_address() or whatever it
-        # is called in the compiler does.
-        # SFTODO: So while I want to review where it's called etc, this should probably be using the new is_hardware_address() function added to this file
-        return self.opcode == 0x70 # SFTODO MAGIC 'SB' - THIS IS PROBABLY CRAP *ANYWAY*, BUT WE SHOULD ALMOST CERTAINLY TREAT 'SW' THE SAME, AND WE DON'T - CHECK BEFORE REMOVING THIS, BUT I BELIEVE ALL CALLERS OF THIS HAVE ALREADY EXCLUDED 'SB' (AND 'SW' AND 'LB' AND 'LW') BY CHECKING FOR 'SIMPLE' LOAD/STORE, SO I REALLY THINK THIS JUST MEANS ACCESSES (OR MAY ACCESS; WE COULD JUST ASSERT OPCODE IS NOT SB/SW/LB/LW HERE, BUT WE COULD RETURN TRUE FOR THOSE OPCODES ANYWAY - ACTUALLY I GUESS THAT IS WHY WE SPECIAL CASED 'SB' TO START WITH) *HARDWARE ADDRESS* AND NOTHING ELSE
+        return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
 
     @property
     def instruction_class(self):
@@ -1722,7 +1717,7 @@ class Optimiser(object):
                 # It is possible (if unlikely) a word store will touch a hardware address and
                 # a non-hardware address; if this does happen we must never consider it for
                 # removal.
-                if not any(is_hardware_address(address) for address in memory):
+                if not instruction.has_side_effects():
                     for address in memory:
                         unobserved_stores[address] = i
             elif is_load:
@@ -1817,6 +1812,7 @@ class Optimiser(object):
     # the code from an optimisation POV, so we want to do anything which might introduce
     # them only when every other optimisation has failed to change anything. (Then of course
     # we can do a pass round the whole set of optimisations again.)
+    # SFTODO: Does this handle hardware addresses correctly or not??
     @staticmethod
     def load_to_dup(bytecode_function, straightline_ops):
         changed = False
