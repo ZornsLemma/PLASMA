@@ -13,12 +13,6 @@ import sys
 
 # TODO: I'm using assert where I should probably use something else
 
-# TODO: I imagine it may be quite easy to remove non-exported functions which are never called
-# from a module - and we now do this. (Probably it's fine, but do check that if we take the address of a function
-# and call it *only* via a pointer, that doesn't trigger removal. I imagine this will "just work"
-# because what will count will be having a reference to the function's label, regardless of
-# whether that reference appears with a CALL opcode or not.)
-
 def die(s):
     sys.stderr.write(s + '\n')
     sys.exit(1)
