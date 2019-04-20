@@ -1089,6 +1089,12 @@ def is_hardware_address(address):
     # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to
     # support a better compromise and perhaps offer a --platform command line
     # switch to trigger a tighter definition where platform is known.
+    # TODO: It might be good to allow a command line option to pretend *all* addresses are
+    # hardware addresses and/or to allow specific addresses to be flagged as hardware
+    # addresses. This might be important if PLASMA code were trying to interoperate with a
+    # machine code interrupt handler using a normal memory address as a mutex or similar.
+    # If I make this change, this function should perhaps rename to is_volatile_address()
+    # or is_sensitive_address() or something like that.
     return isinstance(address, FixedAddress) and address.value >= 0xc000
 
 
