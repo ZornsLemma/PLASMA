@@ -1,9 +1,7 @@
 from __future__ import print_function
 
-# SFTODO NOT USED import abc
 import argparse
 import collections
-import copy # SFTODO TEMP
 import itertools
 import os
 import struct
@@ -1949,7 +1947,6 @@ class Optimiser(object):
                     # we want...
                     result = []
                     if True: # SFTODO TEMP
-                        #SFTODO = copy.deepcopy(bytecode_function.ops)
                         result.append(Optimiser.target_deduplicate(bytecode_function))
                         #assert result[-1] or (SFTODO == bytecode_function.ops)
                         result.append(Optimiser.branch_optimise(bytecode_function))
