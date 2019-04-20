@@ -872,7 +872,6 @@ class InstructionClass:
 
 
 # TODO: Check this table is complete and correct
-# TODO: I do wonder if we'd go wrong if we actually had something like '*$3000=42' in a PLASMA program; we seem to be assuming that the operand of some opcodes is always a label, when it *might* be a literal
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
 opdict = {
     0x00: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
