@@ -417,10 +417,7 @@ class Instruction(ComparisonMixin):
         return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
 
     def is_terminator(self):
-        # SFTODO: Is there a good reason this code is so different from is_store()/is_load()/etc?
-        opdef = opdict.get(self.opcode, None)
-        return opdef and opdef.get('terminator', False)
-
+        return opdict[self.opcode].get('terminator', False)
 
     def has_side_effects(self):
         """Return True if the instruction might access a hardware address"""
