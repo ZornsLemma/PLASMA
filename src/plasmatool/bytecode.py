@@ -54,7 +54,6 @@ class InstructionClass:
 
     def disassemble_branch(disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
         target, i = Target.disassemble(disassembly_info, i+1)
         return Instruction(opcode, [target]), i
 
@@ -75,7 +74,6 @@ class InstructionClass:
 
     def disassemble_implied_instruction(disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
         return Instruction(opcode, []), i+1
 
     def dump_implied_instruction(outfile, instruction, rld):
@@ -86,7 +84,6 @@ class InstructionClass:
     @staticmethod
     def disassemble_immediate_instruction(disassembly_info, i, operand_count):
         opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
         i += 1
         operands = []
         for j in range(operand_count):
@@ -112,7 +109,6 @@ class InstructionClass:
 
     def disassemble_absolute_instruction(disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
-        # SFTODO: Validate opcode?? Arguably redundant given how this is called
         i += 1
         address, i = AbsoluteAddress.disassemble(disassembly_info, i)
         return Instruction(opcode, [address]), i
