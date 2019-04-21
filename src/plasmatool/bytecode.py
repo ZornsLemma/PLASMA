@@ -97,7 +97,7 @@ class InstructionClass:
     def disassemble_immediate_instruction2(disassembly_info, i):
         return InstructionClass.disassemble_immediate_instruction(disassembly_info, i, 2)
 
-    def dump_immediate_instruction(outfile, instruction, rld): # SFTODO: RENAME SELF
+    def dump_immediate_instruction(outfile, instruction, rld):
         if len(instruction.operands) == 1:
             print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
         elif len(instruction.operands) == 2:
@@ -157,7 +157,6 @@ class InstructionClass:
         elif opcode == 0x5e: # CFFB opcode
             return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
         else:
-            print('SFTODO %02x' % opcode)
             assert False
 
     def dump_constant(outfile, instruction, rld):
@@ -433,26 +432,16 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode]['class']
 
     def add_dependencies(self, dependencies):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
-            pass
-        elif self.instruction_class == InstructionClass.ABSOLUTE:
+        if self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].add_dependencies(dependencies)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
             
     def rename_targets(self, alias_dict):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
-            pass
-        elif self.instruction_class == InstructionClass.BRANCH:
+        if self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
             self.operands[0] = rename_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
             self.operands[0].rename_targets(alias_dict)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def SFTODORENAMEORDELETE(self, old_label, new_label):
         # SFTODO TEMP HACK
@@ -462,13 +451,8 @@ class Instruction(ComparisonMixin):
                 print('SFTODOX109')
 
     def add_targets_used(self, targets_used):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
-            pass
-        elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
             self.operands[0].add_targets_used(targets_used)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
 
     def memory(self):
         assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
