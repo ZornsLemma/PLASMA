@@ -6,7 +6,6 @@ from operands import *
 from utils import *
 
 
-# TODO: At least temporarily while Instruction objects can be constructed directly during transition, I am not doing things like overriding is_target() in the relevant derived class, because it breaks when an actual base-class Instruction object is constructed
 class Instruction(ComparisonMixin):
     conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
 
@@ -14,19 +13,22 @@ class Instruction(ComparisonMixin):
         self.set(opcode, operands)
 
     # SFTODO: Very few actual uses of this - is this because this approach of allowing an instruction to be changed in-place isn't useful, or because I just haven't got round to tweaking all the code which could benefit from this so it no longer needs to use index-base loops?
-    def set(self, opcode2, operands = None): # SFTODO OPCODE2 - CRAP NAME TO AVOID CLASH
-        if isinstance(opcode2, Instruction):
-            assert not operands
-            self._opcode = opcode2._opcode
-            self.operands = opcode2.operands
+    def set(self, opcode_or_instruction, operands = None):
+        """Set the Instruction to something else, either another Instruction or an
+        (opcode, operands) pair."""
+        if isinstance(opcode_or_instruction, Instruction):
+            assert operands is None
+            instruction = opcode_or_instruction
+            self._opcode = instruction._opcode
+            self.operands = instruction.operands
         else:
             assert operands is None or isinstance(operands, list)
-            if isinstance(opcode2, str):
-                opcode2 = opcode[opcode2]
+            if isinstance(opcode_or_instruction, str):
+                self._opcode = opcode[opcode_or_instruction]
             else:
-                assert isinstance(opcode2, int)
-            self._opcode = opcode2
-            self.operands = operands if operands else []
+                assert isinstance(opcode_or_instruction, int)
+                self._opcode = opcode_or_instruction
+            self.operands = operands if operands is not None else []
 
     # operands is a property so we can validate the instruction whenever it is updated.
 
