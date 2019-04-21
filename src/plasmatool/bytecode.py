@@ -5,187 +5,8 @@ import collections
 from operands import *
 from utils import *
 
-
-class Instruction(ComparisonMixin):
-    conditional_branch_pairs = (0x22, 0x24, 0x4c, 0x4e, 0xa0, 0xa2)
-
-    def __init__(self, opcode, operands = None):
-        self.set(opcode, operands)
-
-    # SFTODO: Very few actual uses of this - is this because this approach of allowing an instruction to be changed in-place isn't useful, or because I just haven't got round to tweaking all the code which could benefit from this so it no longer needs to use index-base loops?
-    def set(self, opcode_or_instruction, operands = None):
-        """Set the Instruction to something else, either a copy of another Instruction or an
-        (opcode, operands) pair."""
-        if isinstance(opcode_or_instruction, Instruction):
-            assert operands is None
-            instruction = opcode_or_instruction
-            self._opcode = instruction._opcode
-            self.operands = instruction.operands
-        else:
-            assert operands is None or isinstance(operands, list)
-            if isinstance(opcode_or_instruction, str):
-                self._opcode = opcode[opcode_or_instruction]
-            else:
-                assert isinstance(opcode_or_instruction, int)
-                self._opcode = opcode_or_instruction
-            self.operands = operands if operands is not None else []
-
-    # opcode and operands are implemented with setters so we can validate the instruction
-    # after updates; in cases where both need to be changed simultaneously set() must be
-    # used.
-
-    @property
-    def opcode(self):
-        return self._opcode
-
-    @opcode.setter
-    def opcode(self, value):
-        self._opcode = value
-        InstructionClass.validate_instruction(self)
-
-    @property
-    def operands(self):
-        return self._operands
-
-    @operands.setter
-    def operands(self, value):
-        self._operands = value
-        InstructionClass.validate_instruction(self)
-
-    def keys(self):
-        return (self._opcode, self.operands)
-
-
-    def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
-        return any(self._opcode == opcode[mnemonic] for mnemonic in mnemonics)
-
-    def is_target(self):
-        return self.opcode == TARGET_OPCODE
-
-    def is_branch(self):
-        # SFTODO: TRANSITION
-        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL):
-            return True
-        return False
-
-    # SFTODO: Somewhat confusing name - while what we do is correct, INCBRLE for example is *not*
-    # a conditional branch according to this.
-    def is_conditional_branch(self):
-        # SFTODO: TRANSITION
-        if self.instruction_class == InstructionClass.BRANCH:
-            return self.opcode in self.conditional_branch_pairs
-        return False
-
-    def invert_condition(self):
-        assert self.is_conditional_branch()
-        i = self.conditional_branch_pairs.index(self.opcode)
-        self._opcode = self.conditional_branch_pairs[i ^ 1]
-
-    def is_store(self):
-        return opdict[self.opcode].get('is_store', False)
-
-    def is_simple_store(self):
-        # TODO: This is a bit of a hack but let's see how it goes
-        return self.is_store() and not self.is_a('SB', 'SW')
-
-    def is_dup_store(self):
-        return opdict[self.opcode].get('is_dup_store', False)
-
-    def is_load(self):
-        return opdict[self.opcode].get('is_load', False)
-
-    def is_simple_load(self):
-        # TODO: This is a bit of a hack but let's see how it goes
-        return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
-
-    def is_simple_stack_push(self):
-        # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
-        return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
-
-    def is_terminator(self):
-        # SFTODO: Is there a good reason this code is so different from is_store()/is_load()/etc?
-        opdef = opdict.get(self.opcode, None)
-        return opdef and opdef.get('terminator', False)
-
-
-
-    def has_side_effects(self):
-        if not (self.is_load() or self.is_store() or self.is_dup_store()):
-            return False
-        if self.instruction_class == InstructionClass.IMPLIED:
-            # Loads/stores which take addresses from the stack could access any address,
-            # so we play it safe and assume they have side effects.
-            return True
-        # A Label or ExternalReference can never refer to hardware addresses, only memory
-        # allocated by the PLASMA compiler.
-        return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
-
-    @property
-    def instruction_class(self):
-        return opdict[self.opcode]['class']
-
-    def add_dependencies(self, dependencies):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
-            pass
-        elif self.instruction_class == InstructionClass.ABSOLUTE:
-            self.operands[0].add_dependencies(dependencies)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
-            
-    def rename_targets(self, alias_dict):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
-            pass
-        elif self.instruction_class == InstructionClass.BRANCH:
-            self.operands[0] = rename_targets(self.operands[0], alias_dict)
-        elif self.instruction_class == InstructionClass.SEL:
-            self.operands[0] = rename_targets(self.operands[0], alias_dict)
-        elif self.instruction_class == InstructionClass.CASE_BLOCK:
-            self.operands[0].rename_targets(alias_dict)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
-
-    def SFTODORENAMEORDELETE(self, old_label, new_label):
-        # SFTODO TEMP HACK
-        if self.instruction_class in (InstructionClass.ABSOLUTE,):
-            if self.operands[0] is old_label:
-                self.operands[0] = new_label
-                print('SFTODOX109')
-
-    def add_targets_used(self, targets_used):
-        # SFTODO TEMP HACK FOR TRANSITION
-        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
-            pass
-        elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
-            self.operands[0].add_targets_used(targets_used)
-        else:
-            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
-
-    def memory(self):
-        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
-        result = set()
-        for i in range(0, self.data_size()):
-            result.add(self.operands[0] + i)
-        return result
-
-    def data_size(self):
-        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
-        return opdict[self.opcode]['data_size']
-
-    def dump(self, outfile, rld):
-        InstructionClass.dump(outfile, self, rld)
-
-
-
-
-
-# TODO: Probably rename Instruction to Op and make corresponding changes in all other class and
-# variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
-# or another all over the code.
-
-
 # TODO: Crappy way to define this pseudo-opcode
+# TODO: Is there anything stopping me using larger-than-8-bit values here for extra "safety"?
 CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
 TARGET_OPCODE = 0xff
 NOP_OPCODE = 0xf1
@@ -429,7 +250,7 @@ opdict = {
     0x4e: {'opcode': 'BRTRU', 'class': InstructionClass.BRANCH},
     0x50: {'opcode': 'BRNCH', 'class': InstructionClass.BRANCH, 'terminator': True},
     0x52: {'opcode': 'SEL', 'class': InstructionClass.SEL},
-    0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE}, # SFTODO: MemoryInstruction isn't necessarily best class here, but let's try it for now
+    0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE},
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.IMPLIED},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
     0x5c: {'opcode': 'RET', 'terminator': True, 'class': InstructionClass.IMPLIED},
@@ -488,6 +309,190 @@ opdict = {
 }
 
 opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', False)}
+
+class Instruction(ComparisonMixin):
+    conditional_branch_pairs = (
+        opcode['BREQ'],  opcode['BRNE'], 
+        opcode['BRFLS'], opcode['BRTRU'], 
+        opcode['BRGT'],  opcode['BRLT'])
+
+    def __init__(self, opcode, operands = None):
+        self.set(opcode, operands)
+
+    # SFTODO: Very few actual uses of this - is this because this approach of allowing an instruction to be changed in-place isn't useful, or because I just haven't got round to tweaking all the code which could benefit from this so it no longer needs to use index-base loops?
+    def set(self, opcode_or_instruction, operands = None):
+        """Set the Instruction to something else, either a copy of another Instruction or an
+        (opcode, operands) pair."""
+        if isinstance(opcode_or_instruction, Instruction):
+            assert operands is None
+            instruction = opcode_or_instruction
+            self._opcode = instruction._opcode
+            self.operands = instruction.operands
+        else:
+            assert operands is None or isinstance(operands, list)
+            if isinstance(opcode_or_instruction, str):
+                self._opcode = opcode[opcode_or_instruction]
+            else:
+                assert isinstance(opcode_or_instruction, int)
+                self._opcode = opcode_or_instruction
+            self.operands = operands if operands is not None else []
+
+    # opcode and operands are implemented with setters so we can validate the instruction
+    # after updates; in cases where both need to be changed simultaneously set() must be
+    # used.
+
+    @property
+    def opcode(self):
+        return self._opcode
+
+    @opcode.setter
+    def opcode(self, value):
+        self._opcode = value
+        InstructionClass.validate_instruction(self)
+
+    @property
+    def operands(self):
+        return self._operands
+
+    @operands.setter
+    def operands(self, value):
+        self._operands = value
+        InstructionClass.validate_instruction(self)
+
+    def keys(self):
+        return (self.opcode, self.operands)
+
+    def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
+        return any(self.opcode == opcode[mnemonic] for mnemonic in mnemonics)
+
+    def is_target(self):
+        return self.opcode == TARGET_OPCODE
+
+    # SFTODO: CONFUSING THAT THIS DOESN'T EXACTLY MATCH INSTRUCTIONCLASS.BRANCH? RENAME
+    # THIS FN? is_control_transfer()? BUT NOT EXACTLY SHORT...
+    def is_branch(self):
+        # SFTODO: TRANSITION
+        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL):
+            return True
+        return False
+
+    # SFTODO: Somewhat confusing name - while what we do is correct, INCBRLE for example is *not*
+    # a conditional branch according to this.
+    def is_conditional_branch(self):
+        # SFTODO: TRANSITION
+        if self.instruction_class == InstructionClass.BRANCH:
+            return self.opcode in self.conditional_branch_pairs
+        return False
+
+    def invert_condition(self):
+        assert self.is_conditional_branch()
+        i = self.conditional_branch_pairs.index(self.opcode)
+        self._opcode = self.conditional_branch_pairs[i ^ 1]
+
+    def is_store(self):
+        return opdict[self.opcode].get('is_store', False)
+
+    def is_simple_store(self):
+        # TODO: This is a bit of a hack but let's see how it goes
+        return self.is_store() and not self.is_a('SB', 'SW')
+
+    def is_dup_store(self):
+        return opdict[self.opcode].get('is_dup_store', False)
+
+    def is_load(self):
+        return opdict[self.opcode].get('is_load', False)
+
+    def is_simple_load(self):
+        # TODO: This is a bit of a hack but let's see how it goes
+        return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
+
+    def is_simple_stack_push(self):
+        # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
+        return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
+
+    def is_terminator(self):
+        # SFTODO: Is there a good reason this code is so different from is_store()/is_load()/etc?
+        opdef = opdict.get(self.opcode, None)
+        return opdef and opdef.get('terminator', False)
+
+
+    def has_side_effects(self):
+        """Return True if the instruction might access a hardware address"""
+        if not (self.is_load() or self.is_store() or self.is_dup_store()):
+            return False
+        if self.instruction_class == InstructionClass.IMPLIED:
+            # Loads/stores which take addresses from the stack could access any address,
+            # so we play it safe and assume they have side effects.
+            return True
+        # A Label or ExternalReference can never refer to hardware addresses, only memory
+        # allocated by the PLASMA compiler.
+        return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
+
+    @property
+    def instruction_class(self):
+        return opdict[self.opcode]['class']
+
+    def add_dependencies(self, dependencies):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.BRANCH, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.FRAME, InstructionClass.STRING, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+            pass
+        elif self.instruction_class == InstructionClass.ABSOLUTE:
+            self.operands[0].add_dependencies(dependencies)
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+            
+    def rename_targets(self, alias_dict):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+            pass
+        elif self.instruction_class == InstructionClass.BRANCH:
+            self.operands[0] = rename_targets(self.operands[0], alias_dict)
+        elif self.instruction_class == InstructionClass.SEL:
+            self.operands[0] = rename_targets(self.operands[0], alias_dict)
+        elif self.instruction_class == InstructionClass.CASE_BLOCK:
+            self.operands[0].rename_targets(alias_dict)
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def SFTODORENAMEORDELETE(self, old_label, new_label):
+        # SFTODO TEMP HACK
+        if self.instruction_class in (InstructionClass.ABSOLUTE,):
+            if self.operands[0] is old_label:
+                self.operands[0] = new_label
+                print('SFTODOX109')
+
+    def add_targets_used(self, targets_used):
+        # SFTODO TEMP HACK FOR TRANSITION
+        if self.instruction_class in (InstructionClass.CONSTANT, InstructionClass.TARGET, InstructionClass.IMPLIED, InstructionClass.IMMEDIATE1, InstructionClass.IMMEDIATE2, InstructionClass.ABSOLUTE, InstructionClass.FRAME, InstructionClass.STRING):
+            pass
+        elif self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+            self.operands[0].add_targets_used(targets_used)
+        else:
+            assert False # SFTODO SHOULD BE HANDLED BY DERIVED CLASS
+
+    def memory(self):
+        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
+        result = set()
+        for i in range(0, self.data_size()):
+            result.add(self.operands[0] + i)
+        return result
+
+    def data_size(self):
+        assert self.instruction_class in (InstructionClass.ABSOLUTE, InstructionClass.FRAME)
+        return opdict[self.opcode]['data_size']
+
+    def dump(self, outfile, rld):
+        InstructionClass.dump(outfile, self, rld)
+
+
+
+
+
+# TODO: Probably rename Instruction to Op and make corresponding changes in all other class and
+# variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
+# or another all over the code.
+
+
 
 
 class DisassemblyInfo(object):
