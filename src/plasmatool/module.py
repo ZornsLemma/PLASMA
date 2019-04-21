@@ -366,7 +366,10 @@ class Module(object):
                     del caller_module.esd.entry_dict[esd_external_name]
                     break
             if external_name is None:
-                # TODO: Using a shorter and better external name would reduce the on-disc size of the modules which would be helpful in terms of loading them on machines with less main RAM...
+                # TODO: Using a shorter and better external name would reduce the on-disc
+                # size of the modules which would be helpful in terms of loading them on
+                # machines with less main RAM... (and should also reduce memory used by
+                # the symbol table, which remains populated while the module is loaded)
                 # TODO: The '!' character used here should be overridable on the command line just in case.
                 external_name = '!%s' % compact_int(SFTODOHACKCOUNT)
                 SFTODOHACKCOUNT += 1

@@ -583,5 +583,7 @@ def is_hardware_address(address):
 
 
 
-# TODO: All the 'dump' type functions should probably have a target-type in the name (e.g. acme_dump() or later I will have a binary_dump() which outputs a module directly)
-
+# TODO: It would be nice if we had the *option* to output binary rather than ACME
+# assembler; I don't think this would be that hard and it might be quite satisfying to
+# implement, but for the moment there's enough scope for bugs to cause subtle misbehaviour
+# and I think it's best to avoid this temptation for now.
