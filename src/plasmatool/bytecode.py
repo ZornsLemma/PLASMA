@@ -40,7 +40,6 @@ class InstructionClass:
     CASE_BLOCK = 11
 
     def dump_target(outfile, instruction, rld):
-        assert isinstance(instruction.operands[0], Target) # SFTODO TEMP?
         print("%s" % (instruction.operands[0]), file=outfile)
 
 
@@ -131,7 +130,16 @@ class InstructionClass:
 
     def dump_string_instruction(outfile, instruction, rld):
         s = instruction.operands[0].value
-        print("\t!BYTE\t$2E\t\t\t; CS\t%r" % (s,), file=outfile) # SFTODO: REPR NOT PERFECT BUT WILL DO - IT CAN USE SINGLE QUOTES TO WRAP THE STRING WHICH ISN'T IDEAL
+        t = ''
+        for c in s:
+            if c == '"':
+                t += r'\"'
+            elif c == "'":
+                t += "'"
+            else:
+                t += repr(c)[1:-1]
+
+        print('\t!BYTE\t$2E\t\t\t; CS\t"%s"' % (t,), file=outfile)
         print("\t!BYTE\t$%02X" % (len(s),), file=outfile)
         while s:
             t = s[0:8]
@@ -512,7 +520,6 @@ class BytecodeFunction(object):
 
             if i not in di.case_block_offsets:
                 opcode = labelled_blob[i]
-                #print('SFTODOQQ %X' % opcode)
                 opdef = opdict[opcode]
                 assert not opdef.get('pseudo')
                 op, i = InstructionClass.disassemble(opdef['class'], di, i)
