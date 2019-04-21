@@ -502,7 +502,8 @@ asm stodci(str,dci)#1
 	TAY
 	LDA	(SRC),Y
 	JSR	TOUPR
-	BNE	+
+	BNE	+           ; always branch; this assumes TOUPR returns with Z clear, which is
+                            ; true if 'z'+1 is not present in the symbol (a reasonable assumption)
 -	LDA	(SRC),Y
 	JSR	TOUPR
 	ORA	#$80
