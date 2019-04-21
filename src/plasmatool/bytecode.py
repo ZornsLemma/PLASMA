@@ -14,7 +14,7 @@ class Instruction(ComparisonMixin):
 
     # SFTODO: Very few actual uses of this - is this because this approach of allowing an instruction to be changed in-place isn't useful, or because I just haven't got round to tweaking all the code which could benefit from this so it no longer needs to use index-base loops?
     def set(self, opcode_or_instruction, operands = None):
-        """Set the Instruction to something else, either another Instruction or an
+        """Set the Instruction to something else, either a copy of another Instruction or an
         (opcode, operands) pair."""
         if isinstance(opcode_or_instruction, Instruction):
             assert operands is None
@@ -30,7 +30,18 @@ class Instruction(ComparisonMixin):
                 self._opcode = opcode_or_instruction
             self.operands = operands if operands is not None else []
 
-    # operands is a property so we can validate the instruction whenever it is updated.
+    # opcode and operands are implemented with setters so we can validate the instruction
+    # after updates; in cases where both need to be changed simultaneously set() must be
+    # used.
+
+    @property
+    def opcode(self):
+        return self._opcode
+
+    @opcode.setter
+    def opcode(self, value):
+        self._opcode = value
+        InstructionClass.validate_instruction(self)
 
     @property
     def operands(self):
@@ -44,13 +55,6 @@ class Instruction(ComparisonMixin):
     def keys(self):
         return (self._opcode, self.operands)
 
-    # It may or may not be Pythonic but we use a property here to prevent code accidentally
-    # changing the opcode. Doing so would lead to subtle problems because the type of the
-    # object wouldn't change. SFTODO: Quite possibly will leave this as it is, but now we
-    # don't have derived classes the type changing issue doesn't arise.
-    @property
-    def opcode(self):
-        return self._opcode
 
     def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
         return any(self._opcode == opcode[mnemonic] for mnemonic in mnemonics)
@@ -373,7 +377,7 @@ class InstructionClass:
         InstructionClass.instruction_class_fns[instruction.instruction_class]['dump'](outfile, instruction, rld)
 
     @staticmethod
-    def validate_instruction(instruction): # SFTODO: RENAME TO validate_operands?
+    def validate_instruction(instruction):
         ic = InstructionClass.instruction_class_fns[instruction.instruction_class]
         assert len(instruction.operands) == ic['operands']
         assert all(isinstance(operand, ic['operand_type']) for operand in instruction.operands)
