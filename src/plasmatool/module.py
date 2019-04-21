@@ -320,12 +320,12 @@ class Module(object):
         def compact_int(i):
             """Return a short string representation encoding an integer"""
             assert i >= 0
-            # The VM upper-cases symbols as they are inserted into the symbol table, so we
+            # The VM uppercases symbols as they are inserted into the symbol table, so we
             # must not use both upper and lower case characters in these generated
-            # symbols. We exclude lowercase a-z since symbols are "supposed" to be all
-            # upper case.
-            # SFTODO: I DON'T UNDERSTAND WHY I HAVE TO EXCLUDE 123-125
-            character_set = [chr(x) for x in itertools.chain(range(33, ord('a')), range(ord('z')+1, 128)) if x not in [123, 124, 125]]
+            # symbols; we exclude lower case a-z since symbols are supposed to be all
+            # upper case. We also exclude 'z'+1 because it triggers a corner case in cmd.pla;
+            # see the comment in stodci().
+            character_set = [chr(x) for x in itertools.chain(range(33, ord('a')), range(ord('z')+2, 127))]
             if i == 0:
                 return character_set[0]
             base = len(character_set)
