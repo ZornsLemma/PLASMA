@@ -149,6 +149,8 @@ Could the code density be improved with 8-bit displacement branch opcodes? Would
 
 Self-hosted optimiser has assumption that no memory-mapped hardware exists above $D000; this will need fixing for Acorn port.
 
+Random thought, possibly incoherent: if we guarantee EXTERNAL symbols come before ENTRY symbols in ESD, could we use that to discard ENTRY symbols from the symbol table once the module has been loaded and fixed up??
+
 
 
 Short term notes:
@@ -157,3 +159,4 @@ Short term notes:
 - make JIT conditionally compiled
 - PLAS128 JIT - apart from technical issues, am I going to have four binaries or can I provide any sensible defaults? I suspect there's no clear right answer (it varies depending on what the program to be run needs - data memory, code memory, speed) but think about it.
 - I don't have JMPTMP at a fixed address (unlike Apple II), there is a hack in the JIT to handle this, can I fix this better? Quite happy not to have it at a fixed address if I can do it without hacks...
+
