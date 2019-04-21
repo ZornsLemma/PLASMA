@@ -252,14 +252,6 @@ class Module(object):
 
         rld = RLD()
 
-        # TODO: Either here or as an earlier "optimisation", we could prune things from
-        # self.esd which are not actually referenced (or avoid outputting them; maybe
-        # dump() shouldn't modify self.esd - but nothing wrong with an optimise step
-        # modifying it earlier, if that's easier). This wouldn't affect the memory
-        # used at run time (except for temporarily during module loading) but would
-        # fractionally speed up loading due to less searching and would shrink the size on
-        # disc.
-
         if self.data_asm_blob is not None:
             self.data_asm_blob.dump(outfile, rld)
 
