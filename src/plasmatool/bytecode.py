@@ -7,10 +7,21 @@ from utils import *
 
 # TODO: Crappy way to define this pseudo-opcode
 # TODO: Is there anything stopping me using larger-than-8-bit values here for extra "safety"?
-CONSTANT_OPCODE = 0xe1 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
-TARGET_OPCODE = 0xff
-NOP_OPCODE = 0xf1
-CASE_BLOCK_OPCODE = 0xfb
+CONSTANT_OPCODE = -1000 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
+TARGET_OPCODE = -1001
+NOP_OPCODE = -1002
+CASE_BLOCK_OPCODE = -1003
+
+
+
+# I originally used inheritance to model the different types of instruction, with
+# Instruction as a base class, but this was inconvenient as it was not possible to update
+# an Instruction in-place freely (an object can't change its type) and this is often
+# useful when implementing optimisations; if you can modify an object in place you can use
+# Python's for loop to iterate over sequences, whereas replacing an object requires
+# knowing its sequence index. Instead each Instruction has an InstructionClass (looked up
+# based on its opcode) which provides a place to describe the differences common to each
+# instruction class without using inheritance.
 
 
 
@@ -166,11 +177,6 @@ class InstructionClass:
         else:
             print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value), file=outfile)
 
-    # SFTODO: Permanent comment if this lives and if I have the idea right - we are kind of implementing our own vtable here, which sucks a bit, but by doing this we can allow an Instruction object to be updated in-place to changes it opcode, which isn't possible if we use actual Python inheritance as the object's type can be changed. I am hoping that this will allow optimisations to be written more naturally, since it will be possible to change an instruction (which will work via standard for instruction in list stuff) rather than having to replace it (which requires forcing the use of indexes into the list so we can do ops[i] = NewInstruction())
-    # SFTODO: MAYBE MAKE THIS DICT AND THE FUNCTIONS IT REFERENCES ALL MEMBERS OF
-    # InstructionClass - THAT WAY WE CAN GET RID OF THE INSTRUCTIONCLASS PREFIX AND IT WILL
-    # PROVIDE SOME GROUPING OF THEM - THEN PERHAPS WE CAN HAVE @classmethod
-    # Instruction.disassemble() WHICH WILL USE InstructionClass OR SOMETHING
     instruction_class_fns = {
             NOP: {'operand_types': []},
             TARGET: {'dump': dump_target, 'operand_types': [Target]},
