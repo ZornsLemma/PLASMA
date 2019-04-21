@@ -94,11 +94,11 @@ class LabelledBlob(object):
 
 class Module(object):
     def __init__(self, sysflags, import_names, esd):
-        self.sysflags = sysflags # SFTODO!?
-        self.import_names = import_names # SFTODO!?
-        self.data_asm_blob = None # SFTODO!?
+        self.sysflags = sysflags
+        self.import_names = import_names
+        self.data_asm_blob = None
         self.bytecode_functions = []
-        self.esd = esd # SFTODO!?
+        self.esd = esd
 
     @classmethod
     def load(cls, f):
@@ -189,8 +189,7 @@ class Module(object):
                 elif rld_type == 0x81: # internal fixup
                     assert rld_byte == 0
                     blob_index = star_addr - org - blob_offset
-                    # TODO? label would be _C or _D in compiler output, we can't tell
-                    # and don't strictly care (I think).
+                    # This label would start with _C or _D in actual compiler output.
                     label = blob.label_or_get(blob_index, '_I')
                     blob.reference(addr, label)
                 else:
@@ -369,7 +368,9 @@ class Module(object):
                 # TODO: Using a shorter and better external name would reduce the on-disc
                 # size of the modules which would be helpful in terms of loading them on
                 # machines with less main RAM... (and should also reduce memory used by
-                # the symbol table, which remains populated while the module is loaded)
+                # the symbol table, which remains populated while the module is loaded) -
+                # if we used a range of initial prefix characters instead of just ! we
+                # could shorten things slightly
                 # TODO: The '!' character used here should be overridable on the command line just in case.
                 external_name = '!%s' % compact_int(SFTODOHACKCOUNT)
                 SFTODOHACKCOUNT += 1
