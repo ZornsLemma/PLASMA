@@ -121,7 +121,8 @@ class String(ComparisonMixin):
 
 
 class AbsoluteAddress(object):
-    """Base class for operands which represent an absolute memory address"""
+    """Base class for operands which represent an absolute memory address, although not
+       necessarily one which is known before the module is loaded into the VM."""
 
     @classmethod
     def disassemble(cls, di, i):
@@ -232,6 +233,9 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
 
 
 class FixedAddress(AbsoluteAddress, ComparisonMixin):
+    """Class representing an absolute address which is a fixed address specified in the
+       code, not one determined by the VM at load time."""
+
     def __init__(self, value):
         self.value = value
 

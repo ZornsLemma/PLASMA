@@ -5,6 +5,8 @@ import collections
 from operands import *
 from utils import *
 
+# Pseudo-opcodes; we give these non-8-bit values as extra insurance against them making
+# their way into the output without being noticed.
 CONSTANT_OPCODE = -1000
 TARGET_OPCODE = -1001
 NOP_OPCODE = -1002
@@ -428,8 +430,6 @@ class Instruction(ComparisonMixin):
             # Loads/stores which take addresses from the stack could access any address,
             # so we play it safe and assume they have side effects.
             return True
-        # A Label or ExternalReference can never refer to hardware addresses, only memory
-        # allocated by the PLASMA compiler.
         return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
 
     @property
@@ -580,7 +580,9 @@ class BytecodeFunction(object):
 
 
 def is_hardware_address(address):
-    # SFTODO: Again the 'address as generic term' and 'FixedAddress as an absolute address' awkwardness...
+    # A Label or ExternalReference can never refer to hardware addresses, only memory
+    # allocated by the PLASMA compiler, so only FixedAddress operands can reference
+    # hardware addresses.
     # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to
     # support a better compromise and perhaps offer a --platform command line
     # switch to trigger a tighter definition where platform is known.
