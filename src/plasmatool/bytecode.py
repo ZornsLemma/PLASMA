@@ -377,18 +377,12 @@ class Instruction(ComparisonMixin):
     # SFTODO: CONFUSING THAT THIS DOESN'T EXACTLY MATCH INSTRUCTIONCLASS.BRANCH? RENAME
     # THIS FN? is_control_transfer()? BUT NOT EXACTLY SHORT...
     def is_branch(self):
-        # SFTODO: TRANSITION
-        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL):
-            return True
-        return False
+        return self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL)
 
     # SFTODO: Somewhat confusing name - while what we do is correct, INCBRLE for example is *not*
     # a conditional branch according to this.
     def is_conditional_branch(self):
-        # SFTODO: TRANSITION
-        if self.instruction_class == InstructionClass.BRANCH:
-            return self.opcode in self.conditional_branch_pairs
-        return False
+        return self.opcode in self.conditional_branch_pairs
 
     def invert_condition(self):
         assert self.is_conditional_branch()
@@ -492,7 +486,8 @@ class DisassemblyInfo(object):
 
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
-        # SFTODO TCO assert isinstance(labelled_blob, LabelledBlob)
+        # SFTODO TCO WOULD LIKE THIS BUT IT'S AWKWARD W CURRENT DECOMPOSITION INTO PYTHON
+        # MODULES assert isinstance(labelled_blob, LabelledBlob)
         self.labels = labelled_blob.labels.get(0, [])
         for label in self.labels:
             label.set_owner(self)
