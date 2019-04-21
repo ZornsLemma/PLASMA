@@ -279,7 +279,7 @@ class Module(object):
     # module into the second module themselves until it runs out of things to move. It
     # makes no attempt to intelligently move blocks of functions, or to hit any size
     # targets on the two modules. (I did experiment with using graph partitioning
-    # algorithms in scipy to help with this, but I couldn't see how to model the
+    # algorithms in networkx to help with this, but I couldn't see how to model the
     # constraint that nothing in the second module can call into this module.) The main
     # use for this is to allow the self-hosted compiler to be split so it can run under
     # PLAS128 on Acorn machines; PLAS128 has a limit of (just under) 16K for any single
