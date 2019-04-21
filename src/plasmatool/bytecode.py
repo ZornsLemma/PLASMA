@@ -171,20 +171,19 @@ class InstructionClass:
     # InstructionClass - THAT WAY WE CAN GET RID OF THE INSTRUCTIONCLASS PREFIX AND IT WILL
     # PROVIDE SOME GROUPING OF THEM - THEN PERHAPS WE CAN HAVE @classmethod
     # Instruction.disassemble() WHICH WILL USE InstructionClass OR SOMETHING
-    # TODO: Can I get rid of 'operands' and derive it from len('operand_type')?
     instruction_class_fns = {
-            NOP: {'operands': 0},
-            TARGET: {'dump': dump_target, 'operands': 1, 'operand_type': Target},
-            CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operands': 1, 'operand_type': int},
-            BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
-            IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operands': 0},
-            IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operands': 1, 'operand_type': Byte},
-            IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operands': 2, 'operand_type': Byte},
-            ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operands': 1, 'operand_type': AbsoluteAddress},
-            FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operands': 1, 'operand_type': FrameOffset},
-            STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operands': 1, 'operand_type': String},
-            SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operands': 1, 'operand_type': Target},
-            CASE_BLOCK: {'dump': dump_case_block, 'operands': 1, 'operand_type': CaseBlock},
+            NOP: {'operand_types': []},
+            TARGET: {'dump': dump_target, 'operand_types': [Target]},
+            CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operand_types': [int]},
+            BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operand_types': [Target]},
+            IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operand_types': []},
+            IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operand_types': [Byte]},
+            IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operand_types': [Byte, Byte]},
+            ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operand_types': [AbsoluteAddress]},
+            FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operand_types': [FrameOffset]},
+            STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operand_types': [String]},
+            SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operand_types': [Target]},
+            CASE_BLOCK: {'dump': dump_case_block, 'operand_types': [CaseBlock]},
     }
 
     @staticmethod
@@ -199,8 +198,10 @@ class InstructionClass:
     @staticmethod
     def validate_instruction(instruction):
         ic = InstructionClass.instruction_class_fns[instruction.instruction_class]
-        assert len(instruction.operands) == ic['operands']
-        assert all(isinstance(operand, ic['operand_type']) for operand in instruction.operands)
+        operand_types = ic['operand_types']
+        assert len(instruction.operands) == len(operand_types)
+        for i, operand_type in enumerate(operand_types):
+            assert isinstance(instruction.operands[i], operand_type)
 
 
 
