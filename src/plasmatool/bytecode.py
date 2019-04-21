@@ -5,9 +5,7 @@ import collections
 from operands import *
 from utils import *
 
-# TODO: Crappy way to define this pseudo-opcode
-# TODO: Is there anything stopping me using larger-than-8-bit values here for extra "safety"?
-CONSTANT_OPCODE = -1000 # SFTODO USE A CONTIGUOUS RANGE FOR ALL PSEUDO-OPCODES
+CONSTANT_OPCODE = -1000
 TARGET_OPCODE = -1001
 NOP_OPCODE = -1002
 CASE_BLOCK_OPCODE = -1003
