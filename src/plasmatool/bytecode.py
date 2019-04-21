@@ -158,12 +158,9 @@ class InstructionClass:
         elif opcode == 0x2a: # CB opcode
             return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
         elif opcode == 0x2c: # CW opcode
-            # SFTODO: Should I sign-extend here? It's not *wrong* but it may cause us to fail
-            # to recognise that two constants are identical and it just seems a bit
-            # inconsistent. Or, alternatively, CFFB *should* sign-extend for consistency.
             return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
         elif opcode == 0x5e: # CFFB opcode
-            return Instruction(CONSTANT_OPCODE, [0xff00 | disassembly_info.labelled_blob[i+1]]), i+2
+            return Instruction(CONSTANT_OPCODE, [sign_extend(0xff00 | disassembly_info.labelled_blob[i+1])]), i+2
         else:
             assert False
 
