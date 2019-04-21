@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import itertools
 import struct
 
 from operands import *
@@ -319,11 +320,12 @@ class Module(object):
         def compact_int(i):
             """Return a short string representation encoding an integer"""
             assert i >= 0
-            # TODO: These larger character sets don't work - the modules fail to load due to missing
-            # symbols - but I can't see why.
-            #character_set = [chr(x) for x in range(33, 127)]
-            #character_set = [chr(x) for x in range(33, 127) if x not in range(ord('a'), ord('z')+1) ]
-            character_set = [chr(x) for x in range(33, 97)]
+            # The VM upper-cases symbols as they are inserted into the symbol table, so we
+            # must not use both upper and lower case characters in these generated
+            # symbols. We exclude lowercase a-z since symbols are "supposed" to be all
+            # upper case.
+            # SFTODO: I DON'T UNDERSTAND WHY I HAVE TO EXCLUDE 123-125
+            character_set = [chr(x) for x in itertools.chain(range(33, ord('a')), range(ord('z')+1, 128)) if x not in [123, 124, 125]]
             if i == 0:
                 return character_set[0]
             base = len(character_set)
