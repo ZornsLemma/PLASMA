@@ -315,6 +315,7 @@ class Module(object):
         for SFTODO in callee_module.data_asm_blob.labels.values():
             for SFTODO2 in SFTODO:
                 data_asm_blob_labels.add(SFTODO2)
+        # SFTODO: Is there overlapp between callees() and add_dependencies()???
         while True:
             print('SFTODOFF4')
             changed = False
