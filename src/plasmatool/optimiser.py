@@ -323,7 +323,7 @@ class Optimiser(object):
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
             # BRTRU x:BRNCH y:x -> BRFLS y:x (and similar)
-            elif instruction.is_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_target() and instruction.operands[0] == next_next_instruction.operands[0]:
+            elif instruction.is_paired_conditional_branch() and next_instruction.is_a('BRNCH') and next_next_instruction.is_target() and instruction.operands[0] == next_next_instruction.operands[0]:
                 bytecode_function.ops[i].invert_condition()
                 bytecode_function.ops[i].operands = next_instruction.operands
                 bytecode_function.ops[i+1] = NopInstruction()

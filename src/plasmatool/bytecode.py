@@ -16,9 +16,9 @@ CASE_BLOCK_OPCODE = -1003
 
 # I originally used inheritance to model the different types of instruction, with
 # Instruction as a base class, but this was inconvenient as it was not possible to update
-# an Instruction in-place freely (an object can't change its type) and this is often
+# an Instruction in-place freely (an object can't change its type) and this is
 # useful when implementing optimisations; if you can modify an object in place you can use
-# Python's for loop to iterate over sequences, whereas replacing an object requires
+# Python's for loop to modify sequences, whereas replacing an object requires
 # knowing its sequence index. Instead each Instruction has an InstructionClass (looked up
 # based on its opcode) which provides a place to describe the differences common to each
 # instruction class without using inheritance.
@@ -104,6 +104,7 @@ class InstructionClass:
         else:
             assert False
 
+    # SFTODO: All these functions need reordering logically and perhaps some consistency about whether they have _instruction at the end of their name
 
 
     def disassemble_absolute_instruction(disassembly_info, i):
@@ -214,6 +215,7 @@ class InstructionClass:
 
 # TODO: Check this table is complete and correct
 # TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
+# TODO: Reorder the "members" so they always appear in consistent order with 'opcode' and 'class' first
 opdict = {
     0x00: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
     0x02: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
@@ -259,8 +261,8 @@ opdict = {
     0x54: {'opcode': 'CALL', 'class': InstructionClass.ABSOLUTE},
     0x56: {'opcode': 'ICAL', 'class': InstructionClass.IMPLIED},
     0x58: {'opcode': 'ENTER', 'class': InstructionClass.IMMEDIATE2},
-    0x5c: {'opcode': 'RET', 'terminator': True, 'class': InstructionClass.IMPLIED},
-    0x5a: {'opcode': 'LEAVE', 'terminator': True, 'class': InstructionClass.IMMEDIATE1},
+    0x5c: {'opcode': 'RET', 'class': InstructionClass.IMPLIED, 'terminator': True},
+    0x5a: {'opcode': 'LEAVE', 'class': InstructionClass.IMMEDIATE1, 'terminator': True},
     0x5e: {'opcode': 'CFFB', 'class': InstructionClass.CONSTANT},
     0x60: {'opcode': 'LB', 'is_load': True, 'class': InstructionClass.IMPLIED},
     0x62: {'opcode': 'LW', 'is_load': True, 'class': InstructionClass.IMPLIED},
@@ -317,7 +319,7 @@ opdict = {
 opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', False)}
 
 class Instruction(ComparisonMixin):
-    conditional_branch_pairs = (
+    CONDITIONAL_BRANCH_PAIRS = (
         opcode['BREQ'],  opcode['BRNE'], 
         opcode['BRFLS'], opcode['BRTRU'], 
         opcode['BRGT'],  opcode['BRLT'])
@@ -333,7 +335,7 @@ class Instruction(ComparisonMixin):
             assert operands is None
             instruction = opcode_or_instruction
             self._opcode = instruction._opcode
-            self.operands = instruction.operands
+            self._operands = instruction.operands
         else:
             assert operands is None or isinstance(operands, list)
             if isinstance(opcode_or_instruction, str):
@@ -341,7 +343,8 @@ class Instruction(ComparisonMixin):
             else:
                 assert isinstance(opcode_or_instruction, int)
                 self._opcode = opcode_or_instruction
-            self.operands = operands if operands is not None else []
+            self._operands = operands if operands is not None else []
+        InstructionClass.validate_instruction(self)
 
     # opcode and operands are implemented with setters so we can validate the instruction
     # after updates; in cases where both need to be changed simultaneously set() must be
@@ -379,15 +382,13 @@ class Instruction(ComparisonMixin):
     def is_branch(self):
         return self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL)
 
-    # SFTODO: Somewhat confusing name - while what we do is correct, INCBRLE for example is *not*
-    # a conditional branch according to this.
-    def is_conditional_branch(self):
-        return self.opcode in self.conditional_branch_pairs
+    def is_paired_conditional_branch(self):
+        return self.opcode in self.CONDITIONAL_BRANCH_PAIRS
 
     def invert_condition(self):
-        assert self.is_conditional_branch()
-        i = self.conditional_branch_pairs.index(self.opcode)
-        self._opcode = self.conditional_branch_pairs[i ^ 1]
+        assert self.is_paired_conditional_branch()
+        i = self.CONDITIONAL_BRANCH_PAIRS.index(self.opcode)
+        self._opcode = self.CONDITIONAL_BRANCH_PAIRS[i ^ 1]
 
     def is_store(self):
         return opdict[self.opcode].get('is_store', False)
