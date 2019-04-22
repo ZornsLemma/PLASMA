@@ -81,7 +81,7 @@ class Optimiser(object):
                 previous_instruction = instruction
                 new_ops.append(instruction)
         for instruction in new_ops:
-            instruction.rename_targets(alias)
+            instruction.replace_targets(alias)
         bytecode_function.ops = new_ops
         return changed
 
@@ -134,7 +134,7 @@ class Optimiser(object):
         alias = {k:v.operands[0] for k, v in targets.items()}
         for instruction in bytecode_function.ops:
             original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
-            instruction.rename_targets(alias)
+            instruction.replace_targets(alias)
             changed = changed or (original_operands != instruction.operands)
         return changed
 
@@ -268,7 +268,7 @@ class Optimiser(object):
         for i, block in enumerate(blocks):
             if blocks_metadata[i] not in unwanted:
                 for instruction in block:
-                    instruction.rename_targets(alias)
+                    instruction.replace_targets(alias)
                     new_ops.append(instruction)
             else:
                 changed = True

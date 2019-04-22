@@ -56,8 +56,8 @@ class Target(ComparisonMixin):
     def keys(self):
         return (self._value,)
 
-    def rename_targets(self, alias):
-        raise TypeError("Target is immutable") # use non-member rename_targets() instead
+    def replace_targets(self, alias):
+        raise TypeError("Target is immutable") # use non-member replace_targets() instead
 
     def add_targets_used(self, targets_used):
         targets_used.add(self)
@@ -80,9 +80,9 @@ class CaseBlock(ComparisonMixin):
     def keys(self):
         return (self.table,)
 
-    def rename_targets(self, alias):
+    def replace_targets(self, alias):
         for i, (value, target) in enumerate(self.table):
-            self.table[i] = (self.table[i][0], rename_targets(self.table[i][1], alias))
+            self.table[i] = (self.table[i][0], replace_targets(self.table[i][1], alias))
 
     def add_targets_used(self, targets_used):
         for value, target in self.table:
@@ -262,16 +262,8 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
 
 
 
-# SFTODO: Experimental - this can't be a member of Target because now Target is used
-# for both target instructions and branch instruction operands, the (unavoidable,
-# given how I want to write the code) copying of operands between instructions means
-# that target instructions and branches end up sharing a single Target object. We therefore
-# must not mutate an Target object as it affects everything holding a reference to it;
-# we must replace the Target object we're interested in with another one with the
-# relevant change. This has been hacked in to test this change, and it does seem to
-# work, but it's pretty messy the way some objects *do* have rename_targets() as
-# a member but we have to remember to use this in some places.
-def rename_targets(target, alias):
+# This can't be a member of Target because Target objects are shared and so must be immutable.
+def replace_targets(target, alias):
     assert isinstance(target, Target)
     assert isinstance(alias, dict)
     assert all(isinstance(k, Target) and isinstance(v, Target) for k,v in alias.items())

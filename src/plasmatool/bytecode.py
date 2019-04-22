@@ -432,14 +432,13 @@ class Instruction(ComparisonMixin):
         if self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].add_dependencies(dependencies)
             
-    # SFTODO: Rename all these functions to replace_targets()?
-    def rename_targets(self, alias_dict):
+    def replace_targets(self, alias_dict):
         if self.instruction_class == InstructionClass.BRANCH:
-            self.operands[0] = rename_targets(self.operands[0], alias_dict)
+            self.operands[0] = replace_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
-            self.operands[0] = rename_targets(self.operands[0], alias_dict)
+            self.operands[0] = replace_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
-            self.operands[0].rename_targets(alias_dict)
+            self.operands[0].replace_targets(alias_dict)
 
     def replace_absolute_address(self, old, new):
         assert isinstance(old, AbsoluteAddress)
