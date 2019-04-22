@@ -333,19 +333,6 @@ class Module(object):
         # TODO: Move this into a function?
         # Patch up the two modules so we have correct external references following the function moves.
         # SFTODO: callees() should probably be renamed and it should probably return all labels referenced
-        while True:
-            callees_in_caller_module = callee_module.callees().intersection(caller_module.bytecode_function_labels())
-            print('SFTODOX1033', len(callees_in_caller_module))
-            if len(callees_in_caller_module) > 0:
-                for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-                    if bytecode_function.labels[0] in callees_in_caller_module:
-                        callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
-                        caller_module.bytecode_functions[i] = None
-                        callees_in_caller_module.remove(bytecode_function.labels[0])
-                assert len(callees_in_caller_module) == 0
-                caller_module.bytecode_functions = [x for x in caller_module.bytecode_functions if x is not None]
-            else:
-                break
         callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
         callee_module_new_exports.update(data_asm_blob_labels)
         print('SFTODOQE3', len(callee_module_new_exports))
