@@ -91,7 +91,7 @@ class Optimiser(object):
 
 
     # This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
-    # TODO: Not just in this function - I am a bit inconsistent with opcode meaning "BRNCH" and opcode meaning 0x50 - perhaps check terminology, but I think opcode should be a hex value (so the opcode reverse dict is fine, because it gives us the opcode for a name, it's the 'opcode' member of the subdicts in opdict that are wrong, among others)
+    # SFTODO: Not just in this function - I am a bit inconsistent with opcode meaning "BRNCH" and opcode meaning 0x50 - perhaps check terminology, but I think opcode should be a hex value (so the opcode reverse dict is fine, because it gives us the opcode for a name, it's the 'opcode' member of the subdicts in opdict that are wrong, among others)
     @staticmethod
     def branch_optimise2(bytecode_function):
         changed = False
@@ -403,7 +403,7 @@ class Optimiser(object):
     @staticmethod
     def get_straightline_blocks(bytecode_function):
         def is_branch_or_target(instruction):
-            # TODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
+            # SFTODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
             return instruction.is_target() or instruction.is_branch()
 
         foo = Foo(bytecode_function)
@@ -525,15 +525,15 @@ class Optimiser(object):
 
     @classmethod
     def optimise(cls, module): # SFTODO: RENAME ARG TO JUST module
-        # TODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
-        # TODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
+        # SFTODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
+        # SFTODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
         for bytecode_function in module.bytecode_functions:
-            # TODO: The order here has not been thought through at all carefully and may be sub-optimal
+            # SFTODO: The order here has not been thought through at all carefully and may be sub-optimal
             changed = True
             while changed:
                 changed1 = True
                 while changed1:
-                    # TODO: This seems a clunky way to handle 'changed' but I don't want
+                    # SFTODO: This seems a clunky way to handle 'changed' but I don't want
                     # short-circuit evaluation. I think we can do 'changed = function() or changed', if
                     # we want...
                     result = []
@@ -556,7 +556,7 @@ class Optimiser(object):
                 # We do these following optimisations only when the ones above fail to produce any
                 # effect. These can reorder code but this can give (slightly) unhelpful/confusing
                 # re-orderings, so we let the more localised optimisations above have first go.
-                # TODO: It may be worth putting all this back into a single loop later on to see if
+                # SFTODO: It may be worth putting all this back into a single loop later on to see if
                 # this is actually still true.
                 while changed2:
                     result = []
@@ -593,11 +593,11 @@ class Optimiser(object):
 
 
 
-# TODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
+# SFTODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
 
-# TODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
+# SFTODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
 # early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
 
 # TODO: The peephole optimiser can do things like "LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW

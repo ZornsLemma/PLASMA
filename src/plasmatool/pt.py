@@ -7,7 +7,7 @@ import sys
 from module import *
 from optimiser import *
 
-# TODO: I'm using assert where I should probably use something else; where I'm doing
+# SFTODO: I'm using assert where I should probably use something else; where I'm doing
 # "assert False" I could perhaps call die().
 
 def die(s):
@@ -40,7 +40,7 @@ if args.output2 is not None:
         second_module_name = os.path.splitext(os.path.basename(args.output2.name))[0]
     second_module_name = second_module_name.upper()
     verbose(1, "Splitting module; second output module name is %s" % second_module_name)
-    # TODO: We could validate second_module_name (not too long, no odd characters)
+    # SFTODO: We could validate second_module_name (not too long, no odd characters)
 
     second_module = module.split(second_module_name)
 

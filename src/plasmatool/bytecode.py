@@ -213,9 +213,9 @@ class InstructionClass:
 
 
 
-# TODO: Check this table is complete and correct
-# TODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
-# TODO: Reorder the "members" so they always appear in consistent order with 'opcode' and 'class' first
+# SFTODO: Check this table is complete and correct
+# SFTODO: I suspect I won't want most of the things in here eventually, but for now I am avoiding removing anything and just adding stuff. Review this later and get rid of unwanted stuff.
+# SFTODO: Reorder the "members" so they always appear in consistent order with 'opcode' and 'class' first
 opdict = {
     0x00: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
     0x02: {'opcode': 'CN', 'class': InstructionClass.CONSTANT},
@@ -394,7 +394,7 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode].get('is_store', False)
 
     def is_simple_store(self):
-        # TODO: This is a bit of a hack but let's see how it goes
+        # SFTODO: This is a bit of a hack but let's see how it goes
         return self.is_store() and not self.is_a('SB', 'SW')
 
     def is_dup_store(self):
@@ -404,11 +404,11 @@ class Instruction(ComparisonMixin):
         return opdict[self.opcode].get('is_load', False)
 
     def is_simple_load(self):
-        # TODO: This is a bit of a hack but let's see how it goes
+        # SFTODO: This is a bit of a hack but let's see how it goes
         return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
 
     def is_simple_stack_push(self):
-        # TODO: I am probably missing some possible instructions here, but for now let's keep it simple
+        # SFTODO: I am probably missing some possible instructions here, but for now let's keep it simple
         return (self.is_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
 
     def is_terminator(self):
@@ -469,7 +469,7 @@ class Instruction(ComparisonMixin):
 
 
 
-# TODO: Probably rename Instruction to Op and make corresponding changes in all other class and
+# SFTODO: Probably rename Instruction to Op and make corresponding changes in all other class and
 # variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
 # or another all over the code.
 

@@ -186,7 +186,7 @@ class Label(AbsoluteAddress, ComparisonMixin):
     def add_dependencies(self, dependencies):
         self.owner.add_dependencies(dependencies)
 
-    # TODO: I really don't like having to pass opdict into this function but the way I'm
+    # SFTODO: I really don't like having to pass opdict into this function but the way I'm
     # decomposing it into seperate modules seems to leave me no better option.
     def dump(self, outfile, opcode, rld, opdict):
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self.name), file=outfile)
@@ -225,7 +225,7 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
     def add_dependencies(self, dependencies):
         pass
 
-    # TODO: I really don't like having to pass opdict into this function but the way I'm
+    # SFTODO: I really don't like having to pass opdict into this function but the way I'm
     # decomposing it into seperate modules seems to leave me no better option.
     def dump(self, outfile, opcode, rld, opdict):
         print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()), file=outfile)
@@ -271,7 +271,7 @@ def replace_targets(target, alias):
 
 
 
-# TODO: Seems wrong to have these random free functions
+# SFTODO: Seems wrong to have these random free functions
 
 def acme_dump_fixup(outfile, rld, reference, comment=True):
     fixup_label = Label('_F')
