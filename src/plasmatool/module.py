@@ -385,14 +385,6 @@ class RLD(object):
     def add_fixup(self, reference, fixup_label):
         self.fixups.append((reference, fixup_label))
 
-    def SFTODORENAMEORDELETE(self, old_reference, new_reference):
-        assert isinstance(old_reference, Label)
-        assert isinstance(new_reference, ExternalReference)
-        for i, (reference, fixup_label) in self.fixups:
-            if reference == old_reference:
-                self.fixups[i] = (new_reference, fixup_label)
-                print('SFTODOQ4554')
-
     def dump(self, outfile, esd):
         print(";\n; RE-LOCATEABLE DICTIONARY\n;", file=outfile)
 
