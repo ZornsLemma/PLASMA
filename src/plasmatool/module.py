@@ -298,8 +298,8 @@ class Module(object):
     # constraint that nothing in the second module can call into this module.) The main
     # use for this is to allow the self-hosted compiler to be split so it can run under
     # PLAS128 on Acorn machines; PLAS128 has a limit of (just under) 16K for any single
-    # module, and it just so happens that this crude algorithm produces two suitably sized
-    # modules when run on the current version of the self-hosted compiler.
+    # module's bytecode, and it just so happens that this crude algorithm produces two
+    # suitably sized modules when run on the current version of the self-hosted compiler.
     def split(self, second_module_name):
         """Return a new module which has had some of the contents of the current module
            moved into it; the current module has the new module added as a dependency."""
@@ -315,15 +315,11 @@ class Module(object):
         for SFTODO in callee_module.data_asm_blob.labels.values():
             for SFTODO2 in SFTODO:
                 data_asm_blob_labels.add(SFTODO2)
-        # SFTODO: Is there overlapp between callees() and add_dependencies()???
+        # SFTODO: Is there overlap between callees() and add_dependencies()???
         while True:
-            print('SFTODOFF4')
             changed = False
             for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-                if i == 0:
-                    print('SFTODOQQX', [x.name for x in bytecode_function.callees()])
                 if bytecode_function.callees().issubset(callee_module.bytecode_function_labels().union(data_asm_blob_labels)):
-                    print('SFTODOQ43', i)
                     callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
                     caller_module.bytecode_functions[i] = None
                     changed = True
