@@ -151,7 +151,7 @@ Self-hosted optimiser has assumption that no memory-mapped hardware exists above
 
 Random thought, possibly incoherent: if we guarantee EXTERNAL symbols come before ENTRY symbols in ESD, could we use that to discard ENTRY symbols from the symbol table once the module has been loaded and fixed up??
 
-Suspect this is a duplicate - is there any possibility of speeding self-hosted compiler start time by making the "split-off" part of it stay memory resident after being loaded? We might need to do something to reinitialise any global variables each time.
+Suspect this is a duplicate - is there any possibility of speeding self-hosted compiler start time by making the "split-off" part of it stay memory resident after being loaded? We might need to do something to reinitialise any global variables each time. It does occur to me a different split which leaves the data/asm module in the caller module would sidestep the need for this reinitialisation, but I *suspect* (not tried it) that would prevent most things moving into the callee module at all and therefore the split would not be good enough for PLAS128 and even on tube the callee module would be so small the saving of having it resident would not be worth it.
 
 
 
