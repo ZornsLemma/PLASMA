@@ -387,7 +387,7 @@ class Module(object):
 class RLD(object):
     def __init__(self):
         self.bytecode_function_labels = []
-        self.fixups = [] # SFTODO: poor name?
+        self.fixups = []
 
     def get_bytecode_function_label(self):
         label = Label('_C')
