@@ -140,8 +140,8 @@ class Module(object):
             if esd_name == '\0':
                 break
             esd_flag = read_u8(f)
-            esd_index = read_u16(f)
-            esd.append((esd_name, esd_flag, esd_index))
+            esd_data = read_u16(f)
+            esd.append((esd_name, esd_flag, esd_data))
 
         #print(seg_size)
         #print(import_names)
@@ -151,12 +151,10 @@ class Module(object):
         org = 4094
 
         new_esd = ESD()
-        # TODO: esd_index is misnamed in the case of these 'ENTRY' flags
-        for esd_name, esd_flag, esd_index in esd:
+        for esd_name, esd_flag, esd_data in esd:
             if esd_flag == 0x08: # entry symbol flag, i.e. an exported symbol
-                blob_index = esd_index - org - blob_offset
+                blob_index = esd_data - org - blob_offset
                 label = Label('_X')
-                print('SFTODOXX19s', label.name, blob_index) 
                 blob.label(blob_index, label)
                 new_esd.add_entry(esd_name, label)
 
@@ -177,13 +175,16 @@ class Module(object):
                 doing_code_table_fixups = False
                 addr = (rld_word + 2) - blob_offset
                 star_addr = blob.read_u16(addr) # TODO: terrible name...
-                # cmd.pla just checks rld_type & 0x10, but let's be paranoid and check
+                # TODO: cmd.pla just checks rld_type & 0x10, but let's be paranoid and check
                 # for precise values for now.
                 if rld_type == 0x91: # external fixup
                     target_esd_index = rld_byte
                     reference = None
-                    for esd_name, esd_flag, esd_index in esd: # TODO: We could have a dictionary keyed on esd_index
-                        if esd_index == target_esd_index:
+                    # This is inefficient, but it's how cmd.pla does it so it can't be
+                    # that slow in practice, so let's keep it simple.
+                    for esd_name, esd_flag, esd_index in esd:
+                        # TODO: As above, cmd.pla just checks esd_flag & 0x10 but we're precise.
+                        if esd_flag == 0x10 and esd_index == target_esd_index:
                             reference = ExternalReference(esd_name, star_addr)
                             break
                     assert reference
