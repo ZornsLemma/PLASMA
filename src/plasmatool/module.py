@@ -216,12 +216,10 @@ class Module(object):
         return module
 
 
-    # TODO: New experimental stuff delete if not used
-    # TODO: Poor name just as the callees() function it calls
-    def callees(self):
+    def labels_referenced(self):
         result = set()
         for bytecode_function in self.bytecode_functions:
-            result.update(bytecode_function.callees())
+            result.update(bytecode_function.labels_referenced())
         return result
 
     def bytecode_function_labels(self):
@@ -322,7 +320,9 @@ class Module(object):
                 callees = set()
                 bytecode_function.add_dependencies(callees)
                 callees.remove(bytecode_function)
-                if callees.issubset(set(callee_module.bytecode_functions).union(set([callee_module.data_asm_blob]))):
+                callee_module_members = set(callee_module.bytecode_functions)
+                callee_module_members.add(callee_module.data_asm_blob)
+                if callees.issubset(callee_module_members):
                     callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
                     caller_module.bytecode_functions[i] = None
                     changed = True
@@ -333,9 +333,8 @@ class Module(object):
         # TODO: Move this into a function?
         # Patch up the two modules so we have correct external references following the function moves.
         # SFTODO: callees() should probably be renamed and it should probably return all labels referenced
-        callee_module_new_exports = caller_module.callees().intersection(callee_module.bytecode_function_labels())
+        callee_module_new_exports = caller_module.labels_referenced().intersection(callee_module.bytecode_function_labels())
         callee_module_new_exports.update(data_asm_blob_labels)
-        print('SFTODOQE3', len(callee_module_new_exports))
         SFTODOHACKCOUNT = 0
         for export in callee_module_new_exports:
             # SFTODO: Inefficient

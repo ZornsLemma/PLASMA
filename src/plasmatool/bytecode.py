@@ -533,9 +533,7 @@ class BytecodeFunction(object):
         for instruction in self.ops:
             instruction.add_dependencies(dependencies)
 
-    # TODO: Bad name (I think because it's more "things we reference some way or other", not "functions we call" - they may be global variables)
-    # TODO: Delete if not used
-    def callees(self):
+    def labels_referenced(self):
         result = set()
         for instruction in self.ops:
             if instruction.instruction_class == InstructionClass.ABSOLUTE:
