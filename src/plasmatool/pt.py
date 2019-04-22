@@ -6,13 +6,10 @@ import sys
 
 from module import *
 from optimiser import *
+from utils import *
 
 # SFTODO: I'm using assert where I should probably use something else; where I'm doing
 # "assert False" I could perhaps call die().
-
-def die(s):
-    sys.stderr.write(s + '\n')
-    sys.exit(1)
 
 def verbose(level, s):
     if args.verbose >= level:
@@ -40,7 +37,6 @@ if args.output2 is not None:
         second_module_name = os.path.splitext(os.path.basename(args.output2.name))[0]
     second_module_name = second_module_name.upper()
     verbose(1, "Splitting module; second output module name is %s" % second_module_name)
-    # SFTODO: We could validate second_module_name (not too long, no odd characters)
 
     second_module = module.split(second_module_name)
 

@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import itertools
+import string
 import struct
 
 from operands import *
@@ -264,6 +265,16 @@ class Module(object):
         self.esd.dump(outfile)
 
     @staticmethod
+    def is_valid_module_name(name):
+        if len(name) == 0 or len(name) > 16:
+            return False
+        allowed = set(string.ascii_uppercase + string.digits + '_')
+        if not set(name).issubset(allowed):
+            return False
+        return True
+
+
+    @staticmethod
     def compact_int_symbol(i):
         """Return a short string representation of i suitable for use as a PLASMA symbol."""
         assert i >= 0
@@ -299,6 +310,9 @@ class Module(object):
     def split(self, second_module_name):
         """Return a new module which has had some of the contents of the current module
            moved into it; the current module has the new module added as a dependency."""
+
+        if not Module.is_valid_module_name(second_module_name):
+            die("Invalid module name: %s" % second_module_name)
 
         second_module = Module(self.sysflags, self.import_names, ESD())
         self.import_names = [second_module_name]
