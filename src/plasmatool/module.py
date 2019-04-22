@@ -309,11 +309,14 @@ class Module(object):
 
         caller_module = self 
         callee_module = second_module
+
         data_asm_blob_labels = set()
-        for SFTODO in callee_module.data_asm_blob.labels.values():
-            for SFTODO2 in SFTODO:
-                data_asm_blob_labels.add(SFTODO2)
-        # SFTODO: Is there overlap between callees() and add_dependencies()???
+        if callee_module.data_asm_blob is not None:
+            for label_list in callee_module.data_asm_blob.labels.values():
+                data_asm_blob_labels.update(set(label_list))
+
+        # Perform the recursive move of functions from caller_module to callee_module as
+        # described above.
         while True:
             changed = False
             for i, bytecode_function in enumerate(caller_module.bytecode_functions):
@@ -330,31 +333,41 @@ class Module(object):
             if not changed:
                 break
 
-        # TODO: Move this into a function?
-        # Patch up the two modules so we have correct external references following the function moves.
-        # SFTODO: callees() should probably be renamed and it should probably return all labels referenced
+        # For labels which used to be in caller_module but are now in callee_module:
+        # - If caller_module exported them, it needs to stop doing so but callee_module
+        #   needs to export them (using the same names, of course)
+        # - If caller_module references them, it needs to be changed to reference them as
+        #   external symbols, using the existing name if they were already exported or a
+        #   newly created name exported by callee_module if they weren't previously exported.
         callee_module_new_exports = caller_module.labels_referenced().intersection(callee_module.bytecode_function_labels())
         callee_module_new_exports.update(data_asm_blob_labels)
-        SFTODOHACKCOUNT = 0
-        for export in callee_module_new_exports:
-            # SFTODO: Inefficient
-            external_name = None
-            for esd_external_name, reference in caller_module.esd.entry_dict.items():
-                if export == reference:
-                    external_name = esd_external_name
-                    del caller_module.esd.entry_dict[esd_external_name]
-                    break
+        callee_module_new_exports_external_names = {label:None for label in callee_module_new_exports}
+        del callee_module_new_exports
+
+        for esd_external_name, reference in caller_module.esd.entry_dict.items():
+            if reference in callee_module_new_exports_external_names:
+                assert callee_module_new_exports_external_names[reference] is None
+                callee_module_new_exports_external_names[reference] = esd_external_name
+                caller_module.esd.entry_dict[esd_external_name] = None
+        caller_module.esd.entry_dict = {k:v for k,v in caller_module.esd.entry_dict.items() if v is not None}
+
+        new_export_name_count = 0
+        for label, external_name in callee_module_new_exports_external_names.items():
             if external_name is None:
-                # TODO: Would be good to allow an optional prefix for these symbols to be specified on the command line, perhaps to make them more obvious when debugging or if multiple split modules need to be loaded simultaneously. This isn't free as the symbols take up space in the symbol table at runtime, so it makes sense to default to the shortest possible names.
-                external_name = '%s' % Module.compact_int_symbol(SFTODOHACKCOUNT)
-                SFTODOHACKCOUNT += 1
+                # TODO: Would be good to allow an optional prefix for these symbols to be
+                # specified on the command line, perhaps to make them more obvious when
+                # debugging or if multiple split modules need to be loaded simultaneously.
+                # This isn't free as the symbols take up space in the symbol table at
+                # runtime, so it makes sense to default to the shortest possible names.
+                external_name = '%s' % Module.compact_int_symbol(new_export_name_count)
+                new_export_name_count += 1
+
             external_reference = ExternalReference(external_name, 0)
             for bytecode_function in caller_module.bytecode_functions:
-                # SFTODO: Make the following loop a member function of BytecodeFunction?
                 for instruction in bytecode_function.ops:
-                    instruction.replace_absolute_address(export, external_reference)
-            callee_module.esd.add_entry(external_name, export)
-        # SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
+                    instruction.replace_absolute_address(label, external_reference)
+
+            callee_module.esd.add_entry(external_name, label)
 
         return second_module
 
@@ -419,8 +432,13 @@ class ESD(object):
         # Although the PLASMA VM doesn't care:
         # - We output all the EXTERNAL SYMBOL entries first followed by the ENTRY SYMBOL
         #   entries, to match the output generated by the PLASMA compiler.
-        # - We output the EXTERNAL SYMBOL entries in order of their ESD index, just for
-        #   neatness.
+        # - We output the EXTERNAL SYMBOL entries in order of their ESD index, partly for
+        #   neatness and partly so the output is consistent (to allow binary diffs of the
+        #   output during development/testing).
+        # - We output the ENTRY SYMBOL entries in alphabetical order, for the same reasons.
+        # TODO: This isn't necessarily perfectly consistent, because the ESD indices are
+        # generated based on the sequence of get_external_index() calls which might vary
+        # from run to run, but let's not worry about that unless it becomes a problem.
 
         print(";\n; EXTERNAL/ENTRY SYMBOL DICTIONARY\n;", file=outfile)
 
@@ -433,7 +451,8 @@ class ESD(object):
             print("\t!BYTE\t$10\t\t\t; EXTERNAL SYMBOL FLAG", file=outfile)
             print("\t!WORD\t%d\t\t\t; ESD INDEX" % (esd_index,), file=outfile)
 
-        for external_name, reference in self.entry_dict.items():
+        for external_name in sorted(self.entry_dict.keys()):
+            reference = self.entry_dict[external_name]
             assert isinstance(reference, Label)
             print("\t; DCI STRING: %s" % external_name, file=outfile)
             print("\t!BYTE\t%s" % dci_bytes(external_name), file=outfile)
