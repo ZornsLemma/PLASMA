@@ -567,11 +567,11 @@ class Optimiser(object):
                 changed = changed1 or changed2
 
         # In order to remove unused objects from the module, we determine the set of
-        # dependencies, i.e. the data/asm LabelledBlob and the BytecodeFunctions, starting
-        # with _INIT and any exported symbols and recursively adding their dependencies.
-        # If the data/asm blob is present but unused (unlikely) we will (correctly) remove
-        # it, but the main reason for doing this is to remove unused bytecode functions.
-        # We do this after optimising to take advantage of any dead code removal.
+        # dependencies (data/asm LabelledBlob and BytecodeFunctions), starting with _INIT
+        # and any exported symbols and recursively adding their dependencies. If the
+        # data/asm blob is present but unused (unlikely) we will (correctly) remove it,
+        # but the main reason for doing this is to remove unused bytecode functions. We do
+        # this after optimising the code to take advantage of any dead code removal.
         assert module.bytecode_functions[-1].is_init()
         dependencies = set()
         module.bytecode_functions[-1].add_dependencies(dependencies)
