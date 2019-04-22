@@ -151,6 +151,8 @@ Self-hosted optimiser has assumption that no memory-mapped hardware exists above
 
 Random thought, possibly incoherent: if we guarantee EXTERNAL symbols come before ENTRY symbols in ESD, could we use that to discard ENTRY symbols from the symbol table once the module has been loaded and fixed up??
 
+Suspect this is a duplicate - is there any possibility of speeding self-hosted compiler start time by making the "split-off" part of it stay memory resident after being loaded? We might need to do something to reinitialise any global variables each time.
+
 
 
 Short term notes:

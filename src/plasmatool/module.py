@@ -319,7 +319,10 @@ class Module(object):
         while True:
             changed = False
             for i, bytecode_function in enumerate(caller_module.bytecode_functions):
-                if bytecode_function.callees().issubset(callee_module.bytecode_function_labels().union(data_asm_blob_labels)):
+                callees = set()
+                bytecode_function.add_dependencies(callees)
+                callees.remove(bytecode_function)
+                if callees.issubset(set(callee_module.bytecode_functions).union(set([callee_module.data_asm_blob]))):
                     callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
                     caller_module.bytecode_functions[i] = None
                     changed = True
