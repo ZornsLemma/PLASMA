@@ -432,6 +432,7 @@ class Instruction(ComparisonMixin):
         if self.instruction_class == InstructionClass.ABSOLUTE:
             self.operands[0].add_dependencies(dependencies)
             
+    # SFTODO: Rename all these functions to replace_targets()?
     def rename_targets(self, alias_dict):
         if self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = rename_targets(self.operands[0], alias_dict)
@@ -440,12 +441,13 @@ class Instruction(ComparisonMixin):
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
             self.operands[0].rename_targets(alias_dict)
 
-    def SFTODORENAMEORDELETE(self, old_label, new_label):
+    def replace_absolute_address(self, old, new):
+        assert isinstance(old, AbsoluteAddress)
+        assert isinstance(new, AbsoluteAddress)
         # SFTODO TEMP HACK
         if self.instruction_class in (InstructionClass.ABSOLUTE,):
-            if self.operands[0] is old_label:
-                self.operands[0] = new_label
-                print('SFTODOX109')
+            if self.operands[0] == old:
+                self.operands[0] = new
 
     def add_targets_used(self, targets_used):
         if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):

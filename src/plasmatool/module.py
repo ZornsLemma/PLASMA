@@ -365,7 +365,7 @@ class Module(object):
             for bytecode_function in caller_module.bytecode_functions:
                 # SFTODO: Make the following loop a member function of BytecodeFunction?
                 for instruction in bytecode_function.ops:
-                    instruction.SFTODORENAMEORDELETE(export, external_reference)
+                    instruction.replace_absolute_address(export, external_reference)
             callee_module.esd.add_entry(external_name, export)
         # SFTODO: Any external references in caller_module which have been moved to callee_module need to be exported with the correct name in caller_module - right now this is all an experimental mess and I can't fucking concentrate for five minutes without being interrupted
 
