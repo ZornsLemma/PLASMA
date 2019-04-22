@@ -443,7 +443,6 @@ class Instruction(ComparisonMixin):
     def replace_absolute_address(self, old, new):
         assert isinstance(old, AbsoluteAddress)
         assert isinstance(new, AbsoluteAddress)
-        # SFTODO TEMP HACK
         if self.instruction_class in (InstructionClass.ABSOLUTE,):
             if self.operands[0] == old:
                 self.operands[0] = new
@@ -494,7 +493,6 @@ class BytecodeFunction(object):
         for label in self.labels:
             label.set_owner(self)
         if len(self.labels) > 0:
-            print('SFTODOXX12', self.labels[0].name)
             assert self.labels[0].name[0:2] == '_I'
         ops = [] # SFTODO Should perhaps call 'instructions'
         di = DisassemblyInfo(self, labelled_blob)
