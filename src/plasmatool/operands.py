@@ -158,16 +158,15 @@ class Label(AbsoluteAddress, ComparisonMixin):
         self.owner = owner
 
     def __add__(self, rhs):
-        # SFTODO: This is a bit odd. We need this for memory(). However, I *think* that
-        # since we evidently have no need to support the concept of "label+n" anywhere,
-        # we can get away with just returning self here - because if it's impossible to
-        # represent the concept of "label+1", there is no scope for one bit of code to e.g.
-        # LAW label and another bit of code to SAB label+1 and the two to "clash".
-        # SFTODO: I think that is true, *but* it suggests that we may be able to optimise
-        # things (presumably code which wants to access offset from a label may have to do
-        # LA LABEL:ADDI 3:LB and we might be able to turn that into LA LABEL+3 - this is
-        # complete speculation right now, I haven't checked any real code) by allowing the
-        # concept of label+n in this code.
+        # This is a bit odd. We need this for memory(). However, I think that since we
+        # evidently have no need to support the concept of "label+n" anywhere, we can get
+        # away with just returning self here - because if it's impossible to represent the
+        # concept of "label+1", there is no scope for one bit of code to e.g. LAW label
+        # and another bit of code to SAB label+1 and the two to touch the same memory.
+        # TODO: This suggests there may be optimisation potential for changing something
+        # like "LA LABEL:ADDI 3" into "LA LABEL+3", but as far as I can see the
+        # self-hosted compiler at least contains no code like this so even if I'm right
+        # it's not an immediately attractive option to pursue.
         return self
 
     def acme_reference(self, comment=True):
