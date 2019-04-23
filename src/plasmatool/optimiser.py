@@ -14,7 +14,6 @@ class Foo(object):
         self.ops = bytecode_function.ops
         self.blocks_metadata = [None]
         self.block_starts = [0]
-        self.start = 0
 
     def start_before(self, i, metadata):
         start = self.block_starts[-1]
