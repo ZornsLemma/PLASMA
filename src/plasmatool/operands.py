@@ -270,8 +270,6 @@ def replace_targets(target, alias):
 
 
 
-# SFTODO: Seems wrong to have these random free functions
-
 def acme_dump_fixup(outfile, rld, reference, comment=True):
     fixup_label = Label('_F')
     rld.add_fixup(reference, fixup_label)
