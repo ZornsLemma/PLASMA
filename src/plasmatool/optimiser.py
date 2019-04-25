@@ -605,8 +605,7 @@ class Optimiser(object):
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
 
-# SFTODO: Just possibly we should expand DUP if the preceding instruction is a simple_stack_push
-# early in the optimisation to make the effects more obvious, and have a final DUP-ification pass which will revert this change where there is still value in the DUP - this might enable other optimisations in the meantime - but it may also make things worse
+# TODO: It would seem a good idea to do an initial pass expanding DUP where the preceding instruction is something "simple" like LLW [n], because my simplistic optimisation code will tend to be thrown by the presence of a DUP. We could then do a final DUPification pass (or perhaps include this in the optimisation loop, but only once we run out of other changes to make) to re-introduce DUP in cases like the ones we expanded. I haven't done this yet because some experiments and manual examination of the self-hosted compiler suggest that this would have no benefit for it, and it is my main test case at the moment.
 
 # TODO: The peephole optimiser can do things like "LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW
 # [m]", but we could also do things like "LLW [n]:DLW [m]:SLW [o]:LLW [n] -> LLW
