@@ -284,7 +284,6 @@ class Optimiser(object):
 
         return changed
 
-    # SFTODO: COME BACK AND REVIEW THIS LATER - SKIPPING ON CURRENT PASS!
     @staticmethod
     def peephole_optimise(bytecode_function):
         changed = False
