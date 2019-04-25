@@ -238,7 +238,7 @@ class Module(object):
         print("\t!WORD\t%d\t\t\t; SYSTEM FLAGS" % (self.sysflags,), file=outfile)
         print("\t!WORD\t_SUBSEG\t\t\t; BYTECODE SUB-SEGMENT", file=outfile)
         print("\t!WORD\t_DEFCNT\t\t\t; BYTECODE DEF COUNT", file=outfile)
-        if self.bytecode_functions[-1].is_init():
+        if len(self.bytecode_functions) > 0 and self.bytecode_functions[-1].is_init():
             print("\t!WORD\t_INIT\t\t\t; MODULE INITIALIZATION ROUTINE", file=outfile)
         else:
             print("\t!WORD\t0\t\t\t; MODULE INITIALIZATION ROUTINE", file=outfile)

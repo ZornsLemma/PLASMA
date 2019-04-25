@@ -511,6 +511,20 @@ class Optimiser(object):
         rhs_memory = rhs.memory()
         return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
 
+    # If the _INIT function is the trivial default one the PLASMA compiler generates
+    # automatically, get rid of it; this isn't a huge win but it saves a couple of bytes
+    # on disk, will have a tiny load-time performance benefit and under certain
+    # circumstances on the Acorn port it may save a couple of bytes of runtime memory
+    # (_INIT can't be discarded if it has been trapped below a symbol table chunk).
+    @staticmethod
+    def optimise_init(module):
+        if len(module.bytecode_functions) > 0 and module.bytecode_functions[-1].is_init():
+            init = module.bytecode_functions[-1].ops
+            trivial_init = [Instruction(CONSTANT_OPCODE, [0]),
+                            Instruction('RET')]
+            if init == trivial_init:
+                module.bytecode_functions.pop(-1)
+
     @classmethod
     def optimise(cls, module): # SFTODO: RENAME ARG TO JUST module
         # SFTODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
@@ -554,15 +568,18 @@ class Optimiser(object):
                     changed2 = any(result)
                 changed = changed1 or changed2
 
+        Optimiser.optimise_init(module)
+
         # In order to remove unused objects from the module, we determine the set of
         # dependencies (data/asm LabelledBlob and BytecodeFunctions), starting with _INIT
+        # (if present)
         # and any exported symbols and recursively adding their dependencies. If the
         # data/asm blob is present but unused (unlikely) we will (correctly) remove it,
         # but the main reason for doing this is to remove unused bytecode functions. We do
         # this after optimising the code to take advantage of any dead code removal.
-        assert module.bytecode_functions[-1].is_init()
         dependencies = set()
-        module.bytecode_functions[-1].add_dependencies(dependencies)
+        if len(module.bytecode_functions) > 0 and module.bytecode_functions[-1].is_init():
+            module.bytecode_functions[-1].add_dependencies(dependencies)
         for external_name, reference in module.esd.entry_dict.items():
             reference.add_dependencies(dependencies)
         # dependencies now contains only objects which are needed. We preserve the
@@ -571,9 +588,10 @@ class Optimiser(object):
         # reordering which makes comparing the input and output difficult.
         dependencies_ordered = [module.data_asm_blob] + module.bytecode_functions
         dependencies_ordered = [x for x in dependencies_ordered if x in dependencies]
-        if dependencies_ordered[0] != module.data_asm_blob:
+        if module.data_asm_blob not in dependencies_ordered:
             module.data_asm_blob = None
         else:
+            assert dependencies_ordered[0] == module.data_asm_blob
             dependencies_ordered.pop(0)
         module.bytecode_functions = dependencies_ordered
 
