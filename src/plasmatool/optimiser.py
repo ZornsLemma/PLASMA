@@ -266,7 +266,7 @@ class Optimiser(object):
 
         # Merge blocks where possible.
         for i, block in enumerate(blocks):
-            if block and block[-1].is_a('BRNCH'):
+            if len(block) > 0 and block[-1].is_a('BRNCH'):
                 target = block[-1].operands[0]
                 if target in blocks_metadata:
                     target_block_index = blocks_metadata.index(target)
