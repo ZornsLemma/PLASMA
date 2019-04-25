@@ -448,40 +448,37 @@ class Optimiser(object):
     # target. SFTODO AND IT HAS TO APPEAR BEFORE THE TARGET ITSELF IF THAT ISN'T A TERMINATOR
     @staticmethod
     def tail_move(bytecode_function):
-        # Dictionary mapping from a target to the possible instruction which can be moved after it. SFTODO MOVE THIS TO NEAR CONDITIONAL_TARGETS INITIALISATION?
+        # Dictionary mapping from a target to the possible instruction which can be moved after it. SFTODO MOVE THIS TO NEAR unmodifiable_targets INITIALISATION?
         candidates = {}
+        
+        # Set of targets which cannot be modified; these are targets which are:
+        # - used by conditional branches
+        # - have been demonstrated to have more than one possible instruction which can be executed immediately before control reaches the target
+        unmodifiable_targets = set()
 
-        # Examine all the instructions, building up:
+        # Examine all the instructions, building up: SFTODO UPDATE THIS COMMENT
         # - a set of targets used in conditional branches
         # - a set of candidates which appear before all unconditional branches to a given target
         # SFTODO: IS THIS OK IF FIRST INSTRUCTION IS A TARGET (ASSUME FIRST INSTURCTION CAN SOMETIMES NOT BE 'ENTER')
-        conditional_targets = set()
         for i, instruction in enumerate(bytecode_function.ops):
-            if not instruction.is_a('BRNCH'):
-                instruction.add_targets_used(conditional_targets)
-
             previous_instruction = bytecode_function.ops[i-1] if i>0 else NopInstruction()
-            if instruction.is_a('BRNCH'):
+            if instruction.is_a('BRNCH') or instruction.is_target():
                 if previous_instruction.is_terminator():
-                    # Nothing to do; this branch is unreachable and should be optimised away (and in practice probably already has been, hence the following assert) but in any case we don't need to take it into account here.
-                    pass #assert False #SFTODO NOT SURE WHY THIS WON'T WORK
+                    # Nothing to do:
+                    # - if 'instruction' is BRNCH, it can never be executed (and has probably already been optimised away) so we don't need to take it into account
+                    # - if 'instruction' is a target, we never fall through it and so don't need to take its immediate predecessor into account
+                    pass
                 else:
+                    # 'previous_instruction' can execute immediately before 'instruction', so record it as a possible candidate for moving. If we've already got another candidate, we know this target can't be modified.
                     target = instruction.operands[0]
                     if candidates.setdefault(target, previous_instruction) != previous_instruction:
-                        assert not previous_instruction.is_target() # SFTODO!?
-                        conditional_targets.add(target) # SFTODO: RIGHT LOGIC I THINK, POOR NAME NOW
-            elif instruction.is_target():
-                # SFTODO CODE DUPLICATION BUT GET IT WORKING FIRST...
-                if not previous_instruction.is_terminator():
-                    target = instruction.operands[0]
-                    if candidates.setdefault(target, previous_instruction) != previous_instruction:
-                        assert not previous_instruction.is_target() # SFTODO!?
-                        conditional_targets.add(target) # SFTODO: RIGHT LOGIC I THINK, POOR NAME NOW
+                        unmodifiable_targets.add(target)
+            else:
+                # If a target is used in any other instruction, that is a conditional branch of some kind and we know the target cannot be modified.
+                instruction.add_targets_used(unmodifiable_targets)
 
-
-
-        # Get rid of any candidates for targets which are used in conditional branches
-        for target in conditional_targets:
+        # Get rid of any candidates for targets which cannot be modified
+        for target in unmodifiable_targets:
             candidates.pop(target, None)
 
         # Move any remaining candidates
