@@ -443,38 +443,43 @@ class Optimiser(object):
                 lla_threshold = min(instruction.operands[0].value, lla_threshold)
         return lla_threshold
 
-    # If the same instruction occurs before all unconditional branches to a target, and there are
-    # no conditional branches to the target, the instruction can be moved immediately after the
-    # target. SFTODO AND IT HAS TO APPEAR BEFORE THE TARGET ITSELF IF THAT ISN'T A TERMINATOR
+    # If the same instruction occurs before all unconditional branches to a target (not
+    # forgetting the implicit branch to the target if control falls through the target
+    # from the immediately preceding instruction), and there are no conditional branches
+    # to the target, the instruction can be moved immediately after the target.
     @staticmethod
     def tail_move(bytecode_function):
-        # Dictionary mapping from a target to the possible instruction which can be moved after it. SFTODO MOVE THIS TO NEAR unmodifiable_targets INITIALISATION?
+        # Dictionary mapping from a target to the possible instruction which can be moved after it.
         candidates = {}
         
         # Set of targets which cannot be modified; these are targets which are:
         # - used by conditional branches
-        # - have been demonstrated to have more than one possible instruction which can be executed immediately before control reaches the target
+        # - have been demonstrated to have more than one possible instruction which can be
+        #   executed immediately before control reaches the target
         unmodifiable_targets = set()
 
-        # Examine all the instructions, building up: SFTODO UPDATE THIS COMMENT
-        # - a set of targets used in conditional branches
-        # - a set of candidates which appear before all unconditional branches to a given target
-        # SFTODO: IS THIS OK IF FIRST INSTRUCTION IS A TARGET (ASSUME FIRST INSTURCTION CAN SOMETIMES NOT BE 'ENTER')
+        # Examine all the instructions to populate candidates and unmodified_targets.
         for i, instruction in enumerate(bytecode_function.ops):
             previous_instruction = bytecode_function.ops[i-1] if i>0 else NopInstruction()
             if instruction.is_a('BRNCH') or instruction.is_target():
                 if previous_instruction.is_terminator():
                     # Nothing to do:
-                    # - if 'instruction' is BRNCH, it can never be executed (and has probably already been optimised away) so we don't need to take it into account
-                    # - if 'instruction' is a target, we never fall through it and so don't need to take its immediate predecessor into account
+                    # - If 'instruction' is BRNCH, it can never be executed (and has
+                    #   probably already been optimised away) so we don't need to take it
+                    #   into account.
+                    # - If 'instruction' is a target, we never fall through it and so
+                    #   don't need to take its immediate predecessor into account.
                     pass
                 else:
-                    # 'previous_instruction' can execute immediately before 'instruction', so record it as a possible candidate for moving. If we've already got another candidate, we know this target can't be modified.
+                    # 'previous_instruction' can execute immediately before 'instruction',
+                    # so record it as a possible candidate for moving. If we've already
+                    # got a different candidate, we know this target can't be modified.
                     target = instruction.operands[0]
                     if candidates.setdefault(target, previous_instruction) != previous_instruction:
                         unmodifiable_targets.add(target)
             else:
-                # If a target is used in any other instruction, that is a conditional branch of some kind and we know the target cannot be modified.
+                # If a target is used in any other instruction, that is a conditional
+                # branch of some kind and we know the target cannot be modified.
                 instruction.add_targets_used(unmodifiable_targets)
 
         # Get rid of any candidates for targets which cannot be modified
@@ -486,23 +491,15 @@ class Optimiser(object):
         new_ops = []
         for instruction in bytecode_function.ops:
             new_ops.append(instruction)
-            if len(new_ops) < 2:
-                continue # SFTODO!?
-            if instruction.is_target():
+            if instruction.is_a('BRNCH') or instruction.is_target():
                 candidate = candidates.get(instruction.operands[0], None)
                 if candidate is not None:
-                    # SFTODO: CODE DUPLICATION BUT GET IT WORKING FIRST
                     assert new_ops[-2] == candidate or new_ops[-2].is_terminator()
                     if new_ops[-2] == candidate:
                         new_ops.pop(-2)
-                    new_ops.append(candidate)
+                    if instruction.is_target():
+                        new_ops.append(candidate)
                     changed = True
-            elif instruction.is_a('BRNCH'):
-                candidate = candidates.get(instruction.operands[0], None)
-                if candidate is not None:
-                    assert new_ops[-2] == candidate # SFTODO DO WE NEED TO WORRY ABOUT -2 NOT EXISTING?
-                    new_ops.pop(-2)
-                    changed = True # SFTODO: DON'T THINK THIS IS STRICTLY NEEDED BUT PARANOID FOR NOW
         bytecode_function.ops = new_ops
 
         return changed
