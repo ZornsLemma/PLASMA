@@ -284,6 +284,7 @@ class Optimiser(object):
 
         return changed
 
+    # SFTODO: COME BACK AND REVIEW THIS LATER - SKIPPING ON CURRENT PASS!
     @staticmethod
     def peephole_optimise(bytecode_function):
         changed = False
@@ -350,15 +351,15 @@ class Optimiser(object):
         unobserved_stores = bidict()
 
         for i, instruction in enumerate(straightline_ops):
+            # SFTODO: DON'T LIKE NEXT TWO LINES RE CLASSIFICATION AND THE 'NOT LB/LW' IS PARTICULARLY UGLY (LOGIC IS PROB CORRECT THO OBSCURED BY THIS)
             is_store = instruction.is_simple_store() or instruction.is_dup_store()
             is_load = (instruction.is_load() and not instruction.is_a('LB', 'LW'))
             if is_store: # stores and duplicate-stores
-                memory = instruction.memory()
                 # It is possible (if unlikely) a word store will touch a hardware address and
                 # a non-hardware address; if this does happen we must never consider it for
                 # removal.
                 if not instruction.has_side_effects():
-                    for address in memory:
+                    for address in instruction.memory():
                         unobserved_stores[address] = i
             elif is_load:
                 for address in instruction.memory():
