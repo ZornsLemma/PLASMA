@@ -327,12 +327,14 @@ class Optimiser(object):
                 # SFTODO: We should probably recognise the case where we have two 'simple stack pushes' foillowed by DROP2. Maybe we should expand DROP2 opcodes into DROP:DROP very early on, and only as a final pass revert this - that might help keep things "transparent" to the optimiser.
                 bytecode_function.ops[i] = NopInstruction()
                 bytecode_function.ops[i+1] = NopInstruction()
+                changed = True
             # CN 1:SHL -> DUP:ADD - this is the same length but 9 cycles faster
             # TODO: I haven't actually checked how these two sequences compared for JITted
             # code yet.
             elif instruction.is_constant(1) and next_instruction.is_a('SHL'):
                 bytecode_function.ops[i] = Instruction('DUP')
                 bytecode_function.ops[i+1] = Instruction('ADD')
+                changed = True
 
             i += 1
         bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOPs
