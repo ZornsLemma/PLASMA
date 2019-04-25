@@ -206,12 +206,10 @@ class Optimiser(object):
         blocks, blocks_metadata = Optimiser.get_blocks(bytecode_function)
         block_target_only = [False] * len(blocks)
         for i, block in enumerate(blocks):
-            assert block # SFTODO: I think the split code can never generate an empty block - if so we can remove the following if...
-            if block:
-                if not block[-1].is_terminator():
-                    blocks_metadata[i] = None
-                else:
-                    block_target_only[i] = i > 0 and blocks[i-1] and blocks[i-1][-1].is_terminator()
+            if not block[-1].is_terminator():
+                blocks_metadata[i] = None
+            else:
+                block_target_only[i] = i > 0 and blocks[i-1][-1].is_terminator()
         return blocks, blocks_metadata, block_target_only
 
     @staticmethod
@@ -229,17 +227,15 @@ class Optimiser(object):
                 if blocks_metadata[i] and blocks_metadata[j] and blocks[i][1:] == blocks[j][1:]:
                     assert blocks[i][0].is_target()
                     assert blocks[j][0].is_target()
-                    replace = None
-                    # SFTODO: Isn't this code subtly wrong? In the 'if' case, for example,
-                    # what if block[j] is in unwanted? We'd generate calls to its target
-                    # even though it's being removed.
-                    if blocks_metadata[i] not in unwanted and block_target_only[i]:
-                        replace = (blocks_metadata[i], blocks_metadata[j])
-                    elif blocks_metadata[j] not in unwanted and block_target_only[j]:
-                        replace = (blocks_metadata[j], blocks_metadata[i])
-                    if replace:
-                        alias[replace[0]] = replace[1]
-                        unwanted.add(replace[0])
+                    if not (blocks_metadata[i] in unwanted or blocks_metadata[j] in unwanted):
+                        replace = None
+                        if block_target_only[i]:
+                            replace = (blocks_metadata[i], blocks_metadata[j])
+                        elif block_target_only[j]:
+                            replace = (blocks_metadata[j], blocks_metadata[i])
+                        if replace:
+                            alias[replace[0]] = replace[1]
+                            unwanted.add(replace[0])
 
         # Now rebuild the function from the blocks.
         new_ops = []
