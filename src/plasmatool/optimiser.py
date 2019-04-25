@@ -70,6 +70,7 @@ class Optimiser(object):
         changed = False
         new_ops = []
         for i, instruction in enumerate(bytecode_function.ops):
+            # SFTODO: WOULD IT BE WORTH HAVING A next_instruction HELPER FN WHICH RETURNS A NOP (INSTEAD OF NONE) IF WE WOULD INDEX OFF THE END? THAT WOULD SLIGHTLY SIMPLIFY THE FOLLOWING LINE AS WE COULD OMIT THE NONE CHECK AND MAY HELP OTHER FNS...
             next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
             if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_target() and instruction.operands[0] == next_instruction.operands[0]):
                 new_ops.append(instruction)
@@ -154,7 +155,7 @@ class Optimiser(object):
     # instructions end with a terminator, the CASEBLOCK+otherwise instructions form an isolated
     # block which can be moved around freely. If such a block is preceded by a BRNCH, we move it
     # to the end of the function - this may allow the BRNCH to be optimised away. (It would be
-    # correct and mostly harmless to move any isolated CASEBLOCK+otherwise instruction block to
+    # correct and mostly harmless to move *any* isolated CASEBLOCK+otherwise instruction block to
     # the end of the function, but it would introduce unnecessary differences between the input
     # and output.)
     @staticmethod
@@ -182,6 +183,7 @@ class Optimiser(object):
 
 
     # SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
+    # SFTODO: THIS IS QUITE SIMILAR TO THE LOCAL get_blocks FUNCTION ELSEWHERE
     @staticmethod
     def get_blocks(bytecode_function):
         foo = Foo(bytecode_function)
@@ -198,7 +200,7 @@ class Optimiser(object):
     # - anonymous blocks which don't satisfy that condition
     # We also classify named blocks such that block_target_only[i] is True iff
     # control only reaches that block via its target (not by falling off the end
-    # of the previous block); such blocks can be freely moved around.
+    # of the previous block); such blocks can be freely moved around. SFTODO: REWRITE THIS COMMENT, THE 'ALSO' BIT IS A CONFUSING WAY OF DESCRIBING THE EXTRA FUNCTIONALITY
     @staticmethod
     def get_blocks2(bytecode_function): # SFTODO POOR NAME
         blocks, blocks_metadata = Optimiser.get_blocks(bytecode_function)
