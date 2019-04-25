@@ -482,98 +482,23 @@ class Optimiser(object):
                 # branch of some kind and we know the target cannot be modified.
                 instruction.add_targets_used(unmodifiable_targets)
 
-        # Get rid of any candidates for targets which cannot be modified
-        for target in unmodifiable_targets:
-            candidates.pop(target, None)
-
-        # Move any remaining candidates
+        # Move any candidates which aren't for unmodifiable targets
         changed = False
         new_ops = []
         for instruction in bytecode_function.ops:
             new_ops.append(instruction)
             if instruction.is_a('BRNCH') or instruction.is_target():
-                candidate = candidates.get(instruction.operands[0], None)
-                if candidate is not None:
-                    assert new_ops[-2] == candidate or new_ops[-2].is_terminator()
-                    if new_ops[-2] == candidate:
-                        new_ops.pop(-2)
-                    if instruction.is_target():
-                        new_ops.append(candidate)
-                    changed = True
-        bytecode_function.ops = new_ops
-
-        return changed
-
-    # If the same instruction occurs before all unconditional branches to a target, and there are
-    # no conditional branches to the target, the instruction can be moved immediately after the
-    # target.
-    # SFTODO: REVIEW IS UP TO HERE, ABOUT HALFWAY THROUGH BUT IT'S LATE AND I CAN'T GET MY HEAD ROUND THIS/CONCENTRATE PROPERLY - IT MAY WELL BE THIS IS WRONG AND/OR OVERLY COMPLEX AND WOULD MERIT A REWRITE
-    @staticmethod
-    def tail_moveSFTODOOLD(bytecode_function):
-        # For every target, set candidates[target] to:
-        # - the unique preceding instruction for all unconditional branches to it, provided it has
-        #   no conditional branches to it, or
-        # - None otherwise.
-        candidates = {}
-        for i in range(len(bytecode_function.ops)):
-            instruction = bytecode_function.ops[i]
-            if i > 0 and instruction.is_a('BRNCH'):
-                previous_instruction = bytecode_function.ops[i-1]
-                if previous_instruction.is_terminator():
-                    # This branch can never actually be reached; it will be optimised away
-                    # eventually (it probably already has and this case won't occur) but
-                    # it's not correct to move the preceding instruction on the assumption
-                    # this branch will be unconditionally taken. SFTODO: ISN'T IT MORE ACCURATE TO SAY IT WOULD BE SUB-OPTIMAL TO MOVE THE PRECEDING INSTRUCTION? IF ONE OTHER CALLER HAS A DIFFERENT PRECEDING INSTRUCTION TAKING THIS INSTRUCTION INTO ACCOUNT WOULD PREVENT A MOVE. BUT IT'S NOT *WRONG*, BECAUSE WE'D ONLY MOVE THIS INSTRUCTION IF *ALL* RELEVANT BRANCHES WERE PRECEDING BY THE SAME INSTRUCTION.
-                    continue
                 target = instruction.operands[0]
-                if candidates.setdefault(target, previous_instruction) != previous_instruction:
-                    candidates[target] = None
-            else:
-                targets_used = set()
-                instruction.add_targets_used(targets_used)
-                for target in targets_used:
-                    candidates[target] = None
-                    # SFTODO: ISN'T THERE A RISK A SUBSEQUENT INSTURCTION WILL TRIGGER THE 'I>0 AND IS BRNCH' CASE AND "UNDO" OUR DECIDING THIS TARGET HAS NO CANDIDATES? OR IS THAT CORRECT? I THINK THE FOLLOWING LOOP MEANS WE WILL VALIDATE THE CANDIDATES, BUT IN THAT CASE WHY DO THIS AT ALL? TBH I AM WRITING THIS AS I READ THROUGH THE CODE FOR FIRST TIME IN AGES AND I MAY BE MISSING THE POINT.
-
-        # Now check the immediately preceding instruction before every target with a
-        # candidate. If it's not a terminator and it doesn't match the candidate, the
-        # candidate must be discarded. Otherwise we insert the candidate after the target 
-        # and remove any copy of the candidate immediately preceding the target. (We don't
-        # remove instances of the candidate before unconditional branches here, because
-        # until we've finished this loop we can't be sure a candidate won't be discarded.)
-        new_ops = []
-        changed = False
-        for instruction in bytecode_function.ops:
-            new_ops.append(instruction)
-            if len(new_ops) >= 2 and instruction.is_target():
-                candidate = candidates.get(instruction.operands[0], None)
-                if candidate:
-                    previous_instruction = new_ops[-2]
-                    assert not previous_instruction.is_target()
-                    if not previous_instruction.is_terminator(): # SFTODO AS ABOVE NOT SO SURE THIS IS NEEDED OR EVEN DESIRABLE AT THIS POINT IN CODE
-                        if previous_instruction != candidate:
-                            candidates[instruction.operands[0]] = None
-                            continue
-                        new_ops.pop(-2) # remove previous_instruction
-                    new_ops.append(candidate)
-                    changed = True
-
-        # We can now go ahead and remove all instances of candidates before unconditional
-        # branches.
-        # SFTODO: Shouldn't we set changed back to False inside this if and only set to True if we do anything?
-        if changed:
-            i = 0
-            while i < len(new_ops):
-                instruction = new_ops[i]
-                if i > 0 and instruction.is_a('BRNCH'):
-                    target = instruction.operands[0]
-                    # SFTODO: SUSPECT I CAN REPLACE NEXT 2 LINES WITH candidate = candidates.get(target, None) BUT WAITING TIL I AM SATISFIED WITH CODE OVERALL BEFORE TRYING
-                    if target in candidates:
-                        candidate = candidates[target]
-                        if candidate:
-                            new_ops[i-1] = NopInstruction()
-                i += 1
-            bytecode_function.ops = [op for op in new_ops if op.opcode != NOP_OPCODE]
+                if target not in unmodifiable_targets:
+                    candidate = candidates.get(target, None)
+                    if candidate is not None:
+                        assert new_ops[-2] == candidate or new_ops[-2].is_terminator()
+                        if new_ops[-2] == candidate:
+                            new_ops.pop(-2)
+                        if instruction.is_target():
+                            new_ops.append(candidate)
+                        changed = True
+        bytecode_function.ops = new_ops
 
         return changed
 
