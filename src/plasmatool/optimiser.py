@@ -489,7 +489,7 @@ class Optimiser(object):
                 if candidate:
                     previous_instruction = new_ops[-2]
                     assert not previous_instruction.is_target()
-                    if not previous_instruction.is_terminator():
+                    if not previous_instruction.is_terminator(): # SFTODO AS ABOVE NOT SO SURE THIS IS NEEDED OR EVEN DESIRABLE AT THIS POINT IN CODE
                         if previous_instruction != candidate:
                             candidates[instruction.operands[0]] = None
                             continue
@@ -499,12 +499,14 @@ class Optimiser(object):
 
         # We can now go ahead and remove all instances of candidates before unconditional
         # branches.
+        # SFTODO: Shouldn't we set changed back to False inside this if and only set to True if we do anything?
         if changed:
             i = 0
             while i < len(new_ops):
                 instruction = new_ops[i]
                 if i > 0 and instruction.is_a('BRNCH'):
                     target = instruction.operands[0]
+                    # SFTODO: SUSPECT I CAN REPLACE NEXT 2 LINES WITH candidate = candidates.get(target, None) BUT WAITING TIL I AM SATISFIED WITH CODE OVERALL BEFORE TRYING
                     if target in candidates:
                         candidate = candidates[target]
                         if candidate:
