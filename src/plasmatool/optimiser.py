@@ -446,6 +446,7 @@ class Optimiser(object):
     # If the same instruction occurs before all unconditional branches to a target, and there are
     # no conditional branches to the target, the instruction can be moved immediately after the
     # target.
+    # SFTODO: REVIEW IS UP TO HERE, ABOUT HALFWAY THROUGH BUT IT'S LATE AND I CAN'T GET MY HEAD ROUND THIS/CONCENTRATE PROPERLY - IT MAY WELL BE THIS IS WRONG AND/OR OVERLY COMPLEX AND WOULD MERIT A REWRITE
     @staticmethod
     def tail_move(bytecode_function):
         # For every target, set candidates[target] to:
@@ -461,7 +462,7 @@ class Optimiser(object):
                     # This branch can never actually be reached; it will be optimised away
                     # eventually (it probably already has and this case won't occur) but
                     # it's not correct to move the preceding instruction on the assumption
-                    # this branch will be unconditionally taken.
+                    # this branch will be unconditionally taken. SFTODO: ISN'T IT MORE ACCURATE TO SAY IT WOULD BE SUB-OPTIMAL TO MOVE THE PRECEDING INSTRUCTION? IF ONE OTHER CALLER HAS A DIFFERENT PRECEDING INSTRUCTION TAKING THIS INSTRUCTION INTO ACCOUNT WOULD PREVENT A MOVE. BUT IT'S NOT *WRONG*, BECAUSE WE'D ONLY MOVE THIS INSTRUCTION IF *ALL* RELEVANT BRANCHES WERE PRECEDING BY THE SAME INSTRUCTION.
                     continue
                 target = instruction.operands[0]
                 if candidates.setdefault(target, previous_instruction) != previous_instruction:
@@ -471,6 +472,7 @@ class Optimiser(object):
                 instruction.add_targets_used(targets_used)
                 for target in targets_used:
                     candidates[target] = None
+                    # SFTODO: ISN'T THERE A RISK A SUBSEQUENT INSTURCTION WILL TRIGGER THE 'I>0 AND IS BRNCH' CASE AND "UNDO" OUR DECIDING THIS TARGET HAS NO CANDIDATES? OR IS THAT CORRECT? I THINK THE FOLLOWING LOOP MEANS WE WILL VALIDATE THE CANDIDATES, BUT IN THAT CASE WHY DO THIS AT ALL? TBH I AM WRITING THIS AS I READ THROUGH THE CODE FOR FIRST TIME IN AGES AND I MAY BE MISSING THE POINT.
 
         # Now check the immediately preceding instruction before every target with a
         # candidate. If it's not a terminator and it doesn't match the candidate, the
