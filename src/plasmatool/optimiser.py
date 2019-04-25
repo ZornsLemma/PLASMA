@@ -445,10 +445,77 @@ class Optimiser(object):
 
     # If the same instruction occurs before all unconditional branches to a target, and there are
     # no conditional branches to the target, the instruction can be moved immediately after the
+    # target. SFTODO AND IT HAS TO APPEAR BEFORE THE TARGET ITSELF IF THAT ISN'T A TERMINATOR
+    @staticmethod
+    def tail_move(bytecode_function):
+        # Dictionary mapping from a target to the possible instruction which can be moved after it. SFTODO MOVE THIS TO NEAR CONDITIONAL_TARGETS INITIALISATION?
+        candidates = {}
+
+        # Examine all the instructions, building up:
+        # - a set of targets used in conditional branches
+        # - a set of candidates which appear before all unconditional branches to a given target
+        # SFTODO: IS THIS OK IF FIRST INSTRUCTION IS A TARGET (ASSUME FIRST INSTURCTION CAN SOMETIMES NOT BE 'ENTER')
+        conditional_targets = set()
+        for i, instruction in enumerate(bytecode_function.ops):
+            if not instruction.is_a('BRNCH'):
+                instruction.add_targets_used(conditional_targets)
+
+            previous_instruction = bytecode_function.ops[i-1] if i>0 else NopInstruction()
+            if instruction.is_a('BRNCH'):
+                if previous_instruction.is_terminator():
+                    # Nothing to do; this branch is unreachable and should be optimised away (and in practice probably already has been, hence the following assert) but in any case we don't need to take it into account here.
+                    pass #assert False #SFTODO NOT SURE WHY THIS WON'T WORK
+                else:
+                    target = instruction.operands[0]
+                    if candidates.setdefault(target, previous_instruction) != previous_instruction:
+                        assert not previous_instruction.is_target() # SFTODO!?
+                        conditional_targets.add(target) # SFTODO: RIGHT LOGIC I THINK, POOR NAME NOW
+            elif instruction.is_target():
+                # SFTODO CODE DUPLICATION BUT GET IT WORKING FIRST...
+                if not previous_instruction.is_terminator():
+                    target = instruction.operands[0]
+                    if candidates.setdefault(target, previous_instruction) != previous_instruction:
+                        assert not previous_instruction.is_target() # SFTODO!?
+                        conditional_targets.add(target) # SFTODO: RIGHT LOGIC I THINK, POOR NAME NOW
+
+
+
+        # Get rid of any candidates for targets which are used in conditional branches
+        for target in conditional_targets:
+            candidates.pop(target, None)
+
+        # Move any remaining candidates
+        changed = False
+        new_ops = []
+        for instruction in bytecode_function.ops:
+            new_ops.append(instruction)
+            if len(new_ops) < 2:
+                continue # SFTODO!?
+            if instruction.is_target():
+                candidate = candidates.get(instruction.operands[0], None)
+                if candidate is not None:
+                    # SFTODO: CODE DUPLICATION BUT GET IT WORKING FIRST
+                    assert new_ops[-2] == candidate or new_ops[-2].is_terminator()
+                    if new_ops[-2] == candidate:
+                        new_ops.pop(-2)
+                    new_ops.append(candidate)
+                    changed = True
+            elif instruction.is_a('BRNCH'):
+                candidate = candidates.get(instruction.operands[0], None)
+                if candidate is not None:
+                    assert new_ops[-2] == candidate # SFTODO DO WE NEED TO WORRY ABOUT -2 NOT EXISTING?
+                    new_ops.pop(-2)
+                    changed = True # SFTODO: DON'T THINK THIS IS STRICTLY NEEDED BUT PARANOID FOR NOW
+        bytecode_function.ops = new_ops
+
+        return changed
+
+    # If the same instruction occurs before all unconditional branches to a target, and there are
+    # no conditional branches to the target, the instruction can be moved immediately after the
     # target.
     # SFTODO: REVIEW IS UP TO HERE, ABOUT HALFWAY THROUGH BUT IT'S LATE AND I CAN'T GET MY HEAD ROUND THIS/CONCENTRATE PROPERLY - IT MAY WELL BE THIS IS WRONG AND/OR OVERLY COMPLEX AND WOULD MERIT A REWRITE
     @staticmethod
-    def tail_move(bytecode_function):
+    def tail_moveSFTODOOLD(bytecode_function):
         # For every target, set candidates[target] to:
         # - the unique preceding instruction for all unconditional branches to it, provided it has
         #   no conditional branches to it, or
