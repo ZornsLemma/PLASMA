@@ -327,6 +327,12 @@ class Optimiser(object):
                 # SFTODO: We should probably recognise the case where we have two 'simple stack pushes' foillowed by DROP2. Maybe we should expand DROP2 opcodes into DROP:DROP very early on, and only as a final pass revert this - that might help keep things "transparent" to the optimiser.
                 bytecode_function.ops[i] = NopInstruction()
                 bytecode_function.ops[i+1] = NopInstruction()
+            # CN 1:SHL -> DUP:ADD - this is the same length but 9 cycles faster
+            # TODO: I haven't actually checked how these two sequences compared for JITted
+            # code yet.
+            elif instruction.is_constant(1) and next_instruction.is_a('SHL'):
+                bytecode_function.ops[i] = Instruction('DUP')
+                bytecode_function.ops[i+1] = Instruction('ADD')
 
             i += 1
         bytecode_function.ops = bytecode_function.ops[:-2] # remove dummy NOPs
@@ -596,8 +602,6 @@ class Optimiser(object):
 
 
 
-
-# SFTODO: Would it be worth replacing "CN 1:SHL" with "DUP:ADD"? This occurs in the self-hosted compiler at least once. It's the same length, so would need to cycle count to see if it's faster.
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
 

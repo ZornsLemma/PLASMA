@@ -377,6 +377,9 @@ class Instruction(ComparisonMixin):
     def is_target(self):
         return self.opcode == TARGET_OPCODE
 
+    def is_constant(self, n):
+        return self.opcode == CONSTANT_OPCODE and self.operands[0] == n
+
     # SFTODO: CONFUSING THAT THIS DOESN'T EXACTLY MATCH INSTRUCTIONCLASS.BRANCH? RENAME
     # THIS FN? is_control_transfer()? BUT NOT EXACTLY SHORT...
     def is_branch(self):
