@@ -525,8 +525,8 @@ class Optimiser(object):
             if init == trivial_init:
                 module.bytecode_functions.pop(-1)
 
-    @classmethod
-    def optimise(cls, module): # SFTODO: RENAME ARG TO JUST module
+    @staticmethod
+    def optimise(module):
         for bytecode_function in module.bytecode_functions:
             # SFTODO: The order here has not been thought through at all carefully and may be sub-optimal
             changed = True
