@@ -527,8 +527,6 @@ class Optimiser(object):
 
     @classmethod
     def optimise(cls, module): # SFTODO: RENAME ARG TO JUST module
-        # SFTODO: Recognising _INIT by the fact it comes last is a bit of a hack - though do note we must *emit* it last however we handle this
-        # SFTODO: I am assuming there is an INIT function - if you look at cmd.pla, you can see the INIT address in the header can be 0 in which case there is no INIT function. I don't know if the compiler always generates a stub INIT, but if it does we can probably optimise it away if it does nothing but 'RET' or similar.
         for bytecode_function in module.bytecode_functions:
             # SFTODO: The order here has not been thought through at all carefully and may be sub-optimal
             changed = True
