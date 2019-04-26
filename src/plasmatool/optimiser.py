@@ -289,6 +289,10 @@ class Optimiser(object):
         changed = False
         i = 0
         bytecode_function.ops += [NopInstruction(), NopInstruction()] # add dummy NOPs so we can use ops[i+2] freely
+        dup_for_store = {opcode['SAW']: opcode['DAW'],
+                         opcode['SAB']: opcode['DAB'],
+                         opcode['SLB']: opcode['DLB'],
+                         opcode['SLW']: opcode['DLW']}
         while i < len(bytecode_function.ops)-2:
             instruction = bytecode_function.ops[i]
             next_instruction = bytecode_function.ops[i+1]
@@ -306,19 +310,11 @@ class Optimiser(object):
                 changed = True
             # SLW [n]:LLW [n] -> DLW [n] and variations
             elif instruction.is_simple_store() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
-                dup_for_store = {opcode['SAW']: opcode['DAW'],
-                                 opcode['SAB']: opcode['DAB'],
-                                 opcode['SLB']: opcode['DLB'],
-                                 opcode['SLW']: opcode['DLW']}
                 bytecode_function.ops[i] = Instruction(dup_for_store[instruction.opcode], instruction.operands)
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
             # LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW [m] and variations
             elif instruction.is_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not Optimiser.partial_overlap(instruction, next_instruction):
-                dup_for_store = {0x7a: 0x7e, # SFTODO MAGIC CONSTANTS, COPY AND PASTE
-                                 0x78: 0x7c,
-                                 0x74: 0x6c,
-                                 0x76: 0x6e}
                 bytecode_function.ops[i+1] = Instruction(dup_for_store[next_instruction.opcode], next_instruction.operands)
                 bytecode_function.ops[i+2] = NopInstruction()
                 changed = True
