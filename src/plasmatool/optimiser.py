@@ -319,7 +319,6 @@ class Optimiser(object):
                 bytecode_function.ops[i+2] = NopInstruction()
                 changed = True
             elif instruction.is_simple_stack_push() and next_instruction.is_a('DROP'):
-                # SFTODO: We should probably recognise the case where we have two 'simple stack pushes' foillowed by DROP2. Maybe we should expand DROP2 opcodes into DROP:DROP very early on, and only as a final pass revert this - that might help keep things "transparent" to the optimiser.
                 bytecode_function.ops[i] = NopInstruction()
                 bytecode_function.ops[i+1] = NopInstruction()
                 changed = True
@@ -603,6 +602,7 @@ class Optimiser(object):
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
 
 # TODO: It would seem a good idea to do an initial pass expanding DUP where the preceding instruction is something "simple" like LLW [n], because my simplistic optimisation code will tend to be thrown by the presence of a DUP. We could then do a final DUPification pass (or perhaps include this in the optimisation loop, but only once we run out of other changes to make) to re-introduce DUP in cases like the ones we expanded. I haven't done this yet because some experiments and manual examination of the self-hosted compiler suggest that this would have no benefit for it, and it is my main test case at the moment.
+# TODO: On a similar theme, perhaps we should initially expand DROP2->DROP:DROP and do a "final" DROP:DROP->DROP2 to reverse this.
 
 # TODO: The peephole optimiser can do things like "LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW
 # [m]", but we could also do things like "LLW [n]:DLW [m]:SLW [o]:LLW [n] -> LLW
