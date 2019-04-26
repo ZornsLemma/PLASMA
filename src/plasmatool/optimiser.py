@@ -8,8 +8,8 @@ from utils import bidict
 def NopInstruction():
     return Instruction(NOP_OPCODE, [])
 
-# SFTODO: EXPERIMENTAL
-class Foo(object):
+# Helper class used to chop up a bytecode function in blocks.
+class FunctionSplitter(object):
     def __init__(self, bytecode_function):
         self.ops = bytecode_function.ops
         self.blocks_metadata = [None]
@@ -168,7 +168,7 @@ class Optimiser(object):
 
 
     # SFTODO: In following fns and their callers, should I stop saying 'metadata' and say
-    # 'target', because that's what it is in these cases? It may turn out that Foo() is used
+    # 'target', because that's what it is in these cases? It may turn out that FunctionSplitter() is used
     # in cases where the metadata is something else, so that's fine, but the below do
     # specifically use targets.
 
@@ -177,7 +177,7 @@ class Optimiser(object):
     # SFTODO: THIS IS QUITE SIMILAR TO THE LOCAL get_blocks FUNCTION ELSEWHERE
     @staticmethod
     def get_target_terminator_blocks(bytecode_function):
-        foo = Foo(bytecode_function)
+        foo = FunctionSplitter(bytecode_function)
         for i, instruction in enumerate(bytecode_function.ops):
             if instruction.is_target():
                 foo.start_before(i, instruction.operands[0])
@@ -394,7 +394,7 @@ class Optimiser(object):
             # SFTODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
             return instruction.is_target() or instruction.is_branch()
 
-        foo = Foo(bytecode_function)
+        foo = FunctionSplitter(bytecode_function)
         for i, instruction in enumerate(bytecode_function.ops):
             if i == 0 or is_branch_or_target(instruction) != is_branch_or_target(bytecode_function.ops[i-1]):
                 foo.start_before(i, not is_branch_or_target(instruction))
