@@ -134,20 +134,13 @@ class Optimiser(object):
         bytecode_function.ops = new_ops
         return changed
 
+    # Remove unreachable code; this works in conjunction with remove_orphaned_targets().
     @staticmethod
     def remove_dead_code(bytecode_function):
-        # This works in conjunction with remove_orphaned_targets().
-        def get_blocks(bytecode_function): # SFTODO: Don't like name clash with global get_blocks(), rename this
-            foo = Foo(bytecode_function)
-            foo.start_before(0, True)
-            for i, instruction in enumerate(bytecode_function.ops):
-                if instruction.is_terminator():
-                    foo.start_after(i, None)
-                elif instruction.is_target():
-                    foo.start_before(i, True)
-            return foo.get_blocks_and_metadata()
-
-        blocks, block_reachable = get_blocks(bytecode_function)
+        blocks, block_metadata = Optimiser.get_blocks(bytecode_function)
+        block_reachable = [i == 0 or x is not None for i, x in enumerate(block_metadata)]
+        if len(block_reachable) > 0:
+            block_reachable[0] = True
         bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
         return not all(block_reachable)
 
