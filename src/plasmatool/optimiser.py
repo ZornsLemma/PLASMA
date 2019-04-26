@@ -139,8 +139,6 @@ class Optimiser(object):
     def remove_dead_code(bytecode_function):
         blocks, block_metadata = Optimiser.get_blocks(bytecode_function)
         block_reachable = [i == 0 or x is not None for i, x in enumerate(block_metadata)]
-        if len(block_reachable) > 0:
-            block_reachable[0] = True
         bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
         return not all(block_reachable)
 
