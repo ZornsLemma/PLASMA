@@ -137,7 +137,7 @@ class Optimiser(object):
     # Remove unreachable code; this works in conjunction with remove_orphaned_targets().
     @staticmethod
     def remove_dead_code(bytecode_function):
-        blocks, block_metadata = Optimiser.get_blocks(bytecode_function)
+        blocks, block_metadata = Optimiser.get_target_terminator_blocks(bytecode_function)
         block_reachable = [i == 0 or x is not None for i, x in enumerate(block_metadata)]
         bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
         return not all(block_reachable)
@@ -151,7 +151,7 @@ class Optimiser(object):
     # and output.)
     @staticmethod
     def move_case_blocks(bytecode_function):
-        blocks, block_target = Optimiser.get_blocks(bytecode_function)
+        blocks, block_target = Optimiser.get_target_terminator_blocks(bytecode_function)
         new_ops = []
         tail = []
         for i, block in enumerate(blocks):
@@ -176,7 +176,7 @@ class Optimiser(object):
     # SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
     # SFTODO: THIS IS QUITE SIMILAR TO THE LOCAL get_blocks FUNCTION ELSEWHERE
     @staticmethod
-    def get_blocks(bytecode_function):
+    def get_target_terminator_blocks(bytecode_function):
         foo = Foo(bytecode_function)
         for i, instruction in enumerate(bytecode_function.ops):
             if instruction.is_target():
@@ -185,27 +185,24 @@ class Optimiser(object):
                 foo.start_after(i, None)
         return foo.get_blocks_and_metadata()
 
-    # Split a function up into blocks:
-    # - blocks which start with a target, contain a series of non-target
-    #   instructions and end with terminator.
-    # - anonymous blocks which don't satisfy that condition
-    # We also classify named blocks such that block_target_only[i] is True iff
-    # control only reaches that block via its target (not by falling off the end
-    # of the previous block); such blocks can be freely moved around. SFTODO: REWRITE THIS COMMENT, THE 'ALSO' BIT IS A CONFUSING WAY OF DESCRIBING THE EXTRA FUNCTIONALITY
+    # Split a function up into blocks such that:
+    # - targets only appear as the first instruction in a block
+    # - terminators only appear as the last instruction in a block
+    # A list of boolean values is also generated indicating whether a block is "isolated" or not; an isolated block can only be entered via a branch to its target and ends with a terminator.
     @staticmethod
-    def get_blocks2(bytecode_function): # SFTODO POOR NAME
-        blocks, blocks_metadata = Optimiser.get_blocks(bytecode_function)
-        block_target_only = [False] * len(blocks)
+    def get_target_terminator_blocks_with_isolated_flag(bytecode_function): # SFTODO POOR NAME
+        blocks, blocks_metadata = Optimiser.get_target_terminator_blocks(bytecode_function)
+        block_isolated = [False] * len(blocks)
         for i, block in enumerate(blocks):
             if not block[-1].is_terminator():
                 blocks_metadata[i] = None
             else:
-                block_target_only[i] = i > 0 and blocks[i-1][-1].is_terminator()
-        return blocks, blocks_metadata, block_target_only
+                block_isolated[i] = i > 0 and blocks[i-1][-1].is_terminator()
+        return blocks, blocks_metadata, block_isolated
 
     @staticmethod
     def block_deduplicate(bytecode_function):
-        blocks, blocks_metadata, block_target_only = Optimiser.get_blocks2(bytecode_function)
+        blocks, blocks_metadata, block_isolated = Optimiser.get_target_terminator_blocks_with_isolated_flag(bytecode_function)
 
         # Compare each pair of non-anonymous blocks (ignoring the initial target
         # instruction); if two are identical and one of them is never entered by falling
@@ -220,9 +217,9 @@ class Optimiser(object):
                     assert blocks[j][0].is_target()
                     if not (blocks_metadata[i] in unwanted or blocks_metadata[j] in unwanted):
                         replace = None
-                        if block_target_only[i]:
+                        if block_isolated[i]:
                             replace = (blocks_metadata[i], blocks_metadata[j])
-                        elif block_target_only[j]:
+                        elif block_isolated[j]:
                             replace = (blocks_metadata[j], blocks_metadata[i])
                         if replace:
                             alias[replace[0]] = replace[1]
@@ -253,7 +250,7 @@ class Optimiser(object):
         # redundant branches to the immediately following instruction first.
         changed = Optimiser.branch_optimise(bytecode_function)
 
-        blocks, blocks_metadata, block_target_only = Optimiser.get_blocks2(bytecode_function)
+        blocks, blocks_metadata, block_isolated = Optimiser.get_target_terminator_blocks_with_isolated_flag(bytecode_function)
 
         # Merge blocks where possible.
         for i, block in enumerate(blocks):
@@ -261,7 +258,7 @@ class Optimiser(object):
                 target = block[-1].operands[0]
                 if target in blocks_metadata:
                     target_block_index = blocks_metadata.index(target)
-                    if target_block_index != i and block_target_only[target_block_index]:
+                    if target_block_index != i and block_isolated[target_block_index]:
                         blocks[i] = blocks[i][:-1] + blocks[target_block_index]
                         blocks[target_block_index] = []
                         blocks_metadata[target_block_index] = None
