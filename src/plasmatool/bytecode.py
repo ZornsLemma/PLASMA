@@ -370,7 +370,7 @@ class Instruction(ComparisonMixin):
     def keys(self):
         return (self.opcode, self.operands)
 
-    def is_a(self, *mnemonics): # SFTODO: Use this everywhere appropriate - I don't like the name so can maybe think of a better one, but want something short as 'is' alone is a reserved word
+    def is_a(self, *mnemonics):
         return any(self.opcode == opcode[mnemonic] for mnemonic in mnemonics)
 
     def is_target(self):
@@ -379,8 +379,6 @@ class Instruction(ComparisonMixin):
     def is_constant(self, n):
         return self.opcode == CONSTANT_OPCODE and self.operands[0] == n
 
-    # SFTODO: CONFUSING THAT THIS DOESN'T EXACTLY MATCH INSTRUCTIONCLASS.BRANCH? RENAME
-    # THIS FN? is_control_transfer()? BUT NOT EXACTLY SHORT...
     def is_branch(self):
         return self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL)
 
@@ -504,8 +502,9 @@ class DisassemblyInfo(object):
 
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
-        # SFTODO TCO WOULD LIKE THIS BUT IT'S AWKWARD W CURRENT DECOMPOSITION INTO PYTHON
-        # MODULES assert isinstance(labelled_blob, LabelledBlob)
+        # TODO: I would like to assert this but it's awkward with the current decomposition
+        # into Python modules.
+        # assert isinstance(labelled_blob, LabelledBlob)
         self.labels = labelled_blob.labels.get(0, [])
         for label in self.labels:
             label.set_owner(self)

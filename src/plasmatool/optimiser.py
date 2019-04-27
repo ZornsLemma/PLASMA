@@ -161,13 +161,13 @@ def move_case_blocks(bytecode_function):
 # - targets only appear as the first instruction in a block
 # - terminators only appear as the last instruction in a block
 def get_target_terminator_blocks(bytecode_function):
-    foo = FunctionSplitter(bytecode_function)
+    splitter = FunctionSplitter(bytecode_function)
     for i, instruction in enumerate(bytecode_function.ops):
         if instruction.is_target():
-            foo.start_before(i, instruction.operands[0])
+            splitter.start_before(i, instruction.operands[0])
         elif instruction.is_terminator():
-            foo.start_after(i, None)
-    return foo.get_blocks_and_metadata()
+            splitter.start_after(i, None)
+    return splitter.get_blocks_and_metadata()
 
 # As get_target_terminator_blocks(), but also returns a list of boolean values indicating
 # whether a block is "isolated" or not; an isolated block can only be entered via a branch
@@ -319,7 +319,6 @@ def optimise_load_store(bytecode_function, straightline_ops):
     unobserved_stores = bidict()
 
     for i, instruction in enumerate(straightline_ops):
-        # SFTODO: DON'T LIKE NEXT TWO LINES RE CLASSIFICATION AND THE 'NOT LB/LW' IS PARTICULARLY UGLY (LOGIC IS PROB CORRECT THO OBSCURED BY THIS)
         is_store = instruction.is_simple_store() or instruction.is_dup_store()
         is_simple_load = instruction.is_simple_load()
         if is_store: # stores and duplicate-stores
@@ -371,11 +370,11 @@ def get_straightline_blocks(bytecode_function):
         # SFTODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
         return instruction.is_target() or instruction.is_branch()
 
-    foo = FunctionSplitter(bytecode_function)
+    splitter = FunctionSplitter(bytecode_function)
     for i, instruction in enumerate(bytecode_function.ops):
         if i == 0 or is_branch_or_target(instruction) != is_branch_or_target(bytecode_function.ops[i-1]):
-            foo.start_before(i, not is_branch_or_target(instruction))
-    return foo.get_blocks_and_metadata()
+            splitter.start_before(i, not is_branch_or_target(instruction))
+    return splitter.get_blocks_and_metadata()
 
 def straightline_optimise(bytecode_function, optimisations):
     blocks, is_straightline_block = get_straightline_blocks(bytecode_function)
