@@ -128,8 +128,8 @@ def remove_orphaned_targets(bytecode_function):
 
 # Remove unreachable code; this works in conjunction with remove_orphaned_targets().
 def remove_dead_code(bytecode_function):
-    blocks, block_metadata = get_target_terminator_blocks(bytecode_function)
-    block_reachable = [i == 0 or x is not None for i, x in enumerate(block_metadata)]
+    blocks, block_target = get_target_terminator_blocks(bytecode_function)
+    block_reachable = [i == 0 or x is not None for i, x in enumerate(block_target)]
     bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
     return not all(block_reachable)
 
@@ -157,12 +157,6 @@ def move_case_blocks(bytecode_function):
 
 
 
-# SFTODO: In following fns and their callers, should I stop saying 'metadata' and say
-# 'target', because that's what it is in these cases? It may turn out that FunctionSplitter() is used
-# in cases where the metadata is something else, so that's fine, but the below do
-# specifically use targets.
-
-
 # Split a function up into blocks such that:
 # - targets only appear as the first instruction in a block
 # - terminators only appear as the last instruction in a block
@@ -179,17 +173,17 @@ def get_target_terminator_blocks(bytecode_function):
 # whether a block is "isolated" or not; an isolated block can only be entered via a branch
 # to its target and ends with a terminator.
 def get_target_terminator_blocks_with_isolated_flag(bytecode_function):
-    blocks, blocks_metadata = get_target_terminator_blocks(bytecode_function)
+    blocks, block_target = get_target_terminator_blocks(bytecode_function)
     block_isolated = [False] * len(blocks)
     for i, block in enumerate(blocks):
         if not block[-1].is_terminator():
-            blocks_metadata[i] = None
+            block_target[i] = None
         else:
             block_isolated[i] = i > 0 and blocks[i-1][-1].is_terminator()
-    return blocks, blocks_metadata, block_isolated
+    return blocks, block_target, block_isolated
 
 def block_deduplicate(bytecode_function):
-    blocks, blocks_metadata, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
+    blocks, block_target, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
 
     # Compare each pair of non-anonymous blocks (ignoring the initial target
     # instruction); if two are identical and one of them is never entered by falling
@@ -199,15 +193,15 @@ def block_deduplicate(bytecode_function):
     unwanted = set()
     for i in range(len(blocks)):
         for j in range(i+1, len(blocks)):
-            if blocks_metadata[i] and blocks_metadata[j] and blocks[i][1:] == blocks[j][1:]:
+            if block_target[i] and block_target[j] and blocks[i][1:] == blocks[j][1:]:
                 assert blocks[i][0].is_target()
                 assert blocks[j][0].is_target()
-                if not (blocks_metadata[i] in unwanted or blocks_metadata[j] in unwanted):
+                if not (block_target[i] in unwanted or block_target[j] in unwanted):
                     replace = None
                     if block_isolated[i]:
-                        replace = (blocks_metadata[i], blocks_metadata[j])
+                        replace = (block_target[i], block_target[j])
                     elif block_isolated[j]:
-                        replace = (blocks_metadata[j], blocks_metadata[i])
+                        replace = (block_target[j], block_target[i])
                     if replace:
                         alias[replace[0]] = replace[1]
                         unwanted.add(replace[0])
@@ -217,7 +211,7 @@ def block_deduplicate(bytecode_function):
     changed = False
     assert None not in unwanted
     for i, block in enumerate(blocks):
-        if blocks_metadata[i] not in unwanted:
+        if block_target[i] not in unwanted:
             for instruction in block:
                 instruction.replace_targets(alias)
                 new_ops.append(instruction)
@@ -236,18 +230,18 @@ def block_move(bytecode_function):
     # redundant branches to the immediately following instruction first.
     changed = branch_optimise(bytecode_function)
 
-    blocks, blocks_metadata, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
+    blocks, block_target, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
 
     # Merge blocks where possible.
     for i, block in enumerate(blocks):
         if len(block) > 0 and block[-1].is_a('BRNCH'):
             target = block[-1].operands[0]
-            if target in blocks_metadata:
-                target_block_index = blocks_metadata.index(target)
+            if target in block_target:
+                target_block_index = block_target.index(target)
                 if target_block_index != i and block_isolated[target_block_index]:
                     blocks[i] = blocks[i][:-1] + blocks[target_block_index]
                     blocks[target_block_index] = []
-                    blocks_metadata[target_block_index] = None
+                    block_target[target_block_index] = None
                     changed = True
 
     # Regenerate the function from the modified blocks.
