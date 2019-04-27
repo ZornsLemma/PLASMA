@@ -490,44 +490,37 @@ def optimise_init(module):
 
 def optimise(module):
     for bytecode_function in module.bytecode_functions:
-        # SFTODO: The order here has not been thought through at all carefully and may be sub-optimal
-        changed = True
-        while changed:
-            changed1 = True
-            while changed1:
-                # SFTODO: This seems a clunky way to handle 'changed' but I don't want
-                # short-circuit evaluation. I think we can do 'changed = function() or changed', if
-                # we want...
-                result = []
-                if True: # SFTODO TEMP
-                    result.append(target_deduplicate(bytecode_function))
-                    #assert result[-1] or (SFTODO == bytecode_function.ops)
-                    result.append(branch_optimise(bytecode_function))
-                    result.append(branch_optimise2(bytecode_function))
-                    result.append(branch_optimise3(bytecode_function))
-                    result.append(remove_orphaned_targets(bytecode_function))
-                    result.append(remove_dead_code(bytecode_function))
-                    result.append(move_case_blocks(bytecode_function))
-                    result.append(peephole_optimise(bytecode_function))
-                    result.append(straightline_optimise(bytecode_function, [optimise_load_store]))
-                    #if SFTODOFOO:
-                    #    break
-                changed1 = any(result)
-            #remove_dead_code(bytecode_function) # SFTODO
-            changed2 = True
-            # We do these following optimisations only when the ones above fail to produce any
-            # effect. These can reorder code but this can give (slightly) unhelpful/confusing
-            # re-orderings, so we let the more localised optimisations above have first go.
-            # SFTODO: It may be worth putting all this back into a single loop later on to see if
-            # this is actually still true.
-            while changed2:
-                result = []
-                result.append(block_deduplicate(bytecode_function))
-                result.append(block_move(bytecode_function))
-                result.append(tail_move(bytecode_function))
-                changed2 = any(result)
-            changed = changed1 or changed2
-        print('SFTODOXXX', peephole_optimise(bytecode_function)) # SFTODO: WE NEED TO DO THE 'CHANGED1' SET AFTER CHANGED2 STOPS WORKING, WE ARE MISSING OPPORTUNITIES
+        # We perform the step 1 optimisations until they have no effect, then the step 2
+        # optimisations until they have no effect, then go back to step 1 and repeat until
+        # no steps make any changes. We split this into two steps because step 1
+        # optimisations are relatively non-disruptive, whereas the step 2 optimisations
+        # move more code around so we don't perform them until step 1 has stopped having
+        # any effect; of course once we've tried the step 2 optimisations, there might be
+        # more scope for the step 1 optimisations to make changes.
+        step1 = (lambda: target_deduplicate(bytecode_function),
+                 lambda: branch_optimise(bytecode_function),
+                 lambda: branch_optimise2(bytecode_function),
+                 lambda: branch_optimise3(bytecode_function),
+                 lambda: remove_orphaned_targets(bytecode_function),
+                 lambda: remove_dead_code(bytecode_function),
+                 lambda: move_case_blocks(bytecode_function),
+                 lambda: peephole_optimise(bytecode_function),
+                 lambda: straightline_optimise(bytecode_function, [optimise_load_store]))
+        step2 = (lambda: block_deduplicate(bytecode_function),
+                 lambda: block_move(bytecode_function),
+                 lambda: tail_move(bytecode_function))
+        all_steps = (step1, step2)
+        changed_by_step = [True] * len(all_steps)
+        while any(changed_by_step):
+            for i, step in enumerate(all_steps):
+                changed_by_step[i] = False
+                changed = True
+                while changed:
+                    changed = False
+                    for f in step:
+                        f_changed = f()
+                        changed = changed or f_changed
+                        changed_by_step[i] = changed_by_step[i] or f_changed
 
     optimise_init(module)
 
