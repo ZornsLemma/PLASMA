@@ -527,6 +527,7 @@ def optimise(module):
                 result.append(tail_move(bytecode_function))
                 changed2 = any(result)
             changed = changed1 or changed2
+        print('SFTODOXXX', peephole_optimise(bytecode_function)) # SFTODO: WE NEED TO DO THE 'CHANGED1' SET AFTER CHANGED2 STOPS WORKING, WE ARE MISSING OPPORTUNITIES
 
     optimise_init(module)
 
