@@ -27,7 +27,8 @@ class ComparisonMixin(object):
         return hash(self.keys())
 
 
-# bidict taken from Basj's answer at https://stackoverflow.com/questions/3318625/efficient-bidirectional-hash-table-in-python
+# bidict taken from Basj's answer at
+# https://stackoverflow.com/questions/3318625/efficient-bidirectional-hash-table-in-python
 class bidict(dict):
     def __init__(self, *args, **kwargs):
         super(bidict, self).__init__(*args, **kwargs)

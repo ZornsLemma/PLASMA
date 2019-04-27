@@ -16,12 +16,12 @@ CASE_BLOCK_OPCODE = -1003
 
 # I originally used inheritance to model the different types of instruction, with
 # Instruction as a base class, but this was inconvenient as it was not possible to update
-# an Instruction in-place freely (an object can't change its type) and this is
-# useful when implementing optimisations; if you can modify an object in place you can use
-# Python's for loop to modify sequences, whereas replacing an object requires
-# knowing its sequence index. Instead each Instruction has an InstructionClass (looked up
-# based on its opcode) which provides a place to describe the differences common to each
-# instruction class without using inheritance.
+# an Instruction in-place freely (an object can't change its type) and this is useful when
+# implementing optimisations; if you can modify an object in place you can use Python's
+# for loop to modify sequences, whereas replacing an object requires knowing its sequence
+# index. Instead each Instruction has an InstructionClass (looked up based on its opcode)
+# which provides a place to describe the differences common to each instruction class
+# without using inheritance.
 
 
 class InstructionClass:
@@ -47,9 +47,13 @@ class InstructionClass:
         elif opcode == 0x2a: # CB opcode
             return Instruction(CONSTANT_OPCODE, [disassembly_info.labelled_blob[i+1]]), i+2
         elif opcode == 0x2c: # CW opcode
-            return Instruction(CONSTANT_OPCODE, [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]), i+3
+            return (Instruction(CONSTANT_OPCODE, 
+                                [sign_extend(disassembly_info.labelled_blob.read_u16(i+1))]),
+                    i+3)
         elif opcode == 0x5e: # CFFB opcode
-            return Instruction(CONSTANT_OPCODE, [sign_extend(0xff00 | disassembly_info.labelled_blob[i+1])]), i+2
+            return (Instruction(CONSTANT_OPCODE,
+                                [sign_extend(0xff00 | disassembly_info.labelled_blob[i+1])]),
+                    i+2)
         else:
             die("Invalid opcode found")
 
@@ -64,7 +68,8 @@ class InstructionClass:
         elif value & 0xff00 == 0xff00:
             print("\t!BYTE\t$5E,$%02X\t\t\t; CFFB\t%d" % (value & 0xff, value), file=outfile)
         else:
-            print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value), file=outfile)
+            print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" %
+                  (value & 0xff, (value & 0xff00) >> 8, value), file=outfile)
 
     def dump_target(outfile, instruction, rld):
         print("%s" % (instruction.operands[0]), file=outfile)
@@ -77,7 +82,8 @@ class InstructionClass:
     def dump_branch(outfile, instruction, rld):
         opcode = instruction.opcode
         operands = instruction.operands
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]), file=outfile)
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" %
+              (opcode, opdict[opcode]['opcode'], operands[0]), file=outfile)
         print("\t!WORD\t%s-*" % (operands[0],), file=outfile)
 
     def disassemble_implied(disassembly_info, i):
@@ -85,7 +91,8 @@ class InstructionClass:
         return Instruction(opcode, []), i+1
 
     def dump_implied_instruction(outfile, instruction, rld):
-        print("\t!BYTE\t$%02X\t\t\t; %s" % (instruction.opcode, opdict[instruction.opcode]['opcode']), file=outfile)
+        print("\t!BYTE\t$%02X\t\t\t; %s" %
+              (instruction.opcode, opdict[instruction.opcode]['opcode']), file=outfile)
 
     @staticmethod
     def disassemble_immediate(disassembly_info, i, operand_count):
@@ -105,9 +112,15 @@ class InstructionClass:
 
     def dump_immediate_instruction(outfile, instruction, rld):
         if len(instruction.operands) == 1:
-            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" %
+                  (instruction.opcode, instruction.operands[0].value,
+                   opdict[instruction.opcode]['opcode'], instruction.operands[0].value),
+                  file=outfile)
         elif len(instruction.operands) == 2:
-            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (instruction.opcode, instruction.operands[0].value, instruction.operands[1].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value, instruction.operands[1].value), file=outfile)
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" %
+                  (instruction.opcode, instruction.operands[0].value,
+                   instruction.operands[1].value, opdict[instruction.opcode]['opcode'],
+                   instruction.operands[0].value, instruction.operands[1].value), file=outfile)
         else:
             die("Immediate instruction with odd number of opcodes found")
 
@@ -126,7 +139,9 @@ class InstructionClass:
         return Instruction(opcode, [frame_offset]), i+2
 
     def dump_frame_instruction(outfile, instruction, rld):
-        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" %
+              (instruction.opcode, instruction.operands[0].value,
+               opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
 
     def disassemble_string(disassembly_info, i):
         s, i = String.disassemble(disassembly_info, i+1)
@@ -168,14 +183,22 @@ class InstructionClass:
     instruction_class_fns = {
             NOP: {'operand_types': []},
             TARGET: {'dump': dump_target, 'operand_types': [Target]},
-            CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operand_types': [int]},
-            BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operand_types': [Target]},
-            IMPLIED: {'disassemble': disassemble_implied, 'dump': dump_implied_instruction, 'operand_types': []},
-            IMMEDIATE1: {'disassemble': disassemble_immediate1, 'dump': dump_immediate_instruction, 'operand_types': [Byte]},
-            IMMEDIATE2: {'disassemble': disassemble_immediate2, 'dump': dump_immediate_instruction, 'operand_types': [Byte, Byte]},
-            ABSOLUTE: {'disassemble': disassemble_absolute, 'dump': dump_absolute_instruction, 'operand_types': [AbsoluteAddress]},
-            FRAME: {'disassemble': disassemble_frame, 'dump': dump_frame_instruction, 'operand_types': [FrameOffset]},
-            STRING: {'disassemble': disassemble_string, 'dump': dump_string_instruction, 'operand_types': [String]},
+            CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant,
+                       'operand_types': [int]},
+            BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch,
+                     'operand_types': [Target]},
+            IMPLIED: {'disassemble': disassemble_implied, 'dump': dump_implied_instruction,
+                      'operand_types': []},
+            IMMEDIATE1: {'disassemble': disassemble_immediate1, 'dump': dump_immediate_instruction,
+                         'operand_types': [Byte]},
+            IMMEDIATE2: {'disassemble': disassemble_immediate2, 'dump': dump_immediate_instruction,
+                         'operand_types': [Byte, Byte]},
+            ABSOLUTE: {'disassemble': disassemble_absolute, 'dump': dump_absolute_instruction,
+                       'operand_types': [AbsoluteAddress]},
+            FRAME: {'disassemble': disassemble_frame, 'dump': dump_frame_instruction,
+                    'operand_types': [FrameOffset]},
+            STRING: {'disassemble': disassemble_string, 'dump': dump_string_instruction,
+                     'operand_types': [String]},
             SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operand_types': [Target]},
             CASE_BLOCK: {'dump': dump_case_block, 'operand_types': [CaseBlock]},
     }
@@ -187,7 +210,8 @@ class InstructionClass:
 
     @staticmethod
     def dump(outfile, instruction, rld):
-        InstructionClass.instruction_class_fns[instruction.instruction_class]['dump'](outfile, instruction, rld)
+        dump = InstructionClass.instruction_class_fns[instruction.instruction_class]['dump']
+        return dump(outfile, instruction, rld)
 
     @staticmethod
     def validate_instruction(instruction):
@@ -320,8 +344,8 @@ class Instruction(ComparisonMixin):
         self.set(opcode, operands)
 
     def set(self, opcode_or_instruction, operands = None):
-        """Set the Instruction to something else, either a copy of another Instruction or an
-        (opcode, operands) pair."""
+        """Set the Instruction to something else, either a copy of another Instruction or
+           an (opcode, operands) pair."""
         if isinstance(opcode_or_instruction, Instruction):
             assert operands is None
             instruction = opcode_or_instruction
@@ -407,7 +431,8 @@ class Instruction(ComparisonMixin):
         return self.is_load() and not self.is_a('LB', 'LW')
 
     def is_pure_simple_load(self):
-        return self.is_simple_load() and not self.is_a('ADDLB', 'ADDLW', 'ADDAB', 'ADDAW', 'IDXLB', 'IDXLW', 'IDXAB', 'IDXAW')
+        return (self.is_simple_load() and
+                not self.is_a('ADDLB', 'ADDLW', 'ADDAB', 'ADDAW', 'IDXLB', 'IDXLW', 'IDXAB', 'IDXAW'))
 
     # A 'simple stack push' instruction is one which has no side-effects other than
     # pushing a value onto the expression stack.
@@ -415,7 +440,8 @@ class Instruction(ComparisonMixin):
         # TODO: I think LA, LLA and CS would qualify as simple stack push instructions,
         # but adding them doesn't help the self-hosted compiler so I don't have an easy
         # way to test this and I'll ignore them for now.
-        return (self.is_pure_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT or self.is_a('LA', 'LLA', 'CS')
+        return ((self.is_pure_simple_load() and not self.has_side_effects()) or
+                self.instruction_class == InstructionClass.CONSTANT or self.is_a('LA', 'LLA', 'CS'))
 
     def is_terminator(self):
         return opdict[self.opcode].get('terminator', False)
@@ -428,7 +454,8 @@ class Instruction(ComparisonMixin):
             # Loads/stores which take addresses from the stack could access any address,
             # so we play it safe and assume they have side effects.
             return True
-        return self.instruction_class in (InstructionClass.ABSOLUTE,) and any(is_hardware_address(address) for address in self.memory())
+        return (self.instruction_class in (InstructionClass.ABSOLUTE,) and
+                any(is_hardware_address(address) for address in self.memory()))
 
     @property
     def instruction_class(self):
@@ -456,7 +483,8 @@ class Instruction(ComparisonMixin):
                 self.operands[0] = new
 
     def add_targets_used(self, targets_used):
-        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL, InstructionClass.CASE_BLOCK):
+        if self.instruction_class in (InstructionClass.BRANCH, InstructionClass.SEL,
+                                      InstructionClass.CASE_BLOCK):
             self.operands[0].add_targets_used(targets_used)
 
     def memory(self):
@@ -475,8 +503,8 @@ class Instruction(ComparisonMixin):
 
 
 class DisassemblyInfo(object):
-    """Collection of temporary information needed while disassembling a bytecode
-       function; can be discarded once disassembly is complete."""
+    """Collection of temporary information needed while disassembling a bytecode function;
+    can be discarded once disassembly is complete."""
     def __init__(self, bytecode_function, labelled_blob):
         self.bytecode_function = bytecode_function
         self.labelled_blob = labelled_blob
@@ -486,8 +514,8 @@ class DisassemblyInfo(object):
 
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
-        # TODO: I would like to assert this but it's awkward with the current decomposition
-        # into Python modules.
+        # TODO: I would like to assert this but it's awkward with the current
+        # decomposition into Python modules.
         # assert isinstance(labelled_blob, LabelledBlob)
         self.labels = labelled_blob.labels.get(0, [])
         for label in self.labels:
@@ -500,9 +528,9 @@ class BytecodeFunction(object):
         i = 0
         op_offset = []
         while i < len(labelled_blob):
-            # There should be no labels within a bytecode function. We will later
-            # create branch targets based on the branch instructions within
-            # the function, but those are different.
+            # There should be no labels within a bytecode function. We will later create
+            # branch targets based on the branch instructions within the function, but
+            # those are different.
             assert i == 0 or i not in labelled_blob.labels
 
             op_offset.append(i)
@@ -556,9 +584,9 @@ def is_hardware_address(address):
     # A Label or ExternalReference can never refer to hardware addresses, only memory
     # allocated by the PLASMA compiler, so only FixedAddress operands can reference
     # hardware addresses.
-    # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to
-    # support a better compromise and perhaps offer a --platform command line
-    # switch to trigger a tighter definition where platform is known.
+    # TODO: 0xc000 is a crude compromise for Acorn and Apple; might be nice to support a
+    # better compromise and perhaps offer a --platform command line switch to trigger a
+    # tighter definition where platform is known.
     # TODO: It might be good to allow a command line option to pretend *all* addresses are
     # hardware addresses and/or to allow specific addresses to be flagged as hardware
     # addresses. This might be important if PLASMA code were trying to interoperate with a

@@ -138,9 +138,9 @@ class Label(AbsoluteAddress, ComparisonMixin):
 
     def __init__(self, prefix, add_suffix = True):
         # We don't need to populate self.owner here; we are either creating a Label object
-        # to be initially associated with the single LabelledBlob corresponding to the whole
-        # input module, which will be sliced up later on, or we are creating Label objects
-        # only as part of dump() in which case no one cares about ownership.
+        # to be initially associated with the single LabelledBlob corresponding to the
+        # whole input module, which will be sliced up later on, or we are creating Label
+        # objects only as part of dump() in which case no one cares about ownership.
         self.owner = None
 
         if add_suffix:
@@ -187,7 +187,8 @@ class Label(AbsoluteAddress, ComparisonMixin):
     # TODO: I really don't like having to pass opdict into this function but the way I'm
     # decomposing the code into seperate modules seems to leave me no better option.
     def dump(self, outfile, opcode, rld, opdict):
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self.name), file=outfile)
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self.name),
+              file=outfile)
         acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
 
 
@@ -216,9 +217,10 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
             return "!WORD\t%d" % (self.offset,)
 
     def acme_rld(self, fixup_label, esd):
-        return ("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
-                "\t!WORD\t%s-_SEGBEGIN\n" +
-                "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") % (fixup_label.name, esd.get_external_index(self.external_name), self.external_name)
+        return (("\t!BYTE\t$91\t\t\t; EXTERNAL FIXUP\n" +
+                 "\t!WORD\t%s-_SEGBEGIN\n" +
+                 "\t!BYTE\t%d\t\t\t; ESD INDEX (%s)") %
+                (fixup_label.name, esd.get_external_index(self.external_name), self.external_name))
 
     def add_dependencies(self, dependencies):
         pass
@@ -226,7 +228,8 @@ class ExternalReference(AbsoluteAddress, ComparisonMixin):
     # TODO: I really don't like having to pass opdict into this function but the way I'm
     # decomposing the code into seperate modules seems to leave me no better option.
     def dump(self, outfile, opcode, rld, opdict):
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()), file=outfile)
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], self._name()),
+              file=outfile)
         acme_dump_fixup(outfile, rld, self, False) # no comment, previous line shows this info
 
 
@@ -256,10 +259,13 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
 
     def dump(self, outfile, opcode, rld):
         value = self.value
-        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value), file=outfile)
+        print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" %
+              (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value),
+              file=outfile)
 
 
-# This can't be a member of Target because Target objects are shared and so must be immutable.
+# This can't be a member of Target because Target objects are shared and so must be
+# immutable.
 def replace_targets(target, alias):
     assert isinstance(target, Target)
     assert isinstance(alias, dict)
