@@ -5,7 +5,7 @@ import os
 import sys
 
 from module import *
-from optimiser import *
+import optimiser
 from utils import *
 
 # SFTODO: I'm using assert where I should probably use something else; where I'm doing
@@ -28,7 +28,7 @@ args = parser.parse_args()
 module = Module.load(args.input)
 
 if args.optimise:
-    Optimiser.optimise(module)
+    optimiser.optimise(module)
 
 if args.output2 is not None:
     if args.name is not None:
