@@ -318,6 +318,12 @@ opdict = {
 
 opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', False)}
 
+# TODO: I can't help wondering if I should rename Instruction to Op for
+# consistency/brevity (and rename associated classes and variables all over the place) but
+# I just don't have the stomach for it right now. It would be a biggish job so I'd want to
+# be very sure it would be an improvement before trying it. Alternatively I could rename
+# things like BytecodeFunction's 'op' member to 'instructions' and be consistent (if
+# verbose) that way.
 class Instruction(ComparisonMixin):
     CONDITIONAL_BRANCH_PAIRS = (
         opcode['BREQ'],  opcode['BRNE'], 
@@ -485,9 +491,6 @@ class Instruction(ComparisonMixin):
 
 
 
-# SFTODO: Probably rename Instruction to Op and make corresponding changes in all other class and
-# variable names; 'Instruction' is fine in itself, but it's super verbose and it appears one way
-# or another all over the code.
 
 
 
@@ -511,7 +514,7 @@ class BytecodeFunction(object):
             label.set_owner(self)
         if len(self.labels) > 0:
             assert self.labels[0].name[0:2] == '_I'
-        ops = [] # SFTODO Should perhaps call 'instructions'
+        ops = []
         di = DisassemblyInfo(self, labelled_blob)
 
         i = 0
