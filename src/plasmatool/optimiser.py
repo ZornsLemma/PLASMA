@@ -163,8 +163,9 @@ def move_case_blocks(bytecode_function):
 # specifically use targets.
 
 
-# SFTODO: EXPERIMENTAL - SEEMS QUITE PROMISING, TRY USING THIS IN block_move() AND THEN OTHERS
-# SFTODO: THIS IS QUITE SIMILAR TO THE LOCAL get_blocks FUNCTION ELSEWHERE
+# Split a function up into blocks such that:
+# - targets only appear as the first instruction in a block
+# - terminators only appear as the last instruction in a block
 def get_target_terminator_blocks(bytecode_function):
     foo = FunctionSplitter(bytecode_function)
     for i, instruction in enumerate(bytecode_function.ops):
@@ -174,11 +175,10 @@ def get_target_terminator_blocks(bytecode_function):
             foo.start_after(i, None)
     return foo.get_blocks_and_metadata()
 
-# Split a function up into blocks such that:
-# - targets only appear as the first instruction in a block
-# - terminators only appear as the last instruction in a block
-# A list of boolean values is also generated indicating whether a block is "isolated" or not; an isolated block can only be entered via a branch to its target and ends with a terminator.
-def get_target_terminator_blocks_with_isolated_flag(bytecode_function): # SFTODO POOR NAME
+# As get_target_terminator_blocks(), but also returns a list of boolean values indicating
+# whether a block is "isolated" or not; an isolated block can only be entered via a branch
+# to its target and ends with a terminator.
+def get_target_terminator_blocks_with_isolated_flag(bytecode_function):
     blocks, blocks_metadata = get_target_terminator_blocks(bytecode_function)
     block_isolated = [False] * len(blocks)
     for i, block in enumerate(blocks):
