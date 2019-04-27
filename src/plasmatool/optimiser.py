@@ -6,8 +6,8 @@ from utils import bidict
 # TODO: Possibly most of the classes/functions in this file should be named with a single
 # leading underscore; the only "public" function in here is optimise().
 
-# SFTODO TEMPORARY (?) PSEUDO-CTOR FOR TRANSITION
-# SFTODO: IF THIS LIVES SHOULD IT BE IN plasma.py?
+# TODO: Possibly this should be called nop_instruction as it's a function, but I think of
+# it as a pseudo-constructor for a derived class of Instruction. Ish.
 def NopInstruction():
     return Instruction(NOP_OPCODE, [])
 
@@ -88,8 +88,7 @@ def build_target_dictionary(bytecode_function, test):
 
 
 
-# This replaces a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
-# SFTODO: Not just in this function - I am a bit inconsistent with opcode meaning "BRNCH" and opcode meaning 0x50 - perhaps check terminology, but I think opcode should be a hex value (so the opcode reverse dict is fine, because it gives us the opcode for a name, it's the 'opcode' member of the subdicts in opdict that are wrong, among others)
+# Replace a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
 def branch_optimise2(bytecode_function):
     changed = False
     targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
@@ -108,9 +107,7 @@ def branch_optimise3(bytecode_function):
     targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
     alias = {k:v.operands[0] for k, v in targets.items()}
     for instruction in bytecode_function.ops:
-        original_operands = instruction.operands[:] # SFTODO EXPERIMENTAL - THIS IS NOW WORKING, BUT I'D RATHER NOT HAVE TO DO THIS
-        instruction.replace_targets(alias)
-        changed = changed or (original_operands != instruction.operands)
+        changed = instruction.replace_targets(alias) or changed
     return changed
 
 # Remove targets which have no instructions referencing them; this can occur as a result

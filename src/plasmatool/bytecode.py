@@ -436,12 +436,14 @@ class Instruction(ComparisonMixin):
             self.operands[0].add_dependencies(dependencies)
             
     def replace_targets(self, alias_dict):
+        original_operands = self.operands[:]
         if self.instruction_class == InstructionClass.BRANCH:
             self.operands[0] = replace_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.SEL:
             self.operands[0] = replace_targets(self.operands[0], alias_dict)
         elif self.instruction_class == InstructionClass.CASE_BLOCK:
             self.operands[0].replace_targets(alias_dict)
+        return self.operands != original_operands
 
     def replace_absolute_address(self, old, new):
         assert isinstance(old, AbsoluteAddress)
