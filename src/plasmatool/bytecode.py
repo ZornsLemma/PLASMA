@@ -420,8 +420,10 @@ class Instruction(ComparisonMixin):
     # A 'simple stack push' instruction is one which has no side-effects other than
     # pushing a value onto the expression stack.
     def is_simple_stack_push(self):
-        # SFTODO: I am probably missing some possible instructions here, but for now let's keep it simple
-        return (self.is_pure_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
+        # TODO: I think LA, LLA and CS would qualify as simple stack push instructions,
+        # but adding them doesn't help the self-hosted compiler so I don't have an easy
+        # way to test this and I'll ignore them for now.
+        return (self.is_pure_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT or self.is_a('LA', 'LLA', 'CS')
 
     def is_terminator(self):
         return opdict[self.opcode].get('terminator', False)
