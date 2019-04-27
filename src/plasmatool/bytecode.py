@@ -5,13 +5,13 @@ import collections
 from operands import *
 from utils import *
 
+
 # Pseudo-opcodes; we give these non-8-bit values as extra insurance against them making
 # their way into the output without being noticed.
 CONSTANT_OPCODE = -1000
 TARGET_OPCODE = -1001
 NOP_OPCODE = -1002
 CASE_BLOCK_OPCODE = -1003
-
 
 
 # I originally used inheritance to model the different types of instruction, with
@@ -22,7 +22,6 @@ CASE_BLOCK_OPCODE = -1003
 # knowing its sequence index. Instead each Instruction has an InstructionClass (looked up
 # based on its opcode) which provides a place to describe the differences common to each
 # instruction class without using inheritance.
-
 
 
 class InstructionClass:
@@ -38,117 +37,6 @@ class InstructionClass:
     STRING = 9
     SEL = 10
     CASE_BLOCK = 11
-
-    def dump_target(outfile, instruction, rld):
-        print("%s" % (instruction.operands[0]), file=outfile)
-
-
-    def dump_case_block(outfile, instruction, rld):
-        table = instruction.operands[0].table
-        print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),), file=outfile)
-        for value, target in table:
-            print("\t!WORD\t$%04X" % (value,), file=outfile)
-            print("\t!WORD\t%s-*" % (target,), file=outfile)
-
-
-    def disassemble_branch(disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        target, i = Target.disassemble(disassembly_info, i+1)
-        return Instruction(opcode, [target]), i
-
-    def dump_branch(outfile, instruction, rld):
-        opcode = instruction.opcode
-        operands = instruction.operands
-        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]), file=outfile)
-        print("\t!WORD\t%s-*" % (operands[0],), file=outfile)
-
-
-    def disassemble_sel(di, i):
-        i += 1
-        di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
-        target, i = Target.disassemble(di, i)
-        return Instruction('SEL', [target]), i
-
-
-
-    def disassemble_implied_instruction(disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        return Instruction(opcode, []), i+1
-
-    def dump_implied_instruction(outfile, instruction, rld):
-        print("\t!BYTE\t$%02X\t\t\t; %s" % (instruction.opcode, opdict[instruction.opcode]['opcode']), file=outfile)
-
-
-
-    @staticmethod
-    def disassemble_immediate_instruction(disassembly_info, i, operand_count):
-        opcode = disassembly_info.labelled_blob[i]
-        i += 1
-        operands = []
-        for j in range(operand_count):
-            operands.append(Byte(disassembly_info.labelled_blob[i]))
-            i += 1
-        return Instruction(opcode, operands), i
-
-    def disassemble_immediate_instruction1(disassembly_info, i):
-        return InstructionClass.disassemble_immediate_instruction(disassembly_info, i, 1)
-
-    def disassemble_immediate_instruction2(disassembly_info, i):
-        return InstructionClass.disassemble_immediate_instruction(disassembly_info, i, 2)
-
-    def dump_immediate_instruction(outfile, instruction, rld):
-        if len(instruction.operands) == 1:
-            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
-        elif len(instruction.operands) == 2:
-            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (instruction.opcode, instruction.operands[0].value, instruction.operands[1].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value, instruction.operands[1].value), file=outfile)
-        else:
-            assert False
-
-    # SFTODO: All these functions need reordering logically and perhaps some consistency about whether they have _instruction at the end of their name
-
-
-    def disassemble_absolute_instruction(disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        i += 1
-        address, i = AbsoluteAddress.disassemble(disassembly_info, i)
-        return Instruction(opcode, [address]), i
-
-
-
-    def disassemble_frame_instruction(disassembly_info, i):
-        opcode = disassembly_info.labelled_blob[i]
-        frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
-        return Instruction(opcode, [frame_offset]), i+2
-
-    def dump_frame_instruction(outfile, instruction, rld):
-        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
-
-
-
-    def disassemble_string_instruction(disassembly_info, i):
-        s, i = String.disassemble(disassembly_info, i+1)
-        return Instruction(opcode['CS'], [s]), i
-
-    def dump_string_instruction(outfile, instruction, rld):
-        s = instruction.operands[0].value
-        t = ''
-        for c in s:
-            if c == '"':
-                t += r'\"'
-            elif c == "'":
-                t += "'"
-            else:
-                t += repr(c)[1:-1]
-
-        print('\t!BYTE\t$2E\t\t\t; CS\t"%s"' % (t,), file=outfile)
-        print("\t!BYTE\t$%02X" % (len(s),), file=outfile)
-        while s:
-            t = s[0:8]
-            s = s[8:]
-            print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t), file=outfile)
-
-    def dump_absolute_instruction(outfile, instruction, rld):
-        instruction.operands[0].dump(outfile, instruction.opcode, rld, opdict)
 
     def disassemble_constant(disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]
@@ -178,17 +66,116 @@ class InstructionClass:
         else:
             print("\t!BYTE\t$2C,$%02X,$%02X\t\t; CW\t%d" % (value & 0xff, (value & 0xff00) >> 8, value), file=outfile)
 
+    def dump_target(outfile, instruction, rld):
+        print("%s" % (instruction.operands[0]), file=outfile)
+
+    def disassemble_branch(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        target, i = Target.disassemble(disassembly_info, i+1)
+        return Instruction(opcode, [target]), i
+
+    def dump_branch(outfile, instruction, rld):
+        opcode = instruction.opcode
+        operands = instruction.operands
+        print("\t!BYTE\t$%02X\t\t\t; %s\t%s" % (opcode, opdict[opcode]['opcode'], operands[0]), file=outfile)
+        print("\t!WORD\t%s-*" % (operands[0],), file=outfile)
+
+    def disassemble_implied(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        return Instruction(opcode, []), i+1
+
+    def dump_implied_instruction(outfile, instruction, rld):
+        print("\t!BYTE\t$%02X\t\t\t; %s" % (instruction.opcode, opdict[instruction.opcode]['opcode']), file=outfile)
+
+    @staticmethod
+    def disassemble_immediate(disassembly_info, i, operand_count):
+        opcode = disassembly_info.labelled_blob[i]
+        i += 1
+        operands = []
+        for j in range(operand_count):
+            operands.append(Byte(disassembly_info.labelled_blob[i]))
+            i += 1
+        return Instruction(opcode, operands), i
+
+    def disassemble_immediate1(disassembly_info, i):
+        return InstructionClass.disassemble_immediate(disassembly_info, i, 1)
+
+    def disassemble_immediate2(disassembly_info, i):
+        return InstructionClass.disassemble_immediate(disassembly_info, i, 2)
+
+    def dump_immediate_instruction(outfile, instruction, rld):
+        if len(instruction.operands) == 1:
+            print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t%s" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
+        elif len(instruction.operands) == 2:
+            print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (instruction.opcode, instruction.operands[0].value, instruction.operands[1].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value, instruction.operands[1].value), file=outfile)
+        else:
+            assert False
+
+    def disassemble_absolute(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        i += 1
+        address, i = AbsoluteAddress.disassemble(disassembly_info, i)
+        return Instruction(opcode, [address]), i
+
+    def dump_absolute_instruction(outfile, instruction, rld):
+        instruction.operands[0].dump(outfile, instruction.opcode, rld, opdict)
+
+    def disassemble_frame(disassembly_info, i):
+        opcode = disassembly_info.labelled_blob[i]
+        frame_offset = FrameOffset(disassembly_info.labelled_blob[i+1])
+        return Instruction(opcode, [frame_offset]), i+2
+
+    def dump_frame_instruction(outfile, instruction, rld):
+        print("\t!BYTE\t$%02X,$%02X\t\t\t; %s\t[%s]" % (instruction.opcode, instruction.operands[0].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value), file=outfile)
+
+    def disassemble_string(disassembly_info, i):
+        s, i = String.disassemble(disassembly_info, i+1)
+        return Instruction(opcode['CS'], [s]), i
+
+    def dump_string_instruction(outfile, instruction, rld):
+        s = instruction.operands[0].value
+        t = ''
+        for c in s:
+            if c == '"':
+                t += r'\"'
+            elif c == "'":
+                t += "'"
+            else:
+                t += repr(c)[1:-1]
+
+        print('\t!BYTE\t$2E\t\t\t; CS\t"%s"' % (t,), file=outfile)
+        print("\t!BYTE\t$%02X" % (len(s),), file=outfile)
+        while s:
+            t = s[0:8]
+            s = s[8:]
+            print("\t!BYTE\t" + ",".join("$%02X" % ord(c) for c in t), file=outfile)
+
+    def disassemble_sel(di, i):
+        i += 1
+        di.case_block_offsets.add(i + di.labelled_blob.read_u16(i))
+        target, i = Target.disassemble(di, i)
+        return Instruction('SEL', [target]), i
+
+
+
+    def dump_case_block(outfile, instruction, rld):
+        table = instruction.operands[0].table
+        print("\t!BYTE\t$%02X\t\t\t; CASEBLOCK" % (len(table),), file=outfile)
+        for value, target in table:
+            print("\t!WORD\t$%04X" % (value,), file=outfile)
+            print("\t!WORD\t%s-*" % (target,), file=outfile)
+
     instruction_class_fns = {
             NOP: {'operand_types': []},
             TARGET: {'dump': dump_target, 'operand_types': [Target]},
             CONSTANT: {'disassemble': disassemble_constant, 'dump': dump_constant, 'operand_types': [int]},
             BRANCH: {'disassemble': disassemble_branch, 'dump': dump_branch, 'operand_types': [Target]},
-            IMPLIED: {'disassemble': disassemble_implied_instruction, 'dump': dump_implied_instruction, 'operand_types': []},
-            IMMEDIATE1: {'disassemble': disassemble_immediate_instruction1, 'dump': dump_immediate_instruction, 'operand_types': [Byte]},
-            IMMEDIATE2: {'disassemble': disassemble_immediate_instruction2, 'dump': dump_immediate_instruction, 'operand_types': [Byte, Byte]},
-            ABSOLUTE: {'disassemble': disassemble_absolute_instruction, 'dump': dump_absolute_instruction, 'operand_types': [AbsoluteAddress]},
-            FRAME: {'disassemble': disassemble_frame_instruction, 'dump': dump_frame_instruction, 'operand_types': [FrameOffset]},
-            STRING: {'disassemble': disassemble_string_instruction, 'dump': dump_string_instruction, 'operand_types': [String]},
+            IMPLIED: {'disassemble': disassemble_implied, 'dump': dump_implied_instruction, 'operand_types': []},
+            IMMEDIATE1: {'disassemble': disassemble_immediate1, 'dump': dump_immediate_instruction, 'operand_types': [Byte]},
+            IMMEDIATE2: {'disassemble': disassemble_immediate2, 'dump': dump_immediate_instruction, 'operand_types': [Byte, Byte]},
+            ABSOLUTE: {'disassemble': disassemble_absolute, 'dump': dump_absolute_instruction, 'operand_types': [AbsoluteAddress]},
+            FRAME: {'disassemble': disassemble_frame, 'dump': dump_frame_instruction, 'operand_types': [FrameOffset]},
+            STRING: {'disassemble': disassemble_string, 'dump': dump_string_instruction, 'operand_types': [String]},
             SEL: {'disassemble': disassemble_sel, 'dump': dump_branch, 'operand_types': [Target]},
             CASE_BLOCK: {'dump': dump_case_block, 'operand_types': [CaseBlock]},
     }
@@ -209,8 +196,6 @@ class InstructionClass:
         assert len(instruction.operands) == len(operand_types)
         for i, operand_type in enumerate(operand_types):
             assert isinstance(instruction.operands[i], operand_type)
-
-
 
 
 opdict = {
@@ -317,6 +302,7 @@ opdict = {
 }
 
 opcode = {v['opcode']: k for (k, v) in opdict.items() if not v.get('pseudo', False)}
+
 
 # TODO: I can't help wondering if I should rename Instruction to Op for
 # consistency/brevity (and rename associated classes and variables all over the place) but
@@ -488,13 +474,6 @@ class Instruction(ComparisonMixin):
         InstructionClass.dump(outfile, self, rld)
 
 
-
-
-
-
-
-
-
 class DisassemblyInfo(object):
     """Collection of temporary information needed while disassembling a bytecode
        function; can be discarded once disassembly is complete."""
@@ -503,6 +482,7 @@ class DisassemblyInfo(object):
         self.labelled_blob = labelled_blob
         self.target = collections.defaultdict(list)
         self.case_block_offsets = set()
+
 
 class BytecodeFunction(object):
     def __init__(self, labelled_blob):
@@ -572,7 +552,6 @@ class BytecodeFunction(object):
             instruction.dump(outfile, rld)
 
 
-
 def is_hardware_address(address):
     # A Label or ExternalReference can never refer to hardware addresses, only memory
     # allocated by the PLASMA compiler, so only FixedAddress operands can reference
@@ -587,11 +566,6 @@ def is_hardware_address(address):
     # If I make this change, this function should perhaps rename to is_volatile_address()
     # or is_sensitive_address() or something like that.
     return isinstance(address, FixedAddress) and address.value >= 0xc000
-
-
-
-
-
 
 
 # TODO: It would be nice if we had the *option* to output binary rather than ACME
