@@ -393,6 +393,16 @@ class Instruction(ComparisonMixin):
         i = self.CONDITIONAL_BRANCH_PAIRS.index(self.opcode)
         self._opcode = self.CONDITIONAL_BRANCH_PAIRS[i ^ 1]
 
+    # Terminology:
+    # - a 'pure' load is one which gets a value from somewhere and pushes it onto the
+    #   expression stack unmodified, without doing any other operations.
+    # - a 'simple' load or store is one which has the address specified as part of the
+    #   instruction, rather than using a value from the expression stack.
+    # SFTODO: USE THIS TERMINOLOGY CONSISTENTLY IF I DECIDE TO STICK WITH IT!
+    # SFTODO: INSTEAD OF EG 'is_load: True' IN DICT, I SHOULD HAVE 'load: [Pure, Simple]'
+    # OR SIMILAR, SO THAT WHEN ADDING A NEW INSTRUCTION IT'S HARDER TO "FORGET" TO SPECIFY
+    # PURE OR SIMPLE - HMM, MAYBE
+
     def is_store(self):
         return opdict[self.opcode].get('is_store', False)
 
@@ -408,7 +418,7 @@ class Instruction(ComparisonMixin):
 
     def is_simple_load(self):
         # SFTODO: This is a bit of a hack but let's see how it goes
-        return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe)
+        return self.is_load() and self.opcode not in (0x60, 0x62, 0xb0, 0xb2, 0xb4, 0xb6, 0xb8, 0xba, 0xbc, 0xbe) # SFTODO MAGIC CONSTANTS
 
     def is_simple_stack_push(self):
         # SFTODO: I am probably missing some possible instructions here, but for now let's keep it simple
