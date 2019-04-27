@@ -367,7 +367,6 @@ def optimise_load_store(bytecode_function, straightline_ops):
 
 def get_straightline_blocks(bytecode_function):
     def is_branch_or_target(instruction):
-        # SFTODO: THIS MAY NEED TO BE CONFIGURABLE TO DECIDE WHETHER CALL OR ICAL COUNT AS BRANCHES - TBH straightline_optimise() MAY BE BETTER RECAST AS A UTILITY TO BE CALLED BY AN OPTIMISATION FUNCTION NOT SOMETHIG WHICH CALLS OPTIMISATION FUNCTIONS
         return instruction.is_target() or instruction.is_branch()
 
     splitter = FunctionSplitter(bytecode_function)
@@ -376,6 +375,9 @@ def get_straightline_blocks(bytecode_function):
             splitter.start_before(i, not is_branch_or_target(instruction))
     return splitter.get_blocks_and_metadata()
 
+# TODO: This is only ever called to do one optimisation at the moment; could I use it more?
+# If not, would it simplify the code to get rid of it - keeping get_straightline_blocks()
+# is probably a good idea, but not so sure about this.
 def straightline_optimise(bytecode_function, optimisations):
     blocks, is_straightline_block = get_straightline_blocks(bytecode_function)
     changed = False
