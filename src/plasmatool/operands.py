@@ -5,7 +5,6 @@ import collections
 from utils import *
 
 
-
 class Byte(ComparisonMixin):
     def __init__(self, value):
         self.value = value
@@ -24,6 +23,7 @@ class FrameOffset(Byte):
     def __add__(self, rhs):
         assert isinstance(rhs, int)
         return FrameOffset(self.value + rhs)
+
 
 class Target(ComparisonMixin):
     """Class representing a branch target within a bytecode function; these could also be
@@ -117,7 +117,6 @@ class String(ComparisonMixin):
         for j in range(length):
             s += chr(di.labelled_blob[i + j + 1])
         return String(s), i + length + 1
-
 
 
 class AbsoluteAddress(object):
@@ -260,14 +259,12 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" % (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value), file=outfile)
 
 
-
 # This can't be a member of Target because Target objects are shared and so must be immutable.
 def replace_targets(target, alias):
     assert isinstance(target, Target)
     assert isinstance(alias, dict)
     assert all(isinstance(k, Target) and isinstance(v, Target) for k,v in alias.items())
     return Target(alias.get(target, target)._value)
-
 
 
 def acme_dump_fixup(outfile, rld, reference, comment=True):

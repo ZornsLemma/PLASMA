@@ -7,11 +7,14 @@ import struct
 from operands import *
 from bytecode import *
 
+
 def read_u8(f):
     return struct.unpack('<B', f.read(1))[0]
 
+
 def read_u16(f):
     return struct.unpack('<H', f.read(2))[0]
+
 
 def read_dci(f):
     s = ''
@@ -23,12 +26,14 @@ def read_dci(f):
     s += chr(c)
     return s
 
+
 def dci_bytes(s):
     result = ''
     for c in s[0:-1]:
         result += '$%02X,' % (ord(c) | 0x80)
     result += '$%02X' % ord(s[-1])
     return result
+
 
 class LabelledBlob(object):
     def __init__(self, blob, labels=None, references=None):
@@ -93,8 +98,6 @@ class LabelledBlob(object):
             i += 1
 
 
-
-
 class Module(object):
     def __init__(self, sysflags, import_names, esd):
         self.sysflags = sysflags
@@ -157,7 +160,6 @@ class Module(object):
                 new_esd.add_entry(esd_name, label)
 
         doing_code_table_fixups = True
-        #bytecode_function_labels = []
         bytecode_function_offsets = []
         for i, (rld_type, rld_word, rld_byte) in enumerate(rld):
             if rld_type == 0x02: # code table fixup
@@ -165,10 +167,6 @@ class Module(object):
                 assert rld_byte == 0
                 blob_index = rld_word - org - blob_offset
                 bytecode_function_offsets.append(blob_index)
-                #label = Label('_C%03d' % i)
-                #bytecode_function_labels.append(label)
-                #blob.label(blob_index, label)
-                #print blob[blob_index]
             else:
                 doing_code_table_fixups = False
                 addr = (rld_word + 2) - blob_offset
@@ -213,7 +211,6 @@ class Module(object):
         del defcnt
 
         return module
-
 
     def labels_referenced(self):
         result = set()
@@ -272,7 +269,6 @@ class Module(object):
         if not set(name).issubset(allowed):
             return False
         return True
-
 
     @staticmethod
     def compact_int_symbol(i):
@@ -472,9 +468,3 @@ class ESD(object):
             print('\t%s' % (reference.acme_reference(),), file=outfile)
 
         print("\t!BYTE\t$00\t\t\t; END OF ESD", file=outfile)
-
-
-
-
-
-

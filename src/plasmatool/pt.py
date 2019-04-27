@@ -11,9 +11,11 @@ from utils import *
 # SFTODO: I'm using assert where I should probably use something else; where I'm doing
 # "assert False" I could perhaps call die().
 
+
 def verbose(level, s):
     if args.verbose >= level:
         sys.stderr.write(s + '\n')
+
 
 parser = argparse.ArgumentParser(description='PLASMA module tool; disassembles and optimises compiled PLASMA modules.')
 parser.add_argument('-v', '--verbose', action='count', help='show what this tool is doing')

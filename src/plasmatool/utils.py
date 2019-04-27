@@ -1,8 +1,10 @@
 import sys
 
+
 def die(s):
     sys.stderr.write(s + '\n')
     sys.exit(1)
+
 
 # https://stackoverflow.com/questions/32030412/twos-complement-sign-extension-python
 def sign_extend(value, bits=16):
@@ -24,6 +26,7 @@ class ComparisonMixin(object):
     def __hash__(self):
         return hash(self.keys())
 
+
 # bidict taken from Basj's answer at https://stackoverflow.com/questions/3318625/efficient-bidirectional-hash-table-in-python
 class bidict(dict):
     def __init__(self, *args, **kwargs):
@@ -43,4 +46,3 @@ class bidict(dict):
         if self[key] in self.inverse and not self.inverse[self[key]]: 
             del self.inverse[self[key]]
         super(bidict, self).__delitem__(key)
-

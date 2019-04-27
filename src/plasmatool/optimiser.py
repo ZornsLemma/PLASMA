@@ -6,10 +6,12 @@ from utils import bidict
 # TODO: Possibly most of the classes/functions in this file should be named with a single
 # leading underscore; the only "public" function in here is optimise().
 
+
 # TODO: Possibly this should be called nop_instruction as it's a function, but I think of
 # it as a pseudo-constructor for a derived class of Instruction. Ish.
 def NopInstruction():
     return Instruction(NOP_OPCODE, [])
+
 
 # Helper class used to chop up a bytecode function in blocks.
 class FunctionSplitter(object):
@@ -41,7 +43,6 @@ class FunctionSplitter(object):
         assert len(blocks) == len(self.blocks_metadata)-1
         assert sum(len(block) for block in blocks) == len(self.ops)
         return blocks, self.blocks_metadata[:-1]
-
 
 
 # Remove all but the first of each group of consecutive targets; this makes it easier to spot other
@@ -86,7 +87,6 @@ def build_target_dictionary(bytecode_function, test):
     return result
 
 
-
 # Replace a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
 def replace_branch_to_exit(bytecode_function):
     changed = False
@@ -99,6 +99,7 @@ def replace_branch_to_exit(bytecode_function):
                 changed = True
     return changed
 
+
 # If we have any kind of branch whose target is a BRNCH, replace the first branch's target with the
 # BRNCH's target (i.e. just branch directly to the final destination in the first branch).
 def snap_branch(bytecode_function):
@@ -108,6 +109,7 @@ def snap_branch(bytecode_function):
     for instruction in bytecode_function.ops:
         changed = instruction.replace_targets(alias) or changed
     return changed
+
 
 # Remove targets which have no instructions referencing them; this can occur as a result
 # of other optimisations and is useful in opening up further optimisations.
@@ -125,12 +127,14 @@ def remove_orphaned_targets(bytecode_function):
     bytecode_function.ops = new_ops
     return changed
 
+
 # Remove unreachable code; this works in conjunction with remove_orphaned_targets().
 def remove_dead_code(bytecode_function):
     blocks, block_target = get_target_terminator_blocks(bytecode_function)
     block_reachable = [i == 0 or x is not None for i, x in enumerate(block_target)]
     bytecode_function.ops = list(itertools.chain.from_iterable(itertools.compress(blocks, block_reachable)))
     return not all(block_reachable)
+
 
 # A CASEBLOCK instruction is followed by the 'otherwise' instructions. If the 'otherwise'
 # instructions end with a terminator, the CASEBLOCK+otherwise instructions form an isolated
@@ -154,8 +158,6 @@ def move_case_blocks(bytecode_function):
     return changed
 
 
-
-
 # Split a function up into blocks such that:
 # - targets only appear as the first instruction in a block
 # - terminators only appear as the last instruction in a block
@@ -167,6 +169,7 @@ def get_target_terminator_blocks(bytecode_function):
         elif instruction.is_terminator():
             splitter.start_after(i, None)
     return splitter.get_blocks_and_metadata()
+
 
 # As get_target_terminator_blocks(), but also returns a list of boolean values indicating
 # whether a block is "isolated" or not; an isolated block can only be entered via a branch
@@ -180,6 +183,7 @@ def get_target_terminator_blocks_with_isolated_flag(bytecode_function):
         else:
             block_isolated[i] = i > 0 and blocks[i-1][-1].is_terminator()
     return blocks, block_target, block_isolated
+
 
 def block_deduplicate(bytecode_function):
     blocks, block_target, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
@@ -250,6 +254,7 @@ def block_move(bytecode_function):
     bytecode_function.ops = new_ops
 
     return changed
+
 
 def peephole_optimise(bytecode_function):
     changed = False
@@ -360,10 +365,6 @@ def optimise_load_store(bytecode_function, straightline_ops):
     return [op for op in straightline_ops if not op.instruction_class == InstructionClass.NOP], changed
 
 
-
-
-
-
 def get_straightline_blocks(bytecode_function):
     def is_branch_or_target(instruction):
         return instruction.is_target() or instruction.is_branch()
@@ -373,6 +374,7 @@ def get_straightline_blocks(bytecode_function):
         if i == 0 or is_branch_or_target(instruction) != is_branch_or_target(bytecode_function.ops[i-1]):
             splitter.start_before(i, not is_branch_or_target(instruction))
     return splitter.get_blocks_and_metadata()
+
 
 # TODO: This is only ever called to do one optimisation at the moment; could I use it more?
 # If not, would it simplify the code to get rid of it - keeping get_straightline_blocks()
@@ -394,6 +396,7 @@ def straightline_optimise(bytecode_function, optimisations):
     bytecode_function.ops = new_ops
     return changed
 
+
 # Within a bytecode function, we have to assume that any frame offset >= that used by an
 # LLA opcode can be accessed indirectly through the address returned by LLA, e.g. by a
 # function call or LB/SB. If we knew how big the frame object referenced by the LLA was,
@@ -407,6 +410,7 @@ def calculate_lla_threshold(bytecode_function):
         if instruction.is_a('LLA'):
             lla_threshold = min(instruction.operands[0].value, lla_threshold)
     return lla_threshold
+
 
 # If the same instruction occurs before all unconditional branches to a target (not
 # forgetting the implicit branch to the target if control falls through the target
@@ -466,6 +470,7 @@ def tail_move(bytecode_function):
 
     return changed
 
+
 # Used to test for an unlikely case when optimising things like "LLW [n]:SLW [m]:LLW [n]" to
 # "LLW [n]:DLW [m]". If m=n this optimisation is valid, but if m=n+1 the final LLW [n] is
 # loading a different value than the first and the optimisation cannot be performed.
@@ -473,6 +478,7 @@ def partial_overlap(lhs, rhs):
     lhs_memory = lhs.memory()
     rhs_memory = rhs.memory()
     return lhs_memory != rhs_memory and len(lhs_memory.intersection(rhs_memory)) > 0
+
 
 # If the _INIT function is the trivial default one the PLASMA compiler generates
 # automatically, get rid of it; this isn't a huge win but it saves a couple of bytes
@@ -486,6 +492,7 @@ def optimise_init(module):
                         Instruction('RET')]
         if init == trivial_init:
             module.bytecode_functions.pop(-1)
+
 
 def optimise(module):
     for bytecode_function in module.bytecode_functions:
@@ -547,9 +554,6 @@ def optimise(module):
         assert dependencies_ordered[0] == module.data_asm_blob
         dependencies_ordered.pop(0)
     module.bytecode_functions = dependencies_ordered
-
-
-
 
 
 # TODO: Perhaps not worth it, and this is a space-not-speed optimisation, but if it's common to CALL a function FOO and then immediately do a DROP afterwards (across all code in the module, not just one function), it may be a space-saving win to generate a function FOO-PRIME which does "(no ENTER):CALL FOO:DROP:RET" and replace CALL FOO:DROP with CALL FOO-PRIME. We could potentially generalise this (we couldn't do it over multiple passes) to recognising the longest common sequence of operations occurring after all CALLs to FOO and factoring them all into FOO-PRIME.
