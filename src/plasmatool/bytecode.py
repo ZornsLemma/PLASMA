@@ -127,7 +127,7 @@ class InstructionClass:
 
     def disassemble_string_instruction(disassembly_info, i):
         s, i = String.disassemble(disassembly_info, i+1)
-        return Instruction(0x2e, [s]), i
+        return Instruction(opcode['CS'], [s]), i
 
     def dump_string_instruction(outfile, instruction, rld):
         s = instruction.operands[0].value
@@ -327,7 +327,6 @@ class Instruction(ComparisonMixin):
     def __init__(self, opcode, operands = None):
         self.set(opcode, operands)
 
-    # SFTODO: Very few actual uses of this - is this because this approach of allowing an instruction to be changed in-place isn't useful, or because I just haven't got round to tweaking all the code which could benefit from this so it no longer needs to use index-base loops?
     def set(self, opcode_or_instruction, operands = None):
         """Set the Instruction to something else, either a copy of another Instruction or an
         (opcode, operands) pair."""
