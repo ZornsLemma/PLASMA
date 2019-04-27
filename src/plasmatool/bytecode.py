@@ -417,9 +417,8 @@ class Instruction(ComparisonMixin):
     def is_pure_simple_load(self):
         return self.is_simple_load() and not self.is_a('ADDLB', 'ADDLW', 'ADDAB', 'ADDAW', 'IDXLB', 'IDXLW', 'IDXAB', 'IDXAW')
 
-    # SFTODO: CAN I USE THE WORD 'SIMPLE' HERE OR IS THAT OVERLOADING/CONFUSING WITH THE
-    # WAY I USE IT TO DESCRIBE A CERTAIN TYPE OF LOAD/STORE INSTRUCTION? GUT FEELING IS
-    # IT'S OK BUT WANT TO MULL ON IT A BIT.
+    # A 'simple stack push' instruction is one which has no side-effects other than
+    # pushing a value onto the expression stack.
     def is_simple_stack_push(self):
         # SFTODO: I am probably missing some possible instructions here, but for now let's keep it simple
         return (self.is_pure_simple_load() and not self.has_side_effects()) or self.instruction_class == InstructionClass.CONSTANT
