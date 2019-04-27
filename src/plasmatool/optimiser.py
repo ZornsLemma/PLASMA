@@ -276,12 +276,12 @@ def peephole_optimise(bytecode_function):
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # SLW [n]:LLW [n] -> DLW [n] and variations
-        elif instruction.is_simple_store() and not instruction.has_side_effects() and next_instruction.is_simple_load() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
+        elif instruction.is_simple_store() and not instruction.has_side_effects() and next_instruction.is_pure_simple_load() and not next_instruction.has_side_effects() and instruction.operands[0] == next_instruction.operands[0] and instruction.data_size() == next_instruction.data_size():
             bytecode_function.ops[i] = Instruction(dup_for_store[instruction.opcode], instruction.operands)
             bytecode_function.ops[i+1] = NopInstruction()
             changed = True
         # LLW [n]:SLW [m]:LLW [n] -> LLW [n]:DLW [m] and variations
-        elif instruction.is_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not partial_overlap(instruction, next_instruction):
+        elif instruction.is_pure_simple_load() and instruction == next_next_instruction and next_instruction.is_simple_store() and not instruction.has_side_effects() and not next_instruction.has_side_effects() and not partial_overlap(instruction, next_instruction):
             bytecode_function.ops[i+1] = Instruction(dup_for_store[next_instruction.opcode], next_instruction.operands)
             bytecode_function.ops[i+2] = NopInstruction()
             changed = True
@@ -321,7 +321,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
     for i, instruction in enumerate(straightline_ops):
         # SFTODO: DON'T LIKE NEXT TWO LINES RE CLASSIFICATION AND THE 'NOT LB/LW' IS PARTICULARLY UGLY (LOGIC IS PROB CORRECT THO OBSCURED BY THIS)
         is_store = instruction.is_simple_store() or instruction.is_dup_store()
-        is_load = (instruction.is_load() and not instruction.is_a('LB', 'LW'))
+        is_simple_load = instruction.is_simple_load()
         if is_store: # stores and duplicate-stores
             # It is possible (if unlikely) a word store will touch a hardware address and
             # a non-hardware address; if this does happen we must never consider it for
@@ -329,7 +329,7 @@ def optimise_load_store(bytecode_function, straightline_ops):
             if not instruction.has_side_effects():
                 for address in instruction.memory():
                     unobserved_stores[address] = i
-        elif is_load:
+        elif is_simple_load:
             for address in instruction.memory():
                 if address in unobserved_stores:
                     del unobserved_stores[address]
