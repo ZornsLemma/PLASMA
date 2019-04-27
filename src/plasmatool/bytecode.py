@@ -51,7 +51,7 @@ class InstructionClass:
         elif opcode == 0x5e: # CFFB opcode
             return Instruction(CONSTANT_OPCODE, [sign_extend(0xff00 | disassembly_info.labelled_blob[i+1])]), i+2
         else:
-            assert False
+            die("Invalid opcode found")
 
     def dump_constant(outfile, instruction, rld):
         value = instruction.operands[0]
@@ -109,7 +109,7 @@ class InstructionClass:
         elif len(instruction.operands) == 2:
             print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t%s,%s" % (instruction.opcode, instruction.operands[0].value, instruction.operands[1].value, opdict[instruction.opcode]['opcode'], instruction.operands[0].value, instruction.operands[1].value), file=outfile)
         else:
-            assert False
+            die("Immediate instruction with odd number of opcodes found")
 
     def disassemble_absolute(disassembly_info, i):
         opcode = disassembly_info.labelled_blob[i]

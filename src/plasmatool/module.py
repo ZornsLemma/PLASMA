@@ -192,7 +192,7 @@ class Module(object):
                     label = blob.label_or_get(blob_index, '_I')
                     blob.reference(addr, label)
                 else:
-                    assert False
+                    die("Unexpected rld_type found")
 
         init_offset = init_abs - org - blob_offset
         blob.label(init_offset, Label("_INIT", False))
