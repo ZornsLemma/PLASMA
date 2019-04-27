@@ -65,11 +65,10 @@ def target_deduplicate(bytecode_function):
 
 
 # Remove a BRNCH to an immediately following target.
-def branch_optimise(bytecode_function):
+def remove_nop_branches(bytecode_function):
     changed = False
     new_ops = []
     for i, instruction in enumerate(bytecode_function.ops):
-        # SFTODO: WOULD IT BE WORTH HAVING A next_instruction HELPER FN WHICH RETURNS A NOP (INSTEAD OF NONE) IF WE WOULD INDEX OFF THE END? THAT WOULD SLIGHTLY SIMPLIFY THE FOLLOWING LINE AS WE COULD OMIT THE NONE CHECK AND MAY HELP OTHER FNS...
         next_instruction = None if i == len(bytecode_function.ops)-1 else bytecode_function.ops[i+1]
         if not (instruction.is_a('BRNCH') and next_instruction and next_instruction.is_target() and instruction.operands[0] == next_instruction.operands[0]):
             new_ops.append(instruction)
@@ -89,7 +88,7 @@ def build_target_dictionary(bytecode_function, test):
 
 
 # Replace a BRNCH to a LEAVE or RET with the LEAVE or RET itself.
-def branch_optimise2(bytecode_function):
+def replace_branch_to_exit(bytecode_function):
     changed = False
     targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('LEAVE', 'RET'))
     for instruction in bytecode_function.ops:
@@ -102,7 +101,7 @@ def branch_optimise2(bytecode_function):
 
 # If we have any kind of branch whose target is a BRNCH, replace the first branch's target with the
 # BRNCH's target (i.e. just branch directly to the final destination in the first branch).
-def branch_optimise3(bytecode_function):
+def snap_branch(bytecode_function):
     changed = False
     targets = build_target_dictionary(bytecode_function, lambda instruction: instruction.is_a('BRNCH'))
     alias = {k:v.operands[0] for k, v in targets.items()}
@@ -228,7 +227,7 @@ def block_move(bytecode_function):
     # In order to avoid gratuitously moving chunks of code around (which makes it
     # harder to verify the transformations performed by this function are valid), we remove any
     # redundant branches to the immediately following instruction first.
-    changed = branch_optimise(bytecode_function)
+    changed = remove_nop_branches(bytecode_function)
 
     blocks, block_target, block_isolated = get_target_terminator_blocks_with_isolated_flag(bytecode_function)
 
@@ -418,7 +417,7 @@ def tail_move(bytecode_function):
     candidates = {}
     
     # Set of targets which cannot be modified; these are targets which are:
-    # - used by conditional branches
+    # - used by conditional branches, or
     # - have been demonstrated to have more than one possible instruction which can be
     #   executed immediately before control reaches the target
     unmodifiable_targets = set()
@@ -498,9 +497,9 @@ def optimise(module):
         # any effect; of course once we've tried the step 2 optimisations, there might be
         # more scope for the step 1 optimisations to make changes.
         step1 = (lambda: target_deduplicate(bytecode_function),
-                 lambda: branch_optimise(bytecode_function),
-                 lambda: branch_optimise2(bytecode_function),
-                 lambda: branch_optimise3(bytecode_function),
+                 lambda: remove_nop_branches(bytecode_function),
+                 lambda: replace_branch_to_exit(bytecode_function),
+                 lambda: snap_branch(bytecode_function),
                  lambda: remove_orphaned_targets(bytecode_function),
                  lambda: remove_dead_code(bytecode_function),
                  lambda: move_case_blocks(bytecode_function),
