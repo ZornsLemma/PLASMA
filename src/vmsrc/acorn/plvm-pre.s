@@ -370,7 +370,7 @@ JITIINTERP
         LDY     #$00
         JMP     FETCHOP
 RUNJIT  LDA     JITCOMP
-	; SFTODO: PLAS128 would need some twiddling here to run the JIT from the right bank of SWR
+	; SFTODO: PLAS128 would need some twiddling here to run the JIT from the right bank of SWR - or would it? I think we will call JITCOMP via a stub in main memory like any other PLASMA bytecode function which should automatically switch in the right bank - but check this later. What *might* need care is to page in the right bank of SWR when we are *executing* the machine code in the SWR bank which the JIT created
 	; SFTODO: I might guess not, otherwise the Apple VM would do it, but couldn't we simplify
 	; this (once we've populated SRCL/SRCH) into JSR XXX with .XXX:JMP (SRC) rather than
 	; fetching the bytecode address from (SRC),Y and putting it in IP manually?
