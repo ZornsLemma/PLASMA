@@ -298,6 +298,7 @@ IINTERP	PLA
         STA     TMPL
         PLA
         STA     TMPH
+IINTERP2
 	LDY	#$02
 	LDA     (TMP),Y
 
@@ -348,28 +349,30 @@ IINTERP	PLA
 ;*
 JITIINTERP
         PLA
-        SEC
-        SBC     #$02            ; POINT TO DEF ENTRY
         STA     TMPL
         PLA
-        SBC     #$00
         STA     TMPH
-        LDY     #$05
+        LDY     #$03
         LDA     (TMP),Y         ; DEC JIT COUNT
+	; SFTODO: SCOPE FOR 'DEC A' ON A CMOS BUILD HERE... (POSS OTHER PLACES IN VM TOO)
         SEC
         SBC     #$01
         STA     (TMP),Y
-        BEQ     RUNJIT
-	; SFTODO: PLAS128 would need the same code as IINTERP (or ideally a way to share it) here - but need to be careful, because TMP is 2 lower than in that case
-        DEY                     ; INTERP BYTECODE AS USUAL
-        LDA     (TMP),Y
-        STA     IPH
-        DEY
-        LDA     (TMP),Y
-        STA     IPL
-        LDY     #$00
-        JMP     FETCHOP
-RUNJIT  LDA     JITCOMP
+	BNE	IINTERP2	; INTERP BYTECODE AS USUAL
+RUNJIT  LDA	TMPL
+	SEC
+	SBC	#$02		; POINT TO DEF ENTRY
+	STA	TMPL
+!IF 0 { ; SFTODO!? I THINK MY ALTERNATIVE CODE IS VALID BUT WANT TO THINK ABOUT IT BEFORE DELETING THIS MORE OBVIOUSLY CORRECT VERSION
+	LDA	TMPH
+	SBC	#$00
+	STA	TMPH
+} ELSE {
+	BCS	+
+	DEC	TMPH
++
+}
+	LDA     JITCOMP
 	; SFTODO: PLAS128 would need some twiddling here to run the JIT from the right bank of SWR - or would it? I think we will call JITCOMP via a stub in main memory like any other PLASMA bytecode function which should automatically switch in the right bank - but check this later. What *might* need care is to page in the right bank of SWR when we are *executing* the machine code in the SWR bank which the JIT created
 	; SFTODO: I might guess not, otherwise the Apple VM would do it, but couldn't we simplify
 	; this (once we've populated SRCL/SRCH) into JSR XXX with .XXX:JMP (SRC) rather than
@@ -377,7 +380,7 @@ RUNJIT  LDA     JITCOMP
         STA     SRCL
         LDA     JITCOMP+1
         STA     SRCH
-        DEY                     ; LDY     #$04
+        INY                     ; LDY     #$04
         LDA     (SRC),Y
         STA     IPH
         DEY
