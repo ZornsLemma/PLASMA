@@ -28,7 +28,7 @@ def compiler(defptr)#0
     word codeptr, isdata[], addrxlate, bytecode, i, case, dest, VX, VY
     byte opcode, j, A_IS_TOSL
 
-    //puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln
+    puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln // SFTODO  TEMP UNCO
     addrxlate = heapmark // heapalloc(512 + defptr->bytecodesize)
     //if not addrxlate
     if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
