@@ -153,6 +153,8 @@ Random thought, possibly incoherent: if we guarantee EXTERNAL symbols come befor
 
 Suspect this is a duplicate - is there any possibility of speeding self-hosted compiler start time by making the "split-off" part of it stay memory resident after being loaded? We might need to do something to reinitialise any global variables each time. It does occur to me a different split which leaves the data/asm module in the caller module would sidestep the need for this reinitialisation, but I *suspect* (not tried it) that would prevent most things moving into the callee module at all and therefore the split would not be good enough for PLAS128 and even on tube the callee module would be so small the saving of having it resident would not be worth it.
 
+Is there any chance the plasmatool optimised self-hosted compiler will have a module small enough to load into PLAS128 without splitting? Haven't tried this yet...
+
 Short term notes:
 - can I avoid use of dinterp()/iinterp()/jitinterp() functions in cmd.pla?
 - (slighly related) use of *$415 and *$417 to communicate dinterp()/iinterp() to JIT could probably be tidier
