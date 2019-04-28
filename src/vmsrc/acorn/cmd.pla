@@ -2270,6 +2270,15 @@ fin
 if *jitcomp == 1
     *jitcomp = 0
     modloadpstr("JIT")
+    #ifdef PLAS128
+        // SFTODO TEMP HACK - BUT IDEA IS PROBABLY SOUND - WE WANT TO ALLOCATE THE
+        // ENTIRE FIRST BANK OF SWR TO THE JIT AND THE JIT CODE BUFFER
+        // SFTODO: ONCE MOSTLY WORKING SHOULD TEST JIT WITH A SINGLE 16K SWR
+        // BANK - I WOULD EXPECT IT TO BOOK BUT FAIL TO ALLOC HEAP WHEN TRYING
+        // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
+        // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
+        xheap = xheap_bank_start + xheap_bank_size
+    #endif
 fin
 // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
 // to init cmdptr just one - for now I am just going to hack it like this
