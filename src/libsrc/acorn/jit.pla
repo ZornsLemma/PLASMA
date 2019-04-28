@@ -47,12 +47,71 @@ word directentry
 //
 // Copy bytecode DEF to main memory
 //
+// SFTODO HACK FOR PLAS128, MASSIVE CODE DUPLICATION WITH IINTERP AND MEMXCPY(),
+// MAYBE THIS WOULD LIVE IN CMD.PLA IN A JIT BUILD, NOT WORRYING ABOUT IT FOR
+// NOW
+asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
+        RAMBANK = $400 ; SFTODO HACK TO AVOID PROBS INCLUDING acornc.inc - WE DONT HAVE PLAS128 DEFINITION IN PLACE HERE
+        !SOURCE "vmsrc/acorn/plvmzp.inc"
+	LDA	ESTKH,X
+	ORA	ESTKL,X
+	BEQ	MEMXCPYEX
+
+	STY 	IPY
+
+	;* This code must be kept consistent with IINTERP
+	LDA	ESTKH+1,X
+        ROL
+        ROL
+        ROL
+	AND	#$03
+	TAY
+	LDA	RAMBANK,Y
+	STA	$F4
+	STA	$FE30
+
+	LDA	ESTKH+1,X
+	AND	#$BF
+	ORA	#$80
+	STA 	SRCH
+	LDA	ESTKL+1,X
+	STA	SRCL
+
+	LDA	ESTKL+2,X
+	STA	DSTL
+	LDA	ESTKH+2,X
+	STA	DSTH
+	
+	LDY	ESTKL,X
+	BEQ	MEMXCPYLP
+	INC 	ESTKH,X
+	LDY	#$00
+MEMXCPYLP 
+	LDA	(SRC),Y
+	STA	(DST),Y
+	INY
+	BNE	+
+	INC	DSTH
+	INC	SRCH
++	DEC 	ESTKL,X
+	BNE	MEMXCPYLP
+	DEC	ESTKH,X
+	BNE	MEMXCPYLP
+
+	LDY	IPY
+MEMXCPYEX
+	INX
+	INX
+	INX
+	RTS
+end
 def defcpy(dst, defptr)#0
     // SFTODO: I may need to implement this properly to make the JIT work on
     // PLAS128, but for my initial tube-only hack I can just memcpy(). I am not
     // going to try to avoid the copy in the first place because I suspect a
     // PLAS128-based JIT is the ultimate destination.
-    memcpy(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+    // SFTODO THIS WORKS FOR TUBE memcpy(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+    memxcpySFTODONOTSUREWHATTOCALLTHIS(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
     // SFTODO *$003C   = defptr=>bytecodeaddr
     // SFTODO *$003E   = *$003C + defptr->bytecodesize
     // SFTODO *$0042   = dst
