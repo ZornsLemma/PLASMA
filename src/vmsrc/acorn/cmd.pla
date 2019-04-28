@@ -549,7 +549,8 @@ asm stodci(str,dci)#1
 	TAY
 	LDA	(SRC),Y
 	JSR	TOUPR
-	BNE	+
+	BNE	+           ; always branch; this assumes TOUPR returns with Z clear, which is
+                            ; true if 'z'+1 is not present in the symbol (a reasonable assumption)
 -	LDA	(SRC),Y
 	JSR	TOUPR
 	ORA	#$80
@@ -818,7 +819,7 @@ end
 //        if ^rld & $10 // EXTERN reference.
 //            return rld, addr, fixup
 //        fin
-//        addr = rld=>1 + modfix
+//        addr = rld=>1 + modfix // SFTODO: SHOULD THIS LINE COME BEFORE THE 'if ^rld & $10'?? (COMPARE WITH THE ASSEMBLY CODE BELOW)
 //        fixup = *addr + modofst
 //        if uword_isge(fixup, bytecode) // Bytecode address.
 //            return rld, addr, fixup

@@ -248,6 +248,11 @@ _DIVEX	INX
 ;*
 ;* TODO: Check every now and again that this alignment is still "efficient"
 ;* on all builds.
+;* TODO: Could I simply make the load address 3 bytes below a page boundary?
+;* That way the table could be at the start and still be page-aligned. Only
+;* downside I can see is that if we load *just* below PAGE, we will corrupt
+;* workspace - but there's always a risk of that kind of thing anyway (eg.
+;* PAGE is at &2100 and we load at &2000).
 ;*
 	!ALIGN	255,0
 OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
@@ -321,6 +326,13 @@ IINTERP	PLA
 	STA 	IPH
 
 	LDA	RAMBANK,Y
+	; SFTODO: Random though, possibly incorrect - could we compare A with
+	; $F4 here and only if it is different a) do the STA $FE30 b) stack
+	; the old value of $F4 instead of doing it in CALL/ICAL? This might
+	; save time and/or stack space on function calls. I suspect this isn't
+	; workable because we don't have the "raw" IP value we'd need to
+	; recompute the desired bank on return from CALL/ICAL, but I'll leave
+	; this here to think about again before I delete this comment.
 	STA	$F4
 	STA	$FE30
 

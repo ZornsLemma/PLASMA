@@ -45,6 +45,7 @@ JITUNE_ACN = rel/acorn/JITUNE
 SOS        = rel/apple/SOS\#FE1000
 ROD        = rel/ROD\#FE1000
 SIEVE      = rel/SIEVE\#FE1000
+PRIMEGAP   = rel/PRIMEGAP\#FE1000
 ARGS       = rel/ARGS\#FE1000
 SPIPORT    = rel/apple/SPIPORT\#FE1000
 SDFAT      = rel/apple/SDFAT\#FE1000
@@ -92,6 +93,7 @@ TEST       = TEST\#FE1000
 TESTLIB    = TESTLIB\#FE1000
 PLASM      = plasm
 PLASMAPLASM = rel/PLASM\#FE1000
+PLASMAPLASM2 = rel/PLASM2\#FE1000 # SFTODO TEMP
 CODEOPT    = rel/CODEOPT\#FE1000
 INCS       = toolsrc/plasm.h toolsrc/tokens.h toolsrc/symbols.h toolsrc/lex.h toolsrc/parse.h toolsrc/codegen.h
 OBJS	   = toolsrc/plasm.c toolsrc/parse.c toolsrc/lex.c toolsrc/codegen.c
@@ -113,7 +115,7 @@ TXTTYPE	= .TXT
 
 SFTODO: acorn
 
-apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JIT16) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(MOUSE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(TFTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(LZ4) $(LZ4CAT) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
+apple: $(PLVMZP_APL) $(PLASM) $(PLVM) $(PLVM01) $(PLVM02) $(PLVMJIT) $(PLVM802) $(PLVM03) $(CMD) $(CMDJIT) $(JIT) $(JIT16) $(JITUNE) $(SOSCMD) $(PLASMAPLASM) $(CODEOPT) $(ARGS) $(MEMMGR) $(MEMTEST) $(FIBER) $(FIBERTEST) $(LONGJMP) $(ED) $(MON) $(SOS) $(ROD) $(SIEVE) $(PRIMEGAP) $(MOUSE) $(UTHERNET2) $(UTHERNET) $(ETHERIP) $(INET) $(DHCP) $(HTTPD) $(TFTPD) $(ROGUE) $(ROGUEMAP) $(ROGUECOMBAT) $(GRAFIX) $(GFXDEMO) $(DGR) $(DGRTEST) $(FILEIO_APL) $(CONIO_APL) $(JOYBUZZ) $(PORTIO) $(SPIPORT) $(SDFAT) $(FATCAT) $(FATGET) $(FATPUT) $(FATWDSK) $(FATRDSK) $(SANE) $(FPSTR) $(FPU) $(SANITY) $(LZ4) $(LZ4CAT) $(RPNCALC) $(SNDSEQ) $(PLAYSEQ)
 	-rm vmsrc/plvmzp.inc
 
 c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64) 
@@ -127,10 +129,12 @@ $(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SI
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
 
-$(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CONIO_ACN) $(JIT_ACN) $(JITUNE_ACN)
+$(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLASMAPLASM) $(ARGS) $(FILEIO_ACN) $(CONIO_ACN) $(JIT_ACN) $(JITUNE_ACN) $(PLASMAPLASM2)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/compiler.beebasm -do rel/acorn/compiler.ssd -title "PLASMA COMP"
+	# SFTODO: Temp hack
+	/bin/cp -a rel/acorn/compiler.ssd ~/shared/bbc-discs-tmp/
 
 all: apple c64 acorn
 
@@ -158,9 +162,15 @@ clean:
 $(PLASM): $(OBJS) $(INCS)
 	cc $(OBJS) -o $(PLASM)
 
-$(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh
+# SFTODO: dependency on pt.py is temp - though really it does make sense since a change in pt.py should trigger a rebuild - and I should prob add dependencies on the other plasmatool/*.py files too - but should prob wrap all of them up into a variable
+$(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py
 	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
 	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
+	#(cd plasmatool; python pt.py > z; acme --setpc 4094 -o ../rel/PLASM2\#FE1000 z)
+
+# SFTODO: TEMP HACK
+$(PLASMAPLASM2): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py $(PLASMAPLASM)
+	(cd plasmatool; python pt.py -O -2 PLASM3 ../rel/PLASM\#FE1000 znew znew2; acme --setpc 4094 -o ../$(PLASMAPLASM2) znew; acme --setpc 4094 -o ../rel/PLASM3\#FE1000 znew2)
 
 $(CODEOPT): toolsrc/codeopt.pla toolsrc/codeseq.plh
 	./$(PLASM) -AMOW < toolsrc/codeopt.pla > toolsrc/codeopt.a
@@ -316,8 +326,12 @@ $(ROD): samplesrc/rod.pla $(PLVM02) $(PLASM)
 	acme --setpc 4094 -o $(ROD) samplesrc/rod.a
 
 $(SIEVE): samplesrc/sieve.pla $(PLVM02) $(PLASM)
-	./$(PLASM) -AMW < samplesrc/sieve.pla > samplesrc/sieve.a
+	./$(PLASM) -AMOW < samplesrc/sieve.pla > samplesrc/sieve.a
 	acme --setpc 4094 -o $(SIEVE) samplesrc/sieve.a
+
+$(PRIMEGAP): samplesrc/primegap.pla $(PLVM02) $(PLASM)
+	./$(PLASM) -AMW < samplesrc/primegap.pla > samplesrc/primegap.a
+	acme --setpc 4094 -o $(PRIMEGAP) samplesrc/primegap.a
 
 $(SANE): libsrc/sane.pla $(PLVM02) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/sane.pla > libsrc/sane.a

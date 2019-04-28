@@ -145,7 +145,13 @@ Could we introduce some mechanism to allow constants to be shared between asm an
 
 See Dave's e-mail 15/05/18 - I could probably use his idea and have the heap start at the 'init' code, provided I arrange that any code which needs to do a heap allocation lives in a separate function. When running on a second processor this couldn't be done as we need to be able to re-init on BREAK, but that's probably fine - the 2P case is already handled differently for some other need-the-code-to-be-available-on-BREAK issue, I think.
 
+Could the code density be improved with 8-bit displacement branch opcodes? Would need an optimiser capable of generating these. There are quite a few different branch instructions so may not be very practical, but maybe a few branch instructions account for most of the branches.
 
+Self-hosted optimiser has assumption that no memory-mapped hardware exists above $D000; this will need fixing for Acorn port.
+
+Random thought, possibly incoherent: if we guarantee EXTERNAL symbols come before ENTRY symbols in ESD, could we use that to discard ENTRY symbols from the symbol table once the module has been loaded and fixed up??
+
+Suspect this is a duplicate - is there any possibility of speeding self-hosted compiler start time by making the "split-off" part of it stay memory resident after being loaded? We might need to do something to reinitialise any global variables each time. It does occur to me a different split which leaves the data/asm module in the caller module would sidestep the need for this reinitialisation, but I *suspect* (not tried it) that would prevent most things moving into the callee module at all and therefore the split would not be good enough for PLAS128 and even on tube the callee module would be so small the saving of having it resident would not be worth it.
 
 Short term notes:
 - can I avoid use of dinterp()/iinterp()/jitinterp() functions in cmd.pla?
