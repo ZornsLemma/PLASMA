@@ -31,11 +31,12 @@ def compiler(defptr)#0
     puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln // SFTODO  TEMP UNCO
     addrxlate = heapmark // heapalloc(512 + defptr->bytecodesize)
     //if not addrxlate
-    if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
+    // SFTODO TCO if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
+    if 1 // SFTODO TEMP HACK
         //
         // Not enough heap available
         //
-        //puts("Not enough free heap\n")
+        puts("Not enough free heap\n") // SFTODO TEMP UNCO
         defptr=>interpaddr = indirectentry
         return
     fin
