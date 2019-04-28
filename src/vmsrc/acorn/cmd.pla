@@ -1544,6 +1544,8 @@ export def heaprelease(newheap)#1
     *heapptr = newheap
     return @newheap - *heapptr
 end
+// SFTODO: DOES PLAS128 (WITHOUT JIT, BUT ALSO WITH IT I GUESS) FAIL GRACEFULLY
+// IF ASKED TO RUN ON A MACHINE WITH NO SWR? PROBABLY BUT TEST IT.
 #ifdef PLAS128
 // TODO: I've rewritten this - review it when fresh and test the various corner
 // cases (I've only run a few sample programs under it so far)
