@@ -366,29 +366,30 @@ def compiler(defptr)#0
                     codeptr   = codeptr + 2
                     A_IS_TOSL = TOS_DIRTY                    // STA ESTKL,X
                     break
-                is $2E // CS
-                    i++
-                    j    = ^(bytecode+i)
-                    dest = codeptr + 10 + j
-                    //puts("CS "); //puts(bytecode+i); //puts("-->"); puti(dest)
-                    if isule(dest, codemax)
-                        if A_IS_TOSL & TOS_DIRTY
-                            *codeptr = estkl8+$95+(VX<<8)         // STA ESTKL,X
-                            codeptr  = codeptr + 2
-                        fin
-                        VX--                                      // DEX
-                        codeptr=>0 = $A9+((codeptr+9)&$FF00)      // LDA #>STRING
-                        codeptr=>2 = estkh8+$95+(VX<<8)           // STA ESTKH,X
-                        codeptr=>4 = $A9+((codeptr+9)<<8)         // LDA #<STRING
-                        codeptr->6 = $4C                          // JMP abs
-                        dest       = codeptr + 10 + j
-                        codeptr=>7 = dest
-                        strcpy(codeptr + 9, bytecode + i)
-                        i = i + j
-                    fin
-                    codeptr   = dest
-                    A_IS_TOSL = TOS_DIRTY                         // STA ESTKL,X
-                    break
+// SFTODO: TEMP DISABLED
+//                is $2E // CS
+//                    i++
+//                    j    = ^(bytecode+i)
+//                    dest = codeptr + 10 + j
+//                    //puts("CS "); //puts(bytecode+i); //puts("-->"); puti(dest)
+//                    if isule(dest, codemax)
+//                        if A_IS_TOSL & TOS_DIRTY
+//                            *codeptr = estkl8+$95+(VX<<8)         // STA ESTKL,X
+//                            codeptr  = codeptr + 2
+//                        fin
+//                        VX--                                      // DEX
+//                        codeptr=>0 = $A9+((codeptr+9)&$FF00)      // LDA #>STRING
+//                        codeptr=>2 = estkh8+$95+(VX<<8)           // STA ESTKH,X
+//                        codeptr=>4 = $A9+((codeptr+9)<<8)         // LDA #<STRING
+//                        codeptr->6 = $4C                          // JMP abs
+//                        dest       = codeptr + 10 + j
+//                        codeptr=>7 = dest
+//                        strcpy(codeptr + 9, bytecode + i)
+//                        i = i + j
+//                    fin
+//                    codeptr   = dest
+//                    A_IS_TOSL = TOS_DIRTY                         // STA ESTKL,X
+//                    break
                 is $32 // DROP2
                     //puts("DROP2")
                     VX++              // INX
@@ -1044,6 +1045,33 @@ def compiler(defptr)#0
                     codeptr     = codeptr + 13
                     VX++                                   // INX
                     A_IS_TOSL   = FALSE
+                    break
+                is $2E // CS SFTODO: TEMPORARILY MOVE HERE - IF THIS LIVES CAN PROB SHARE CODE WITH FOLLOWING CASE
+                    //
+                    // Call into VM
+                    //
+                    codeptr, VX = resolveX(codeptr, VX)
+                    if A_IS_TOSL & TOS_DIRTY
+                        *codeptr = estkl8+$95//+(VX<<8) // STA ESTKL,X
+                        codeptr  = codeptr + 2
+                    fin
+                    codeptr->0 = $20               // JSR INTERP
+                    codeptr=>1 = directentry       // INTERP
+                    codeptr->3 = opcode
+                    codeptr    = codeptr + 4
+                    VY         = UNKNOWN
+                    A_IS_TOSL  = FALSE
+                    i++
+                    j    = ^(bytecode+i)
+                    //puts("CS "); //puts(bytecode+i);
+                    dest = codeptr + j + 1
+                    if isule(dest, codemax)
+                        strcpy(codeptr, bytecode + i)
+                        i = i + j
+                    fin
+                    codeptr   = dest
+                    ^codeptr  = $C0                 // NATV
+                    codeptr = codeptr + 1
                     break
                 is $86 // MUL
                 is $88 // DIV
