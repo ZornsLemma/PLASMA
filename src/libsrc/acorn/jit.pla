@@ -139,6 +139,9 @@ if *jitcomp
     return 0
 fin
 *jitcomp        = @compiler
+// SFTODO: WE *MIGHT* BE ABLE TO INITIALISE JITCODE(PTR) HERE INSTEAD OF DOING
+// IT IN THE MACHINE CODE VM, AND/OR IT MIGHT BE BEST IF CMD.PLA DID IT (IT HAS
+// ACCESS TO THE XHEAP PTR CONVENIENTLY)
 cmdsys.jitcount = 44
 cmdsys.jitsize  = 96
 indirectentry = *$0417 // SFTODO: HACK
