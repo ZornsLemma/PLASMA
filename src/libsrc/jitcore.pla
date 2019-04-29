@@ -31,8 +31,7 @@ def compiler(defptr)#0
     puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln // SFTODO  TEMP UNCO
     addrxlate = heapmark // heapalloc(512 + defptr->bytecodesize)
     //if not addrxlate
-    // SFTODO TCO if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
-    if 1 // SFTODO TEMP HACK
+    if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
         //
         // Not enough heap available
         //
@@ -161,6 +160,11 @@ def compiler(defptr)#0
     VY        = UNKNOWN // Virtual Y register
     VX        = 0       // Virtual X register
     i         = 0
+    // SFTODO START HACK
+    codeptr->0 = $A9; codeptr->1 = 65 // LDA #65
+    codeptr->2 = $20; codeptr=>3 = $FFEE // JSR
+    codeptr = codeptr + 5
+    // SFTODO END HACK
     if ^bytecode == $58
         //putc('$'); puth(codeptr);//puts(":[0] ENTER "); puti(^(bytecode+1)); putc(',');puti(^(bytecode+2)); putln
         //
@@ -420,6 +424,7 @@ def compiler(defptr)#0
                     j = ^(bytecode+i)
                     //puts("ADDI $"); putb(^(bytecode+i))
                 is $8C // INCR
+                    // SFTODO: TEMPTING TO HANDLE INCR SPECIALLY AND DO INC:BNE:INC
                     if opcode == $8C
                         //puts("INCR")
                         j = 1
@@ -1540,7 +1545,7 @@ def compiler(defptr)#0
             // Free working bufffers
             //
             //heaprelease(addrxlate)
-            //puts("Done compiling: $"); puth(defptr=>interpaddr); putln
+            puts("Done compiling: $"); puth(defptr=>interpaddr); putln // SFTODO TEMPUNCO
             //getc
             return
         fin
