@@ -112,11 +112,19 @@ VMINITPOSTRELOC
 	; OSHWM will be &600 bytes higher as a result.)
 .NOTTUBE
 }
-	LDY	#$10		; INSTALL PAGE 0 FETCHOP ROUTINE
+;
+; INSTALL PAGE 0 FETCHOP ROUTINE
+;
+	LDY	#$10
 - 	LDA	PAGE0-1,Y
 	STA	DROP-1,Y
 	DEY
 	BNE	-
+;
+; SET JMPTMP OPCODE
+;
+        LDA     #$4C
+        STA     JMPTMP
 
 !IFDEF PLAS128 {
 ;* Locate sideways RAM banks
@@ -171,6 +179,10 @@ SOMERAM	STX	RAMBANKCOUNT
 } ELSE {
 	LDY	#>TUBEJITHEAPTOP
 }
+	;* SFTODO: We might be able to do *some* initialisation in discardable code
+	;* on tube, e.g. perhaps copying the FETCHOP routine to page 0 and setting
+	;* JMPTMP. It depends what gets reset on soft break, which I suspect is not
+	;* very much, but would need to investigate this.
 	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND
 	STA	SRCL		; because on BREAK we will re-enter VMINITPOSTRELOC
 	LDA	#>TUBEHEAP
@@ -249,7 +261,7 @@ VMINIT
 		    ;* in both 40 and 80 column modes.
 		    !TEXT	"PLASJIT must run on a second processor; try P128JIT if you have sideways RAM."
 		    BRK
-		TUBE
+TUBE
 	    }
 	}
 

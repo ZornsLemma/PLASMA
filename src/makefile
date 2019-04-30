@@ -233,25 +233,25 @@ vmsrc/acorn/128cmdjit.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -DPLAS128 -DJIT -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/128cmdjit.pla
 	./$(PLASM) -AOW < vmsrc/acorn/128cmdjit.pla > vmsrc/acorn/128cmdjit.a
 
-$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+$(PLVMACN): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py $(PLVMZP_ACN)
 	acme '-DSTART=$$2000' -o $(PLVMACN) -l vmsrc/acorn/plvm32.sym --report vmsrc/acorn/plvm32.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -o $(PLVMACN).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmd.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACN) $(PLVMACN).3000
 	rm $(PLVMACN).3000
 
-$(PLVMACNJIT): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmdjit.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+$(PLVMACNJIT): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/32cmdjit.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py $(PLVMZP_ACN)
 	acme '-DSTART=$$2000' -DJIT=1 -o $(PLVMACNJIT) -l vmsrc/acorn/plvm32jit.sym --report vmsrc/acorn/plvm32jit.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmdjit.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -DJIT=1 -o $(PLVMACNJIT).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/32cmdjit.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACNJIT) $(PLVMACNJIT).3000
 	rm $(PLVMACNJIT).3000
 
-$(PLVMACN128): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+$(PLVMACN128): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py $(PLVMZP_ACN)
 	acme '-DSTART=$$2000' -DPLAS128=1 -o $(PLVMACN128) -l vmsrc/acorn/plvm128.sym --report vmsrc/acorn/plvm128.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -DPLAS128=1 -o $(PLVMACN128).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmd.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACN128) $(PLVMACN128).3000
 	rm $(PLVMACN128).3000
 
-$(PLVMACN128JIT): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmdjit.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py
+$(PLVMACN128JIT): vmsrc/acorn/plvm-pre.s vmsrc/acorn/plvm-post.s vmsrc/acorn/128cmdjit.a vmsrc/acorn/plvmzp.inc vmsrc/acorn/add-relocations.py $(PLVMZP_ACN)
 	acme '-DSTART=$$2000' -DPLAS128=1 -DJIT=1 -o $(PLVMACN128JIT) -l vmsrc/acorn/plvm128.sym --report vmsrc/acorn/plvm128jit.lst vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmdjit.a vmsrc/acorn/plvm-post.s
 	acme '-DSTART=$$3000' -DPLAS128=1 -DJIT=1 -o $(PLVMACN128JIT).3000 vmsrc/acorn/plvm-pre.s vmsrc/acorn/128cmdjit.a vmsrc/acorn/plvm-post.s
 	python vmsrc/acorn/add-relocations.py $(PLVMACN128JIT) $(PLVMACN128JIT).3000

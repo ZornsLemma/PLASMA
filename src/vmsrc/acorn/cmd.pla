@@ -52,7 +52,11 @@ include "inc/acornc.plh"
 const RELADDR      = $1000
 
 // The following constants must be kept in sync with vmsrc/plvmzp.inc and
-// vmsrc/acornc.inc.
+// vmsrc/acornc.inc. SFTODO: It would really be good if I could avoid this
+// duplication, I already got confused once and wasted a few hours. Perhaps I
+// could have a noddy Python script generate PLASMA and ACME versions of the
+// same constants, or have a script which translated ACME->PLASMA or something.
+// (This would apply to all duplicated constants, not just those here.)
 
 // Note that we cannot rely on initialisation of non-constant globals; on
 // PLAS32 running on a second processor, the VM is re-entered on BREAK and
@@ -67,8 +71,8 @@ const ifp          = $0071
 #ifdef PLAS128
     const pp           = $0073
 #endif
-const himemh       = $0078
-const scratch	   = $0079
+const himemh       = $0079
+const scratch	   = $007a
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
@@ -183,7 +187,7 @@ byte jitsize     = 0
 // SFTOD: We probably need to reinstance systemflags (perhaps it can be a byte
 // though?) now as we probably want to support nojitc. Maybe there's some other
 // way to handle this, let's not worry about it for now.
-const heapptr = $0089
+const heapptr = $008a // SFTODO YET MORE DUPLICATION OF CONSTANTS
 #ifdef PLAS128
     word xheapsize
     // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
@@ -290,7 +294,7 @@ REGVALS =   SRC
         TAX
         PLA
         PLP
-        JSR     JMPTMPX
+        JSR     JMPTMP
         PHP
         STA     REGVALS+0
         STX     REGVALS+1
@@ -990,7 +994,7 @@ export asm callalloca
 }
 	INX
 
-	JSR	JMPTMPX
+	JSR	JMPTMP
 
 	CLC
 !IFNDEF PLAS128 {
