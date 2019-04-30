@@ -1,0 +1,143 @@
+//
+// PLAS128 JIT bytecode compiler
+//
+include "inc/cmdsys.plh"
+//
+// Indirect interpreter DEFinition entrypoint
+//
+struc t_defentry
+    byte interpjsr
+    word interpaddr
+    word bytecodeaddr
+    byte callcount
+    byte bytecodesize
+end
+//
+// JIT compiler constants
+//
+// SFTODO TEMP NOTE - ACORN HAS ESTKH AT $50, ESTKL AT $60 - APPLE HAS ESTKH AT
+// $C0, ESTKL AT $D0
+const estkh8 = $5000
+const estkh = $50
+const estkl8 = $6000
+const estkl = $60
+// SFTODO TEMP NOTE - APPLE HAS IFPL AT $E0, IFPH AT $E1 - ACORN HAS IFPL AT $71, IFPH AT $72
+const ifpl8 = $7100
+const ifph8 = $7200
+// SFTODO TEMP NOTE - ACORN TMPL IS $76, TMPH IS $77
+// SFTODO TEMP NOTE - APPLE TMPL IS $E7, TMPH IS $E8
+const tmpl8 = $7600
+const tmph8 = $7700
+// SFTODO TEMP NOTE - APPLE JMPTMP IS $E6
+// SFTODO TEMP NODE - ACORN JMPTMP IS NOT AT A FIXED LOCATION (MAYBE I SHOULD
+// JUST MAKE IT BE AND GET THE PAIN OVER WITH) BUT FOR NOW WE'LL HACK ONE IN IN
+// OUR INIT
+const jmptmp = $412
+
+const jitcomp     = $0409
+const jitcodeptr  = $040B
+const codemax = $BF00 // SFTODO: SEMI-TEMP HACK FOR PLAS128 - NOTE THAT ON A MASTER WE HAVE HAZEL AT $C000 SO WE CAN'T JUST SET CODEMAX TO $C000 AND NOT CARE ABOUT WRITES PAST IT - ON A B/B+ WE COULD DO THIS, AND PERHAPS SHOULD - 256 BYTES OF SAFETY MARGIN IS PROB OTT BUT ACCEPT IT FOR NOW - IF WE CAN REDUCE THE SAFETY MARGIN THE APPEAL OF PUSHING RIGHT TO $C000 FOR B/B+ IS LESSENED AND THAT REDUCES SCOPE FOR SUBTLE BUGS ON CERTAIN MACHINES ONLY
+//
+// Bytecode interpreter entrypoints
+//
+// SFTODO: I HAD TO HACK THESE TO BE NON-CONST
+word indirectentry
+word directentry
+//
+// Copy bytecode DEF to main memory
+//
+// SFTODO HACK FOR PLAS128, MASSIVE CODE DUPLICATION WITH IINTERP AND MEMXCPY(),
+// MAYBE THIS WOULD LIVE IN CMD.PLA IN A JIT BUILD, NOT WORRYING ABOUT IT FOR
+// NOW
+asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
+        RAMBANK = $400 ; SFTODO HACK TO AVOID PROBS INCLUDING acornc.inc - WE DONT HAVE PLAS128 DEFINITION IN PLACE HERE
+        !SOURCE "vmsrc/acorn/plvmzp.inc"
+	LDA	ESTKH,X
+	ORA	ESTKL,X
+	BEQ	MEMXCPYEX
+
+	STY 	IPY
+
+	;* This code must be kept consistent with IINTERP
+	LDA	ESTKH+1,X
+        ROL
+        ROL
+        ROL
+	AND	#$03
+	TAY
+	LDA	RAMBANK,Y
+	STA	$F4
+	STA	$FE30
+
+	LDA	ESTKH+1,X
+	AND	#$BF
+	ORA	#$80
+	STA 	SRCH
+	LDA	ESTKL+1,X
+	STA	SRCL
+
+	LDA	ESTKL+2,X
+	STA	DSTL
+	LDA	ESTKH+2,X
+	STA	DSTH
+	
+	LDY	ESTKL,X
+	BEQ	MEMXCPYLP
+	INC 	ESTKH,X
+	LDY	#$00
+MEMXCPYLP 
+	LDA	(SRC),Y
+	STA	(DST),Y
+	INY
+	BNE	+
+	INC	DSTH
+	INC	SRCH
++	DEC 	ESTKL,X
+	BNE	MEMXCPYLP
+	DEC	ESTKH,X
+	BNE	MEMXCPYLP
+
+	LDY	IPY
+MEMXCPYEX
+	INX
+	INX
+	INX
+	RTS
+end
+def defcpy(dst, defptr)#0
+    memxcpySFTODONOTSUREWHATTOCALLTHIS(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+end
+include "libsrc/jitcore.pla"
+// Some TODOs from jitcore.pla:
+                    // SFTODO: IS THIS IMPLEMENTATION OF CS GOING TO BE A
+                    // PROBLEM IF MY PLAS128 JIT USES A SWR BANK TO HOLD THE
+                    // JIT-GENERATED CODE? IF THE STRING GETS PASSED TO AN OS
+                    // FUNCTION AND THEN TO ANOTHER PAGED ROM (EG A FILING
+                    // SYSTEM) THE STRING MAY NO LONGER BE ACCESSIBLE. THIS IS
+                    // *UNLIKELY* BUT IF SOMEONE WERE WRITING A PLASMA STRING
+                    // RAW TO DISC USING OSGBPB IT COULD HAPPEN, I THINK.
+
+                    // SFTODO: (COMMENT WAS ABOVE MUL/DIV/MOD/ETC) COULD I USE A SIMILAR APPROACH TO THE FOLLOWING
+                    // TO RE-USE THE INTERPRETING VM'S CS OPCODE, IF THE
+                    // EXISTING JIT CS OPCODE IMPLEMENTATION DOES CAUSE PROBLEMS
+                    // AS NOTED IN OTHER SFTODO?
+
+//
+// Install JIT compiler
+//
+if *jitcomp
+    return 0
+fin
+*jitcomp        = @compiler
+// SFTODO: WE *MIGHT* BE ABLE TO INITIALISE JITCODE(PTR) HERE INSTEAD OF DOING
+// IT IN THE MACHINE CODE VM, AND/OR IT MIGHT BE BEST IF CMD.PLA DID IT (IT HAS
+// ACCESS TO THE XHEAP PTR CONVENIENTLY)
+cmdsys.jitcount = 44
+cmdsys.jitsize  = 96
+indirectentry = *$0417 // SFTODO: HACK
+directentry   = *$0415 // SFTODO: HACK
+^jmptmp = $6C; *(jmptmp + 1) = $76 // SFTODO: HACK
+puts("JITC enabled\n")
+puth(*jitcomp) // SFTODO TEMP
+return modkeep
+done
