@@ -23,6 +23,7 @@
 // enough to leave the code around to be conditionally included as required.
 // #define TIME
 
+include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
 
 // Where the VM generates errors which are PLASMA-specific, these should of
@@ -67,12 +68,12 @@ const inbuff       = $0700
 const errnum       = $0700
 const errstr	   = $0701
 const freemem      = $0006 	// 'SRC' zp, used to indicate heap start
-const ifp          = $0071
+// SFTODODELETE const ifp          = $0071
 #ifdef PLAS128
-    const pp           = $0073
+    // SFTODODELETE const pp           = $0073
 #endif
-const himemh       = $0079
-const scratch	   = $007a
+// SFTODODELETE const himemh       = $0079
+// SFTODODELETE const scratch	   = $007a
 #ifdef PLAS128
     const rambankcount = $0404
 #endif
@@ -1400,7 +1401,7 @@ def jmpbufsz(jb)#1
 #endif
 	const ifp_size = 2
 	const stack_ptr_size = 1
-	const estksz = 32
+	// SFTODODELETE const estksz = 32
 	const estksz_elems = estksz / 2
 	word size
 	word stack_ptr
@@ -1693,15 +1694,15 @@ end
 //
 // String routines.
 //
-def strcpy(dst, src)#1 // SFTODO: EXPORT?
-    memcpy(dst+1, src+1, ^src)
-    ^dst = ^src
-    return dst
+def strcpy(dstSFTODO, srcSFTODO)#1 // SFTODO: EXPORT?
+    memcpy(dstSFTODO+1, srcSFTODO+1, ^srcSFTODO)
+    ^dstSFTODO = ^srcSFTODO
+    return dstSFTODO
 end
-def strcat(dst, src)#1 // SFTODO: EXPORT?
-    memcpy(dst + ^dst + 1, src + 1, ^src)
-    ^dst = ^dst + ^src
-    return dst
+def strcat(dstSFTODO, srcSFTODO)#1 // SFTODO: EXPORT?
+    memcpy(dstSFTODO + ^dstSFTODO + 1, srcSFTODO + 1, ^srcSFTODO)
+    ^dstSFTODO = ^dstSFTODO + ^srcSFTODO
+    return dstSFTODO
 end
 #ifndef STANDALONE
 // TODO: If this has only one caller we might be as well to inline it - but
