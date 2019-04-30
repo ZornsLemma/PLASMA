@@ -63,12 +63,8 @@ fin
 // ACCESS TO THE XHEAP PTR CONVENIENTLY)
 cmdsys.jitcount = 44
 cmdsys.jitsize  = 96
+indirectentry = *$0417 // SFTODO: HACK
 directentry   = *$0415 // SFTODO: HACK
-// jitcore.pla uses indirectentry on bytecode definitions it is unable or
-// unwilling to compile; on the flat model used in PLASMA we actually need to
-// use directentry for these. The name is unfortunate but not terrible and
-// jitcore.pla is common to all ports so we can't easily rename this.
-indirectentry = directentry 
 ^jmptmp = $6C; *(jmptmp + 1) = $76 // SFTODO: HACK
 puts("JITC enabled\n")
 puth(*jitcomp) // SFTODO TEMP

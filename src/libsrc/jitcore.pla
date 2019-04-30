@@ -37,7 +37,7 @@ def compiler(defptr)#0
         // Not enough heap available
         //
         puts("Not enough free heap\n") // SFTODO TEMP UNCO
-        defptr=>interpaddr = indirectentry // SFTODO SHOULD BE DIRECTENTRY ON FLAT PLASMA
+        defptr=>interpaddr = indirectentry
         return
     fin
     //
@@ -1583,7 +1583,7 @@ def compiler(defptr)#0
     // If we got here. we ran out of code buffer space. Overwrite interpreter
     // entrypoint with standard bytecode interpreter
     //
-    defptr=>interpaddr = indirectentry // SFTODO: SHOULD BE DIRECTENTRY ON FLAT PLASMA
+    defptr=>interpaddr = indirectentry
     //
     // Free working bufffers
     //
