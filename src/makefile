@@ -156,7 +156,7 @@ clean:
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 	-rm libsrc/apple/*.o libsrc/apple/*~ libsrc/apple/*.a
 	-rm libsrc/c64/*.o libsrc/c64/*~ libsrc/c64/*.a
-	-rm libsrc/acorn/*.o libsrc/acorn/*~ libsrc/acorn/*.a libsrc/acorn/128jit.pla libsrc/acorn/32jit.pla
+	-rm libsrc/acorn/*.o libsrc/acorn/*~ libsrc/acorn/*.a libsrc/acorn/128jit.pla libsrc/acorn/32jit.pla libsrc/acorn/*.sym libsrc/acorn/*.lst
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 
 #
