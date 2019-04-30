@@ -152,11 +152,11 @@ clean:
 	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
 	-rm vmsrc/apple/*.o vmsrc/apple/*~ vmsrc/apple/*.a vmsrc/apple/*.sym
 	-rm vmsrc/c64/*.o vmsrc/c64/*~ vmsrc/c64/*.a vmsrc/c64/*.sym
-	-rm vmsrc/acorn/*.o vmsrc/acorn/*~ vmsrc/acorn/*.a vmsrc/acorn/*.sym
+	-rm vmsrc/acorn/*.o vmsrc/acorn/*~ vmsrc/acorn/*.a vmsrc/acorn/*.sym vmsrc/acorn/128*.pla vmsrc/acorn/32*.pla vmsrc/acorn/plvmzp.plh vmsrc/acorn/symtab.pla vmsrc/acorn/vmconstants.plh
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 	-rm libsrc/apple/*.o libsrc/apple/*~ libsrc/apple/*.a
 	-rm libsrc/c64/*.o libsrc/c64/*~ libsrc/c64/*.a
-	-rm libsrc/acorn/*.o libsrc/acorn/*~ libsrc/acorn/*.a
+	-rm libsrc/acorn/*.o libsrc/acorn/*~ libsrc/acorn/*.a libsrc/acorn/128jit.pla libsrc/acorn/32jit.pla
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 
 #
@@ -217,22 +217,27 @@ vmsrc/acorn/symtab.pla: vmsrc/acorn/makesymtab.py
 vmsrc/acorn/plvmzp.plh: vmsrc/acorn/acmetoplasma.py $(PLVMZP_ACN)
 	python vmsrc/acorn/acmetoplasma.py $(PLVMZP_ACN) > vmsrc/acorn/plvmzp.plh
 
-vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla vmsrc/acorn/plvmzp.plh
+vmsrc/acorn/vmconstants.plh: vmsrc/acorn/acmetoplasma.py vmsrc/acorn/vmconstants.inc
+	python vmsrc/acorn/acmetoplasma.py vmsrc/acorn/vmconstants.inc > vmsrc/acorn/vmconstants.plh
+
+vmsrc/acorn/cmd.pla: vmsrc/acorn/plvmzp.plh vmsrc/acorn/vmconstants.plh
+
+vmsrc/acorn/32cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/32cmd.pla
 	./$(PLASM) -AOW < vmsrc/acorn/32cmd.pla > vmsrc/acorn/32cmd.a
 	# SFTODO: Building this here is a bit hacky
 	# SFTODO: TEMP FORGET STANDALONE cc -DSTANDALONE -E -P - < vmsrc/bbcmd.pla > vmsrc/32cmds.pla
 	# SFTODO: ./$(PLASM) -AOW < vmsrc/32cmds.pla > vmsrc/32cmd.sa
 
-vmsrc/acorn/32cmdjit.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla vmsrc/acorn/plvmzp.plh
+vmsrc/acorn/32cmdjit.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -DJIT -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/32cmdjit.pla
 	./$(PLASM) -AOW < vmsrc/acorn/32cmdjit.pla > vmsrc/acorn/32cmdjit.a
 
-vmsrc/acorn/128cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla vmsrc/acorn/plvmzp.plh
+vmsrc/acorn/128cmd.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -DPLAS128 -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/128cmd.pla
 	./$(PLASM) -AOW < vmsrc/acorn/128cmd.pla > vmsrc/acorn/128cmd.a
 
-vmsrc/acorn/128cmdjit.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla vmsrc/acorn/plvmzp.plh
+vmsrc/acorn/128cmdjit.a: vmsrc/acorn/cmd.pla $(PLASM) vmsrc/acorn/symtab.pla
 	cc -DPLAS128 -DJIT -E -P - < vmsrc/acorn/cmd.pla > vmsrc/acorn/128cmdjit.pla
 	./$(PLASM) -AOW < vmsrc/acorn/128cmdjit.pla > vmsrc/acorn/128cmdjit.a
 
@@ -583,12 +588,14 @@ $(JIT): libsrc/apple/jit.pla libsrc/jitcore.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/jit.pla > libsrc/apple/jit.a
 	acme --setpc 4094 -o $(JIT) libsrc/apple/jit.a
 
-$(JIT_ACN): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM) vmsrc/acorn/plvmzp.plh
+libsrc/acorn/jit.pla: vmsrc/acorn/plvmzp.plh vmsrc/acorn/vmconstants.plh
+
+$(JIT_ACN): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
 	cc -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/32jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/32jit.pla > libsrc/acorn/32jit.a
 	acme --setpc 4094 -o $(JIT_ACN) libsrc/acorn/32jit.a
 
-$(JIT_ACN128): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM) vmsrc/acorn/plvmzp.plh
+$(JIT_ACN128): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
 	cc -DPLAS128 -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/128jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/128jit.pla > libsrc/acorn/128jit.a
 	acme --setpc 4094 -o $(JIT_ACN128) libsrc/acorn/128jit.a

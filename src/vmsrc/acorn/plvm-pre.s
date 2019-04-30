@@ -43,6 +43,7 @@ OPPAGE  =       OPIDX+1
 ;* ACORN OS AND VM CONSTANTS
 ;*
 	!SOURCE "vmsrc/acorn/acornc.inc"
+	!SOURCE "vmsrc/acorn/vmconstants.inc"
 
 	!MACRO	CHECKVSHEAPHIGHINA .P {
 		!IF CHECKPARAMETERSTACK {

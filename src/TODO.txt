@@ -165,6 +165,8 @@ Suspect this is a duplicate - is there any possibility of speeding self-hosted c
 
 Is there any chance the plasmatool optimised self-hosted compiler will have a module small enough to load into PLAS128 without splitting? Haven't tried this yet...
 
+What happens if a modkeep module is JITted during execution of a non-modkeep module? Won't the JITted machine code be freed when the non-modkeep module ends but the deftbl entries will continue to point to that JITted code? Not tried this, just a thought. See what Apple does - maybe modkeep modules are marked ineligible for jitting explicitly or implicitly. Ask Dave if ultimately unsure.
+
 Short term notes:
 - can I avoid use of dinterp()/iinterp()/jitinterp() functions in cmd.pla?
 - (slighly related) use of *$415 and *$417 to communicate dinterp()/iinterp() to JIT could probably be tidier
