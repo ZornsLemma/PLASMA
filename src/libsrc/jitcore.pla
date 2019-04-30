@@ -29,6 +29,7 @@ def compiler(defptr)#0
     byte opcode, j, A_IS_TOSL
 
     puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln // SFTODO  TEMP UNCO
+    puts("*jitcodeptr="); puth(*jitcodeptr); putln // SFTODO TEMP HACK
     addrxlate = heapmark // heapalloc(512 + defptr->bytecodesize)
     //if not addrxlate
     if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
@@ -36,7 +37,7 @@ def compiler(defptr)#0
         // Not enough heap available
         //
         puts("Not enough free heap\n") // SFTODO TEMP UNCO
-        defptr=>interpaddr = indirectentry
+        defptr=>interpaddr = indirectentry // SFTODO SHOULD BE DIRECTENTRY ON FLAT PLASMA
         return
     fin
     //
@@ -1582,7 +1583,7 @@ def compiler(defptr)#0
     // If we got here. we ran out of code buffer space. Overwrite interpreter
     // entrypoint with standard bytecode interpreter
     //
-    defptr=>interpaddr = indirectentry
+    defptr=>interpaddr = indirectentry // SFTODO: SHOULD BE DIRECTENTRY ON FLAT PLASMA
     //
     // Free working bufffers
     //

@@ -505,6 +505,7 @@ asm iinterp()#1
 	STA	ESTKH,X
 	RTS
 end
+#ifdef JIT
 asm jitiinterp()#1
 	DEX
 	LDA	#<JITIINTERP
@@ -513,6 +514,7 @@ asm jitiinterp()#1
 	STA	ESTKH,X
 	RTS
 end 
+#endif
 // 
 // A DCI string is one that has the high bit set for every character except the last.
 // More efficient than C or Pascal strings.
@@ -2342,6 +2344,10 @@ fin
             // BANK - I WOULD EXPECT IT TO BOOK BUT FAIL TO ALLOC HEAP WHEN TRYING
             // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
             // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
+            puts("SFTODOX"); prword(*jitcodeptr)
+            // Allocate the remainder of the first sideways RAM bank to JITted
+            // machine code.
+            *jitcodeptr = $8000 + xheap
             xheap = xheap_bank_start + xheap_bank_size
         #endif
     fin
