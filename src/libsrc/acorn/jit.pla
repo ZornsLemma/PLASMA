@@ -2,7 +2,12 @@
 // PLASMA JIT bytecode compiler
 //
 include "inc/cmdsys.plh"
-include "inc/cmdsysac.plh"
+// SFTODO!? include "inc/cmdsysac.plh"
+import cmdsysac // SFTODO TEMP HACK TO AVOID DUP CONSTANT DEF ERRORS
+    predef oserror(n, msg)#0
+end
+include "vmsrc/acorn/plvmzp.plh"
+include "vmsrc/acorn/vmconstants.plh"
 //
 // Indirect interpreter DEFinition entrypoint
 //
@@ -13,29 +18,16 @@ struc t_defentry
     byte callcount
     byte bytecodesize
 end
-// SFTODO: QUITE A BIT OF DUPLICATION BETWEEN THIS AND JIT128.PLA, FACTOR IT OUT
 //
 // JIT compiler constants
 //
-// SFTODO TEMP NOTE - ACORN HAS ESTKH AT $50, ESTKL AT $60 - APPLE HAS ESTKH AT
-// $C0, ESTKL AT $D0
-const estkh8 = $5000
-const estkh = $50
-const estkl8 = $6000
-const estkl = $60
-// SFTODO TEMP NOTE - APPLE HAS IFPL AT $E0, IFPH AT $E1 - ACORN HAS IFPL AT $71, IFPH AT $72
-const ifpl8 = $7100
-const ifph8 = $7200
-// SFTODO TEMP NOTE - ACORN TMPL IS $77, TMPH IS $78
-// SFTODO TEMP NOTE - APPLE TMPL IS $E7, TMPH IS $E8
-const tmpl8 = $7700
-const tmph8 = $7800
-// SFTODO TEMP NOTE - APPLE JMPTMP IS $E6
-// SFTODO TEMP NODE - ACORN JMPTMP IS $76
-const jmptmp = $0076
+const estkh8 = estkh << 8
+const estkl8 = estkl << 8
+const ifpl8 = ifpl << 8
+const ifph8 = ifph << 8
+const tmpl8 = tmpl << 8
+const tmph8 = tmph << 8
 
-const jitcomp     = $0409
-const jitcodeptr  = $040B
 // SFTODO: USE A CONSTANT FOR SAFETY MARGIN AND CALCUALTE CODEMAX USING IT - THAT WAY BOTH BUILDS WILL BE CONSISTENT AND IT'S BETTER DOCUMENTED
 #ifndef PLAS128
     const codemax     = $F700 // SFTODO: PROBABLY 256 BYTES OF SAFETY MARGIN TO AVOID OVERWRITING TUBE "ROM" IS EXCESSIVE, BUT STICK WITH IT FOR NOW
@@ -52,8 +44,8 @@ word directentry
 // Copy bytecode DEF to main memory
 //
 #ifndef PLAS128
-def defcpy(dst, defptr)#0
-    memcpy(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+def defcpy(dstSFTODO, defptr)#0
+    memcpy(dstSFTODO, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #else
 // SFTODO HACK FOR PLAS128, MASSIVE CODE DUPLICATION WITH IINTERP AND MEMXCPY(),
@@ -114,8 +106,8 @@ MEMXCPYEX
 	INX
 	RTS
 end
-def defcpy(dst, defptr)#0
-    memxcpySFTODONOTSUREWHATTOCALLTHIS(dst, defptr=>bytecodeaddr, defptr->bytecodesize)
+def defcpy(dstSFTODO, defptr)#0
+    memxcpySFTODONOTSUREWHATTOCALLTHIS(dstSFTODO, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #endif
 include "libsrc/jitcore.pla"
