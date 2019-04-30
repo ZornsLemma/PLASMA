@@ -12,6 +12,11 @@
     #undef PLAS128
     #define PLAS128 PLAS128
 #endif
+// Ditto for JIT
+#ifdef JIT
+    #undef JIT
+    #define JIT JIT
+#endif
 
 // If TIME is defined, additional code is included to print the time spend
 // executing a module. This is a development-only feature but it's useful
@@ -100,14 +105,22 @@ struc t_defentry
     byte interpjsr
     word interpaddr
     word bytecodeaddr
-    byte callcount
-    byte bytecodesize
+    #ifdef JIT
+        byte callcount
+        byte bytecodesize
+    #endif
 end
-//
-// JIT compiler constants
-//
-const jitcomp     = $0409
-const jitcodeptr  = $040B
+#ifdef JIT
+    //
+    // JIT compiler constants
+    //
+    const jitcomp     = $0409
+    const jitcodeptr  = $040B
+#endif
+// SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
+// USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
+// AS THEY ARE IN BASIC, AND I'D IDEALLY LIKE THE VMS WHICH DON'T USE
+// JIT/SWR TO AVOID WASTING PAGE 4 ALLOCATIONS AND USE THE SPACE INSTEAD
 //
 // Predefined functions.
 //
@@ -145,15 +158,20 @@ word            = @modexec
 // offset.
 word = 0, 0, 0, 0 // dummy open, close, read, write
 byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to perr so there may be an incompatibility here - for the moment I don't think anything cares and I am trying to get the JIT working, but this area needs revisiting later on
+// I am going to leave jitcount and jitsize in all VMs, just as all VMs have the
+// Apple-specific refcons and devcons. If we don't do this, running JITTUNE on a
+// non-JIT VM will cause obscure corruption.
 // SFTODO: I don't think I can rely on initialisation of these globals due to the
 // way the VM is re-entered on the Tube on BREAK, but for now let's just not
 // care about that.
 byte jitcount    = 0
 byte jitsize     = 0
-// SFTODO: The Apple II VM doesn't seem to have refcons and devcons allocated
-// here, and they are Apple /// specific, so maybe I don't need them either.
-byte refcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
-byte devcons     = 0 // SFTODO? NEED THIS ANYWAY FOR INC/CMDSYS.PLH
+// Like the Apple II VMs, we don't have the Apple ///-specific refcons and
+// devcons variables, even though they are declared in the common cmdsys.plh
+// header; if not having them is good enough for the Apple II, it's good enough
+// for us.
+// byte refcons     = 0
+// byte devcons     = 0
 //
 // Globals
 //
@@ -183,7 +201,8 @@ word lastsym
 // PLAS128, because we need a copy of the string in the binary and on the
 // parameter stack (the binary is in main RAM here, not in sideways
 // RAM), so we stick with it. TODO: We could in principle conditionally
-// compile this, but it's awfully fiddly.
+// compile this, but it's awfully fiddly. SFTODO: Perhaps reconsider this
+// tradeoff and switch to literal strings instead of this pool
 //
 byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
@@ -198,8 +217,8 @@ byte colonstr[]   = ": "
 #endif
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 #ifdef TIME
-byte start_time[osword_read_time_block_size]
-byte end_time[osword_read_time_block_size]
+    byte start_time[osword_read_time_block_size]
+    byte end_time[osword_read_time_block_size]
 #endif
 //
 // Exported Machine ID. We somewhat arbitrarily assign the apparently free code
@@ -799,7 +818,13 @@ asm lookupdef(addr, deftbl)#1
         LDA     SRCH
         STA     ESTKH,X
         RTS
-+       LDA     #$07            ; NEXT ENTRY SFTODO: THIS IS $05 IN NON-JIT, WOULD NEED TO CONDITIONALLY COMPILE OR SOMETHING IN A FINAL VSN
++
+        ; TODO: It would be nice if we could somehow access t_defentry here...
+!IFDEF JIT {
+        LDA     #$07
+} ELSE {
+        LDA     #$05
+}
         CLC
         ADC     SRCL
         STA     SRCL
@@ -1546,6 +1571,8 @@ export def heaprelease(newheap)#1
 end
 // SFTODO: DOES PLAS128 (WITHOUT JIT, BUT ALSO WITH IT I GUESS) FAIL GRACEFULLY
 // IF ASKED TO RUN ON A MACHINE WITH NO SWR? PROBABLY BUT TEST IT.
+// SFTODO: On tube, JIT module is reloaded from disc on soft break - can we
+// avoid this?
 #ifdef PLAS128
 // TODO: I've rewritten this - review it when fresh and test the various corner
 // cases (I've only run a few sample programs under it so far)
@@ -1696,6 +1723,18 @@ end
 // see that the last DEF in a module *is* still eligible for being JITted
 // despite the "patch up the previous entry to use the JIT entry point"
 // approach.
+#ifndef JIT
+def adddef(addr, deflast)#1
+    word defentry
+    defentry = *deflast
+    *deflast = defentry + 5
+    defentry->0 = $20
+    defentry=>1 = iinterp
+    defentry=>3 = addr
+    defentry->5 = 0 // NULL out next entry
+    return defentry
+end
+#else
 def adddef(isfirst, addr, deflast)#1
     word preventry, defentry, defsize
 
@@ -1716,6 +1755,7 @@ def adddef(isfirst, addr, deflast)#1
     defentry->t_defentry   = 0 // NULL out next entry
     return defentry
 end
+#endif
 def modname_default(modcr)#0
     // Default implementation does nothing
 end
@@ -1735,7 +1775,9 @@ def modloadcr_internal(moddci, modcr)#1
     word modofst, defbank, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
+#ifdef JIT
     byte deffirst, skipjit
+#endif
     byte str[maxnamelen+1]
     const header_size = 128
     byte header[header_size]
@@ -1790,7 +1832,9 @@ def modloadcr_internal(moddci, modcr)#1
     // This is an EXTended RELocatable (data+bytecode) module.
     //
     // systemflags = header:4 | systemflags
+#ifdef JIT
     skipjit = 0 // SFTODO: Need to respect nojitc here
+#endif
     defofst  = header:6
     defcnt   = header:8
     init     = header:10
@@ -1819,7 +1863,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     deftbl   = xheapalloc(defcnt * t_defentry + 1)
     deflast  = deftbl
-    ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER
+    ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER (THE APPLE II NON-JIT VM DOES DO THIS, I DON'T KNOW IF THIS IS RANDOM OR SOMEHOW RELATED TO JIT FUNCTIONALITY, NEED TO ANALYSE CODE PROPERLY LATER)
     //
     // Add module to symbol table. This may grow the symbol table, so we
     // do it before we allocate space on the heap for the module. The
@@ -1926,13 +1970,19 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Run through the DeFinition Dictionary.
     //
+#ifdef JIT
     deffirst = 1
+#endif
     while ^rld == $02
 	//
 	// This is a bytecode def entry - add it to the def directory.
 	//
+#ifndef JIT
+	adddef(rld=>1 + defofst, @deflast)
+#else
 	adddef(deffirst, rld=>1 + defofst, @deflast)
         deffirst = skipjit // Calculate JIT potential or not
+#endif
 	rld = rld + 4
     loop
     //
@@ -1989,7 +2039,11 @@ def modloadcr_internal(moddci, modcr)#1
     if init
         init  = init + defofst
         puts("CALLING INIT\n")
+#ifndef JIT
+	fixup = adddef(init, @deflast)()
+#else
 	fixup = adddef(deffirst, init, @deflast)()
+#endif
         puts("CALLED INIT\n")
 	if fixup < modinitkeep
 	    //
@@ -2117,7 +2171,9 @@ def modexec(modfile)#1
 #endif
     word savesym, savesymtblchunk
     // word saveflags SFTODO MAY NEED TO REINSTATE THIS
+#ifdef JIT
     word savejit
+#endif
     word error, action, olderrjb, jb
 
     saveheap  = *heapptr
@@ -2127,7 +2183,9 @@ def modexec(modfile)#1
     savesym   = lastsym
     savesymtblchunk = symtblchunk
     // saveflags = systemflags
+#ifdef JIT
     savejit = *jitcodeptr
+#endif
     modload_handle = 0
     olderrjb = *errjb
     // We allocate a jmp_buf on the heap using except2(); it will get trapped
@@ -2159,7 +2217,9 @@ def modexec(modfile)#1
         *heapptr    = saveheap
     fin
     // systemflags = saveflags
+#ifdef JIT
     *jitcodeptr = savejit
+#endif
     if error <> 0
         error_handler()
     fin
@@ -2212,7 +2272,9 @@ end
 symtblchunk = lowsymtblchunk
 lastsym = lowsymtblchunk
 modname = @modname_default
-*jitcomp = 1
+#ifdef JIT
+    *jitcomp = 1
+#endif
 //
 // Init symbol table.
 //
@@ -2264,24 +2326,26 @@ fin
 *$415 = dinterp()
 *$417 = iinterp()
 
-// On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if
-// that fails for any reason (we don't have enough heap, the "JIT" file can't be found, etc)
-// an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
-// OS error isn't necessarily all that clear, but we don't expect this to happen - the main
-// thing is that we don't go into an infinite loop or similar.)
-if *jitcomp == 1
-    *jitcomp = 0
-    modloadpstr("JIT")
-    #ifdef PLAS128
-        // SFTODO TEMP HACK - BUT IDEA IS PROBABLY SOUND - WE WANT TO ALLOCATE THE
-        // ENTIRE FIRST BANK OF SWR TO THE JIT AND THE JIT CODE BUFFER
-        // SFTODO: ONCE MOSTLY WORKING SHOULD TEST JIT WITH A SINGLE 16K SWR
-        // BANK - I WOULD EXPECT IT TO BOOK BUT FAIL TO ALLOC HEAP WHEN TRYING
-        // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
-        // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
-        xheap = xheap_bank_start + xheap_bank_size
-    #endif
-fin
+#ifdef JIT
+    // On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if
+    // that fails for any reason (we don't have enough heap, the "JIT" file can't be found, etc)
+    // an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
+    // OS error isn't necessarily all that clear, but we don't expect this to happen - the main
+    // thing is that we don't go into an infinite loop or similar.)
+    if *jitcomp == 1
+        *jitcomp = 0
+        modloadpstr("JIT")
+        #ifdef PLAS128
+            // SFTODO TEMP HACK - BUT IDEA IS PROBABLY SOUND - WE WANT TO ALLOCATE THE
+            // ENTIRE FIRST BANK OF SWR TO THE JIT AND THE JIT CODE BUFFER
+            // SFTODO: ONCE MOSTLY WORKING SHOULD TEST JIT WITH A SINGLE 16K SWR
+            // BANK - I WOULD EXPECT IT TO BOOK BUT FAIL TO ALLOC HEAP WHEN TRYING
+            // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
+            // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
+            xheap = xheap_bank_start + xheap_bank_size
+        #endif
+    fin
+#endif
 // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
 // to init cmdptr just one - for now I am just going to hack it like this
 // after loading the JIT and I think that will get things more or less

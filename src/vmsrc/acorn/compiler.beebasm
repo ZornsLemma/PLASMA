@@ -1,5 +1,7 @@
 putfile "rel/acorn/PLASMA", "PLASMA", &2000
 putfile "rel/acorn/PLAS128", "PLAS128", &FF2000
+putfile "rel/acorn/PLASJIT", "PLASJIT", &2000
+putfile "rel/acorn/P128JIT", "P128JIT", &FF2000
 putfile "rel/acorn/CONIO", "CONIO", &0000
 putfile "rel/acorn/FILEIO", "FILEIO", &0000
 putfile "rel/PLASM#FE1000", "PLASM", &0000
