@@ -581,12 +581,14 @@ $(JIT): libsrc/apple/jit.pla libsrc/jitcore.pla $(PLVMJIT) $(PLASM)
 	acme --setpc 4094 -o $(JIT) libsrc/apple/jit.a
 
 $(JIT_ACN): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
-	./$(PLASM) -AMOW < libsrc/acorn/jit.pla > libsrc/acorn/jit.a
+	cc -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/32jit.pla
+	./$(PLASM) -AMOW < libsrc/acorn/32jit.pla > libsrc/acorn/32jit.a
 	acme --setpc 4094 -o $(JIT_ACN) libsrc/acorn/jit.a
 
 $(JIT_ACN128): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
-	./$(PLASM) -AMOW < libsrc/acorn/jit128.pla > libsrc/acorn/jit128.a
-	acme --setpc 4094 -o $(JIT_ACN128) libsrc/acorn/jit128.a
+	cc -DPLAS128 -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/128jit.pla
+	./$(PLASM) -AMOW < libsrc/acorn/128jit.pla > libsrc/acorn/128jit.a
+	acme --setpc 4094 -o $(JIT_ACN128) libsrc/acorn/128jit.a
 
 $(JIT16): libsrc/apple/jit16.pla libsrc/jit16core.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/jit16.pla > libsrc/apple/jit16.a
