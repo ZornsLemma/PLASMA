@@ -81,8 +81,9 @@ const freemem      = src 	// 'SRC' zp, used to indicate heap start
 // now we just allot this little part of it for the initial symbol
 // table, but this can probably be expanded later as the memory use
 // is tided up
+// SFTODO: CAN/SHOULD I NOW SET LOWSYMTBLCHUNK IN VMCONSTANTS.INC AND THEN IT COULD START AT THE FIRST FREE LOCATION AND BE AUTOMATICALLY AVAILABLE HERE? BUT WE MAY WANT CONDITIONAL COMPILATION
 const lowsymtblchunk = $419 // SFTODO: SHOULD BE $0409, TEMPORARILY BLATTED UP RATHER ARBITRARILY TO GET SOME WORKING SPACE FOR INITIAL JIT HACKS....
-const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR)
+const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR) (NOT $0700 BUT A CONSTANT FROM VMCONSTANTS.INC)
 
 const maxnamelen = 16 // characters; need +1 for PLASMA string
 const maxpathlen = 256
@@ -184,7 +185,7 @@ byte jitsize     = 0
 // SFTOD: We probably need to reinstance systemflags (perhaps it can be a byte
 // though?) now as we probably want to support nojitc. Maybe there's some other
 // way to handle this, let's not worry about it for now.
-const heapptr = $008a // SFTODO YET MORE DUPLICATION OF CONSTANTS
+const heapptr = heapl
 #ifdef PLAS128
     word xheapsize
     // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
@@ -2088,7 +2089,7 @@ end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
     if ^modpstr == 0 or ^modpstr > maxnamelen
-        oserror(204, "Bad name")
+        oserror(204, "Bad name") // SFTODO: SHOULD THIS BE USING THIS ERR NUM? WOULD ONE IN THE 0-127 RANGE BE BETTER? NOT THINKING NOW, JUST CHECK LATER... MAY WELL BE FINE
     fin
     stodci(modpstr, @moddci)
     stocr(modpstr, modcr)

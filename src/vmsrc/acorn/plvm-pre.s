@@ -31,8 +31,8 @@ CHECKEXPRESSIONSTACK = 1
 ;*
 	!SOURCE	"vmsrc/plvmzp.inc"
 DVSIGN	=	ESP
-DROP    =       $1F
-NEXTOP  =       $20
+DROP    =       ZPCODE
+NEXTOP  =       DROP+1
 FETCHOP =       NEXTOP+1
 IP      =       FETCHOP+1
 IPL     =       IP

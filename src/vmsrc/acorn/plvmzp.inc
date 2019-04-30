@@ -12,6 +12,9 @@ SRCH	=	SRC+1
 DST	=	SRC+2
 DSTL	=	DST
 DSTH	=	DST+1
+ZPCODE  =       $1F
+ZPCODESZ =	$10
+; SFTODO: So we could start something eg ESTK at ZPCODE+ZPCODESZ
 ESTKSZ	=	$20
 ESTK	=	$50
 ; Some VM opcodes (e.g. LB) use ESTKH-1,X as temporary workspace (to allow the use of (ESTKH-1,X)
