@@ -226,6 +226,29 @@ PAGE0	=	*
 TUBEHEAP
 !IFNDEF NONRELOCATABLE {
 VMINIT
+	;* We do this check here because it allows us to discard this code even on a
+	;* second processor. A non-relocatable build will omit this check, but that's
+	;* not a big deal; the non-relocatable build is really only for debugging anyway.
+	!IFNDEF PLAS128 {
+	    !IFDEF JIT {
+		    ;* The JIT isn't supported on flat PLASMA without a second processor; the main reason
+		    ;* is that it assumes the JIT code buffer is above $8000.
+		    LDA	#osbyte_read_high_order_address
+		    JSR	OSBYTE
+		    TYA
+		    BPL	TUBE
+		    BRK
+		    !BYTE	$80
+		    ;* Because this code is discarded at runtime on all platforms, we can be
+		    ;* as verbose as we like in this error message without it costing anything
+		    ;* except a bit of disk space. The message wording is tweaked to format nicely
+		    ;* in both 40 and 80 column modes.
+		    !TEXT	"PLASJIT must run on a second processor; try P128JIT if you have sideways RAM."
+		    BRK
+		TUBE
+	    }
+	}
+
 				; RELOCATE CODE TO OSHWM
 	DELTA   = SCRATCH
 	CODEP   = SCRATCH+1
