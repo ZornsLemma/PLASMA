@@ -25,6 +25,7 @@
 
 include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
+include "vmsrc/acorn/vmconstants.plh"
 
 // Where the VM generates errors which are PLASMA-specific, these should of
 // course be in the range 0-127 as they are language errors. I've decided to
@@ -64,10 +65,7 @@ const RELADDR      = $1000
 // any globals will have their post-modification values, not the original
 // values.
 
-const inbuff       = $0700
-const errnum       = $0700
-const errstr	   = $0701
-const freemem      = $0006 	// 'SRC' zp, used to indicate heap start
+const freemem      = src 	// 'SRC' zp, used to indicate heap start
 // SFTODODELETE const ifp          = $0071
 #ifdef PLAS128
     // SFTODODELETE const pp           = $0073
@@ -75,10 +73,8 @@ const freemem      = $0006 	// 'SRC' zp, used to indicate heap start
 // SFTODODELETE const himemh       = $0079
 // SFTODODELETE const scratch	   = $007a
 #ifdef PLAS128
-    const rambankcount = $0404
+// SFTODO DELETE    const rambankcount = $0404
 #endif
-const errfp	   = $0405	// 2 bytes
-const errjb	   = $0407	// 2 bytes
 
 #ifndef STANDALONE
 // TODO: I am currently very wasteful of memory in $400-$800; for
@@ -116,15 +112,15 @@ struc t_defentry
     #endif
 end
 //
-// JIT compiler constants
+// JIT compiler constants SFTODO MOVE THESE COMMENTS NOW WE NO LONGER DEFINE THESE CONSTANTS HERE
 // We allocate space for SFTODO SOME/ALL? of these even in non-JIT VMs;
 // this wastes a little space in low memory but it means we can guard against
 // users accidentally doing things like loading the JIT module on a non-JIT VM
 // and causing odd behaviour.
 //
-const jitcomp     = $0409
+// SFTODO DELETE const jitcomp     = $0409
 #ifdef JIT
-    const jitcodeptr  = $040B
+    // SFTODO DELETE const jitcodeptr  = $040B
 #endif
 // SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
 // USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
