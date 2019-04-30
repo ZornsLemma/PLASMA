@@ -110,11 +110,15 @@ struc t_defentry
         byte bytecodesize
     #endif
 end
+//
+// JIT compiler constants
+// We allocate space for SFTODO SOME/ALL? of these even in non-JIT VMs;
+// this wastes a little space in low memory but it means we can guard against
+// users accidentally doing things like loading the JIT module on a non-JIT VM
+// and causing odd behaviour.
+//
+const jitcomp     = $0409
 #ifdef JIT
-    //
-    // JIT compiler constants
-    //
-    const jitcomp     = $0409
     const jitcodeptr  = $040B
 #endif
 // SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
@@ -2274,7 +2278,9 @@ end
 symtblchunk = lowsymtblchunk
 lastsym = lowsymtblchunk
 modname = @modname_default
-#ifdef JIT
+#ifndef JIT
+    *jitcomp = 2 // indicates non-JIT VM to JIT module if it is loaded by user
+#else
     *jitcomp = 1
 #endif
 //
