@@ -3,8 +3,6 @@
 ;* ACORN VM CONSTANTS
 ;*
 ;**********************************************************
-;*
-;* These must be kept in sync with vmsrc/bbcmd.pla.
 
 ;* TODO: These should probably be "last" in page 4, then the symbol
 ;* table can start on top of these bytes in PLAS32 to avoid wasting
