@@ -490,37 +490,6 @@ export asm isult(a,b)#1
 	RTS
 end
 #ifndef STANDALONE
-//
-// Addresses of internal routines.
-//
-// SFTODO I ONLY HAD TO ADD dinterp() FOR JIT HACK, MAY NOT WANT IT OR ANY OF
-// THESE IN LONG RUN
-asm dinterp()#1
-	DEX
-	LDA	#<INTERP
-	STA	ESTKL,X
-	LDA	#>INTERP
-	STA	ESTKH,X
-	RTS
-end
-asm iinterp()#1
-	DEX
-	LDA	#<IINTERP
-	STA	ESTKL,X
-	LDA	#>IINTERP
-	STA	ESTKH,X
-	RTS
-end
-#ifdef JIT
-asm jitiinterp()#1
-	DEX
-	LDA	#<JITIINTERP
-	STA	ESTKL,X
-	LDA	#>JITIINTERP
-	STA	ESTKH,X
-	RTS
-end 
-#endif
 // 
 // A DCI string is one that has the high bit set for every character except the last.
 // More efficient than C or Pascal strings.
@@ -1737,7 +1706,7 @@ def adddef(addr, deflast)#1
     defentry = *deflast
     *deflast = defentry + 5
     defentry->0 = $20
-    defentry=>1 = iinterp
+    defentry=>1 = *iinterpptr
     defentry=>3 = addr
     defentry->5 = 0 // NULL out next entry
     return defentry
@@ -1752,13 +1721,13 @@ def adddef(isfirst, addr, deflast)#1
         preventry = defentry - t_defentry
         defsize   = addr - preventry=>bytecodeaddr
         if defsize <= jitsize
-            preventry=>interpaddr   = jitiinterp // JSR JITIINTERP
+            preventry=>interpaddr   = *jitiinterpptr // JSR JITIINTERP
             preventry->callcount    = jitcount // Set JIT countdown
             preventry->bytecodesize = defsize  // Set size
         fin
     fin
     defentry->interpjsr    = $20
-    defentry=>interpaddr   = iinterp // JSR IINTERP
+    defentry=>interpaddr   = *iinterpptr // JSR IINTERP
     defentry=>bytecodeaddr = addr
     defentry->t_defentry   = 0 // NULL out next entry
     return defentry
@@ -2332,9 +2301,6 @@ if not ^cmdptr
 #endif
     //putln
 fin
-// SFTODO: This is a hack so the JIT module can get access to these addresses.
-*$415 = dinterp()
-*$417 = iinterp()
 
 #ifdef JIT
     // On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if

@@ -114,6 +114,7 @@ VMINITPOSTRELOC
 }
 ;
 ; INSTALL PAGE 0 FETCHOP ROUTINE
+; SFTODO I THINK WE COULD DO THIS BEFORE RELOC, IF ZP IS PRESERVED ON TUBE SOFT BREAK
 ;
 	LDY	#ZPCODESZ
 - 	LDA	PAGE0-1,Y
@@ -125,6 +126,22 @@ VMINITPOSTRELOC
 ;
         LDA     #$4C
         STA     JMPTMP
+
+;
+; Populate the table of VM entry point addresses
+;
+	!IFNDEF JIT {
+	    LDY #4
+	} ELSE {
+	    LDY #6
+	}
+EPLOOP
+	LDA	VMENTRYPOINTTBL-1,Y
+	STA	INTERPPTR-1,Y
+	DEY
+	BNE	EPLOOP
+
+; SFTODO: One advantage of doing all possibly-error-throwing initialisation before we relocate the code would be that if an error occurs, we are less likely to get a "Bad program" error from BASIC immediately afterwards.
 
 !IFDEF PLAS128 {
 ;* Locate sideways RAM banks
@@ -243,6 +260,18 @@ PAGE0END
 	!ERROR "PAGE0 code overflow"
 }
 
+;*
+;* VM ENTRY POINTS
+;*
+; SFTODO: It's not a huge deal but it's annoying we have to have these when the core VM binary *knows* them at assembly time, we just don't have a way to get them into the PLASMA world. Is there any way round this? There's not a huge saving here because we need the first two to communicate the INTERP/IINTERP addresses to the separately compiled JIT module, but JITIINTERP is only used internally within the core VM and we wouldn't need space in page 4 for it if we could just make its address available as a constant in the PLASMA world somehow (persuade the PLASMA compile to emit '!BYTE CWopcode; !WORD JITIINTERP' in its output when we access a constant attached to JITIINTERP)
+VMENTRYPOINTTBL
+	!WORD	INTERP
+	!WORD	IINTERP
+	!IFDEF JIT {
+	    !WORD   JITIINTERP
+	}
+
+
 TUBEHEAP
 !IFNDEF NONRELOCATABLE {
 VMINIT
@@ -268,6 +297,7 @@ VMINIT
 TUBE
 	    }
 	}
+
 
 				; RELOCATE CODE TO OSHWM
 	DELTA   = SCRATCH

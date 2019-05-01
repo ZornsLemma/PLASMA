@@ -29,6 +29,12 @@ ERRJB  = $407		; 2 bytes
 JITCOMP = $409 		; 2 bytes
 JITCODEPTR = $40B		; 2 bytes
 
+; SFTODO: I WOULD LIKE THE JITIINTERP ADDRESS TO NOT BE WASTED ON NON-JIT VIMS IF POSSIBLE
+; Addresses of VM entry points
+INTERPPTR = $40D
+IINTERPPTR = $40F
+JITIINTERPPTR = $411
+
 ; We use the 256 bytes at $0700 for two purposes - as an input buffer
 ; for gets() and to hold the error number and error string after an
 ; OS error occurs.
