@@ -2,8 +2,10 @@
 // PLASMA JIT bytecode compiler
 //
 include "inc/cmdsys.plh"
-// SFTODO!? include "inc/cmdsysac.plh"
-import cmdsysac // SFTODO TEMP HACK TO AVOID DUP CONSTANT DEF ERRORS
+// Normally we'd include "inc/cmdsysac.plh" to get this predef, but doing that
+// would cause a clash because we also include vmsrc/acorn/vmconstants.plh.
+// Normal code would not be including both files, so let's just accept this.
+import cmdsysac
     predef oserror(n, msg)#0
 end
 include "vmsrc/acorn/plvmzp.plh"
