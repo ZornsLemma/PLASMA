@@ -136,7 +136,9 @@ byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to 
 // non-JIT VM will cause obscure corruption.
 // SFTODO: I don't think I can rely on initialisation of these globals due to the
 // way the VM is re-entered on the Tube on BREAK, but for now let's just not
-// care about that.
+// care about that. (I would want to test, but I think it's fine - this would
+// simply preserve any JITTUNE tweaks across BREAK if we stop re-loading JITC
+// from disk on BREAK, and if we do reload JITC it will reset these itself.)
 byte jitcount    = 0
 byte jitsize     = 0
 // Like the Apple II VMs, we don't have the Apple ///-specific refcons and
@@ -591,44 +593,6 @@ INITDSTSRCY
 end
 
 #ifndef STANDALONE
-//
-// Module symbols are entered into the symbol table
-// pre-pended with a '#' to differentiate them
-// from normal symbols.
-//
-//def modtosym(mod, dci)
-//    byte len, c
-//    (dci).0 = '#'|$80
-//    len = 0
-//    repeat
-//        c = (mod).[len]
-//        len = len + 1
-//        (dci).[len] = c
-//    until !(c & $80)
-//    return dci
-//end
-// SFTODO: THIS MAY HAVE BEEN REMOVED FROM APPLE 2 PORT, NOT SURE YET
-asm modtosym(mod,dci)#1
-	LDA	ESTKL+1,X
-	STA	SRCL
-	LDA	ESTKH+1,X
-	STA	SRCH
-	LDA	ESTKL,X
-	STA	ESTKL+1,X
-	STA	DSTL
-	LDA	ESTKH,X
-	STA	ESTKH+1,X
-	STA	DSTH
-	INX
-	LDY	#$00
-	LDA	#'#'+$80
--	STA	(DST),Y
-	ASL
-	LDA	(SRC),Y
-	INY
-	BCS	-
-	RTS
-end
 //
 // Lookup routines.
 //
@@ -1334,7 +1298,6 @@ def jmpbufsz(jb)#1
 #endif
 	const ifp_size = 2
 	const stack_ptr_size = 1
-	// SFTODODELETE const estksz = 32
 	const estksz_elems = estksz / 2
 	word size
 	word stack_ptr
@@ -2257,6 +2220,8 @@ perr = 0
 //
 if not ^cmdptr
     // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
+    // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
+    // really want to bloat the VM with this really, so perhaps not.
     puts("PLASMA 2.0 Dev\n") //puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
@@ -2281,10 +2246,8 @@ fin
             modloadpstr("JIT")
         #else
             modloadpstr("JIT128")
-            // SFTODO TEMP HACK - BUT IDEA IS PROBABLY SOUND - WE WANT TO ALLOCATE THE
-            // ENTIRE FIRST BANK OF SWR TO THE JIT AND THE JIT CODE BUFFER
             // SFTODO: ONCE MOSTLY WORKING SHOULD TEST JIT WITH A SINGLE 16K SWR
-            // BANK - I WOULD EXPECT IT TO BOOK BUT FAIL TO ALLOC HEAP WHEN TRYING
+            // BANK - I WOULD EXPECT IT TO BOOT BUT FAIL TO ALLOC HEAP WHEN TRYING
             // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
             // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
             puts("SFTODOX"); prword(*jitcodeptr)
