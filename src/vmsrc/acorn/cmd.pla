@@ -53,28 +53,12 @@ include "vmsrc/acorn/vmconstants.plh"
 
 const RELADDR      = $1000
 
-// The following constants must be kept in sync with vmsrc/plvmzp.inc and
-// vmsrc/acornc.inc. SFTODO: It would really be good if I could avoid this
-// duplication, I already got confused once and wasted a few hours. Perhaps I
-// could have a noddy Python script generate PLASMA and ACME versions of the
-// same constants, or have a script which translated ACME->PLASMA or something.
-// (This would apply to all duplicated constants, not just those here.)
-
 // Note that we cannot rely on initialisation of non-constant globals; on
 // PLAS32 running on a second processor, the VM is re-entered on BREAK and
 // any globals will have their post-modification values, not the original
 // values.
 
 const freemem      = src 	// 'SRC' zp, used to indicate heap start
-// SFTODODELETE const ifp          = $0071
-#ifdef PLAS128
-    // SFTODODELETE const pp           = $0073
-#endif
-// SFTODODELETE const himemh       = $0079
-// SFTODODELETE const scratch	   = $007a
-#ifdef PLAS128
-// SFTODO DELETE    const rambankcount = $0404
-#endif
 
 #ifndef STANDALONE
 // TODO: I am currently very wasteful of memory in $400-$800; for
