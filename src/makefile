@@ -137,7 +137,7 @@ $(COMP_ACN): $(PLVMACN) $(PLVMACN128) $(PLVMACNJIT) $(PLVMACN128JIT) $(PLASMAPLA
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/compiler.beebasm -do rel/acorn/compiler.ssd -title "PLASMA COMP"
 	# SFTODO: Temp hack
-	/bin/cp -a rel/acorn/compiler.ssd ~/shared/bbc-discs-tmp/
+	#/bin/cp -a rel/acorn/compiler.ssd ~/shared/bbc-discs-tmp/
 
 all: apple c64 acorn
 
@@ -591,12 +591,12 @@ $(JIT): libsrc/apple/jit.pla libsrc/jitcore.pla $(PLVMJIT) $(PLASM)
 libsrc/acorn/jit.pla: vmsrc/acorn/plvmzp.plh vmsrc/acorn/vmconstants.plh
 
 $(JIT_ACN): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
-	cc -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/32jit.pla
+	cc -DJIT -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/32jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/32jit.pla > libsrc/acorn/32jit.a
 	acme --setpc 4094 -o $(JIT_ACN) -l libsrc/acorn/32jit.sym --report libsrc/acorn/32jit.lst libsrc/acorn/32jit.a
 
 $(JIT_ACN128): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
-	cc -DPLAS128 -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/128jit.pla
+	cc -DJIT -DPLAS128 -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/128jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/128jit.pla > libsrc/acorn/128jit.a
 	acme --setpc 4094 -o $(JIT_ACN128) -l libsrc/acorn/128jit.sym --report libsrc/acorn/128jit.lst libsrc/acorn/128jit.a
 

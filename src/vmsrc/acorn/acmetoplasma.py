@@ -24,8 +24,17 @@ for line in args.input:
     else:
         code = line[:i]
         comment = line[i:].replace(";", "//", 1)
+        comment = comment.strip()
+        if comment != "":
+            comment = " " + comment.strip()
     if code.strip() != "":
-        if code.find("=") == -1:
+        if code.find("=") != -1:
+            code = "const " + code.lower()
+        elif code.find("!IFDEF") != -1 or code.find("!IFNDEF") != -1 or code.find("ELSE") != -1 or code.find("}") != -1:
+            code = code.replace("!IFDEF", "#ifdef")
+            code = code.replace("!IFNDEF", "#ifndef")
+            code = code.replace("{", "")
+            code = code.replace("}", "#endif")
+        else:
             die("Unable to convert line: " + line)
-        code = "const " + code.lower()
     print(code + comment)

@@ -7,7 +7,7 @@ import cmdsysac // SFTODO TEMP HACK TO AVOID DUP CONSTANT DEF ERRORS
     predef oserror(n, msg)#0
 end
 include "vmsrc/acorn/plvmzp.plh"
-include "vmsrc/acorn/vmconstants.plh"
+#include "vmsrc/acorn/vmconstants.plh"
 //
 // Indirect interpreter DEFinition entrypoint
 //

@@ -25,7 +25,7 @@
 
 include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
-include "vmsrc/acorn/vmconstants.plh"
+#include "vmsrc/acorn/vmconstants.plh"
 
 // Where the VM generates errors which are PLASMA-specific, these should of
 // course be in the range 0-127 as they are language errors. I've decided to
