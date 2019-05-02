@@ -61,13 +61,6 @@ const RELADDR      = $1000
 const freemem      = src 	// 'SRC' zp, used to indicate heap start
 
 #ifndef STANDALONE
-// TODO: I am currently very wasteful of memory in $400-$800; for
-// now we just allot this little part of it for the initial symbol
-// table, but this can probably be expanded later as the memory use
-// is tided up
-// SFTODO: CAN/SHOULD I NOW SET LOWSYMTBLCHUNK IN VMCONSTANTS.INC AND THEN IT COULD START AT THE FIRST FREE LOCATION AND BE AUTOMATICALLY AVAILABLE HERE? BUT WE MAY WANT CONDITIONAL COMPILATION
-const lowsymtblchunk = $419 // SFTODO: SHOULD BE $0409, TEMPORARILY BLATTED UP RATHER ARBITRARILY TO GET SOME WORKING SPACE FOR INITIAL JIT HACKS....
-const lowsymtblchunksz = $50 // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR) (NOT $0700 BUT A CONSTANT FROM VMCONSTANTS.INC)
 
 const maxnamelen = 16 // characters; need +1 for PLASMA string
 const maxpathlen = 256
@@ -97,16 +90,6 @@ struc t_defentry
     #endif
 end
 //
-// JIT compiler constants SFTODO MOVE THESE COMMENTS NOW WE NO LONGER DEFINE THESE CONSTANTS HERE
-// We allocate space for SFTODO SOME/ALL? of these even in non-JIT VMs;
-// this wastes a little space in low memory but it means we can guard against
-// users accidentally doing things like loading the JIT module on a non-JIT VM
-// and causing odd behaviour.
-//
-// SFTODO DELETE const jitcomp     = $0409
-#ifdef JIT
-    // SFTODO DELETE const jitcodeptr  = $040B
-#endif
 // SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
 // USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
 // AS THEY ARE IN BASIC, AND I'D IDEALLY LIKE THE VMS WHICH DON'T USE

@@ -25,9 +25,14 @@ ERRFP  = $405		; 2 bytes
 ; stored at ERRJB.
 ERRJB  = $407		; 2 bytes
 
-; SFTODO: TEMPORARY/DOCUMENT IF KEEP
+; JIT compiler constants
+;
+; We allocate space for JITCOMP even in non-JIT VMs; this wastes a little space
+; in low memory but it means we can guard against users accidentally doing things
+; like loading the JIT module on a non-JIT VM and causing odd behaviour.
 JITCOMP = $409 		; 2 bytes
 !IFDEF JIT {
+    ; SFTODO: ATM JITCODEPTR IS "WASTED" ON NON-JIT VMS
     JITCODEPTR = $40B		; 2 bytes
 }
 
@@ -35,7 +40,14 @@ JITCOMP = $409 		; 2 bytes
 ; Addresses of VM entry points
 INTERPPTR = $40D
 IINTERPPTR = $40F
-JITIINTERPPTR = $411
+!IFDEF JIT {
+    JITIINTERPPTR = $411
+}
+
+; SFTODO: THIS SHOULD BE SET AT "NEXT FREE ADDRESS" BUT USING $419 HARDCODED FOR THE MOMENT AS THAT'S WHAT IT WAS WHEN THIS LIVED IN cmd.pla
+LOWSYMTBLCHUNK = $419
+LOWSYMTBLCHUNKSZ = $50 ;; // $150 // TODO $02f7 (OR SHOULD PROBABLY BE '$0700 - lowsymtblchunk' OR SIMILAR) (NOT $0700 BUT A CONSTANT FROM VMCONSTANTS.INC)
+
 
 ; We use the 256 bytes at $0700 for two purposes - as an input buffer
 ; for gets() and to hold the error number and error string after an
