@@ -55,6 +55,7 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const osbyte_wait_vertical_retrace   = $13
     const osbyte_flush_buffer            = $15
     const osbyte_read_high_order_address = $82
+    const osbyte_read_oshwm              = $83
     const osbyte_read_himem              = $84
     const osbyte_read_himem_for_mode     = $85
     const osbyte_rw_escape_status        = $E5
