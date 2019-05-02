@@ -33,6 +33,7 @@ for line in args.input:
         elif code.find("!IFDEF") != -1 or code.find("!IFNDEF") != -1 or code.find("ELSE") != -1 or code.find("}") != -1:
             code = code.replace("!IFDEF", "#ifdef")
             code = code.replace("!IFNDEF", "#ifndef")
+            code = code.replace("} ELSE {", "#else") # very specific!
             code = code.replace("{", "")
             code = code.replace("}", "#endif")
         else:

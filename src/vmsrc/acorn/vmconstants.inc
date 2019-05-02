@@ -4,44 +4,49 @@
 ;*
 ;**********************************************************
 
-;* TODO: These should probably be "last" in page 4, then the symbol
-;* table can start on top of these bytes in PLAS32 to avoid wasting
-;* them there. (Actually I'm not sure that's an issue. We can
-;* conditionally compile both this and bbcmd.pla to start the
-;* symbol table at a different address in PLAS32 and PLAS128 if we
-;* wish. Though in general we should try to keep the addresses
-;* consistent, *especially* of things like errfp and errjb that may
-;* get compiled into modules.)
-!IFDEF PLAS128 {
-    RAMBANK = $400		; 4 byte table of RAM bank numbers
-    RAMBANKCOUNT = $404
-}
-
 ; When an OS error occurs, our BRKV handler transfers control to the
 ; code whose address is at ERRFP. This is typically the error_hander()
 ; function.
-ERRFP  = $405		; 2 bytes
+ERRFP  = $400		    ; 2 bytes
 ; error_handler() performs a longjmp using the jmp_buf at the address
 ; stored at ERRJB.
-ERRJB  = $407		; 2 bytes
+ERRJB  = $402		    ; 2 bytes
 
-; JIT compiler constants
-;
 ; We allocate space for JITCOMP even in non-JIT VMs; this wastes a little space
 ; in low memory but it means we can guard against users accidentally doing things
 ; like loading the JIT module on a non-JIT VM and causing odd behaviour.
-JITCOMP = $409 		; 2 bytes
+JITCOMP = $404		    ; 2 bytes
+
+; Addresses of VM entry points. plvm-post.s assumes all two or three entry points are
+; contiguous, so JIINTERPTR must follow the first two if it is defined.
+INTERPPTR = $406	    ; 2 bytes
+IINTERPPTR = $408	    ; 2 bytes
+NEXT0 = IINTERPPTR+2
 !IFDEF JIT {
-    ; SFTODO: ATM JITCODEPTR IS "WASTED" ON NON-JIT VMS
-    JITCODEPTR = $40B		; 2 bytes
+    JITIINTERPPTR = NEXT0   ; 2 bytes, address of JIT VM entry point
+    NEXT1 = JITIINTERPPTR+2
+} ELSE {
+    NEXT1 = NEXT0
 }
 
-; SFTODO: I WOULD LIKE THE JITIINTERP ADDRESS TO NOT BE WASTED ON NON-JIT VIMS IF POSSIBLE
-; Addresses of VM entry points
-INTERPPTR = $40D
-IINTERPPTR = $40F
+; Now we start allocating space for build-specific features. Anything common to
+; all builds should come before this point, because it's unnecessarily confusing
+; to have gratuitous differences and if common addresses are baked into modules we
+; must keep the addresses constant to make the modules compatible with all VM builds.
+
 !IFDEF JIT {
-    JITIINTERPPTR = $411
+    JITCODEPTR = NEXT1	    ; 2 bytes, address of next free byte in JIT buffer
+    NEXT2 = JITCODEPTR+2
+} ELSE {
+    NEXT2 = NEXT1
+}
+
+!IFDEF PLAS128 {
+    RAMBANKCOUNT = NEXT2    ; 1 byte count of RAM banks found
+    RAMBANK = NEXT2+1	    ; 4 byte table of RAM bank numbers
+    NEXT3 = RAMBANK+4
+} ELSE {
+    NEXT3 = NEXT2
 }
 
 ; SFTODO: THIS SHOULD BE SET AT "NEXT FREE ADDRESS" BUT USING $419 HARDCODED FOR THE MOMENT AS THAT'S WHAT IT WAS WHEN THIS LIVED IN cmd.pla

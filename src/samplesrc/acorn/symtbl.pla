@@ -13,7 +13,7 @@ include "inc/acornos.plh"
 // The first chunk of the symbol table is in the VM code at an address we can't
 // know; we just ignore it here. This is only a test/demonstration anyway, it's
 // not something a real application should be doing.
-const initialsymtbl = $0409
+const initialsymtbl = $0409 // SFTODO OUTDATED CONSTANT, PLUS IT MAY BE MOVABLE SOON!
 const max_symbol_length = 17 // module names can be 16 chars plus # prefix
 
 word chunk = initialsymtbl
