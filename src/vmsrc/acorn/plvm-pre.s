@@ -601,7 +601,10 @@ CFFB    DEX
 ;*
 ;* LOAD ADDRESS & LOAD CONSTANT WORD (SAME THING, WITH OR WITHOUT FIXUP)
 ;*
-; SFTODO CAN WE SHARE CODE HERE? IS CW SO COMMON IT WOULD KILL IT TO SUFFER THE RENORMALIZE IP CHECK? IS THERE SOME DIFFERENCE IN THE CODE I AM OVERLOOKING?
+;* LA and CW differ only in that LA does RENORMALIZE IP; we could share their implementation
+;* if we were willing to do or not do RENORMALIZE IP for both, but it seems safest to do as
+;* the Apple Vm does. We'd save 16 bytes by making CW an alias for LA, so it's not a huge
+;* cost.
 -       TYA                     ; RENORMALIZE IP
         CLC
         ADC     IPL
