@@ -67,6 +67,17 @@ OPPAGE  =       OPIDX+1
 		}
 	}
 
+	;* On PLAS128 JIT builds, CALL/ICAL/RET need to page in the RAM bank containing
+	;* the JITted machine code. Interpreted functions have the bank containing their
+	;* bytecode pages in by IINTERP, which lives in main RAM, but JITted functions
+	;* are entered directly at their address in sideways RAM, so we must have the
+	;* correct bank paged in in case a CALL/ICAL is to JITted code. RET needs to
+	;* page in the RAM bank to handle the case where JITted code is calling an
+	;* interpreted function; the interpreted function's IINTERP will have paged in
+	;* the bank containing its bytecode so we need to undo that. We will end up
+	;* paging in the JIT bank more often than we need to, but I don't think it can
+	;* be helped, and the paging only happens on interpreted function entry/exit
+	;* so it shouldn't be too much of a drag on performance.
 	!MACRO	SELECTJITBANK {
 		!IFDEF PLAS128 {
 		    !IFDEF JIT {
@@ -200,7 +211,7 @@ _NEG 	LDA	#$00
 	LDA	#$00
 	SBC	ESTKH,X
 	STA	ESTKH,X
-ANRTS	RTS			; TODO: GET RID OF ANRTS LABEL IF NOT USED
+ANRTS	RTS
 _DIV    STY     IPY
         LDY     #$11            ; #BITS+1
         LDA     #$00
@@ -337,13 +348,6 @@ IINTERP2
 	STA 	IPH
 
 	LDA	RAMBANK,Y
-	; SFTODO: Random though, possibly incorrect - could we compare A with
-	; $F4 here and only if it is different a) do the STA $FE30 b) stack
-	; the old value of $F4 instead of doing it in CALL/ICAL? This might
-	; save time and/or stack space on function calls. I suspect this isn't
-	; workable because we don't have the "raw" IP value we'd need to
-	; recompute the desired bank on return from CALL/ICAL, but I'll leave
-	; this here to think about again before I delete this comment.
 	STA	$F4
 	STA	$FE30
 
@@ -374,46 +378,23 @@ RUNJIT  LDA	TMPL
 	SEC
 	SBC	#$02		; POINT TO DEF ENTRY
 	STA	TMPL
-!IF 0 { ; SFTODO!? I THINK MY ALTERNATIVE CODE IS VALID BUT WANT TO THINK ABOUT IT BEFORE DELETING THIS MORE OBVIOUSLY CORRECT VERSION
-	LDA	TMPH
-	SBC	#$00
-	STA	TMPH
-} ELSE {
 	BCS	+
 	DEC	TMPH
-+
-}
-	;LDA     JITCOMP
-	; SFTODO: PLAS128 would need some twiddling here to run the JIT from the right bank of SWR - or would it? I think we will call JITCOMP via a stub in main memory like any other PLASMA bytecode function which should automatically switch in the right bank - but check this later. What *might* need care is to page in the right bank of SWR when we are *executing* the machine code in the SWR bank which the JIT created
-	; SFTODO - OK, THE FIRST PART OF THAT SFTODO IS PROBABLY TRUE - A QUICK POSSIBLY WRONG REFAMILIARISATION WITH FOLLOWING CODE SUGGESTS WE START INTERPRETING THE JITCOMP FUNCTION VIA SETTING STUFF UP AND JSR TO FETCHOP, NOT VIA ITS OWN ENTRY POINT WHICH WOULD SET THE RAM BANK CORRECTLY
-	; SFTODO: WHAT IS ALSO GOING TO BE AN ISSUE WITH PLAS128 IS WHERE JITTED MACHINE CODE IS DOING A JSR AS PART OF A "CALL" - CALL/ICAL VM IMPL AND THUS ALSO THE JITTED MC ARE RESPONSIBLE FOR STACKING $F4 AND RE-SELECTING THE RIGHT ROM BACK AFTERWARDS - THIS MAY BE PARTICULARLY MESSY BECAUSE IF (SAY) THE FN CALLED IS IINTERP-ED AND IT PAGES IN ANOTHER ROM BANK, IT WON'T PAGE THE OLD ROM BANK BACK IN AND THEREFORE WE OBVIOUSLY CAN'T HAVE THE RESELECT-ROM-BANK CODE IN THE JITTED MC - WE MAY NEED TO (IF POSSIBLE) MOVE RESPONSIBILITY FROM CALL/ICAL TO IINTERP HERE
-	; SFTODO: I might guess not, otherwise the Apple VM would do it, but couldn't we simplify
-	; this (once we've populated SRCL/SRCH) into JSR XXX with .XXX:JMP (SRC) rather than
-	; fetching the bytecode address from (SRC),Y and putting it in IP manually?
-        ;STA     SRCL
-        ;LDA     JITCOMP+1
-        ;STA     SRCH
-        ;INY                     ; LDY     #$04
-        ;LDA     (SRC),Y
-        ;STA     IPH
-        ;DEY
-        ;LDA     (SRC),Y
-        ;STA     IPL
-        DEX                     ; ADD PARAMETER TO DEF ENTRY
++	DEX                     ; ADD PARAMETER TO DEF ENTRY
         LDA     TMPL
         PHA                     ; AND SAVE IT FOR LATER
         STA     ESTKL,X
         LDA     TMPH
         PHA
         STA     ESTKH,X
-        ;LDY     #$00
-        JSR SFTODOHACK94 ; JSR     FETCHOP         ; CALL JIT COMPILER
+        JSR	JMPJITCOMP	; CALL JIT COMPILER
         PLA
         STA     TMPH
         PLA
         STA     TMPL
         JMP     (TMP)           ; RE-CALL ORIGINAL DEF ENTRY
-SFTODOHACK94 JMP (JITCOMP)
+JMPJITCOMP
+	JMP 	(JITCOMP)
 }
 ;*
 ;* ADD TOS TO TOS-1
@@ -610,7 +591,6 @@ CB      DEX
         LDA     (IP),Y
         STA     ESTKL,X
         JMP     NEXTOP
-; SFTODO: Should I reintroduce my BIT abs hack so I can share code with CB at a small runtime cost?
 CFFB    DEX
         LDA     #$FF
         STA     ESTKH,X
@@ -1433,7 +1413,6 @@ CALLCOM	TYA
 !IFDEF PLAS128 {
 	LDA	$F4
 	PHA
-	; SFTODO: START EXPERIMENTAL HACK FOR JIT - IF THIS LIVES, WE MAY BENEFIT FROM EITHER A) ONLY DOING THE FULL THING IF $F4 DOES NOT ALREADY CONTAIN RAMBANK (WE PAID FOR A LOAD JUST ABOVE) AND/OR B) ONLY DONIG THIS IF IPH HAS ITS HIGH BIT SET - WE KNOW ANY ADDRESS >= $8000 HERE IS JITTED CODE AND MUST LIVE IN THIS RAMBANK, ANYTHING ELSE WILL INDIRECT VIA THE FUNCTION HEADER IN MAIN RAM
 	+SELECTJITBANK
 }
 	JSR	JMPTMP     ; PLAS128: may page in another bank
