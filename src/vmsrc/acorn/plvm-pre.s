@@ -898,7 +898,7 @@ LAW     INY                     ;+INC_IP
 ;*
 ADDAB   INY                     ;+INC_IP
         LDA     (IP),Y
-        STA     ESTKH-2,X ; SFTODO: DOES THIS REQUIRE MORE THAN ONE PAD BYTE? NOT THOUGHT ABOUT IT PROPERLY YET
+        STA     ESTKH-2,X
         INY                     ;+INC_IP
         LDA     (IP),Y
         STA     ESTKH-1,X

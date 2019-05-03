@@ -14,13 +14,15 @@ DSTL	=	DST
 DSTH	=	DST+1
 ZPCODE  =       $1F
 ZPCODESZ =	$10
-; SFTODO: So we could start something eg ESTK at ZPCODE+ZPCODESZ (but be careful with PAD; final version should really calculate addresses in a sequence and we should have ESTK=PAD+1 rather than PAD=ESTK-1)
+; SFTODO: So we could start something eg ESTK at ZPCODE+ZPCODESZ (but be careful with PAD; final version should really calculate addresses in a sequence and we should have ESTK=PAD+2 rather than PAD=ESTK-2)
 ESTKSZ	=	$20
 ESTK	=	$50
-; Some VM opcodes (e.g. LB) use ESTKH-1,X as temporary workspace (to allow the use of (ESTKH-1,X)
-; addressing). If ESTK is full (X=0), this will access one byte below ESTKH - we set this aside as
-; PAD. It is available for temporary use if necessary in other code.
-PAD 	=	ESTK-1
+; Some VM opcodes (e.g. LB) use ESTKH-1,X as temporary workspace (to
+; allow the use of (ESTKH-1,X) addressing); some do the same trick with
+; ESTKH-2,X. If ESTK is full (X=0), this will access one or two bytes
+; below ESTKH - we set these aside as PAD. This space is available for
+; temporary use if necessary in other code.
+PAD 	=	ESTK-2
 ESTKH	=	ESTK
 ESTKL	=	ESTK+ESTKSZ/2
 VMZP	=	ESTK+ESTKSZ
