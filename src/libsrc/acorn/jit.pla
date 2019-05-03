@@ -30,11 +30,23 @@ const ifph8 = ifph << 8
 const tmpl8 = tmpl << 8
 const tmph8 = tmph << 8
 
-// SFTODO: USE A CONSTANT FOR SAFETY MARGIN AND CALCUALTE CODEMAX USING IT - THAT WAY BOTH BUILDS WILL BE CONSISTENT AND IT'S BETTER DOCUMENTED
+// The JIT doesn't check for codeptr going past codemax after every single byte
+// of code is generated, so we need to allow a safety margin to avoid
+// overwriting anything after the end of the buffer. (On a B/B+ running PLAS128
+// only, we have the OS ROM at the end of the buffer and could do without this
+// safety margin, but taking advantage of that would require a separate JIT
+// build and code in the VM to decide which to load, or codemax would have to be
+// made a variable and that would probably bloat the JIT code - shrinking the
+// JIT buffer on PLAS128 - more than we'd save. It just doesn't seem worth it
+// for such a tiny gain.)
+// SFTODO: Might be good to run some tests under emulator debugger with
+// watchpoint on $C000 later on to verify this safety margin is enough in
+// practice.
+const codeoverflow = 32 // 23 would probably be enough but play it safe
 #ifndef PLAS128
-    const codemax     = $F700 // SFTODO: PROBABLY 256 BYTES OF SAFETY MARGIN TO AVOID OVERWRITING TUBE "ROM" IS EXCESSIVE, BUT STICK WITH IT FOR NOW
+    const codemax = $F800 - codeoverflow
 #else
-const codemax = $BF00 // SFTODO: SEMI-TEMP HACK FOR PLAS128 - NOTE THAT ON A MASTER WE HAVE HAZEL AT $C000 SO WE CAN'T JUST SET CODEMAX TO $C000 AND NOT CARE ABOUT WRITES PAST IT - ON A B/B+ WE COULD DO THIS, AND PERHAPS SHOULD - 256 BYTES OF SAFETY MARGIN IS PROB OTT BUT ACCEPT IT FOR NOW - IF WE CAN REDUCE THE SAFETY MARGIN THE APPEAL OF PUSHING RIGHT TO $C000 FOR B/B+ IS LESSENED AND THAT REDUCES SCOPE FOR SUBTLE BUGS ON CERTAIN MACHINES ONLY
+    const codemax = $C000 - codeoverflow
 #endif
 //
 // Bytecode interpreter entrypoints
