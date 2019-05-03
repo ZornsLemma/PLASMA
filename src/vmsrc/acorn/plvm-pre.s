@@ -1423,7 +1423,7 @@ CALL    INY                     ;+INC_IP
         INY                     ;+INC_IP
 	LDA	(IP),Y
 	STA	TMPH
-	TYA
+CALLCOM	TYA
 	SEC
 	ADC	IPL
 	PHA
@@ -1435,10 +1435,6 @@ CALL    INY                     ;+INC_IP
 	PHA
 	; SFTODO: START EXPERIMENTAL HACK FOR JIT - IF THIS LIVES, WE MAY BENEFIT FROM EITHER A) ONLY DOING THE FULL THING IF $F4 DOES NOT ALREADY CONTAIN RAMBANK (WE PAID FOR A LOAD JUST ABOVE) AND/OR B) ONLY DONIG THIS IF IPH HAS ITS HIGH BIT SET - WE KNOW ANY ADDRESS >= $8000 HERE IS JITTED CODE AND MUST LIVE IN THIS RAMBANK, ANYTHING ELSE WILL INDIRECT VIA THE FUNCTION HEADER IN MAIN RAM
 	+SELECTJITBANK
-	; SFTODO: NEXT THREE LINES ARE DUPLICATING SELECTJITBANK...
-	LDA	RAMBANK
-	STA	$F4
-	STA	$FE30
 }
 	JSR	JMPTMP     ; PLAS128: may page in another bank
 !IFDEF PLAS128 {
@@ -1469,42 +1465,12 @@ ESTKERR
 ;*
 ;* INDIRECT CALL TO ADDRESS (NATIVE CODE)
 ;*
-;* SFTODO: Could I save code by doing a JMP into the CALL implementation after setting
-;* up TMPL/TMPH? I don't think ICAL is very common so not too worried about the minor
-;* performance impact.
 ICAL 	LDA	ESTKL,X
 	STA	TMPL
 	LDA	ESTKH,X
 	STA	TMPH
 	INX
-	TYA
-	SEC
-	ADC	IPL
-	PHA
-	LDA	IPH
-	ADC	#$00
-	PHA
-!IFDEF PLAS128 {
-	LDA	$F4
-	PHA
-	+SELECTJITBANK
-}
-ICALADR	JSR	JMPTMP	     ; PLAS128: may page in another bank
-!IFDEF PLAS128 {
-	PLA
-	STA	$F4
-	STA	$FE30
-}
-;* We could do CHECKEXPRESSIONSTACK here, but ICAL isn't that common and the
-;* expression stack checking is never going to catch everything (that would
-;* require every DEX opcode to check) so it's probably not worth bloating the
-;* VM further.
-	PLA
-	STA	IPH
-	PLA
-	STA	IPL
-	LDY	#$00
-	JMP	FETCHOP
+	BNE	CALLCOM		; ALWAYS BRANCHES
 ;*
 ;* ENTER FUNCTION WITH FRAME SIZE AND PARAM COUNT
 ;*
