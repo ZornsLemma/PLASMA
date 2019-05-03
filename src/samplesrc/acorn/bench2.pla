@@ -145,7 +145,8 @@ def intmath32()#0
 end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool.
+// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
+// CAN BE MORE LITERAL NOW...
 // TODO: TEMP COMMENTED OUT
 // TODO: I should probably rewrite this using the standard fileio module
 //def storestdio()#0
@@ -177,7 +178,8 @@ end
 //end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool.
+// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
+// CAN BE MORE LITERAL NOW...
 def storebput()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
@@ -206,7 +208,8 @@ def storebput()#0
 end
 
 // This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool.
+// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
+// CAN BE MORE LITERAL NOW...
 def storegbpb()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
