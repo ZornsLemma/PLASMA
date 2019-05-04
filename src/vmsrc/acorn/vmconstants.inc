@@ -61,5 +61,9 @@ ERRNUM = $700
 ERRSTR = $701
 ERRSTRSZ = 255
 
-; TODO: Poor formatting above
+; Second processor memory allocations
+TUBERAMTOP = $F800
+TUBEJITBUFFERSIZE = 8*1024/256 ; pages
+TUBEJITHEAPTOP = TUBERAMTOP-(TUBEJITBUFFERSIZE*256)
 
+; TODO: Poor formatting above

@@ -160,6 +160,12 @@ cmdsys.jitcount = 44
 cmdsys.jitsize  = 96
 indirectentry = *iinterpptr
 directentry   = *interpptr
+#ifdef PLAS128
+    // cmd.pla initialises *jitcodeptr; it has access to xheap after the JIT
+    // module has been loaded.
+#else
+    *jitcodeptr = tubejitheaptop
+#endif
 puts("JITC enabled\n")
 puth(*jitcomp) // SFTODO TEMP
 return modkeep
