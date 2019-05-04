@@ -66,9 +66,6 @@ BRKJMP	JMP	(ERRFP)
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 
-!IFDEF NONRELOCATABLE {
-VMINIT
-}
 VMINITPOSTRELOC
 	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
 	TXS
@@ -141,43 +138,6 @@ EPLOOP
 	DEY
 	BNE	EPLOOP
 
-; SFTODO: One advantage of doing all possibly-error-throwing initialisation before we relocate the code would be that if an error occurs, we are less likely to get a "Bad program" error from BASIC immediately afterwards.
-
-!IFDEF PLAS128 {
-;* Locate sideways RAM banks
-;* TODO: Might be nice to allow these to be specified on command line
-	LDY	#$00
-	LDX	#$00
-FINDRAMLP
-	LDA	$2A1,Y
-	AND	#$C0
-	BNE	SKIPBANK	; ONLY CONSIDER BANKS WITH NO LANGUAGE OR SERVICE ENTRY
-	STY	$F4
-	STY	$FE30
-	INC	$8008		; BINARY VERSION NUMBER
-	LDA	$8008
-	DEC	$8008
-	CMP	$8008
-	BEQ	SKIPBANK	; IT'S NOT RAM
-	TYA
-	STA	RAMBANK,X
-	INX
-	CPX	#$04
-	BEQ	FINDRAMDONE
-SKIPBANK
-	INY
-	CPY	#$10
-	BNE	FINDRAMLP
-FINDRAMDONE
-	TXA
-	BNE	SOMERAM
-	BRK
-	!BYTE	$80
-	!TEXT	"No sideways RAM found"
-	BRK
-SOMERAM	STX	RAMBANKCOUNT
-}
-
 	;* If we're running on a second processor, we use memory up to TUBERAMTOP; we
 	;* ignore what OSBYTE $84 says.
 	LDA	#osbyte_read_high_order_address
@@ -206,8 +166,6 @@ SOMERAM	STX	RAMBANKCOUNT
 	STA	SRCH
 !IFDEF JIT {
 	;* SFTODO: I THINK THIS BIT SHOULD PROBABLY BE DONE IN JIT.PLA - ALTHOUGH FOR TUBE WE MAY WANT TO INITIALISE IT HERE SO IT GETS RESET CORRECTLY ON SOFT BREAK, THOUGH IF I CONTINUE TO RELOAD JIT MODULE FROM DISC ON SOFT BREAK THAT WOULD HAPPEN ANYWAY
-	;* SFTODO: TEMP HACK TO INITIALISE JITCODEPTR - WE PROBABLY SHOULDN'T DO THIS ONLY ON TUBE CODE PATH BUT FOR NOW IT'S ALL AN EXPERIMENTAL HACK
-	;* SFTODO: IF WE ARE GOING TO SUPPORT JIT ON FLAT PLASMA ON NON-TUBE MACHINES - AHAH, I WAS GOING TO SAY WE'D NEED TO ALLOCATE THE JIT BUFFER JUST ABOVE THE VM SO IT'S SAFE FROM MODE CHANGES, *BUT* (CHECK THIS) I AM FAIRLY SURE THE JIT REQUIRES THE CODE BUFFER TO BE IN THE HIGH 32K BECAUSE OF THE WAY IT USES THE HIGH BIT OF OPERANDS TO IDENTIFY STUFF NEEDING TO BE PATCHED UP (THAT'S FROM MEMORY, BUT THINK THERE IS SOMETHING OF THE KIND) - SO NON-TUBE FLAT JIT CAN'T SUPPORT JIT, I THINK (NOT THE END OF THE WORLD)
 	STZ	JITCODEPTR
 	LDA	#>TUBEJITHEAPTOP
 	STA	JITCODEPTR+1
@@ -271,34 +229,72 @@ VMENTRYPOINTTBL
 	    !WORD   JITIINTERP
 	}
 
-
 TUBEHEAP
-!IFNDEF NONRELOCATABLE {
 VMINIT
-	;* We do this check here because it allows us to discard this code even on a
-	;* second processor. A non-relocatable build will omit this check, but that's
-	;* not a big deal; the non-relocatable build is really only for debugging anyway.
-	!IFNDEF PLAS128 {
-	    !IFDEF JIT {
-		    ;* The JIT isn't supported on flat PLASMA without a second processor; the main reason
-		    ;* is that it assumes the JIT code buffer is above $8000.
-		    LDA	#osbyte_read_high_order_address
-		    JSR	OSBYTE
-		    TYA
-		    BPL	TUBE
-		    BRK
-		    !BYTE	$80
-		    ;* Because this code is discarded at runtime on all platforms, we can be
-		    ;* as verbose as we like in this error message without it costing anything
-		    ;* except a bit of disk space. The message wording is tweaked to format nicely
-		    ;* in both 40 and 80 column modes.
-		    !TEXT	"PLASJIT must run on a second processor; try P128JIT if you have sideways RAM."
-		    BRK
+;* The following bits of initialisation can generate errors (via BRK); by doing them before
+;* relocation we reduce the chances of a harmless but mildly ugly "Bad program" error if
+;* starting the VM from the BASIC prompt fails with an error.
+
+;* We do this check here because it allows us to discard this code even on a
+;* second processor.
+!IFNDEF PLAS128 {
+    !IFDEF JIT {
+	;* The JIT isn't supported on flat PLASMA without a second processor; the main reason
+	;* is that it assumes the JIT code buffer is above $8000.
+	LDA	#osbyte_read_high_order_address
+	JSR	OSBYTE
+	TYA
+	BPL	TUBE
+	BRK
+	!BYTE	$80
+	;* Because this code is discarded at runtime on all platforms, we can be
+	;* as verbose as we like in this error message without it costing anything
+	;* except a bit of disk space. The message wording is tweaked to format nicely
+	;* in both 40 and 80 column modes.
+	!TEXT	"PLASJIT must run on a second processor; try P128JIT if you have sideways RAM."
+	BRK
 TUBE
-	    }
-	}
+    }
+}
 
+!IFDEF PLAS128 {
+;* Locate sideways RAM banks
+;* TODO: Might be nice to allow these to be specified on command line
+	LDY	#$00
+	LDX	#$00
+FINDRAMLP
+	LDA	$2A1,Y
+	AND	#$C0
+	BNE	SKIPBANK	; ONLY CONSIDER BANKS WITH NO LANGUAGE OR SERVICE ENTRY
+	STY	$F4
+	STY	$FE30
+	INC	$8008		; BINARY VERSION NUMBER
+	LDA	$8008
+	DEC	$8008
+	CMP	$8008
+	BEQ	SKIPBANK	; IT'S NOT RAM
+	TYA
+	STA	RAMBANK,X
+	INX
+	CPX	#$04
+	BEQ	FINDRAMDONE
+SKIPBANK
+	INY
+	CPY	#$10
+	BNE	FINDRAMLP
+FINDRAMDONE
+	TXA
+	BNE	SOMERAM
+	BRK
+	!BYTE	$80
+	!TEXT	"No sideways RAM found"
+	BRK
+SOMERAM	STX	RAMBANKCOUNT
+}
 
+!IFDEF NONRELOCATABLE {
+	JMP	VMINITPOSTRELOC
+} ELSE {
 				; RELOCATE CODE TO OSHWM
 	DELTA   = SCRATCH
 	CODEP   = SCRATCH+1

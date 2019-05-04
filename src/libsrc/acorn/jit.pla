@@ -144,6 +144,8 @@ include "libsrc/jitcore.pla"
 puts("SFTODO\n")
 // This INIT code will be discarded once the module has been loaded, so we can
 // afford to be verbose where it's helpful.
+// SFTODO: JITTUNE should probably check for non-JIT VM and print a message like
+// this.
 if *jitcomp
     puts("SFTODO1\n")
     if *jitcomp == 2
