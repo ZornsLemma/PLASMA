@@ -25,7 +25,7 @@ ERRCPD	DEY
 	;* ERRNUM now holds the error number
 	;* ERRSTR now holds the error message as a standard PLASMA string
 	
-	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
+	LDX	#$FF
 	TXS
 	;* We reset X (ESP) so the error handler has the full expression
 	;* stack available - at the point the error occurred, it might
@@ -99,7 +99,7 @@ VMINITTUBESOFTBREAK
 
 ;* Common initialisation code
 INITFP	
-	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
+	LDX	#$FF
 	TXS
 
 	LDX	#$00
