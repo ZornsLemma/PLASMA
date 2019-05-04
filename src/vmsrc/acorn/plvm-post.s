@@ -66,7 +66,7 @@ BRKJMP	JMP	(ERRFP)
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 
-VMINITPOSTRELOC
+VMINITPOSTRELOC2
 	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
 	TXS
 
@@ -109,34 +109,6 @@ VMINITPOSTRELOC
 	; OSHWM will be &600 bytes higher as a result.)
 .NOTTUBE
 }
-;
-; INSTALL PAGE 0 FETCHOP ROUTINE
-; SFTODO I THINK WE COULD DO THIS BEFORE RELOC, IF ZP IS PRESERVED ON TUBE SOFT BREAK
-;
-	LDY	#ZPCODESZ
-- 	LDA	PAGE0-1,Y
-	STA	DROP-1,Y
-	DEY
-	BNE	-
-;
-; SET JMPTMP OPCODE
-;
-        LDA     #$4C
-        STA     JMPTMP
-
-;
-; Populate the table of VM entry point addresses
-;
-	!IFNDEF JIT {
-	    LDY #4
-	} ELSE {
-	    LDY #6
-	}
-EPLOOP
-	LDA	VMENTRYPOINTTBL-1,Y
-	STA	INTERPPTR-1,Y
-	DEY
-	BNE	EPLOOP
 
 	;* If we're running on a second processor, we use memory up to TUBERAMTOP; we
 	;* ignore what OSBYTE $84 says.
@@ -145,11 +117,11 @@ EPLOOP
 	TYA
 	BMI	NOTTUBE
 	!CPU	65C02
-	;* We're on a second processor; we set PROG at $EE to VMINITPOSTRELOC
+	;* We're on a second processor; we set PROG at $EE to VMINITPOSTRELOC2
 	;* so that the VM is re-initialised correctly on BREAK.
-	LDA	#<VMINITPOSTRELOC
+	LDA	#<VMINITPOSTRELOC2
 	STA	$EE
-	LDA 	#>VMINITPOSTRELOC
+	LDA 	#>VMINITPOSTRELOC2
 	STA	$EF
 !IFNDEF JIT {
 	LDY	#>TUBERAMTOP
@@ -230,6 +202,45 @@ VMENTRYPOINTTBL
 	}
 
 TUBEHEAP
+
+VMINITPOSTRELOC
+
+;* The following initialisation doesn't need to be redone after a soft reset on a second
+;* processor, so we can do it here and then the code can be discarded on all VMs after
+;* initialisation.
+
+;
+; INSTALL PAGE 0 FETCHOP ROUTINE
+;
+	LDY	#ZPCODESZ
+- 	LDA	PAGE0-1,Y
+	STA	DROP-1,Y
+	DEY
+	BNE	-
+
+;
+; SET JMPTMP OPCODE
+;
+        LDA     #$4C
+        STA     JMPTMP
+
+;
+; Populate the table of VM entry point addresses
+;
+	!IFNDEF JIT {
+	    LDY #4
+	} ELSE {
+	    LDY #6
+	}
+EPLOOP
+	LDA	VMENTRYPOINTTBL-1,Y
+	STA	INTERPPTR-1,Y
+	DEY
+	BNE	EPLOOP
+
+	JMP	VMINITPOSTRELOC2
+
+
 VMINIT
 ;* The following bits of initialisation can generate errors (via BRK); by doing them before
 ;* relocation we reduce the chances of a harmless but mildly ugly "Bad program" error if
@@ -291,6 +302,10 @@ FINDRAMDONE
 	BRK
 SOMERAM	STX	RAMBANKCOUNT
 }
+
+;* The following initialisation doesn't need to be redone after a soft reset on a second
+;* processor, so we can do it here and then the code can be discarded on all VMs after
+;* initialisation.
 
 !IFDEF NONRELOCATABLE {
 	JMP	VMINITPOSTRELOC
