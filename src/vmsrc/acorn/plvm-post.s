@@ -1,3 +1,6 @@
+;* SFTODO: Formatting of code/comments in this file is very ugly/inconsistent -
+;* in part because I'm trying to emulate Dave's style and doing so very badly.
+
 TUBERAMTOP = $F800
 TUBEJITBUFFERSIZE = 8*1024/256 ; pages
 TUBEJITHEAPTOP = TUBERAMTOP-(TUBEJITBUFFERSIZE*256)
@@ -66,9 +69,98 @@ BRKJMP	JMP	(ERRFP)
 SEGEND	=	*
 ;* TODO: Tidy up zero page use
 
-VMINITPOSTRELOC2
+;* Initialisation code which is executed on soft break on second processor; this
+;* has to be split off from the one-off initialisation code so we can discard the
+;* one-off initialisation code safely.
+VMINITTUBESOFTBREAK
+	!CPU	65C02
+
+	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND
+	STA	SRCL		; because on BREAK we will re-enter VMINITTUBESOFTBREAK
+	LDA	#>TUBEHEAP
+	STA	SRCH
+
+!IFDEF JIT {
+	;* SFTODO: I THINK THIS BIT SHOULD PROBABLY BE DONE IN JIT.PLA - ALTHOUGH FOR TUBE WE MAY WANT TO INITIALISE IT HERE SO IT GETS RESET CORRECTLY ON SOFT BREAK, THOUGH IF I CONTINUE TO RELOAD JIT MODULE FROM DISC ON SOFT BREAK THAT WOULD HAPPEN ANYWAY
+	STZ	JITCODEPTR
+	LDA	#>TUBEJITHEAPTOP
+	STA	JITCODEPTR+1
+}
+
+	;* When we're running on a second processor, we use memory up to TUBERAMTOP/TUBEJITHEAPTOP; we
+	;* ignore what OSBYTE $84 says.
+!IFNDEF JIT {
+	LDY	#>TUBERAMTOP
+} ELSE {
+	LDY	#>TUBEJITHEAPTOP
+}
+	;* Fall through to INITFP...
+	!CPU	6502
+
+;* Common initialisation code
+INITFP	
 	LDX	#$FF ;* SFTODO: A2 PORT USES $FE WITH COMMENT 'SEE GETS', I SUSPECT THIS DOESN'T APPLY TO BBC PORT BUT CHECK
 	TXS
+
+	LDX	#$00
+	STX	IFPL		; INIT FRAME POINTER
+	STY	IFPH
+!IFDEF PLAS128 {
+	STX	PPL
+	STY	PPH
+}
+	STY	HIMEMH
+	LDX	SRCH
+	INX
+	INX
+	CPX	IFPH
+	BCC	+
+	JMP	INITNOROOM
++	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
+;* Install BRK handler
+	LDA	#<BRKHND
+	STA	BRKV
+	LDA	#>BRKHND
+	STA	BRKV+1
+
+	JMP	A1CMD
+	
+
+;* The following initialisation doesn't need to be redone after a soft reset on a second
+;* processor, so we can do it here and then the code can be discarded on all VMs after
+;* initialisation.
+TUBEHEAP
+VMINITPOSTRELOC
+
+;
+; INSTALL PAGE 0 FETCHOP ROUTINE
+;
+	LDY	#ZPCODESZ
+- 	LDA	PAGE0-1,Y
+	STA	DROP-1,Y
+	DEY
+	BNE	-
+
+;
+; SET JMPTMP OPCODE
+;
+        LDA     #$4C
+        STA     JMPTMP
+
+;
+; Populate the table of VM entry point addresses
+;
+	!IFNDEF JIT {
+	    LDY #4
+	} ELSE {
+	    LDY #6
+	}
+EPLOOP
+	LDA	VMENTRYPOINTTBL-1,Y
+	STA	INTERPPTR-1,Y
+	DEY
+	BNE	EPLOOP
+
 
 !IFDEF PLAS128 {
 ;* PLAS128 isn't second processor compatible. The load/exec addresses are set
@@ -110,40 +202,20 @@ VMINITPOSTRELOC2
 .NOTTUBE
 }
 
-	;* If we're running on a second processor, we use memory up to TUBERAMTOP; we
-	;* ignore what OSBYTE $84 says.
 	LDA	#osbyte_read_high_order_address
 	JSR	OSBYTE
 	TYA
 	BMI	NOTTUBE
-	!CPU	65C02
-	;* We're on a second processor; we set PROG at $EE to VMINITPOSTRELOC2
+	;* We're on a second processor; we set PROG at $EE to VMINITTUBESOFTBREAK
 	;* so that the VM is re-initialised correctly on BREAK.
-	LDA	#<VMINITPOSTRELOC2
+	!CPU 65C02
+	LDA	#<VMINITTUBESOFTBREAK
 	STA	$EE
-	LDA 	#>VMINITPOSTRELOC2
+	LDA 	#>VMINITTUBESOFTBREAK
 	STA	$EF
-!IFNDEF JIT {
-	LDY	#>TUBERAMTOP
-} ELSE {
-	LDY	#>TUBEJITHEAPTOP
-}
-	;* SFTODO: We might be able to do *some* initialisation in discardable code
-	;* on tube, e.g. perhaps copying the FETCHOP routine to page 0 and setting
-	;* JMPTMP. It depends what gets reset on soft break, which I suspect is not
-	;* very much, but would need to investigate this.
-	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND
-	STA	SRCL		; because on BREAK we will re-enter VMINITPOSTRELOC
-	LDA	#>TUBEHEAP
-	STA	SRCH
-!IFDEF JIT {
-	;* SFTODO: I THINK THIS BIT SHOULD PROBABLY BE DONE IN JIT.PLA - ALTHOUGH FOR TUBE WE MAY WANT TO INITIALISE IT HERE SO IT GETS RESET CORRECTLY ON SOFT BREAK, THOUGH IF I CONTINUE TO RELOAD JIT MODULE FROM DISC ON SOFT BREAK THAT WOULD HAPPEN ANYWAY
-	STZ	JITCODEPTR
-	LDA	#>TUBEJITHEAPTOP
-	STA	JITCODEPTR+1
-}
-	BRA	INITFP
-	!CPU	6502
+	;* And of course we need to do that initialisation now as well.
+	JMP	VMINITTUBESOFTBREAK
+	!CPU 6502
 NOTTUBE
 	LDA	#<SEGEND	; SAVE HEAP START
 	STA	SRCL
@@ -151,28 +223,7 @@ NOTTUBE
 	STA	SRCH
 	LDA	#osbyte_read_himem
 	JSR	OSBYTE
-INITFP	LDX	#$00
-	STX	IFPL		; INIT FRAME POINTER
-	STY	IFPH
-!IFDEF PLAS128 {
-	STX	PPL
-	STY	PPH
-}
-	STY	HIMEMH
-	LDX	SRCH
-	INX
-	INX
-	CPX	IFPH
-	BCC	+
-	JMP	INITNOROOM
-+	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
-;* Install BRK handler
-	LDA	#<BRKHND
-	STA	BRKV
-	LDA	#>BRKHND
-	STA	BRKV+1
-
-	JMP	A1CMD
+	JMP	INITFP
 
 PAGE0	=	*
        	!PSEUDOPC	DROP  {
@@ -201,44 +252,7 @@ VMENTRYPOINTTBL
 	    !WORD   JITIINTERP
 	}
 
-TUBEHEAP
 
-VMINITPOSTRELOC
-
-;* The following initialisation doesn't need to be redone after a soft reset on a second
-;* processor, so we can do it here and then the code can be discarded on all VMs after
-;* initialisation.
-
-;
-; INSTALL PAGE 0 FETCHOP ROUTINE
-;
-	LDY	#ZPCODESZ
-- 	LDA	PAGE0-1,Y
-	STA	DROP-1,Y
-	DEY
-	BNE	-
-
-;
-; SET JMPTMP OPCODE
-;
-        LDA     #$4C
-        STA     JMPTMP
-
-;
-; Populate the table of VM entry point addresses
-;
-	!IFNDEF JIT {
-	    LDY #4
-	} ELSE {
-	    LDY #6
-	}
-EPLOOP
-	LDA	VMENTRYPOINTTBL-1,Y
-	STA	INTERPPTR-1,Y
-	DEY
-	BNE	EPLOOP
-
-	JMP	VMINITPOSTRELOC2
 
 
 VMINIT
@@ -302,10 +316,6 @@ FINDRAMDONE
 	BRK
 SOMERAM	STX	RAMBANKCOUNT
 }
-
-;* The following initialisation doesn't need to be redone after a soft reset on a second
-;* processor, so we can do it here and then the code can be discarded on all VMs after
-;* initialisation.
 
 !IFDEF NONRELOCATABLE {
 	JMP	VMINITPOSTRELOC
