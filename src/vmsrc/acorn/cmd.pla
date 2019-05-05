@@ -131,11 +131,11 @@ word            = @modexec
 // offset.
 word = 0, 0, 0, 0 // dummy open, close, read, write
 byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to perr so there may be an incompatibility here - for the moment I don't think anything cares and I am trying to get the JIT working, but this area needs revisiting later on
-// I am going to leave jitcount and jitsize in all VMs, just as all VMs have the
-// Apple-specific refcons and devcons. SFTODO: THIS IS ACTUALLY NOT TRUE, I
-// DON'T CURRENTLY ALWAYS HAVE REFCONS AND DEVCONS, AND NOW THAT JITTUNE CHECKS
-// FOR A NON-JIT VM I COULD ARGUABLY GET RID OF JITCOIUNT AND JITSIZE IN NON JIT
-// VMS
+#ifdef JIT
+// jitcount and jitsize are declared in the common cmdsys.plh header, but JITUNE
+// checks *jitcomp and won't try to alter them on a non-JIT VM so I think it's
+// safe to not have them on non-JIT VMs. This isn't really any different that
+// the Apple ///-specific refcons and devcons; see below.
 // SFTODO: I don't think I can rely on initialisation of these globals due to the
 // way the VM is re-entered on the Tube on BREAK, but for now let's just not
 // care about that. (I would want to test, but I think it's fine - this would
@@ -143,6 +143,7 @@ byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to 
 // from disk on BREAK, and if we do reload JITC it will reset these itself.)
 byte jitcount    = 0
 byte jitsize     = 0
+#endif
 // Like the Apple II VMs, we don't have the Apple ///-specific refcons and
 // devcons variables, even though they are declared in the common cmdsys.plh
 // header; if not having them is good enough for the Apple II, it's good enough
