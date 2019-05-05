@@ -309,6 +309,9 @@ SOMERAM	STX	RAMBANKCOUNT
 	JMP	VMINITPOSTRELOC
 } ELSE {
 				; RELOCATE CODE TO OSHWM
+!IF <RELOCSTART != 0 {
+	!ERROR "RELOCSTART must be on a page boundary"
+}
 	DELTA   = SCRATCH
 	CODEP   = SCRATCH+1
 	CODEPL  = CODEP
@@ -321,7 +324,7 @@ SOMERAM	STX	RAMBANKCOUNT
 	COUNTH  = COUNT+1
 	LDA	#osbyte_read_oshwm
 	JSR	OSBYTE
-	CPY	#(>START)+1
+	CPY	#(>RELOCSTART)+1
 	BCC	RELOCOK		; We don't support relocating upwards
 	BRK
 	!BYTE	$80
@@ -331,9 +334,9 @@ RELOCOK
 	TYA
 	STA	DSTH
 	SEC
-	SBC	#>START
+	SBC	#>RELOCSTART
 	STA	DELTA
-	LDA	#>START
+	LDA	#>RELOCSTART
 	STA	CODEPH
 	STA	SRCH
 	STA	CODEPH
@@ -392,7 +395,7 @@ RELPATCHNE2
 	; Now copy the code down to OSHWM. We must not copy over the top of
 	; this code while it's executing! This is why it's right at the end,
 	; and we're precise about how many bytes we copy.
-	BYTESTOCOPY = VMINIT-START
+	BYTESTOCOPY = VMINIT-RELOCSTART
 	LDA	#>BYTESTOCOPY
 	STA	COUNTH
 	LDY	#<BYTESTOCOPY

@@ -6,20 +6,22 @@ import io
 
 # TODO: Shouldn't assert for user errors...
 
-assert len(sys.argv) == 3
+assert len(sys.argv) == 4
 
 master = io.open(sys.argv[1], 'rb').read()
 alternate = io.open(sys.argv[2], 'rb').read()
+ignored_bytes = int(sys.argv[3])
 assert len(master) == len(alternate)
+assert len(master) >= ignored_bytes
 assert bytes(master[-2:]) == b'\x00\x00'
 
 delta = 1000
 relocations = []
 # TODO: Yay, Python 2 and 3 incompatibilities. Is there a better way?
 python_2 = (type(master[0]) is str)
-for i in range(len(master)):
+for i in range(ignored_bytes, len(master)):
     if master[i] != alternate[i]:
-        relocations.append(i)
+        relocations.append(i-ignored_bytes)
         if python_2:
             this_delta = ord(alternate[i]) - ord(master[i])
         else:

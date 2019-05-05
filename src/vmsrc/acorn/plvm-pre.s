@@ -92,6 +92,12 @@ OPPAGE  =       OPIDX+1
 ;*
 	*=	START
 SEGBEGIN JMP	VMINIT
+;* When we relocate the code, we don't relocate the JMP VMINIT at SEGBEGIN; this is why we
+;* pass an ignored_bytes argument of 3 to add-relocations.py. We do this because by setting
+;* START to $XXFD, we are able to have RELOCSTART at $(XX+1)00, i.e. exactly on a page
+;* boundary, which means we can SFTODO: NOT DONE THIS YET! place OPTBL there and satisfy
+;* its alignment requirements without any fiddling or wasting any memory on padding.
+RELOCSTART
 
 INITNOROOM
 HITHEAP
