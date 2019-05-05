@@ -29,7 +29,7 @@ include "inc/acornc.plh"
 
 // Where the VM generates errors which are PLASMA-specific, these should of
 // course be in the range 0-127 as they are language errors. I've decided to
-// informally allocate 0-15 to the low-level VM code in plvmbb*.s and 16-127 to
+// informally allocate 0-15 to the low-level VM code in plvm*.s and 16-127 to
 // the code in this file.
 
 // TODO: Weird - *SPOOL Z then *PLAS128 *immediately* closes the *SPOOL file.
@@ -92,8 +92,7 @@ end
 //
 // SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
 // USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
-// AS THEY ARE IN BASIC, AND I'D IDEALLY LIKE THE VMS WHICH DON'T USE
-// JIT/SWR TO AVOID WASTING PAGE 4 ALLOCATIONS AND USE THE SPACE INSTEAD - HOWEVER DO BE CAREFUL, IT MAY BE THAT FOR EXAMPLE I SHOULD CONTINUE TO ALLOCATE TWO BYTES FOR JITCOMP IN ALL VMS SO THAT LOADING THE JIT COMPILER MODULE ON A NON-JIT VM DOESN'T TRASH VITAL THINGS (I COULD ALSO PERHAPS INITIALISE JITCOMP WITH SAY '2' TO INDICATE NON-JIT VM AND HAVE JIT.PLA'S INIT CODE CHECK FOR THIS AND REPORT AN ERROR)
+// AS THEY ARE IN BASIC
 //
 // Predefined functions.
 //
@@ -1648,7 +1647,7 @@ def adddef(isfirst, addr, deflast)#1
     if not isfirst
         preventry = defentry - t_defentry
         defsize   = addr - preventry=>bytecodeaddr
-        if defsize <= jitsize
+        if defsize <= jitsize and *jitcomp <> 0
             preventry=>interpaddr   = *jitiinterpptr // JSR JITIINTERP
             preventry->callcount    = jitcount // Set JIT countdown
             preventry->bytecodesize = defsize  // Set size
@@ -2234,8 +2233,6 @@ fin
     // an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
     // OS error isn't necessarily all that clear, but we don't expect this to happen - the main
     // thing is that we don't go into an infinite loop or similar.)
-    // SFTODO: *jitcomp of 0 DOES *NOT* DISABLE THE VM - ATTEMPTS TO USE IT WILL
-    // FAIL/CRASH
     if *jitcomp == 1
         *jitcomp = 0
         #ifndef PLAS128
