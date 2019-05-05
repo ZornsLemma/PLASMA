@@ -129,11 +129,11 @@ word            = @modexec
 // cmdsys.plh is a shared header so I have to have them at the same relative
 // offset.
 word = 0, 0, 0, 0 // dummy open, close, read, write
-byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to perr so there may be an incompatibility here - for the moment I don't think anything cares and I am trying to get the JIT working, but this area needs revisiting later on
+byte perr
 #ifdef JIT
 // jitcount and jitsize are declared in the common cmdsys.plh header, but JITUNE
 // checks *jitcomp and won't try to alter them on a non-JIT VM so I think it's
-// safe to not have them on non-JIT VMs. This isn't really any different that
+// safe to not have them on non-JIT VMs. This isn't really any different than
 // the Apple ///-specific refcons and devcons; see below.
 // SFTODO: I don't think I can rely on initialisation of these globals due to the
 // way the VM is re-entered on the Tube on BREAK, but for now let's just not
