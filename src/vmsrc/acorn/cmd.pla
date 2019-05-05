@@ -346,6 +346,7 @@ export asm memcpy(dst,src,size)#0
 	STA 	SRCL
 	LDA	ESTKH-2,X
 	STA 	SRCH
+MEMCPY2
 	LDY	ESTKL-3,X
 	BEQ	FORCPYLP
 	INC 	ESTKH-3,X
@@ -1151,14 +1152,19 @@ end
 // Assumes that DST to DST+SIZE-1 all lie in the same 16K bank; this will
 // be true given how allocxheap() works.
 asm memxcpy(dst,src,size)#0
-	LDA	ESTKH,X
-	ORA	ESTKL,X
+	INX
+	INX
+	INX
+	LDA	ESTKH-3,X
+	ORA	ESTKL-3,X
 	BEQ	MEMXCPYEX
 
+        ; SFTODO: DO WE NEED TO SAVE AND RESTORE IPY? IF NOT WE CAN SIMPLIFY
+        ; STILL FURTHER AND JUST JMP OR MAYBE BRANCH-ALWAYS INTO MEMCPY2
 	STY 	IPY
 
 	;* This code must be kept consistent with IINTERP
-	LDA	ESTKH+2,X
+	LDA	ESTKH-1,X
         ROL
         ROL
         ROL
@@ -1168,39 +1174,22 @@ asm memxcpy(dst,src,size)#0
 	STA	$F4
 	STA	$FE30
 
-	LDA	ESTKH+2,X
+	LDA	ESTKH-1,X
 	AND	#$BF
 	ORA	#$80
 	STA 	DSTH
-	LDA	ESTKL+2,X
+	LDA	ESTKL-1,X
 	STA	DSTL
 
-	LDA	ESTKL+1,X
+	LDA	ESTKL-2,X
 	STA	SRCL
-	LDA	ESTKH+1,X
+	LDA	ESTKH-2,X
 	STA	SRCH
 	
-	LDY	ESTKL,X
-	BEQ	MEMXCPYLP
-	INC 	ESTKH,X
-	LDY	#$00
-MEMXCPYLP 
-	LDA	(SRC),Y
-	STA	(DST),Y
-	INY
-	BNE	+
-	INC	DSTH
-	INC	SRCH
-+	DEC 	ESTKL,X
-	BNE	MEMXCPYLP
-	DEC	ESTKH,X
-	BNE	MEMXCPYLP
+        JSR     MEMCPY2
 
 	LDY	IPY
 MEMXCPYEX
-	INX
-	INX
-	INX
 	RTS
 end
 #endif
