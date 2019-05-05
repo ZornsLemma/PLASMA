@@ -234,8 +234,6 @@ byte gm_new_mode
 //
 include "vmsrc/acorn/symtab.pla"
 #endif
-// TODO: DO I NEED saveX/restoreX AS IN CMD.PLA? (THESE HAVE NOW BEEN REMOVED
-// FROM LATEST APPLE CMD.PLA, SO MAYBE NOT)
 //
 // CALL 6502 ROUTINE
 // CALL(ADDR, AREG, XREG, YREG, STATUS)
