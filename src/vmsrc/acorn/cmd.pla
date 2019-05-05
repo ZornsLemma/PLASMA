@@ -947,7 +947,6 @@ end
 //
 // NONLOCAL GOTO
 //
-// SFTODO: Need to think carefully about whether except()/throw() need to be updated to reflect the new style of ENTER/LEAVE/INTERP in the latest version
 
 // except(jmp_buf *b) -> 0 on save, throw val otherwise
 export asm except(b)#1
