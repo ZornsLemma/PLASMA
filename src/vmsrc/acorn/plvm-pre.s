@@ -95,9 +95,29 @@ SEGBEGIN JMP	VMINIT
 ;* When we relocate the code, we don't relocate the JMP VMINIT at SEGBEGIN; this is why we
 ;* pass an ignored_bytes argument of 3 to add-relocations.py. We do this because by setting
 ;* START to $XXFD, we are able to have RELOCSTART at $(XX+1)00, i.e. exactly on a page
-;* boundary, which means we can SFTODO: NOT DONE THIS YET! place OPTBL there and satisfy
-;* its alignment requirements without any fiddling or wasting any memory on padding.
+;* boundary, which means we can place OPTBL there and satisfy its alignment requirements
+;* without any fiddling or wasting any memory on padding.
 RELOCSTART
+;*
+;* OPCODE TABLE
+;*
+!IF <* <> 0 {
+	!ERROR "OPTBL must be page-aligned"
+}
+	!ALIGN	255,0
+OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
+        !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 10 12 14 16 18 1A 1C 1E
+        !WORD   MINUS1,BREQ,BRNE,LA,LLA,CB,CW,CS                        ; 20 22 24 26 28 2A 2C 2E
+        !WORD   DROP,DROP2,DUP,DIVMOD,ADDI,SUBI,ANDI,ORI                ; 30 32 34 36 38 3A 3C 3E
+        !WORD   ISEQ,ISNE,ISGT,ISLT,ISGE,ISLE,BRFLS,BRTRU               ; 40 42 44 46 48 4A 4C 4E
+        !WORD   BRNCH,SEL,CALL,ICAL,ENTER,LEAVE,RET,CFFB                ; 50 52 54 56 58 5A 5C 5E
+        !WORD   LB,LW,LLB,LLW,LAB,LAW,DLB,DLW                           ; 60 62 64 66 68 6A 6C 6E
+        !WORD   SB,SW,SLB,SLW,SAB,SAW,DAB,DAW                           ; 70 72 74 76 78 7A 7C 7E
+        !WORD   LNOT,ADD,SUB,MUL,DIV,MOD,INCR,DECR                      ; 80 82 84 86 88 8A 8C 8E
+        !WORD   NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW                      ; 90 92 94 96 98 9A 9C 9E
+        !WORD   BRGT,BRLT,INCBRLE,ADDBRLE,DECBRGE,SUBBRGE,BRAND,BROR    ; A0 A2 A4 A6 A8 AA AC AE
+        !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
+	!WORD	NATV							; C0
 
 INITNOROOM
 HITHEAP
@@ -261,40 +281,6 @@ _DIVEX	INX
 	LDY	IPY
 	RTS
 
-;*
-;* OPCODE TABLE
-;*
-;* This has to be page-aligned; to avoid wasting a lot of space to achieve
-;* this the preceding code has been carefully chosen to exactly fill the
-;* gap between the initial 'JMP VMINIT' and this table. (If we were prepared
-;* to use the Acorn OS's ability to specify a distinct execution address for
-;* a binary we could simply put this table right at the beginning and avoid
-;* any potential wasted space, but keeping track of the execution address
-;* through assembly to putting a file on an emulated disc image is more
-;* effort than it's worth.)
-;*
-;* TODO: Check every now and again that this alignment is still "efficient"
-;* on all builds.
-;* TODO: Could I simply make the load address 3 bytes below a page boundary?
-;* That way the table could be at the start and still be page-aligned. Only
-;* downside I can see is that if we load *just* below PAGE, we will corrupt
-;* workspace - but there's always a risk of that kind of thing anyway (eg.
-;* PAGE is at &2100 and we load at &2000).
-;*
-	!ALIGN	255,0
-OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
-        !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 10 12 14 16 18 1A 1C 1E
-        !WORD   MINUS1,BREQ,BRNE,LA,LLA,CB,CW,CS                        ; 20 22 24 26 28 2A 2C 2E
-        !WORD   DROP,DROP2,DUP,DIVMOD,ADDI,SUBI,ANDI,ORI                ; 30 32 34 36 38 3A 3C 3E
-        !WORD   ISEQ,ISNE,ISGT,ISLT,ISGE,ISLE,BRFLS,BRTRU               ; 40 42 44 46 48 4A 4C 4E
-        !WORD   BRNCH,SEL,CALL,ICAL,ENTER,LEAVE,RET,CFFB                ; 50 52 54 56 58 5A 5C 5E
-        !WORD   LB,LW,LLB,LLW,LAB,LAW,DLB,DLW                           ; 60 62 64 66 68 6A 6C 6E
-        !WORD   SB,SW,SLB,SLW,SAB,SAW,DAB,DAW                           ; 70 72 74 76 78 7A 7C 7E
-        !WORD   LNOT,ADD,SUB,MUL,DIV,MOD,INCR,DECR                      ; 80 82 84 86 88 8A 8C 8E
-        !WORD   NEG,COMP,BAND,IOR,XOR,SHL,SHR,IDXW                      ; 90 92 94 96 98 9A 9C 9E
-        !WORD   BRGT,BRLT,INCBRLE,ADDBRLE,DECBRGE,SUBBRGE,BRAND,BROR    ; A0 A2 A4 A6 A8 AA AC AE
-        !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
-	!WORD	NATV							; C0
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;* (PLAS128: executes bytecode from main RAM)
