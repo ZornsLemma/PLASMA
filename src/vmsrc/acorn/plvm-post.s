@@ -36,7 +36,7 @@ ERRCPD	DEY
 	;* but not the expression stack itself, and setting X=2 here so
 	;* the error handlers runs with a tiny expression stack, just
 	;* enough to call longjmp(). We'd make setjmp() fail if X<=2 on
-	;* entry. This wouldn't a perfect solution as the expression stack
+	;* entry. This wouldn't be a perfect solution as the expression stack
 	;* could shrink after the setjmp() and before the longjmp(),
 	;* so important state could still be lost; setjmp.pla is an
 	;* example of this. The expression stack plays the same role as
