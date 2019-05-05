@@ -132,8 +132,10 @@ word            = @modexec
 word = 0, 0, 0, 0 // dummy open, close, read, write
 byte perr // SFTODO: This is cmdsys's 'syserr', I am not sure I always write to perr so there may be an incompatibility here - for the moment I don't think anything cares and I am trying to get the JIT working, but this area needs revisiting later on
 // I am going to leave jitcount and jitsize in all VMs, just as all VMs have the
-// Apple-specific refcons and devcons. If we don't do this, running JITTUNE on a
-// non-JIT VM will cause obscure corruption.
+// Apple-specific refcons and devcons. SFTODO: THIS IS ACTUALLY NOT TRUE, I
+// DON'T CURRENTLY ALWAYS HAVE REFCONS AND DEVCONS, AND NOW THAT JITTUNE CHECKS
+// FOR A NON-JIT VM I COULD ARGUABLY GET RID OF JITCOIUNT AND JITSIZE IN NON JIT
+// VMS
 // SFTODO: I don't think I can rely on initialisation of these globals due to the
 // way the VM is re-entered on the Tube on BREAK, but for now let's just not
 // care about that. (I would want to test, but I think it's fine - this would
@@ -2231,6 +2233,8 @@ fin
     // an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
     // OS error isn't necessarily all that clear, but we don't expect this to happen - the main
     // thing is that we don't go into an infinite loop or similar.)
+    // SFTODO: *jitcomp of 0 DOES *NOT* DISABLE THE VM - ATTEMPTS TO USE IT WILL
+    // FAIL/CRASH
     if *jitcomp == 1
         *jitcomp = 0
         #ifndef PLAS128

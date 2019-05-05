@@ -615,7 +615,8 @@ $(JITUNE): libsrc/apple/jitune.pla $(PLVMJIT) $(PLASM)
 	acme --setpc 4094 -o $(JITUNE) libsrc/apple/jitune.a
 
 $(JITUNE_ACN): libsrc/acorn/jitune.pla $(PLASM)
-	./$(PLASM) -AMOW < libsrc/acorn/jitune.pla > libsrc/acorn/jitune.a
+	cc -DJIT -E -P - < libsrc/acorn/jitune.pla > /tmp/jitune.pla
+	./$(PLASM) -AMOW < /tmp/jitune.pla > libsrc/acorn/jitune.a
 	acme --setpc 4094 -o $(JITUNE_ACN) libsrc/acorn/jitune.a
 
 
