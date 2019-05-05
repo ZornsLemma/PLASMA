@@ -169,7 +169,9 @@ $(PLASM): $(OBJS) $(INCS)
 $(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py
 	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
 	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
-	#(cd plasmatool; python pt.py > z; acme --setpc 4094 -o ../rel/PLASM2\#FE1000 z)
+	# SFTODO: We should perhaps build PLASMO and put it on the SSDs as PLASM
+	#python plasmatool/pt.py -O rel/PLASM\#FE1000 toolsrc/plasmo.a
+	#acme --setpc 4094 -o rel/PLASMO\#FE1000 toolsrc/plasmo.a
 
 # SFTODO: TEMP HACK
 $(PLASMAPLASM2): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py $(PLASMAPLASM)
