@@ -78,6 +78,10 @@ const allocheap_fail_threshold = $FFFF
 const modkeep     = $2000
 const modinitkeep = $4000 // SFTODO: WHY IS modinitkeep EVER USEFUL? ASK DAVE?
 //
+// System flags: memory allocator screen holes.
+//
+const nojitc      = $0100
+//
 // Indirect interpreter DEFinition entrypoint
 //
 struc t_defentry
@@ -152,10 +156,9 @@ byte jitsize     = 0
 //
 // Globals
 //
-// word systemflags = 0 TODO: delete this? commented out for now
-// SFTOD: We probably need to reinstance systemflags (perhaps it can be a byte
-// though?) now as we probably want to support nojitc. Maybe there's some other
-// way to handle this, let's not worry about it for now.
+// We don't need systemflags; even the Apple II VM handles nojitc separately and
+// none of the other flags are relevant to the Acorn VM.
+// word systemflags = 0
 const heapptr = heapl
 #ifdef PLAS128
     word xheapsize
@@ -1733,7 +1736,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // systemflags = header:4 | systemflags
 #ifdef JIT
-    skipjit = 0 // SFTODO: Need to respect nojitc here
+    skipjit  = header.5 & (nojitc >> 8)
 #endif
     defofst  = header:6
     defcnt   = header:8
