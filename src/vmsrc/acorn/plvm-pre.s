@@ -119,6 +119,7 @@ OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 
         !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
 	!WORD	NATV							; C0
 
+; SFTODO: I reordered the opcodes compared to Apple code in order to avoid wasting the alignment padding for OPTBL; now OPTBL has been moved, it might be worth reordering the code again so it's more like the Apple for ease of comparison in future.
 INITNOROOM
 HITHEAP
 	BRK
