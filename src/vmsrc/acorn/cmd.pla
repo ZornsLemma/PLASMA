@@ -979,7 +979,8 @@ export asm except(b)#1
 
 	;* We store IFP and PP as a delta from HIMEM to avoid problems
 	;* where we do except(); mode(); throw().
-+++	SEC
+#ifndef PLAS128
+        SEC
 	LDA	#0
 	SBC	IFPL
 	STA	(TMP),Y
@@ -988,18 +989,12 @@ export asm except(b)#1
 	SBC	IFPH
 	STA	(TMP),Y
 	INY
-#ifdef PLAS128
-	SEC
-	LDA	#0
-	SBC	PPL
-	STA	(TMP),Y
-	INY
-	LDA	HIMEMH
-	SBC	PPH
-	STA	(TMP),Y
-	INY
+#else
+   	LDX     #IFPL
+        JSR     SAVEDELTA
+        LDX     #PPL
+        JSR     SAVEDELTA
 #endif
-
 	;* We don't need to save IP, IPY or (for PLAS128) the current bank at 
 	;* $F4; CALL/ICAL save and restore these themselves. (Remember that
 	;* when throw() reaches its RTS, control returns to just after the
@@ -1029,6 +1024,20 @@ export asm except(b)#1
 
 ++	LDX	ESP
 	RTS
+
+#ifdef PLAS128
+SAVEDELTA
+        SEC
+	LDA	#0
+	SBC	$00,X
+	STA	(TMP),Y
+	INY
+	LDA	HIMEMH
+	SBC	$01,X
+	STA	(TMP),Y
+	INY
+        RTS
+#endif
 end
 
 // throw(jmp_buf *b, word val)
@@ -1070,6 +1079,7 @@ export asm throw(b, val)#0
 	INC	ESTKL,X
 ++++
 
+#ifndef PLAS128
  	SEC
 	LDA	#0
 	SBC	(TMP),Y
@@ -1079,16 +1089,11 @@ export asm throw(b, val)#0
 	SBC	(TMP),Y
 	STA	IFPH
 	INY
-#ifdef PLAS128
-	SEC
-	LDA	#0
-	SBC	(TMP),Y
-	STA	PPL
-	INY
-	LDA	HIMEMH
-	SBC	(TMP),Y
-	STA	PPH
-	INY
+#else
+        LDX     #IFPL
+        JSR     APPLYDELTA
+        LDX     #PPL
+        JSR     APPLYDELTA
 #endif
 
 	TYA
@@ -1121,6 +1126,20 @@ export asm throw(b, val)#0
 
 	LDX	ESP
 	RTS
+
+#ifdef PLAS128
+APPLYDELTA
+ 	SEC
+	LDA	#0
+	SBC	(TMP),Y
+	STA	$00,X
+	INY
+	LDA	HIMEMH
+	SBC	(TMP),Y
+	STA	$01,X
+	INY
+        RTS
+#endif
 end
 
 #ifdef PLAS128
