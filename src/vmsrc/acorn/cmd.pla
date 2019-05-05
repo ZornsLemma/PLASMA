@@ -1139,6 +1139,7 @@ APPLYDELTA
 	SBC	(TMP),Y
 	STA	$01,X
 	INY
+RTSTHROW
         RTS
 #endif
 end
@@ -1157,11 +1158,7 @@ asm memxcpy(dst,src,size)#0
 	INX
 	LDA	ESTKH-3,X
 	ORA	ESTKL-3,X
-	BEQ	MEMXCPYEX
-
-        ; SFTODO: DO WE NEED TO SAVE AND RESTORE IPY? IF NOT WE CAN SIMPLIFY
-        ; STILL FURTHER AND JUST JMP OR MAYBE BRANCH-ALWAYS INTO MEMCPY2
-	STY 	IPY
+	BEQ	RTSTHROW
 
 	;* This code must be kept consistent with IINTERP
 	LDA	ESTKH-1,X
@@ -1186,11 +1183,7 @@ asm memxcpy(dst,src,size)#0
 	LDA	ESTKH-2,X
 	STA	SRCH
 	
-        JSR     MEMCPY2
-
-	LDY	IPY
-MEMXCPYEX
-	RTS
+        JMP     MEMCPY2
 end
 #endif
 
