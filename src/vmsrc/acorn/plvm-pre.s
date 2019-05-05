@@ -362,9 +362,16 @@ JITIINTERP
         STA     TMPH
         LDY     #$03
         LDA     (TMP),Y         ; DEC JIT COUNT
-	; SFTODO: SCOPE FOR 'DEC A' ON A CMOS BUILD HERE... (POSS OTHER PLACES IN VM TOO)
+!IFNDEF PLAS128 {
+	; PLASJIT only runs on a second processor, so we can use CMOS opcodes here.
+	; A bit of a pointless micro-optimisations reallly.
+	!CPU	65C02
+	DEC
+	!CPU	6502
+} ELSE {
         SEC
         SBC     #$01
+}
         STA     (TMP),Y
 	BNE	IINTERP2	; INTERP BYTECODE AS USUAL
 RUNJIT  LDA	TMPL
