@@ -183,6 +183,10 @@ word lastsym
 // RAM), so we stick with it. TODO: We could in principle conditionally
 // compile this, but it's awfully fiddly. SFTODO: Perhaps reconsider this
 // tradeoff and switch to literal strings instead of this pool
+// SFTODO: Probably not worth it, but we could make PLAS128's CS opcode
+// recognise if IPH is <$80 and behave like PLAS32's CS opcode in that case -
+// this would bloat the VM code slightly but might be worth it if it simplifies
+// string handling for this file.
 //
 byte verstr[]     = "PLASMA "
 byte freestr[]    = "MEM FREE:$"
