@@ -324,6 +324,7 @@ end
 // MEMCPY(DSTADDR, SRCADDR, SIZE)
 //
 export asm memcpy(dst,src,size)#0
+MEMCPY
 	INX
 	INX
 	INX
@@ -1139,7 +1140,6 @@ APPLYDELTA
 	SBC	(TMP),Y
 	STA	$01,X
 	INY
-RTSTHROW
         RTS
 #endif
 end
@@ -1153,15 +1153,8 @@ end
 // Assumes that DST to DST+SIZE-1 all lie in the same 16K bank; this will
 // be true given how allocxheap() works.
 asm memxcpy(dst,src,size)#0
-	INX
-	INX
-	INX
-	LDA	ESTKH-3,X
-	ORA	ESTKL-3,X
-	BEQ	RTSTHROW
-
 	;* This code must be kept consistent with IINTERP
-	LDA	ESTKH-1,X
+	LDA	ESTKH+2,X
         ROL
         ROL
         ROL
@@ -1171,19 +1164,12 @@ asm memxcpy(dst,src,size)#0
 	STA	$F4
 	STA	$FE30
 
-	LDA	ESTKH-1,X
+	LDA	ESTKH+2,X
 	AND	#$BF
 	ORA	#$80
-	STA 	DSTH
-	LDA	ESTKL-1,X
-	STA	DSTL
+	STA 	ESTKH+2,X
 
-	LDA	ESTKL-2,X
-	STA	SRCL
-	LDA	ESTKH-2,X
-	STA	SRCH
-	
-        JMP     MEMCPY2
+        JMP     MEMCPY
 end
 #endif
 
