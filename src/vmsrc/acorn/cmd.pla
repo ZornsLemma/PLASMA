@@ -1277,11 +1277,11 @@ export def puti(i)#0
     if i >= 10; puti(i / 10); fin
     putc(i % 10 + '0')
 end
-export def prbyte(b)#0
+export def prbyte(b)#0 // SFTODO: RENAME THIS "PUTB" FOR CONSISTENCY?
     putc(hexchar[(b >> 4) & $0F])
     putc(hexchar[b & $0F])
 end
-def prword(w)#0 // SFTODO: PROBABLY NEEDS TO BE EXPORTED NOW
+export def prword(w)#0 // SFTODO: RENAME THIS "PUTH" FOR CONSISTENCY?
     prbyte(w >> 8)
     prbyte(w)
 end
