@@ -152,7 +152,7 @@ clean:
 	-rm vmsrc/*.o vmsrc/*~ vmsrc/*.a vmsrc/*.sym
 	-rm vmsrc/apple/*.o vmsrc/apple/*~ vmsrc/apple/*.a vmsrc/apple/*.sym
 	-rm vmsrc/c64/*.o vmsrc/c64/*~ vmsrc/c64/*.a vmsrc/c64/*.sym
-	-rm vmsrc/acorn/*.o vmsrc/acorn/*~ vmsrc/acorn/*.a vmsrc/acorn/*.sym vmsrc/acorn/128*.pla vmsrc/acorn/32*.pla vmsrc/acorn/plvmzp.plh vmsrc/acorn/symtab.pla vmsrc/acorn/vmconstants.plh
+	-rm vmsrc/acorn/*.o vmsrc/acorn/*~ vmsrc/acorn/*.a vmsrc/acorn/*.sym vmsrc/acorn/*.lst vmsrc/acorn/128*.pla vmsrc/acorn/32*.pla vmsrc/acorn/plvmzp.plh vmsrc/acorn/symtab.pla vmsrc/acorn/vmconstants.plh
 	-rm libsrc/*.o libsrc/*~ libsrc/*.a
 	-rm libsrc/apple/*.o libsrc/apple/*~ libsrc/apple/*.a
 	-rm libsrc/c64/*.o libsrc/c64/*~ libsrc/c64/*.a

@@ -1,4 +1,3 @@
-; SFTODO - POSSIBLY THIS SHOULD BE SYMLINKED INTO THE 'INC' DIRECTORY FOR THE ACORN PORT - I THINK IT IS IN PRINCIPLE USEFUL FOR WRITING GENERAL ASSEMBLY LANGUAGE CODE IN USER PROGRAMS ON THE ACORN PORT, SO IT ISN'T REALLY PART OF THE VM SOURCE CODE AS SUCH (ALTHOUGH THAT'S ONE OF ITS USES)
 ;**********************************************************
 ;*
 ;* ACORN OS CONSTANTS
@@ -18,6 +17,9 @@ OSWRCH = $FFEE
 OSWORD = $FFF1
 OSBYTE = $FFF4
 OSCLI  = $FFF7
+
+; TODO: Using upper case for all these constants might be more consistent;
+; that is the project convention for assembler code.
 
 error_message_ptr = $FD
 
