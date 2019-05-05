@@ -1450,7 +1450,6 @@ export def xheapalloc(size)#1
     fin
     return addr
 end
-// SFTODO: A2 IMPL OF THIS IS A BIT DIFFERENT, QUITE POSSIBLY MINE IS FINE BUT IF THERE'S OPTIMISATION POTENTIAL GO WITH IT - JUST DON'T WANT TO GET INTO THESE TINY DETAILS WHILE TRYING TO MERGE ALL SORTS OF BIGGER STUFF
 export def heapallocalign(size, pow2, freeaddr)#1
     word align, addr
     if freeaddr
