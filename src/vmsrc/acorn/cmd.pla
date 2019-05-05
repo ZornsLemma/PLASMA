@@ -1402,9 +1402,6 @@ end
 // FILE I/O
 //
 #ifndef STANDALONE
-def high_order_address()#1
-    return call(osbyte, osbyte_read_high_order_address, 0, 0, 0):1
-end
 #endif
 def oserror_heap_full()#0
     oserror(16, "Heap full")
@@ -1717,11 +1714,7 @@ def modloadcr_internal(moddci, modcr)#1
     modload_handle = handle
     block.0 = handle
     block:1 = @header
-    // SFTODO: Can we just use 0 instead of high_order_address()? I may be
-    // getting confused, but if we don't have a second processor 0 will
-    // obviously load into the host, and if we do have a second processor, 0
-    // will load into it.
-    block:3 = high_order_address()
+    block:3 = 0 // second processor if we are running on one, host otherwise
     block:5 = header_size
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
@@ -1805,7 +1798,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     block:0 = modcr
     block:2 = addr
-    block:4 = high_order_address()
+    block:4 = 0 // second processor if we are running on one, host otherwise
     block:6 = 0 // ignore file's load address, use our own
     // We check specifically for file found; a directory is no good to us. In
     // reality we don't expect any problems as we already opened the file using
