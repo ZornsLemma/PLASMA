@@ -1613,12 +1613,12 @@ end
 //
 // String routines.
 //
-def strcpy(dstSFTODO, srcSFTODO)#1 // SFTODO: EXPORT?
+export def strcpy(dstSFTODO, srcSFTODO)#1
     memcpy(dstSFTODO+1, srcSFTODO+1, ^srcSFTODO)
     ^dstSFTODO = ^srcSFTODO
     return dstSFTODO
 end
-def strcat(dstSFTODO, srcSFTODO)#1 // SFTODO: EXPORT?
+export def strcat(dstSFTODO, srcSFTODO)#1
     memcpy(dstSFTODO + ^dstSFTODO + 1, srcSFTODO + 1, ^srcSFTODO)
     ^dstSFTODO = ^dstSFTODO + ^srcSFTODO
     return dstSFTODO
