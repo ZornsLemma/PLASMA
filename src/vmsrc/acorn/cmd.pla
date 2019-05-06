@@ -1488,6 +1488,12 @@ def xheapfree(localxheap)#1
     word xheapsize
     xheapsize = ^rambankcount * xheap_bank_size
     if xheapsize == 0
+        // If we have 4x16K banks, we have to waste the last byte, otherwise
+        // there's no way with a 16-bit result to distinguish completely full
+        // and completely empty. (Just possibly we could play games relating to
+        // the fact that we know xheap starts at xheap_bank_start rather than 0,
+        // but I think this just makes allocxheap() even more tricky to get
+        // right.) SFTODO: COMMENT OK? REVIEW LATER WHEN FRESH...
         xheapsize = $FFFF
     fin
     return xheapsize - localxheap
@@ -2255,15 +2261,14 @@ fin
             modloadpstr("JIT")
         #else
             modloadpstr("JIT128")
-            // SFTODO: ONCE MOSTLY WORKING SHOULD TEST JIT WITH A SINGLE 16K SWR
-            // BANK - I WOULD EXPECT IT TO BOOT BUT FAIL TO ALLOC HEAP WHEN TRYING
-            // TO RUN EVEN THE SMALLEST PROGRAM, BECAUSE THE ENTIRE 16K SWR SHOULD
-            // BE OCCUPIED BY THIS AND ANY FUTURE AUX MEM ALLOC SHOULD FAIL
-            puts("SFTODOX"); prword(*jitcodeptr)
             // Allocate the remainder of the first sideways RAM bank to JITted
             // machine code.
             *jitcodeptr = $8000 + xheap
-            prword(allocxheap(xheap_bank_size - xheap))
+            // SFTODO: We could just do "xheap = xheap_bank_size" here and that
+            // may well be best in the long run, but let's stick with this for
+            // now as that way we avoid making any assumptions about how exactly
+            // allocxheap() chooses to manage xheap "at" the page boundaries.
+            allocxheap(xheap_bank_size - xheap)
         #endif
     fin
 #endif
