@@ -163,7 +163,7 @@ def run()#0
         if i == 0
             time(@finish)
             putc(vdu_home)
-            puth(time_delta(@start, @finish))
+            puti(time_delta(@start, @finish))
             putc(147)
             time(@start)
         fin
