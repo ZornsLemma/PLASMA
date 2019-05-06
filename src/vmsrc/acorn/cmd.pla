@@ -1478,8 +1478,6 @@ export def heaprelease(newheap)#1
     *heapptr = newheap
     return @newheap - *heapptr
 end
-// SFTODO: DOES PLAS128 (WITHOUT JIT, BUT ALSO WITH IT I GUESS) FAIL GRACEFULLY
-// IF ASKED TO RUN ON A MACHINE WITH NO SWR? PROBABLY BUT TEST IT.
 // SFTODO: On tube, JIT module is reloaded from disc on soft break - can we
 // avoid this?
 #ifdef PLAS128
