@@ -1413,9 +1413,11 @@ end
 def oserror_bad_module()#0
     oserror(17, "Bad module")
 end
-def oserror_not_found()#0
-    // SFTODO: REALLY WOULD BE GOOD TO INCLUDE THE FILENAME/MODULE NAME HERE...
-    oserror(214, "Not found")
+def oserror_not_found(moddci)#0
+    byte error[16 + maxnamelen + 1]
+    dcitos(moddci, @error)
+    strcat(@error, " not found")
+    oserror(214, @error)
 end
 #endif
 //
@@ -1735,7 +1737,7 @@ def modloadcr_internal(moddci, modcr)#1
     if handle == 0
     	// SFTODO: A2 IMPL NOW ATTEMPTS TO OPEN USING A 'SYSTEM PATH' - IS THIS
 	// SOMETHING I SHOULD CONSIDER PORTING?
-        oserror_not_found()
+        oserror_not_found(moddci)
     fin
     modload_handle = handle
     block.0 = handle
@@ -1830,7 +1832,7 @@ def modloadcr_internal(moddci, modcr)#1
     // reality we don't expect any problems as we already opened the file using
     // OSFILE to read the header.
     if call(osfile, osfile_load_file, @block, @block >> 8, 0).0 <> osfile_file_found
-        oserror_not_found()
+        oserror_not_found(moddci)
     fin
     // To test module loading I/O performance alone, do this here: return 0
     //
