@@ -23,7 +23,7 @@ are "finished" to avoid complexity of fixing bugs in three different places.
 (An alternative possibility would be to pre-load some useful libraries as
 resident modules, e.g. ACORNOS, into the sideways ROM so they're available
 without importing them from disc into RAM. However, without a significant
-quantity of well-tested, "frozen" libtrary code, there's not much value in
+quantity of well-tested, "frozen" library code, there's not much value in
 doing this, and it also raises the nasty possibility of needing to version
 modules so you don't get stuck with v1 of FOO in the ROM when there's v2 of FOO
 with some new feature you need on the disc.)
