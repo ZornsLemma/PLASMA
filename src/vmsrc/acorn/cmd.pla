@@ -1414,6 +1414,7 @@ def oserror_bad_module()#0
     oserror(17, "Bad module")
 end
 def oserror_not_found()#0
+    // SFTODO: REALLY WOULD BE GOOD TO INCLUDE THE FILENAME/MODULE NAME HERE...
     oserror(214, "Not found")
 end
 #endif
