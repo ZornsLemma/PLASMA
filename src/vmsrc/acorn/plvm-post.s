@@ -295,7 +295,6 @@ SKIPBANK
 	INY
 	CPY	#$10
 	BNE	FINDRAMLP
-	;* SFTODO: Might be cleanest for P128JIT to require a minimum of two banks and generate an error in that case
 FINDRAMDONE
 	TXA
 	BNE	SOMERAM
@@ -304,6 +303,15 @@ FINDRAMDONE
 	!TEXT	"No sideways RAM found"
 	BRK
 SOMERAM	STX	RAMBANKCOUNT
+!IFDEF JIT {
+	CPX	#$02
+	BCS	ENOUGHRAM
+	BRK
+	!BYTE	$80
+	!TEXT	"Only one bank of sideways RAM found"
+	BRK
+ENOUGHRAM
+}
 }
 
 !IFDEF NONRELOCATABLE {
