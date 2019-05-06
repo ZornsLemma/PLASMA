@@ -1693,16 +1693,10 @@ end
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
 // allow modname() to generate a long filename in place if it wants to.
 def modloadcr_internal(moddci, modcr)#1
-    // SFTODO: TIDY THE VARIABLES UP HERE (FOR BOTH PLAS128 AND PLAS32) ONCE I HAVE THINGS OTHERWISE WORKING - PROBABLY A BIT OF A MESS FOLLOWING PORTING ACROSS OF LATEST A2 CHANGES
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
-#if 0 //SFTODO
-#ifdef PLAS128
-    word defaddr
-#endif
-#endif
     word modaddr, modfix, modend
-    word modofst, defbank, defaddr, codefix
+    word modofst, defaddr, codefix
     word deftbl, deflast
     word moddep, rld, esd, sym
 #ifdef JIT
