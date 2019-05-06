@@ -2289,7 +2289,6 @@ loop
 // SFTODO: Thought I had a TODO about this somewhere but can't find it - I *think* (need to revisit this later) on A2 the command used to invoke a +FOO module is copied from the gets()/rdstr() buffer into a separate buffer and args.pla parses it from there - I also *think* (ditto) the Acorn port is currently assuming (via some hacks, too) that the buffer at $700 will still contain the command - it may be that (after tidying up the hacks) I am willing to live with this approach for the Acorn port, and until/unless a real case comes up where a program wants to be able to parse the arguments *after* catching and dealing with an error (errors overwrite the $700 buffer, but unless the code catches them it will cease execution so can't possibly try to parse arguments) or *after* calling gets() to read user input, just accept that writing such code is "wrong" because the arguments will have been lost. I'm reluctant to set aside 256 bytes of RAM somewhere just to make the arguments available for parsing at any arbitrary time in progarm execution when neither of these "problematic" cases seems all that likely. I should document this if I do decide to take this approach though, even if only in a comment inside the VM.
 cmdptr = *heapptr
 ^cmdptr = 0
-// SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
 while 1
     // SFTODO TEMP HACK
     puts("TOP OF DOCMDS LOOP\n")
