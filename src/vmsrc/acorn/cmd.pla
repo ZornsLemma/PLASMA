@@ -23,6 +23,10 @@
 // enough to leave the code around to be conditionally included as required.
 // #define TIME
 
+// If ALLOCXHEAPTEST is defined, some test code is run instead of the command
+// prompt loop.
+// #define ALLOCXHEAPTEST
+
 include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
 #include "vmsrc/acorn/vmconstants.plh"
@@ -161,7 +165,6 @@ byte jitsize     = 0
 // word systemflags = 0
 const heapptr = heapl
 #ifdef PLAS128
-    word xheapsize
     // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
     // to avoid the risk of the data accidentally looking like a valid
     // sideways ROM header.
@@ -1477,30 +1480,47 @@ end
 // SFTODO: On tube, JIT module is reloaded from disc on soft break - can we
 // avoid this?
 #ifdef PLAS128
-// TODO: I've rewritten this - review it when fresh and test the various corner
-// cases (I've only run a few sample programs under it so far)
-def allocxheap(size)#1
-    word xheapcopy, adjust, bankend, bankfree
-
-    if isugt(size, xheap_bank_size - xheap_bank_start)
-	return 0
+// The value returned by this is slightly misleading as it may include some
+// unusable space at the start of each bank, but this behaviour is exactly what
+// we want in allocxheap() and it's not a problem for showing the free memory to
+// the user.
+def xheapfree(localxheap)#1
+    word xheapsize
+    xheapsize = ^rambankcount * xheap_bank_size
+    if xheapsize == 0
+        xheapsize = $FFFF
     fin
-
+    return xheapsize - localxheap
+end
+// TODO: I've rewritten this - review it when fresh, I think I have tested it
+// fairly well via ALLOCXHEAPTEST but if I make any code changes make sure to
+// retest.
+def allocxheap(size)#1
+    word xheapcopy
     xheapcopy = xheap
-    adjust = (4 - ^rambankcount) * xheap_bank_size
-    repeat
-        bankend = (xheapcopy & $C000) + xheap_bank_size
-        bankfree = bankend - xheapcopy
-        if size <= bankfree
-            if size == bankfree
-                size = size + xheap_bank_start
-            fin
+    while true
+        if size == 0 or isult(xheapfree(xheapcopy), size)
+            return 0
+        elsif (xheapcopy & (xheap_bank_size - 1)) == 0
+            // xheapcopy is at the start of a 16K bank; we know we have at least one
+            // free bank as xheapfree > size > 0. So skip past the initial
+            // xheap_bank_start bytes and try again on the next pass round the
+            // loop.
+            xheapcopy = xheapcopy + xheap_bank_start
+        elsif (xheapcopy & $C000) == ((xheapcopy + size - 1) & $C000)
+            // We have enough space at xheapcopy without straddling a bank boundary.
             xheap = xheapcopy + size
             return xheapcopy
+        else
+            // A naive allocation at xheapcopy would straddle a bank boundary, so
+            // move up to the next boundary and try again on the next pass round
+            // the loop. This can't wrap around to $0000 because if we're in our
+            // last bank xheapfree is the space free in the last bank and therefore
+            // either xheapfree < size or we have enough space at xheapcopy
+            // without straddling a bank boundary, so this case can't occur.
+            xheapcopy = (xheapcopy & $C000) + xheap_bank_size
         fin
-        xheapcopy = bankend | xheap_bank_start
-    until bankend + adjust == 0
-    return 0
+    loop
 end
 #endif
 
@@ -2161,9 +2181,6 @@ end
 // Get heap start.
 //
 *heapptr = *freemem
-#ifdef PLAS128
-    xheapsize = ^rambankcount * xheap_bank_size
-#endif
 #ifndef STANDALONE
 //
 // Init globals; see note at top about why we have to do this.
@@ -2221,7 +2238,7 @@ if not ^cmdptr
     //prword(heapavail)
 #ifdef PLAS128
     //puts(@xfreestr)
-    //prword(xheapsize - 1 - xheap) // a bit approximate
+    //prword(xheapfree(xheap))
 #endif
     //putln
 fin
@@ -2246,9 +2263,23 @@ fin
             // Allocate the remainder of the first sideways RAM bank to JITted
             // machine code.
             *jitcodeptr = $8000 + xheap
-            xheap = xheap_bank_start + xheap_bank_size
+            prword(allocxheap(xheap_bank_size - xheap))
         #endif
     fin
+#endif
+#if defined(PLAS128) && defined(ALLOCXHEAPTEST)
+// Variable names here are meaningless because we just re-use some globals...
+version = $50
+while 1
+    puts("xheap=$"); prword(xheap)
+    puts(", xheapfree()=$"); prword(xheapfree(xheap))
+    cmdptr = allocxheap(version)
+    puts(", allocxheap($"); prword(version); puts(")=$"); prword(cmdptr)
+    putln()
+    if cmdptr == 0 and version > 0
+        version = version - 1
+    fin
+loop
 #endif
 // SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
 // to init cmdptr just one - for now I am just going to hack it like this
@@ -2305,7 +2336,7 @@ while 1
     prword(heapavail)
 #ifdef PLAS128
     puts(@xfreestr)
-    prword(xheapsize - 1 - xheap) // a bit approximate
+    prword(xheapfree(xheap))
 #endif
     putln
     puts(@prompt)
