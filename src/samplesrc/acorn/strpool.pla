@@ -1,18 +1,12 @@
 // Demonstration of mode changes
 
 include "inc/cmdsys.plh"
-include "inc/cmdsysac.plh"
-
-def prword(w)
-    prbyte(w >> 8)
-    prbyte(w)
-end
 
 def foo(s)
     puts("s is: ")
     puts(s)
     puts(" (")
-    prword(s)
+    puth(s)
     puts(")\n")
 end
 

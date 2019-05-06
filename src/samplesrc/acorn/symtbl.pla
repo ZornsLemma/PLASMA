@@ -3,7 +3,6 @@
 // format changed.
 
 include "inc/cmdsys.plh"
-include "inc/cmdsysac.plh"
 include "inc/acornc.plh"
 
 // We don't want to use these, but they make the symbol table more
@@ -33,11 +32,6 @@ def memcmp(lhs, rhs, n)#1
     return TRUE
 end
 
-def prword(w)#0
-    prbyte(w >> 8)
-    prbyte(w)
-end
-
 initialsymtbl = call(osbyte, osbyte_read_oshwm, 0, 0, 0):1
 while not memcmp(initialsymtbl, @cmdsysdci, 6)
     initialsymtbl++
@@ -54,13 +48,13 @@ while ^symbol
     fin
         
     if symbol == chunk
-        prword(symbol)
+        puth(symbol)
         puts("  ")
     else
         puts("      ")
     fin
 
-    prword(symbol)
+    puth(symbol)
     putc(' ')
 
     pad = max_symbol_length + 1
@@ -77,7 +71,7 @@ while ^symbol
         pad--
     loop
 
-    prword(*symbol)
+    puth(*symbol)
     symbol = symbol + 2
 
     putln()
@@ -85,7 +79,7 @@ loop
 
 putln()
 puts("heapavail: $")
-prword(heapavail())
+puth(heapavail())
 putln()
 
 done

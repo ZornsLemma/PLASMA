@@ -115,7 +115,7 @@ predef strcpy(dst,src)#1, strcat(dst,src)#1
 predef isugt(a,b)#1, isuge(a,b)#1, isult(a,b)#1, isule(a,b)#1, sext(a)#1
 predef modload(mod)#1, modexec(modfile)#1
 predef except(b)#1, except2(bptr)#1, throw(b, val)#0
-predef prbyte(b)#0, prword(w)#0
+predef putb(b)#0, puth(w)#0
 predef oserror(n, msg)#0
 predef call_oscli(str)#0
 predef stocr(str, cr)#0
@@ -1280,13 +1280,13 @@ export def puti(i)#0
     if i >= 10; puti(i / 10); fin
     putc(i % 10 + '0')
 end
-export def prbyte(b)#0 // SFTODO: RENAME THIS "PUTB" FOR CONSISTENCY?
+export def putb(b)#0
     putc(hexchar[(b >> 4) & $0F])
     putc(hexchar[b & $0F])
 end
-export def prword(w)#0 // SFTODO: RENAME THIS "PUTH" FOR CONSISTENCY?
-    prbyte(w >> 8)
-    prbyte(w)
+export def puth(w)#0
+    putb(w >> 8)
+    putb(w)
 end
 
 // TODO: export this?
@@ -1999,7 +1999,7 @@ def modloadcr_internal(moddci, modcr)#1
     fin
 #if 0 // TODO: Temporary code for forcing multiple 16K banks to be used for PLAS128 testing
     #ifdef PLAS128
-        prword(allocxheap(7000)); putln()
+        puth(allocxheap(7000)); putln()
     #endif
 #endif
     return fixup
@@ -2214,7 +2214,7 @@ else
 #ifndef STANDALONE
   putln
   puts(@errorstr)
-  prbyte(^errnum)
+  putb(^errnum)
   puts(@colonstr)
   puts(errstr)
   putln
@@ -2238,14 +2238,14 @@ if not ^cmdptr
     // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
     // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
     // really want to bloat the VM with this really, so perhaps not.
-    puts("PLASMA 2.0 Dev\n") //puts(@verstr); prbyte(version.1); putc('.'); prbyte(version.0); putln
+    puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
     // TODO: Temporarily moved this to prompt instead of only displaying it
     // on startup; this makes it more obvious if heap gets leaked.
     //puts(@freestr)
-    //prword(heapavail)
+    //puth(heapavail)
 #ifdef PLAS128
     //puts(@xfreestr)
-    //prword(xheapfree(xheap))
+    //puth(xheapfree(xheap))
 #endif
     //putln
 fin
@@ -2277,10 +2277,10 @@ fin
 // Variable names here are meaningless because we just re-use some globals...
 version = $50
 while 1
-    puts("xheap=$"); prword(xheap)
-    puts(", xheapfree()=$"); prword(xheapfree(xheap))
+    puts("xheap=$"); puth(xheap)
+    puts(", xheapfree()=$"); puth(xheapfree(xheap))
     cmdptr = allocxheap(version)
-    puts(", allocxheap($"); prword(version); puts(")=$"); prword(cmdptr)
+    puts(", allocxheap($"); puth(version); puts(")=$"); puth(cmdptr)
     putln()
     if cmdptr == 0 and version > 0
         version = version - 1
@@ -2331,7 +2331,7 @@ while 1
 	wend
 	if perr
 	    puts(@errorstr)
-	    prbyte(perr)
+	    putb(perr)
 	    perr = 0
 	else
 	    puts(@okstr)
@@ -2339,10 +2339,10 @@ while 1
 	putln()
     fin
     puts(@freestr)
-    prword(heapavail)
+    puth(heapavail)
 #ifdef PLAS128
     puts(@xfreestr)
-    prword(xheapfree(xheap))
+    puth(xheapfree(xheap))
 #endif
     putln
     puts(@prompt)

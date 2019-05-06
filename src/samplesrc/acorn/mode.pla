@@ -16,11 +16,6 @@ def availheap
     return @fp - heapmark()
 end
 
-def putw(w)
-    prbyte(w >> 8)
-    prbyte(w)
-end
-
 def main
     byte key
     word m, result, count
@@ -44,7 +39,7 @@ def main
 	    puts(@mode_str)
 	    puti(m)
 	    puts(@free_str)
-	    putw(availheap())
+	    puth(availheap())
 	    putln()
 	else
 	    puts(@no_room_str)

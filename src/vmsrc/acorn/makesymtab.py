@@ -6,8 +6,8 @@ symtab = [
     ("PUTC", "@putc"),
     ("PUTLN", "@putln"),
     ("PUTS", "@puts"),
-    ("PUTB", "@prbyte"), # TODO: Change @prbyte to @putb?
-    ("PUTH", "@prword"), # TODO: Change @prword to @puth?
+    ("PUTB", "@putb"),
+    ("PUTH", "@puth"),
     ("GETC", "@getc"),
     ("GETS", "@gets"),
     ("HEAPMARK", "@heapmark"),
@@ -27,7 +27,6 @@ symtab = [
     ("ISULE", "@isule"),
     ("MODLOAD", "@modload"), # SFTODO: DELETE??
     ("MACHID", "@machid"), # SFTODO: BE GOOD TO TEST THIS STILL WORKS...
-    ("PRBYTE", "@prbyte"),
     ("OSERROR", "@oserror"),
     ("CALL_OSCLI", "@call_oscli"),
     ("STOCR", "@stocr"),

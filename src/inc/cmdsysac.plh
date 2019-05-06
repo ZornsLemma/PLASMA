@@ -11,7 +11,6 @@ import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack 
     const errjb = $402
     const errnum = $700
     const errstr = $701
-    predef prbyte(v)#0 // SFTODO: CAN PROB GET RID OF THIS NOW, THINK IT'S IN CMDSYS.PLH (UNDER ANOTHER NAME)
     predef oserror(n, msg)#0
     predef call_oscli(str)#0
     predef stocr(str, cr)#0

@@ -13,21 +13,14 @@ word filename
 byte handle = 0
 word SFTODO
 
-// SFTODO TEMP
-def prword(v)
-    prbyte(v >> 8)
-    return prbyte(v)
-end
-
 def dump_line(addr, line, count)
     word i, c
 
-    prbyte(addr.1)
-    prbyte(addr.0)
+    puth(addr)
     putc(' ')
 
     for i = 0 to count - 1
-	prbyte((line).[i])
+	putb((line).[i])
 	putc(' ')
     next
     if count < bytes_per_line 
@@ -97,7 +90,7 @@ else
     puts("Error handler: ")
     puts(errstr)
     puts(" (code $")
-    prbyte(^errnum)
+    putb(^errnum)
     puts(")\n")
     close_handle()
 fin
