@@ -1,4 +1,4 @@
-// This is a manual translation of David Given's COWGOL bounce.cow program.
+// This is a based heavily on David Given's COWGOL bounce.cow program.
 // (https://github.com/davidgiven/cowgol/blob/592433a07ca03d8235b1364da2286e9b097e7e79/demo/bounce.cow)
 // 
 // Copyright (c) 2015 David Given
@@ -42,6 +42,7 @@ struc t_ball
     byte ball_dy
 end
 
+byte i
 byte start[5]
 byte finish[5]
 
@@ -155,101 +156,26 @@ def time(t)#0
     call(osword, osword_read_time, t, t >> 8, 0)
 end
 
+def run()#0
+    i = 0
+    time(@start)
+    while 1
+        if i == 0
+            time(@finish)
+            putc(vdu_home)
+            puth(time_delta(@start, @finish))
+            putc(147)
+            time(@start)
+        fin
+        draw_balls($00)
+        move_balls()
+        draw_balls($FF)
+        i = i + 1
+    loop
+end
+
 mode(7)
-vsync()
 setup_screen()
 init_balls()
-
-time(@start)
-
-// while 1
-//     draw_balls($00)
-//     move_balls()
-//     draw_balls($FF)
-//     vsync()
-// loop
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    draw_balls($00)
-    move_balls()
-    draw_balls($FF)
-
-    time(@finish)
-    puti(time_delta(@start, @finish))
-
+run() // minor cheat, so the JIT can operate on this code
 done

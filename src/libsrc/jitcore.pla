@@ -162,9 +162,9 @@ def compiler(defptr)#0
     VX        = 0       // Virtual X register
     i         = 0
     // SFTODO START HACK
-    codeptr->0 = $A9; codeptr->1 = 65 // LDA #65
-    codeptr->2 = $20; codeptr=>3 = $FFEE // JSR
-    codeptr = codeptr + 5
+    //codeptr->0 = $A9; codeptr->1 = 65 // LDA #65
+    //codeptr->2 = $20; codeptr=>3 = $FFEE // JSR
+    //codeptr = codeptr + 5
     // SFTODO END HACK
     if ^bytecode == $58
         //putc('$'); puth(codeptr);//puts(":[0] ENTER "); puti(^(bytecode+1)); putc(',');puti(^(bytecode+2)); putln
