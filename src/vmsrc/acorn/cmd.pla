@@ -2223,6 +2223,8 @@ perr = 0
 //
 // Print some startup info.
 //
+// SFTODO: Should I pass command line tail of VM load command into cmdptr on
+// startup somehow?
 if not ^cmdptr
     // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
     // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
@@ -2284,6 +2286,7 @@ loop
 // return value of gets() (=$700) and so we are *not* actually relying on
 // the heap not having moved or being validly initialised. So this isn't
 // quite such a big problem as I've been imagining.
+// SFTODO: DIDN'T WE ALREADY DO THE NEXT TWO LINES JUST ABOVE?
 cmdptr = *heapptr
 ^cmdptr = 0
 // SFTODO: Apple II cmdjit.pla fiddles around with xheap here - I may need something equivalent but for the moment I'm concentrating on getting JIT working just on non-paged PLASMA on Tube for simplicity so I hope I can get away without that
@@ -2301,7 +2304,7 @@ while 1
 #ifdef TIME
 		time(@start_time)
 #endif
-		^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK
+		^(cmdptr + ^cmdptr + 1) = 0 // SFTODO SEMI TEMP HACK - SEE ARGS.PLA
 		modexec(striptrail(cmdptr))
 		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS
 #ifdef TIME
