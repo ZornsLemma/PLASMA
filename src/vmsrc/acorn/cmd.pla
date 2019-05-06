@@ -2085,7 +2085,7 @@ def modexec(modfile)#1
     word savexheap
 #endif
     word savesym, savesymtblchunk
-    // word saveflags SFTODO MAY NEED TO REINSTATE THIS
+    // word saveflags
 #ifdef JIT
     word savejit
 #endif
