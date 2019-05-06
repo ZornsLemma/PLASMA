@@ -1719,6 +1719,12 @@ def modloadcr_internal(moddci, modcr)#1
     //
     // Perform any transformations on the filename we are going to load from.
     //
+    // SFTODO: If modname is ever to be really used, should it return both an
+    // open file handle and the filename? Otherwise I would imagine any
+    // non-default implementation is going to need to try to open the file from
+    // some kind of "library" directory to see if it exists there, and maybe
+    // from another location or two before/after, and if it just has to close
+    // the file so we can re-open it below that's extra disk activity.
     modname(modcr)#0
 
     //
@@ -1786,23 +1792,12 @@ def modloadcr_internal(moddci, modcr)#1
     ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER (THE APPLE II NON-JIT VM DOES DO THIS, I DON'T KNOW IF THIS IS RANDOM OR SOMEHOW RELATED TO JIT FUNCTIONALITY, NEED TO ANALYSE CODE PROPERLY LATER)
     //
     // Add module to symbol table. This may grow the symbol table, so we
-    // do it before we allocate space on the heap for the module. The
-    // address of the module is not used (although it's important it's
-    // not zero, otherwise lookupmod() will indicate the module isn't
-    // loaded when it is) and due to the symbol table changes we don't
-    // have modaddr available here (unlike the Apple code), so we just
-    // use a non-zero constant. SFTODO: THIS IS NO LONGER WORKABLE, THE LATEST
-    // CODE USES THE MODULE ADDRESS TO ACCESS A TABLE OF EXPORTED FUNCTIONS
+    // do it before we allocate space on the heap for the module. Unfortunately
+    // that means we don't have the address the module available to pass to
+    // addsym(), so we need to patch it up afterwards.
     //
-    addsym(moddci, $0001)
-    // SFTODO: SEMI TEMP HACK - WE KNOW modaddr WILL BE *heapptr, SO WE CAN NOW
-    // PATCH UP THE JUST-INSERTED SYMBOL ADDRESS. WE CAN'T JUST PASS *HEAPPTR
-    // TO ADDSYM AS THAT WOULD BE THE VALUE BEFORE ADDSYM() DOES ANY
-    // ALLOCATIONS. VARIOUS ALTERNATIVES HERE - E.G. WE COULD DO THIS PATCH VIA
-    // LASTSYM LATER ONCE WE HAVE MODADDR, IT'S EQUIVALENT, JUST A TRADE OFF IN
-    // CLARITY. WE COULD HAVE ADDSYM RETURN A POINTER TO THE NEW ADDRESS IN THE
-    // SYMTAB. ALL SORTS OF THINGS...
-    *(lastsym - 2) = *heapptr
+    addsym(moddci, $0000)
+    *(lastsym - 2) = *heapptr // modaddr below will be the current *heapptr
     //
     // Check there's room for the entire file onto the heap now any
     // dependencies have been loaded.
