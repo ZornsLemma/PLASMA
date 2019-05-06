@@ -8,7 +8,7 @@
 
 // SFTODO: THE FEW CONSTANTS HERE ARE DUPLICATES AND IDEALLY I WOULD AVOID THEM BUT LET'S NOT WORRY ABOUT THEM FOR THE MOMENT AS I ADDRESS THE BULK OF THE DUPLICATES
 import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack in compiler
-    const errjb = $407
+    const errjb = $402
     const errnum = $700
     const errstr = $701
     predef prbyte(v)#0 // SFTODO: CAN PROB GET RID OF THIS NOW, THINK IT'S IN CMDSYS.PLH (UNDER ANOTHER NAME)
