@@ -1414,7 +1414,7 @@ def oserror_bad_module()#0
     oserror(17, "Bad module")
 end
 def oserror_not_found(moddci)#0
-    byte error[16 + maxnamelen + 1]
+    byte error[maxnamelen + 16 + 1]
     dcitos(moddci, @error)
     strcat(@error, " not found")
     oserror(214, @error)
