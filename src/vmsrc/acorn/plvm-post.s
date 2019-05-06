@@ -295,6 +295,7 @@ SKIPBANK
 	INY
 	CPY	#$10
 	BNE	FINDRAMLP
+	;* SFTODO: Might be cleanest for P128JIT to require a minimum of two banks and generate an error in that case
 FINDRAMDONE
 	TXA
 	BNE	SOMERAM
