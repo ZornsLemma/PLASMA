@@ -190,6 +190,44 @@ EPLOOP
 .NOTTUBE
 }
 
+;* SFTODO: START EXPERIMENTAL
+;* SFTODO: I THINK I WILL NEED TO ARRANGE FOR TUBE SOFT BREAK TO POKE A ZERO LENGTH STRING AT INBUFF
+;* Copy any command line tail to INBUFF as a PLASMA-style string
+;* Code based on the 6502 fragment at http://beebwiki.mdfs.net/Reading_command_line
+;* We use this tube-compatible code in all cases; this code is discarded on all
+;* versions so there's no harm in having the extra code when we don't need it.
+	; Read address of command line parameters
+	LDA	#$01 ; SFTODO MAGIC CONSTANTS
+	LDY	#$00
+	LDX	#SCRATCH
+	JSR	OSARGS
+RDCMDLP
+	TYA
+	PHA
+	; Read byte from I/O memory
+	LDX	#SCRATCH
+	LDY	#$00
+	LDA	#$05
+	JSR	OSWORD
+	; Copy byte to local buffer, stopping on CR
+	PLA
+	TAY
+	LDA	SCRATCH+4
+	CMP	#$0D
+	BEQ	RDCMDLPDONE
+	INY
+	STA	INBUFF,Y
+	; Increment command line address
+	INC	SCRATCH
+	BNE	RDCMDLP
+	INC	SCRATCH+1
+	JMP	RDCMDLP
+RDCMDLPDONE
+	; Save length at start of PLASMA-style string
+	STY	INBUFF
+;* SFTODO: END EXPERIMENTAL
+
+
 	LDA	#osbyte_read_high_order_address
 	JSR	OSBYTE
 	TYA
