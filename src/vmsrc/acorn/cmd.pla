@@ -1243,7 +1243,7 @@ ESCAPE
 	BRK
 OSWORD0BLK
 	!WORD	INBUFF+1
-        !BYTE	INBUFFSZ-1
+        !BYTE	INBUFFSZ-1  ; -1 as OSWORD 0 will store a trailing CR after max-line-len characters
         !BYTE	32
         !BYTE	255
 end
@@ -2054,7 +2054,7 @@ def parsecmd(strptr)#1
     stripspaces(strptr)
     if ^strptr
         cmd = ^(strptr + 1)
-        memcpy(strptr + 1, strptr + 2, ^strptr)
+        memcpy(strptr + 1, strptr + 2, ^strptr) // SFTODO: I DON'T THINK IT *MATTERS* BUT FWIW THIS SEEMS TO COPY "TOO MANY" CHARACTERS, AND MAY PLAY A ROLE IN UNDERSTANDING WHAT'S GOING ON EVEN IF I DON'T REALLY WANT TO CHANGE IT
         ^strptr--
     fin
     stripspaces(strptr)
