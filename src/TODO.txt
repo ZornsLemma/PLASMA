@@ -151,6 +151,7 @@ What happens if a modkeep module is JITted during execution of a non-modkeep mod
 
 Any chance I could speed up the PLASMA compiler a bit by modifying it to do equivalent of *SAVE on the output buffer? I haven't checked the code and it may be doing some dynamic generation of the output, just a thought.
 
+A samplesrc program to print out command line arguments and their indices, one line at a time, would probably be useful for testing and a nice demo of how to use the arg parsing.
 
 Misc JIT thoughts:
 - t_defentry is two bytes (7 vs 5) larger to support JIT; I'm reluctant to either make the size a variable instead of a constant or to waste two bytes per definition when not using the JIT in order to make it possible to have a "universal" VM. It might be possible to have a 'deftbl2' allocated to hold the extra two bytes only on demand (it would cross-correlate with 'deftbl' by array index) but I suspect that could get fiddly and might bloat the VM anyway.

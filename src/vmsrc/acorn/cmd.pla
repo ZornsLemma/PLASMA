@@ -1413,6 +1413,9 @@ def oserror_not_found(moddci)#0
     strcat(@error, " not found")
     oserror(214, @error)
 end
+def oserror_bad_name()#0
+    oserror(204, "Bad name") // SFTODO: SHOULD THIS BE USING THIS ERR NUM? WOULD ONE IN THE 0-127 RANGE BE BETTER? NOT THINKING NOW, JUST CHECK LATER... MAY WELL BE FINE
+end
 #endif
 //
 // Heap routines.
@@ -1990,7 +1993,7 @@ end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
     if ^modpstr == 0 or ^modpstr > maxnamelen
-        oserror(204, "Bad name") // SFTODO: SHOULD THIS BE USING THIS ERR NUM? WOULD ONE IN THE 0-127 RANGE BE BETTER? NOT THINKING NOW, JUST CHECK LATER... MAY WELL BE FINE
+        oserror_bad_name()
     fin
     stodci(modpstr, @moddci)
     stocr(modpstr, modcr)
@@ -2027,25 +2030,33 @@ end
 // Command mode
 //
 def parsemodname()#1
-    byte skipping, i, c
-    const buf = scratch // SFTODO: PROB OK, BUT THINK A BIT MORE - ALSO NEED TO GROW SCRATCH TO BE modnamelen+1 BYTES LONG...
+    byte seenplus, skipspaces, i, c
+    // We can get away with using scratch to hold the module name because it's not needed
+    // for very long; modloadpstr_internal() copies/converts it before anything else
+    // can overwrite scratch.
+    const buf = scratch
 
     ^buf = 0
-    skipping = true
-    for i = 2 to ^syscmdln
+    seenplus = false
+    skipspaces = true
+    for i = 1 to ^syscmdln
         c = ^(syscmdln + i)
-        if c == ' '
-            if not skipping
+        if not seenplus
+            seenplus = (c == '+')
+        elsif c == ' '
+            if not skipspaces
                 break
             fin
         else
-            skipping = false
+            skipspaces = false
             ^buf = ^buf + 1
-            // SFTODO THIS MUST ERROR SOMEHOW IF ^BUF HAS NOW GOT TOO LARGE FOR SPACE (AND A VALID MODNAME) AT SCRATCH
+            if ^buf > maxnamelen
+                oserror_bad_name()
+            fin
             ^(buf + ^buf) = c
         fin
     next
-    puts("PARSEMODNAME:"); puts(buf); putc('!'); putln()
+    puts("PARSEMODNAME:"); puts(buf); putc('!'); putln() // SFTODO TEMP
     return buf
 end
 def parsecmd(strptr)#1
@@ -2053,7 +2064,7 @@ def parsecmd(strptr)#1
 
     for i = 1 to ^strptr
         cmd = ^(strptr + i)
-        if cmd > 0
+        if cmd > ' ' 
             return cmd
         fin
     next
