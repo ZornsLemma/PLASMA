@@ -2056,7 +2056,6 @@ def parsemodname()#1
             ^(buf + ^buf) = c
         fin
     next
-    puts("PARSEMODNAME:"); puts(buf); putc('!'); putln() // SFTODO TEMP
     return buf
 end
 def parsecmd(strptr)#1
