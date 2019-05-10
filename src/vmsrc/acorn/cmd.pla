@@ -1243,7 +1243,7 @@ ESCAPE
 	BRK
 OSWORD0BLK
 	!WORD	INBUFF+1
-        !BYTE	INBUFFSZ-1  ; -1 as OSWORD 0 will store a trailing CR after max-line-len characters
+        !BYTE	INBUFFSZ-1  ; -1 as OSWORD 0 will store a trailing CR after this many characters
         !BYTE	32
         !BYTE	255
 end
@@ -2041,6 +2041,7 @@ def striptrail(strptr)#1
 
     for i = 1 to ^strptr
         if ^(strptr + i) <= ' '
+            ^(strptr + i) = ^strptr - i // SFTODO EXPERIMENTAL - I THINK THIS IS THE RIGHT FIX (NEED TO COMMENT PERMANENTLY!) THOUGH THE APPLE DOESN'T NEED THIS AS IT HAS A CLEAN COPY OF THE COMMAND LINE FOR ARG PARSING - *BUT* I DON'T UNDERSTAND WHY IT WORKS *WITHOUT* THIS FIX IN THE NORMAL CASE, OR WHY ADDING THAT 'CR' FIXES IT IN THE OSARGS TAIL CASE - AHA! IT'S BECAUSE THE SINGLE CR GETS DUPLICATED BY THE "TOO MANY" MEMCPY IN PARSECMD(), WHICH MEANS THAT EVEN THOUGH WE HAVE AN "OVERLY LONG" TAIL (ACTUALLY A REALL LONG TAIL WOULD PROBABLY BE TRUNCATED, SINCE WE TREAT THE SPACE AFTER +FOO AS A LENGTH COUNT WITHOUT THIS CHANGE) IT HAS A *DOUBLE* CR AFTER IT, SO WE RETURN A ZERO-LENGTH STRING FROM ARGNEXT() AND THAT TERMINTES ARGUMENT PARSING - AND YES, A REALLY LONG ARGUMENT IS TRUNCATED AS I PREDICTED - AND YES, WITH THIS FIX LONG ARGUMENTS WORK OK
 	    ^strptr = i - 1
 	    break
 	fin
@@ -2057,6 +2058,7 @@ def parsecmd(strptr)#1
         memcpy(strptr + 1, strptr + 2, ^strptr) // SFTODO: I DON'T THINK IT *MATTERS* BUT FWIW THIS SEEMS TO COPY "TOO MANY" CHARACTERS, AND MAY PLAY A ROLE IN UNDERSTANDING WHAT'S GOING ON EVEN IF I DON'T REALLY WANT TO CHANGE IT
         ^strptr--
     fin
+    //call_oscli("SAVE Q 700 800") // SFTODO TEMP
     stripspaces(strptr)
     return cmd
 end
@@ -2281,7 +2283,7 @@ while 1
     puts("TOP OF DOCMDS LOOP\n")
     // SFTODO END TEMP HACK
     if ^syscmdln
-        ^(syscmdln + ^syscmdln + 1) = 13 // SFTODO TEMP HACK - WITHOUT THIS "*PLASMA +PLASM TEST.PLA" GOES SUBTLY WRONG, I NEED TO FIGURE OUT WHY BUT JUST PUTTING THIS IN FOR NOW
+        //^(syscmdln + ^syscmdln + 1) = 13 // SFTODO TEMP HACK - WITHOUT THIS "*PLASMA +PLASM TEST.PLA" GOES SUBTLY WRONG, I NEED TO FIGURE OUT WHY BUT JUST PUTTING THIS IN FOR NOW
 	putc('X'); puts(syscmdln); putc('X'); putln() // SFTODO!
 	when toupper(parsecmd(syscmdln))
 	    is 'M'
@@ -2291,6 +2293,8 @@ while 1
 #ifdef TIME
 		time(@start_time)
 #endif
+                puts("HACK AT "); puth(syscmdln + ^syscmdln + 1); putln()
+                //call($8F, 0, 0, 0, 0) // SFTODO!
 		^(syscmdln + ^syscmdln + 1) = 0 // SFTODO SEMI TEMP HACK - SEE ARGS.PLA
                 putc('Y'); puts(syscmdln); putc('Y'); putln() // SFTODO!
 		modexec(striptrail(syscmdln))
