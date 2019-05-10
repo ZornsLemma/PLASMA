@@ -39,7 +39,7 @@ export def argFirst
     // SFTODO: I HAVE (PROBABLY) TEMPORARILY RELOCATED THIS CODE INTO BBCMD.PLA,
     // TO AVOID HAVING TO COPY THE CMDLINE - THERE ARE OTHER APPROACHES I CAN
     // USE, THIS WAS EXPEDIENT
-    // SFTODO SEMI TEMP HACK ^(cmdsys:cmdline + ^cmdsys:cmdline + 1) = NULL
+    ^(cmdsys:cmdline + ^cmdsys:cmdline + 1) = NULL
     return argDelim(cmdsys:cmdline)
 end
 

@@ -2027,7 +2027,7 @@ end
 //
 // Command mode
 //
-def stripspaces(strptr)#0
+def stripspaces(strptr)#0 // SFTODO DELETE IF NOT USED
     while ^strptr and ^(strptr + ^strptr) <= ' '
         ^strptr--
     loop
@@ -2036,7 +2036,29 @@ def stripspaces(strptr)#0
         ^strptr--
     loop
 end
-def striptrail(strptr)#1
+def parsemodname()#1
+    byte skipping, i, c
+    const buf = scratch // SFTODO: PROB OK, BUT THINK A BIT MORE - ALSO NEED TO GROW SCRATCH TO BE modnamelen+1 BYTES LONG...
+
+    ^buf = 0
+    skipping = true
+    for i = 2 to ^syscmdln
+        c = ^(syscmdln + i)
+        if c == ' '
+            if not skipping
+                break
+            fin
+        else
+            skipping = false
+            ^buf = ^buf + 1
+            // SFTODO THIS MUST ERROR SOMEHOW IF ^BUF HAS NOW GOT TOO LARGE FOR SPACE (AND A VALID MODNAME) AT SCRATCH
+            ^(buf + ^buf) = c
+        fin
+    next
+    puts("PARSEMODNAME:"); puts(buf); putc('!'); putln()
+    return buf
+end
+def striptrailSFTODODELETE(strptr)#1
     byte i
 
     for i = 1 to ^strptr
@@ -2049,20 +2071,15 @@ def striptrail(strptr)#1
     return strptr
 end
 def parsecmd(strptr)#1
-    byte cmd
+    byte i, cmd
 
-    cmd = 0
-    stripspaces(strptr)
-    if ^strptr
-        cmd = ^(strptr + 1)
-        // We could just copy ^strptr-1 bytes in the next line, but it's harmless to copy
-        // more and why waste a byte on a DECR opcode to do an unnecessary -1? :-) This
-        // also avoids a gratuitous difference with the Apple II code.
-        memcpy(strptr + 1, strptr + 2, ^strptr)
-        ^strptr--
-    fin
-    stripspaces(strptr)
-    return cmd
+    for i = 1 to ^strptr
+        cmd = ^(strptr + i)
+        if cmd > 0
+            return cmd
+        fin
+    next
+    return 0
 end
 #endif
 // User code could choose to install an alternate error handler, but
@@ -2287,7 +2304,8 @@ while 1
     if ^syscmdln
         //^(syscmdln + ^syscmdln + 1) = 13 // SFTODO TEMP HACK - WITHOUT THIS "*PLASMA +PLASM TEST.PLA" GOES SUBTLY WRONG, I NEED TO FIGURE OUT WHY BUT JUST PUTTING THIS IN FOR NOW
 	putc('X'); puts(syscmdln); putc('X'); putln() // SFTODO!
-        // SFTODO: I'M NOT SURE BUT MAYBE BECAUSE PARSECMD STRIPS THE LEADING '+' OFF AND WE DON'T COPY AND THE APPLE II DOES, IT MAY BE THAT ARGFIRST RETURNS EG "+PLASM" on A2 WHILE WE RETURN "PLASM". I DON'T KNOW IF THIS IS REALLY WORTH WORRYING ABOUT AND I HAVEN'T CHECKED THE A2 BEHAVIOUR EITHER
+        // SFTODO: I'M NOT SURE BUT MAYBE BECAUSE PARSECMD STRIPS THE LEADING '+' OFF AND WE DON'T COPY AND THE APPLE II DOES, IT MAY BE THAT ARGFIRST RETURNS EG "+PLASM" on A2 WHILE WE RETURN "PLASM". I DON'T KNOW IF THIS IS REALLY WORTH WORRYING ABOUT AND I HAVEN'T CHECKED THE A2 BEHAVIOUR EITHER - I AM PRETTY SURE A2 DOES DO THIS, AND WITH THE LATEST HACKS SO DOES MINE
+        // SFTODO: I SHOULD PROB "NEVER" PASS syscmdln OR "ALWAYS" PASS IT - AT THE MOMENT PARSEMODNAME IS AN EXCEPTION
 	when toupper(parsecmd(syscmdln))
 	    is 'M'
 		modechange(syscmdln)
@@ -2298,10 +2316,10 @@ while 1
 #endif
                 puts("HACK AT "); puth(syscmdln + ^syscmdln + 1); putln()
                 //call($8F, 0, 0, 0, 0) // SFTODO!
-		^(syscmdln + ^syscmdln + 1) = 0 // SFTODO SEMI TEMP HACK - SEE ARGS.PLA
+		//^(syscmdln + ^syscmdln + 1) = 0 // SFTODO SEMI TEMP HACK - SEE ARGS.PLA
                 putc('Y'); puts(syscmdln); putc('Y'); putln() // SFTODO!
-                // SFTODO: INSTEAD OF striptrail() COULD I JUST *COPY* THE MODULE NAME - WHICH IS SHORT - INTO ANOTHER BUFFER AND LEAVE syscmdln ALONE?
-		modexec(striptrail(syscmdln))
+                // SFTODO: INSTEAD OF striptrail() COULD I JUST *COPY* THE MODULE NAME - WHICH IS SHORT - INTO ANOTHER BUFFER AND LEAVE syscmdln ALONE? YES, THIS SEEMS TO WORK
+		modexec(parsemodname())
 		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS - IT FEELS HORRIBLY HACKY, BUT COULD WE JUST CLOSE ALL FILE HANDLES EXCEPT THE *EXEC AND *SPOOL HANDLES? THOSE ARE AVAILABLE IN LOW MEM ON HOST AND WE CAN PROB READ THEM SOMEHOW IN A TUBE COMPATIBLE WAY. NOT SURE I LIKE THIS BUT THINK ABOUT IT, MAYBE ASK ON STARDOT FOR ADVICE. - OK, PERHAPS THE WAY TO DO THIS (IF IT DOESN'T BLOAT THINGS TOO MUCH) IS TO SET ASIDE 256/8=32 BYTES OF RAM FOR A BITMAP OF "OPEN FILES" AND HAVE FILEIO UPDATE THAT AND THEN THE VM CAN USE IT TO CLOSE FILES AUTOMATICALLY AFTER EXECUTING A MODULE - I SUPPOSE ALTERNATIVELY IT COULD STORE THE ACTUAL FILE HANDLES IN A FEW BYTES OF RAM, SINCE WE HAVE MAX_IOBUFS = 4 - THAT MEANS IF WE ALWAYS KEEP "UNUSED" BYTES AT 0 WE ONLY NEED 4 BYTES OF (PROBABLY) PAGE 4 FOR THIS
 #ifdef TIME
 		time(@end_time)
