@@ -2029,7 +2029,6 @@ end
 //
 // Command mode
 //
-// SFTODO: GRATUITOUS COMMENT TO COMMIT OBSERVATION THAT THE NEW COMMAND LINE PARSING VM HAS AN EXTRA 56 BYTES FREE AT THE PROMPT, SO THE NEW APPROACH IS NOT ONLY CLEANER IT IS SMALLER TOO
 def parsemodname()#1
     byte seenplus, skipspaces, i, c
     // We can get away with using scratch to hold the module name because it's not needed
