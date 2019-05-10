@@ -66,7 +66,6 @@ const freemem      = src 	// 'SRC' zp, used to indicate heap start
 
 #ifndef STANDALONE
 
-const maxnamelen = 16 // characters; need +1 for PLASMA string
 const maxpathlen = 256
 #endif
 const false = 0
@@ -2027,15 +2026,6 @@ end
 //
 // Command mode
 //
-def stripspaces(strptr)#0 // SFTODO DELETE IF NOT USED
-    while ^strptr and ^(strptr + ^strptr) <= ' '
-        ^strptr--
-    loop
-    while ^strptr and ^(strptr + 1) <= ' '
-        memcpy(strptr + 1, strptr + 2, ^strptr)
-        ^strptr--
-    loop
-end
 def parsemodname()#1
     byte skipping, i, c
     const buf = scratch // SFTODO: PROB OK, BUT THINK A BIT MORE - ALSO NEED TO GROW SCRATCH TO BE modnamelen+1 BYTES LONG...
@@ -2057,18 +2047,6 @@ def parsemodname()#1
     next
     puts("PARSEMODNAME:"); puts(buf); putc('!'); putln()
     return buf
-end
-def striptrailSFTODODELETE(strptr)#1
-    byte i
-
-    for i = 1 to ^strptr
-        if ^(strptr + i) <= ' '
-            ^(strptr + i) = ^strptr - i // SFTODO EXPERIMENTAL - I THINK THIS IS THE RIGHT FIX (NEED TO COMMENT PERMANENTLY!) THOUGH THE APPLE DOESN'T NEED THIS AS IT HAS A CLEAN COPY OF THE COMMAND LINE FOR ARG PARSING - *BUT* I DON'T UNDERSTAND WHY IT WORKS *WITHOUT* THIS FIX IN THE NORMAL CASE, OR WHY ADDING THAT 'CR' FIXES IT IN THE OSARGS TAIL CASE - AHA! IT'S BECAUSE THE SINGLE CR GETS DUPLICATED BY THE "TOO MANY" MEMCPY IN PARSECMD(), WHICH MEANS THAT EVEN THOUGH WE HAVE AN "OVERLY LONG" TAIL (ACTUALLY A REALL LONG TAIL WOULD PROBABLY BE TRUNCATED, SINCE WE TREAT THE SPACE AFTER +FOO AS A LENGTH COUNT WITHOUT THIS CHANGE) IT HAS A *DOUBLE* CR AFTER IT, SO WE RETURN A ZERO-LENGTH STRING FROM ARGNEXT() AND THAT TERMINTES ARGUMENT PARSING - AND YES, A REALLY LONG ARGUMENT IS TRUNCATED AS I PREDICTED - AND YES, WITH THIS FIX LONG ARGUMENTS WORK OK
-	    ^strptr = i - 1
-	    break
-	fin
-    next
-    return strptr
 end
 def parsecmd(strptr)#1
     byte i, cmd
@@ -2210,7 +2188,6 @@ modname = @modname_default
 //
 ^lastsym = 0 // end of symbol table
 #endif
-puts("SFTODOCMDARGS!"); puts($700); putc('!'); putln()
 //
 // Set up error handler
 //
@@ -2287,24 +2264,28 @@ while 1
     fin
 loop
 #endif
-// SFTODO: See comment elsewhere about safety or otherwise of using *heapptr
-// to init cmdptr just one - for now I am just going to hack it like this
-// after loading the JIT and I think that will get things more or less
-// working OK. - OK, I am not saying everything's great, but note that on
-// subsequent passes round the loop cmdptr has been initialised to the
-// return value of gets() (=$700) and so we are *not* actually relying on
-// the heap not having moved or being validly initialised. So this isn't
-// quite such a big problem as I've been imagining.
-// SFTODO: DIDN'T WE ALREADY DO THE NEXT TWO LINES JUST ABOVE?
-// SFTODO: Thought I had a TODO about this somewhere but can't find it - I *think* (need to revisit this later) on A2 the command used to invoke a +FOO module is copied from the gets()/rdstr() buffer into a separate buffer and args.pla parses it from there - I also *think* (ditto) the Acorn port is currently assuming (via some hacks, too) that the buffer at $700 will still contain the command - it may be that (after tidying up the hacks) I am willing to live with this approach for the Acorn port, and until/unless a real case comes up where a program wants to be able to parse the arguments *after* catching and dealing with an error (errors overwrite the $700 buffer, but unless the code catches them it will cease execution so can't possibly try to parse arguments) or *after* calling gets() to read user input, just accept that writing such code is "wrong" because the arguments will have been lost. I'm reluctant to set aside 256 bytes of RAM somewhere just to make the arguments available for parsing at any arbitrary time in progarm execution when neither of these "problematic" cases seems all that likely. I should document this if I do decide to take this approach though, even if only in a comment inside the VM.
+// Note that the Apple II VM copies the command line to @cmdln (==syscmdln),
+// leaves it alone and then modifies the original copy of the command line
+// in place while parsing it here in the core VM. In order to avoid needing
+// an extra 256 bytes of memory for a copy, the Acorn port doesn't do that;
+// syscmdln points directly to the gets() buffer and this code does *not*
+// modify it at all, so it's in a fit state for parsing by the args.pla
+// module. Apart from causing a few small differences here in the VM code,
+// the main user-visible implication of this is that on the Acorn VM code
+// which calls gets() or experiences an OS error and catches it via except()
+// before parsing the command line arguments with the args module will
+// find they have been corrupted. I don't think either of these cases is
+// terribly likely (note that experiencing an OS error and *not* catching
+// it will cause the module to stop executing and return control to the VM,
+// which works fine) and unless/until some good use case for this comes up I
+// think it's better to save the 256 bytes. (I suppose we could potentially
+// allocate just enough space for the copy on the heap, but that would be
+// extra code and still waste some space which this approach saves.)
 while 1
     // SFTODO TEMP HACK
     puts("TOP OF DOCMDS LOOP\n")
     // SFTODO END TEMP HACK
     if ^syscmdln
-        //^(syscmdln + ^syscmdln + 1) = 13 // SFTODO TEMP HACK - WITHOUT THIS "*PLASMA +PLASM TEST.PLA" GOES SUBTLY WRONG, I NEED TO FIGURE OUT WHY BUT JUST PUTTING THIS IN FOR NOW
-	putc('X'); puts(syscmdln); putc('X'); putln() // SFTODO!
-        // SFTODO: I'M NOT SURE BUT MAYBE BECAUSE PARSECMD STRIPS THE LEADING '+' OFF AND WE DON'T COPY AND THE APPLE II DOES, IT MAY BE THAT ARGFIRST RETURNS EG "+PLASM" on A2 WHILE WE RETURN "PLASM". I DON'T KNOW IF THIS IS REALLY WORTH WORRYING ABOUT AND I HAVEN'T CHECKED THE A2 BEHAVIOUR EITHER - I AM PRETTY SURE A2 DOES DO THIS, AND WITH THE LATEST HACKS SO DOES MINE
         // SFTODO: I SHOULD PROB "NEVER" PASS syscmdln OR "ALWAYS" PASS IT - AT THE MOMENT PARSEMODNAME IS AN EXCEPTION
 	when toupper(parsecmd(syscmdln))
 	    is 'M'
@@ -2314,11 +2295,6 @@ while 1
 #ifdef TIME
 		time(@start_time)
 #endif
-                puts("HACK AT "); puth(syscmdln + ^syscmdln + 1); putln()
-                //call($8F, 0, 0, 0, 0) // SFTODO!
-		//^(syscmdln + ^syscmdln + 1) = 0 // SFTODO SEMI TEMP HACK - SEE ARGS.PLA
-                putc('Y'); puts(syscmdln); putc('Y'); putln() // SFTODO!
-                // SFTODO: INSTEAD OF striptrail() COULD I JUST *COPY* THE MODULE NAME - WHICH IS SHORT - INTO ANOTHER BUFFER AND LEAVE syscmdln ALONE? YES, THIS SEEMS TO WORK
 		modexec(parsemodname())
 		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS - IT FEELS HORRIBLY HACKY, BUT COULD WE JUST CLOSE ALL FILE HANDLES EXCEPT THE *EXEC AND *SPOOL HANDLES? THOSE ARE AVAILABLE IN LOW MEM ON HOST AND WE CAN PROB READ THEM SOMEHOW IN A TUBE COMPATIBLE WAY. NOT SURE I LIKE THIS BUT THINK ABOUT IT, MAYBE ASK ON STARDOT FOR ADVICE. - OK, PERHAPS THE WAY TO DO THIS (IF IT DOESN'T BLOAT THINGS TOO MUCH) IS TO SET ASIDE 256/8=32 BYTES OF RAM FOR A BITMAP OF "OPEN FILES" AND HAVE FILEIO UPDATE THAT AND THEN THE VM CAN USE IT TO CLOSE FILES AUTOMATICALLY AFTER EXECUTING A MODULE - I SUPPOSE ALTERNATIVELY IT COULD STORE THE ACTUAL FILE HANDLES IN A FEW BYTES OF RAM, SINCE WE HAVE MAX_IOBUFS = 4 - THAT MEANS IF WE ALWAYS KEEP "UNUSED" BYTES AT 0 WE ONLY NEED 4 BYTES OF (PROBABLY) PAGE 4 FOR THIS
 #ifdef TIME

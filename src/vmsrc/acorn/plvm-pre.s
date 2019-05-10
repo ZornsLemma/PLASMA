@@ -44,6 +44,13 @@ OPPAGE  =       OPIDX+1
 ;*
 	!SOURCE "vmsrc/acorn/acornc.inc"
 	!SOURCE "vmsrc/acorn/vmconstants.inc"
+;* Assert this here; we can't do it in cmd.pla where it most logically belongs
+;* or in plvmzp.inc because that has to be translatable by acmetoplasma.py. We
+;* have this constraint because parsemodname() uses SCRATCH to return the
+;* module name as a PLASMA string (hence the +1).
+!IF SCRATCHSZ < MAXNAMELEN+1 {
+    !ERROR "SCRATCHSZ too small"
+}
 
 	;* Note this doesn't preserve A!
 	!MACRO	CHECKVSHEAPHIGHINA .P {

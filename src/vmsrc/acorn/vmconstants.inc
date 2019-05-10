@@ -66,4 +66,7 @@ TUBERAMTOP = $F800
 TUBEJITBUFFERSIZE = 8*1024/256 ; pages
 TUBEJITHEAPTOP = TUBERAMTOP-(TUBEJITBUFFERSIZE*256)
 
+; Maximum number of characters in a module name; need an extra byte for a PLASMA string.
+MAXNAMELEN = 16
+
 ; TODO: Poor formatting above
