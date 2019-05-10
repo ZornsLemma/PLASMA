@@ -2055,10 +2055,12 @@ def parsecmd(strptr)#1
     stripspaces(strptr)
     if ^strptr
         cmd = ^(strptr + 1)
-        memcpy(strptr + 1, strptr + 2, ^strptr) // SFTODO: I DON'T THINK IT *MATTERS* BUT FWIW THIS SEEMS TO COPY "TOO MANY" CHARACTERS, AND MAY PLAY A ROLE IN UNDERSTANDING WHAT'S GOING ON EVEN IF I DON'T REALLY WANT TO CHANGE IT
+        // We could just copy ^strptr-1 bytes in the next line, but it's harmless to copy
+        // more and why waste a byte on a DECR opcode to do an unnecessary -1? :-) This
+        // also avoids a gratuitous difference with the Apple II code.
+        memcpy(strptr + 1, strptr + 2, ^strptr)
         ^strptr--
     fin
-    //call_oscli("SAVE Q 700 800") // SFTODO TEMP
     stripspaces(strptr)
     return cmd
 end
