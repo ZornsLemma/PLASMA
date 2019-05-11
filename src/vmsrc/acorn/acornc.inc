@@ -36,6 +36,8 @@ osbyte_read_oshwm              = $83
 osbyte_read_himem              = $84
 osbyte_issue_service_call      = $8F
 
+osargs_get_command_line_tail = $01
+
 service_call_select_filing_system = $12
 
 buffer_keyboard = $FF

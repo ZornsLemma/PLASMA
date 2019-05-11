@@ -199,7 +199,7 @@ EPLOOP
 ;* We use this tube-compatible code in all cases; this code is discarded on all
 ;* versions so there's no harm in having the extra code when we don't need it.
 	; Read address of command line parameters
-	LDA	#$01 ; SFTODO MAGIC CONSTANTS
+	LDA	#osargs_get_command_line_tail
 	LDY	#$00
 	LDX	#SCRATCH
 	JSR	OSARGS
