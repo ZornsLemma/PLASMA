@@ -2294,6 +2294,10 @@ loop
 // think it's better to save the 256 bytes. (I suppose we could potentially
 // allocate just enough space for the copy on the heap, but that would be
 // extra code and still waste some space which this approach saves.)
+// (Incidentally, Dave told me the reason the Apple II copies the command
+// line is that the input buffer is lost when loading files; it's still true
+// that the Apple code allows the possibility of using gets() without
+// destroying the command line, but this wasn't the motivation for it.)
 while 1
     // SFTODO TEMP HACK
     puts("TOP OF DOCMDS LOOP\n")
