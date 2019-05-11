@@ -70,6 +70,10 @@ SEGEND	=	*
 VMINITTUBESOFTBREAK
 	!CPU	65C02
 
+	LDA	#0		; on soft break we must have an empty command tail
+VMINITTUBESOFTBREAK2
+	STA	INBUFF
+
 	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND
 	STA	SRCL		; because on BREAK we will re-enter VMINITTUBESOFTBREAK
 	LDA	#>TUBEHEAP
@@ -190,8 +194,6 @@ EPLOOP
 .NOTTUBE
 }
 
-;* SFTODO: START EXPERIMENTAL
-;* SFTODO: I THINK I WILL NEED TO ARRANGE FOR TUBE SOFT BREAK TO POKE A ZERO LENGTH STRING AT INBUFF
 ;* Copy any command line tail to INBUFF as a PLASMA-style string
 ;* Code based on the 6502 fragment at http://beebwiki.mdfs.net/Reading_command_line
 ;* We use this tube-compatible code in all cases; this code is discarded on all
@@ -225,8 +227,6 @@ RDCMDLP
 RDCMDLPDONE
 	; Save length at start of PLASMA-style string
 	STY	INBUFF
-;* SFTODO: END EXPERIMENTAL
-
 
 	LDA	#osbyte_read_high_order_address
 	JSR	OSBYTE
@@ -239,8 +239,11 @@ RDCMDLPDONE
 	STA	$EE
 	LDA 	#>VMINITTUBESOFTBREAK
 	STA	$EF
-	;* And of course we need to do that initialisation now as well.
-	JMP	VMINITTUBESOFTBREAK
+	;* And of course we need to do that initialisation now as well. The only
+	;* difference is we don't want to set the command tail at INBUFF to an
+	;* empty string.
+	LDA	INBUFF
+	JMP	VMINITTUBESOFTBREAK2
 	!CPU 6502
 NOTTUBE
 	LDA	#<SEGEND	; SAVE HEAP START
