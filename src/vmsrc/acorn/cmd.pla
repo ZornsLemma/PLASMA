@@ -2211,7 +2211,10 @@ else
   puts(@colonstr)
   puts(errstr)
   putln
-  ^syscmdln = 0 // SFTODO EXPERIMENTAL
+  // We must put a zero-length string at syscmdln so we don't try to interpret the
+  // junk at syscmdln/inbuff (in practice, the error number) as a command to execute;
+  // that's only relevant when we first start up.
+  ^syscmdln = 0
 #endif
 fin
 #ifndef STANDALONE
@@ -2338,7 +2341,7 @@ while 1
 #endif
     putln
     puts(@prompt)
-    gets(':')
+    gets(':') // we know this returns string at inbuff == syscmdln
 loop
 #endif
 done
