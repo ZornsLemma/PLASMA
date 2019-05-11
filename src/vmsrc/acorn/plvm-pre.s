@@ -1565,5 +1565,68 @@ NATV    TYA                     ; FLATTEN IP
         JMP     (IP)
 +       INC     IPH
         JMP     (IP)
+;*
+;* BRK HANDLER
+;*
+BRKHND
+	LDY	#0
+	LDA	(error_message_ptr),Y
+	STA	ERRNUM
+	;* Note that as we only have ERRSTRSZ(=255) bytes for ERRSTR and we
+	;* need one byte for the length, we must truncate error messages to
+	;* no more than 254 characters. Y is the 1-based index into the error
+	;* message in the following loop.
+ERRCPY	INY
+	CPY	#ERRSTRSZ
+	BEQ	ERRCPD
+	LDA	(error_message_ptr),Y
+	BEQ	ERRCPD
+	STA	ERRSTR,Y
+	BNE	ERRCPY
+ERRCPD	DEY
+	STY	ERRSTR
+	;* ERRNUM now holds the error number
+	;* ERRSTR now holds the error message as a standard PLASMA string
+	
+	LDX	#$FF
+	TXS
+	;* We reset X (ESP) so the error handler has the full expression
+	;* stack available - at the point the error occurred, it might
+	;* have been (nearly) full and so any expression stack use in
+	;* the error handler would trample on memory outside the stack if
+	;* we left it alone. This will trample on any values which were
+	;* pushed onto the expression stack before the call to setjmp()
+	;* and which might be expected to be there after setjmp() returns
+	;* via longjmp(). This is OK because longjmp() will restore X and
+	;* the expression stack from the jmp_buf. (We could partially
+	;* avoid the need for this by just saving X (ESP) in jmp_buf,
+	;* but not the expression stack itself, and setting X=2 here so
+	;* the error handlers runs with a tiny expression stack, just
+	;* enough to call longjmp(). We'd make setjmp() fail if X<=2 on
+	;* entry. This wouldn't be a perfect solution as the expression stack
+	;* could shrink after the setjmp() and before the longjmp(),
+	;* so important state could still be lost; setjmp.pla is an
+	;* example of this. The expression stack plays the same role as
+	;* registers, and really it needs to be restored by longjmp(),
+	;* so we do that.)
+	LDX	#ESTKSZ/2	; INIT EVAL STACK INDEX
+	JSR	BRKJMP
+	;* We do not expect control to ever return from *ERRFP, and if
+	;* does we can't do anything useful - we can't generate an error,
+	;* as it would just end up back here. We could potentially try
+	;* to re-enter the current language, but that's not particularly
+	;* helpful, so we just print '!' and hang. This really should
+	;* never happen - the default error_handler() function used for
+	;* ERRFP does a longjmp(), so if that doesn't work either the
+	;* VM is totally hosed or the user is playing around with ERRFP
+	;* and has to suffer the consequences of getting it wrong. :-)
+	;* It's also desirable not to waste space in the VM on code for
+	;* this 'impossible' case.
+	;* TODO: Could/should we therefore replace the JSR BRKJMP above
+	;* with a simple JMP (ERRFP)?
+	LDA	#'!'
+	JSR	OSWRCH
+BRKLP	JMP	BRKLP
+BRKJMP	JMP	(ERRFP)
 ; Compiled PLASMA code
 A1CMD	
