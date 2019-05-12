@@ -21,7 +21,7 @@ include "inc/acornc.plh"
 sysflags nojitc // No need to speed this up
 
 const max_lib_path_len = 16 // this can be changed to suit
-const max_module_name_len = 16 // this is a "fact" about PLASMA module names
+const max_module_name_len = 16 // this is a fact about PLASMA module names
 
 // Data accessed across multiple instances of this module; this must be the first
 // global data since it's accessed at the address returned by lookupsym("LIB").
@@ -69,7 +69,7 @@ def lib_modopen(modcr)#1
 end
 
 // The INIT code below is discarded after the module has been loaded, so we don't need
-// to worry about how verbose it is to save memory.
+// to worry about wasting memory on its verbose messages.
 
 // If the LIB module is not already resident, we need to stay resident and use the memory
 // at our_data to store the library data. If the LIB module is already resident, we need
