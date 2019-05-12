@@ -2345,15 +2345,22 @@ def docmds#0
 end
 //
 // Dummy definition to get free heap
+// SFTODO: ANNOYINGLY ALL THIS DOCMDS SUPPORT STUFF *SAVES* 29-30 BYTES ON NON-TUBE BUT *COSTS* 30 BYTES ON TUBE; PROBABLY NOTHING I CAN DO ABOUT IT BUT CAN'T HELP WONDERING IF I SHOULDN'T DO IT. I REALLY DON'T WANT TO FORK OFF A HIPLASMA BINARY (GIVING ME 5 IN TOTAL!) THOUGH, EVEN IF IT WOULD ALLOW ME TO AVOID MAKING TUBE PAY FOR STUFF IT DOESN'T NEED (AT THE COST OF PERHAPS UNACCEPTABLE MACHINATIONS TO "MOVE" THE CONTENTS OF DOCMD INTO THE RIGHT PLACE ON ALL BUILDS
 //
 def lastdef#0
 end
 //
-// Get heap start.
+// Get heap start. If we're not running on a second processor, we can start it at @lastdef
+// to allow us to avoid wasting RAM on this one-off initialisation bytecode. On a second
+// processor we must start the heap at the location the assembly language startup code has
+// stored for us at *freemem, because the "one-off" initialisation code needs to be
+// available for execution on soft break.
 //
-// *heapptr = *freemem // SFTODO HMMM, FOR 'DOCMDS' APPROACH THIS SHOULD BE *heapptr = @lastdef *BUT* THE 'PLASMA' VM HAS TO WORK ON NON-TUBE AND TUBE AND THAT @lastdef VARIANT IS ONLY GOOD FOR NON-TUBE - SHOULD WE PERHAPS HAVE A 'RUNNING ON TUBE' FLAG IN WORKSPACE WHICH WE CAN CHECK TO DISTINGUISH THEM?
-// SFTODO: FOR NOW LET'S IGNORE THE TUBE PROBLEM
-*heapptr = @lastdef
+if *freemem == 0
+    *heapptr = @lastdef
+else
+    *heapptr = *freemem
+fin
 #ifndef STANDALONE
 //
 // Init globals; see note at top about why we have to do this.
