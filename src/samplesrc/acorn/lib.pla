@@ -81,6 +81,9 @@ if ^arg <> 0
     fin
     if ^arg == 1 and ^(arg + 1) == '-'
         ^arg = 0
+    elsif ^(arg + ^arg) <> '.'
+        ^arg = ^arg + 1
+        ^(arg + ^arg) = '.'
     fin
     strcpy(data_ptr + lib_path, arg)
 else
