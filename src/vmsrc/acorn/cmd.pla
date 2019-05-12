@@ -62,7 +62,7 @@ const RELADDR      = $1000
 // any globals will have their post-modification values, not the original
 // values.
 
-const freemem      = src 	// 'SRC' zp, used to indicate heap start
+const freemem      = src 	// 'SRC' zp, used to indicate heap start SFTOOD NOT ALWAYS ANY MORE
 
 #ifndef STANDALONE
 
@@ -2178,9 +2178,170 @@ def time(t)#0
 end
 #endif 
 //
+// SFTODO COMMENT
+//
+def docmds#0
+    //
+    // Set up error handler
+    //
+    if except2(errjb) == 0
+      *errfp = @error_handler
+    else
+    #ifndef STANDALONE
+      putln
+      puts(@errorstr)
+      putb(^errnum)
+      puts(@colonstr)
+      puts(errstr)
+      putln
+      // We must put a zero-length string at syscmdln so we don't try to interpret the
+      // junk at syscmdln/inbuff (in practice, the error number) as a command to execute;
+      // that's only relevant when we first start up.
+      ^syscmdln = 0
+    #endif
+    fin
+    #ifndef STANDALONE
+    perr = 0
+    //
+    // Print some startup info.
+    //
+    // startup somehow?
+    if not ^syscmdln
+        // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
+        // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
+        // really want to bloat the VM with this really, so perhaps not.
+        puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
+        // TODO: Temporarily moved this to prompt instead of only displaying it
+        // on startup; this makes it more obvious if heap gets leaked.
+        //puts(@freestr)
+        //puth(heapavail)
+    #ifdef PLAS128
+        //puts(@xfreestr)
+        //puth(xheapfree(xheap))
+    #endif
+        //putln
+    fin
+
+    #ifdef JIT
+        // On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if
+        // that fails for any reason (we don't have enough heap, the JIT module can't be found, etc)
+        // an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
+        // OS error isn't necessarily all that clear, but we don't expect this to happen - the main
+        // thing is that we don't go into an infinite loop or similar.)
+        if *jitcomp == 1
+            *jitcomp = 0
+            #ifndef PLAS128
+                modloadpstr("JIT")
+            #else
+                modloadpstr("JIT128")
+                // Allocate the remainder of the first sideways RAM bank to JITted
+                // machine code.
+                *jitcodeptr = $8000 + xheap
+                // SFTODO: We could just do "xheap = xheap_bank_size" here and that
+                // may well be best in the long run, but let's stick with this for
+                // now as that way we avoid making any assumptions about how exactly
+                // allocxheap() chooses to manage xheap "at" the page boundaries.
+                allocxheap(xheap_bank_size - xheap)
+            #endif
+        fin
+    #endif
+    #if defined(PLAS128) && defined(ALLOCXHEAPTEST)
+    // Variable names here are meaningless because we just re-use some globals...
+    version = $50
+    while 1
+        puts("xheap=$"); puth(xheap)
+        puts(", xheapfree()=$"); puth(xheapfree(xheap))
+        syscmdln = allocxheap(version)
+        puts(", allocxheap($"); puth(version); puts(")=$"); puth(syscmdln)
+        putln()
+        if syscmdln == 0 and version > 0
+            version = version - 1
+        fin
+    loop
+    #endif
+    // Note that the Apple II VM copies the command line to @cmdln (==syscmdln),
+    // leaves it alone and then modifies the original copy of the command line
+    // in place while parsing it here in the core VM. In order to avoid needing
+    // an extra 256 bytes of memory for a copy, the Acorn port doesn't do that;
+    // syscmdln points directly to the gets() buffer and this code does *not*
+    // modify it at all, so it's in a fit state for parsing by the args.pla
+    // module. Apart from causing a few small differences here in the VM code,
+    // the main user-visible implication of this is that on the Acorn VM code
+    // which calls gets() or experiences an OS error and catches it via except()
+    // before parsing the command line arguments with the args module will
+    // find they have been corrupted. I don't think either of these cases is
+    // terribly likely (note that experiencing an OS error and *not* catching
+    // it will cause the module to stop executing and return control to the VM,
+    // which works fine) and unless/until some good use case for this comes up I
+    // think it's better to save the 256 bytes. (I suppose we could potentially
+    // allocate just enough space for the copy on the heap, but that would be
+    // extra code and still waste some space which this approach saves.)
+    // (Incidentally, Dave told me the reason the Apple II copies the command
+    // line is that the input buffer is lost when loading files; it's still true
+    // that the Apple code allows the possibility of using gets() without
+    // destroying the command line, but this wasn't the motivation for it.)
+    while 1
+        // SFTODO TEMP HACK
+        puts("TOP OF DOCMDS LOOP\n")
+        // SFTODO END TEMP HACK
+        if ^syscmdln
+            // SFTODO: I SHOULD PROB "NEVER" PASS syscmdln OR "ALWAYS" PASS IT - AT THE MOMENT PARSEMODNAME IS AN EXCEPTION
+            when toupper(parsecmd(syscmdln))
+                is 'M'
+                    modechange(syscmdln)
+                    break
+                is '+'
+    #ifdef TIME
+                    time(@start_time)
+    #endif
+                    modexec(parsemodname())
+                    // SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS - IT FEELS HORRIBLY HACKY, BUT COULD WE JUST CLOSE ALL FILE HANDLES EXCEPT THE *EXEC AND *SPOOL HANDLES? THOSE ARE AVAILABLE IN LOW MEM ON HOST AND WE CAN PROB READ THEM SOMEHOW IN A TUBE COMPATIBLE WAY. NOT SURE I LIKE THIS BUT THINK ABOUT IT, MAYBE ASK ON STARDOT FOR ADVICE. - OK, PERHAPS THE WAY TO DO THIS (IF IT DOESN'T BLOAT THINGS TOO MUCH) IS TO SET ASIDE 256/8=32 BYTES OF RAM FOR A BITMAP OF "OPEN FILES" AND HAVE FILEIO UPDATE THAT AND THEN THE VM CAN USE IT TO CLOSE FILES AUTOMATICALLY AFTER EXECUTING A MODULE - I SUPPOSE ALTERNATIVELY IT COULD STORE THE ACTUAL FILE HANDLES IN A FEW BYTES OF RAM, SINCE WE HAVE MAX_IOBUFS = 4 - THAT MEANS IF WE ALWAYS KEEP "UNUSED" BYTES AT 0 WE ONLY NEED 4 BYTES OF (PROBABLY) PAGE 4 FOR THIS
+    #ifdef TIME
+                    time(@end_time)
+                    // We don't want to use the dword library here so we just accept we can
+                    // only return small time deltas correctly using 16-bit arithmetic and
+                    // signed output.
+                    puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
+    #endif
+                    break
+                is '*'
+                    call_oscli(syscmdln)
+                    break
+                otherwise
+                    puts(@huhstr)
+            wend
+            if perr
+                puts(@errorstr)
+                putb(perr)
+                perr = 0
+            else
+                puts(@okstr)
+            fin
+            putln()
+        fin
+        puts(@freestr)
+        puth(heapavail)
+    #ifdef PLAS128
+        puts(@xfreestr)
+        puth(xheapfree(xheap))
+    #endif
+        putln
+        puts(@prompt)
+        gets(':') // we know this returns string at inbuff == syscmdln
+    loop
+    #endif
+end
+//
+// Dummy definition to get free heap
+//
+def lastdef#0
+end
+//
 // Get heap start.
 //
-*heapptr = *freemem
+// *heapptr = *freemem // SFTODO HMMM, FOR 'DOCMDS' APPROACH THIS SHOULD BE *heapptr = @lastdef *BUT* THE 'PLASMA' VM HAS TO WORK ON NON-TUBE AND TUBE AND THAT @lastdef VARIANT IS ONLY GOOD FOR NON-TUBE - SHOULD WE PERHAPS HAVE A 'RUNNING ON TUBE' FLAG IN WORKSPACE WHICH WE CAN CHECK TO DISTINGUISH THEM?
+// SFTODO: FOR NOW LET'S IGNORE THE TUBE PROBLEM
+*heapptr = @lastdef
 #ifndef STANDALONE
 //
 // Init globals; see note at top about why we have to do this.
@@ -2198,156 +2359,7 @@ modname = @modname_default
 //
 ^lastsym = 0 // end of symbol table
 #endif
-//
-// Set up error handler
-//
-if except2(errjb) == 0
-  *errfp = @error_handler
-else
-#ifndef STANDALONE
-  putln
-  puts(@errorstr)
-  putb(^errnum)
-  puts(@colonstr)
-  puts(errstr)
-  putln
-  // We must put a zero-length string at syscmdln so we don't try to interpret the
-  // junk at syscmdln/inbuff (in practice, the error number) as a command to execute;
-  // that's only relevant when we first start up.
-  ^syscmdln = 0
-#endif
-fin
-#ifndef STANDALONE
-perr = 0
-//
-// Print some startup info.
-//
-// SFTODO: Should I pass command line tail of VM load command into cmdptr on
-// startup somehow?
-if not ^syscmdln
-    // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
-    // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
-    // really want to bloat the VM with this really, so perhaps not.
-    puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
-    // TODO: Temporarily moved this to prompt instead of only displaying it
-    // on startup; this makes it more obvious if heap gets leaked.
-    //puts(@freestr)
-    //puth(heapavail)
-#ifdef PLAS128
-    //puts(@xfreestr)
-    //puth(xheapfree(xheap))
-#endif
-    //putln
-fin
-
-#ifdef JIT
-    // On startup *jitcomp is set to 1; this triggers one attempt to load the JIT module, if
-    // that fails for any reason (we don't have enough heap, the JIT module can't be found, etc)
-    // an OS error will occur and *jitcomp will be 0 so the JIT will simply be disabled. (The
-    // OS error isn't necessarily all that clear, but we don't expect this to happen - the main
-    // thing is that we don't go into an infinite loop or similar.)
-    if *jitcomp == 1
-        *jitcomp = 0
-        #ifndef PLAS128
-            modloadpstr("JIT")
-        #else
-            modloadpstr("JIT128")
-            // Allocate the remainder of the first sideways RAM bank to JITted
-            // machine code.
-            *jitcodeptr = $8000 + xheap
-            // SFTODO: We could just do "xheap = xheap_bank_size" here and that
-            // may well be best in the long run, but let's stick with this for
-            // now as that way we avoid making any assumptions about how exactly
-            // allocxheap() chooses to manage xheap "at" the page boundaries.
-            allocxheap(xheap_bank_size - xheap)
-        #endif
-    fin
-#endif
-#if defined(PLAS128) && defined(ALLOCXHEAPTEST)
-// Variable names here are meaningless because we just re-use some globals...
-version = $50
-while 1
-    puts("xheap=$"); puth(xheap)
-    puts(", xheapfree()=$"); puth(xheapfree(xheap))
-    syscmdln = allocxheap(version)
-    puts(", allocxheap($"); puth(version); puts(")=$"); puth(syscmdln)
-    putln()
-    if syscmdln == 0 and version > 0
-        version = version - 1
-    fin
-loop
-#endif
-// Note that the Apple II VM copies the command line to @cmdln (==syscmdln),
-// leaves it alone and then modifies the original copy of the command line
-// in place while parsing it here in the core VM. In order to avoid needing
-// an extra 256 bytes of memory for a copy, the Acorn port doesn't do that;
-// syscmdln points directly to the gets() buffer and this code does *not*
-// modify it at all, so it's in a fit state for parsing by the args.pla
-// module. Apart from causing a few small differences here in the VM code,
-// the main user-visible implication of this is that on the Acorn VM code
-// which calls gets() or experiences an OS error and catches it via except()
-// before parsing the command line arguments with the args module will
-// find they have been corrupted. I don't think either of these cases is
-// terribly likely (note that experiencing an OS error and *not* catching
-// it will cause the module to stop executing and return control to the VM,
-// which works fine) and unless/until some good use case for this comes up I
-// think it's better to save the 256 bytes. (I suppose we could potentially
-// allocate just enough space for the copy on the heap, but that would be
-// extra code and still waste some space which this approach saves.)
-// (Incidentally, Dave told me the reason the Apple II copies the command
-// line is that the input buffer is lost when loading files; it's still true
-// that the Apple code allows the possibility of using gets() without
-// destroying the command line, but this wasn't the motivation for it.)
-while 1
-    // SFTODO TEMP HACK
-    puts("TOP OF DOCMDS LOOP\n")
-    // SFTODO END TEMP HACK
-    if ^syscmdln
-        // SFTODO: I SHOULD PROB "NEVER" PASS syscmdln OR "ALWAYS" PASS IT - AT THE MOMENT PARSEMODNAME IS AN EXCEPTION
-	when toupper(parsecmd(syscmdln))
-	    is 'M'
-		modechange(syscmdln)
-		break
-	    is '+'
-#ifdef TIME
-		time(@start_time)
-#endif
-		modexec(parsemodname())
-		// SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS - IT FEELS HORRIBLY HACKY, BUT COULD WE JUST CLOSE ALL FILE HANDLES EXCEPT THE *EXEC AND *SPOOL HANDLES? THOSE ARE AVAILABLE IN LOW MEM ON HOST AND WE CAN PROB READ THEM SOMEHOW IN A TUBE COMPATIBLE WAY. NOT SURE I LIKE THIS BUT THINK ABOUT IT, MAYBE ASK ON STARDOT FOR ADVICE. - OK, PERHAPS THE WAY TO DO THIS (IF IT DOESN'T BLOAT THINGS TOO MUCH) IS TO SET ASIDE 256/8=32 BYTES OF RAM FOR A BITMAP OF "OPEN FILES" AND HAVE FILEIO UPDATE THAT AND THEN THE VM CAN USE IT TO CLOSE FILES AUTOMATICALLY AFTER EXECUTING A MODULE - I SUPPOSE ALTERNATIVELY IT COULD STORE THE ACTUAL FILE HANDLES IN A FEW BYTES OF RAM, SINCE WE HAVE MAX_IOBUFS = 4 - THAT MEANS IF WE ALWAYS KEEP "UNUSED" BYTES AT 0 WE ONLY NEED 4 BYTES OF (PROBABLY) PAGE 4 FOR THIS
-#ifdef TIME
-		time(@end_time)
-		// We don't want to use the dword library here so we just accept we can
-		// only return small time deltas correctly using 16-bit arithmetic and
-		// signed output.
-		puts("\nTook "); puti(end_time:0 - start_time:0); puts(" cs\n")
-#endif
-		break
-	    is '*'
-		call_oscli(syscmdln)
-		break
-	    otherwise
-		puts(@huhstr)
-	wend
-	if perr
-	    puts(@errorstr)
-	    putb(perr)
-	    perr = 0
-	else
-	    puts(@okstr)
-	fin
-	putln()
-    fin
-    puts(@freestr)
-    puth(heapavail)
-#ifdef PLAS128
-    puts(@xfreestr)
-    puth(xheapfree(xheap))
-#endif
-    putln
-    puts(@prompt)
-    gets(':') // we know this returns string at inbuff == syscmdln
-loop
-#endif
+docmds()
 done
 
 // SFTODO: General comment - I should probably review the code to see that if an OS error occurs during module loading, we do not leak any heap. We *don't* reset the heap to the initial pointer when an OS error reaches the top level exception handler - this is correct, because we might have a resident module loaded on the heap - but it does mean we need to be careful not to allow memory to be leaked. To be fair, since I print the heap free at the prompt I'd probably notice if this was happening and I don't think I have, but it would be good to review the code anyway. And perhaps leave a permanent comment somewhere about the importance of this, and why we don't just reset the heap pointer in the top-level error handler.
