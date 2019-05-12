@@ -1,6 +1,14 @@
 // Simple (and rather pointless) example of how to implement a custom modname()
 // function; a more sophisticated version of this might allow things like
 // searching for modules in a library directory.
+// SFTODO: It might be worth writing a proper utility which uses this feature
+// to add a single "library directory" (a string prefix, which might be used
+// on ADFS to access a different directory or on DFS/ADFS to access files on
+// another drive) - we would ideally be able to re-execute that utility
+// without leaking more memory each time. If we have that, maybe we don't need
+// MODNAME as a sample any more, especially now we show the name of the module
+// we couldn't find in the core VM and don't need MODNAME as a hack to make the
+// name visible.
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
