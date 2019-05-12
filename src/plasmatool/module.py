@@ -263,6 +263,28 @@ class Module(object):
 
         self.esd.dump(outfile)
 
+    def size(self):
+        # TODO: This is a pretty hacky implementation, but it should do the job. It's
+        # important to take the ESD and RLD into account; the limiting factor is main
+        # RAM free to temporarily hold the on-disk version of the module as we load it,
+        # not the size of the code and data in the module.
+        from cStringIO import StringIO
+        f = StringIO()
+        self.dump(f)
+        total_size = 0
+        for line in f.getvalue().splitlines():
+            i = line.find(";")
+            if i != -1:
+                line = line[:i-1]
+            if "!WORD" in line:
+                element_size = 2
+            elif "!BYTE" in line:
+                element_size = 1
+            else:
+                element_size = 0
+            total_size += (line.count(",") + 1) * element_size
+        return total_size
+
     @staticmethod
     def is_valid_module_name(name):
         if len(name) == 0 or len(name) > 16:
@@ -329,7 +351,7 @@ class Module(object):
 
         # Perform the recursive move of functions from caller_module to callee_module as
         # described above.
-        while True:
+        while True: # while caller_module.size() > 0x4b00:
             changed = False
             for i, bytecode_function in enumerate(caller_module.bytecode_functions):
                 callees = set()
@@ -341,6 +363,7 @@ class Module(object):
                     callee_module.bytecode_functions.append(caller_module.bytecode_functions[i])
                     caller_module.bytecode_functions[i] = None
                     changed = True
+                    break # Do as little as possible between checks of size()
             caller_module.bytecode_functions = (
                     [x for x in caller_module.bytecode_functions if x is not None])
             if not changed:
