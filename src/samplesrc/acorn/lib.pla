@@ -8,7 +8,7 @@
 // directory.
 //
 // This code also provides examples of:
-// - how to use the "modname" function pointer in cmdsysac.plh to add extra
+// - how to use the "modopen" function pointer in cmdsysac.plh to add extra
 //   code which gets a chance to find modules we are trying to open.
 // - how to write a resident module with persistent state which won't fill
 //   the heap up with multiple copies of itself no matter how many times it
@@ -28,7 +28,7 @@ const max_module_name_len = 16 // this is a "fact" about PLASMA module names
 struc t_data
     word base_data_ptr
     byte lib_path[max_lib_path_len+1]
-    word parent_modname
+    word parent_modopen
 end
 byte our_data[t_data] = 0, 0, 0
 
@@ -37,14 +37,14 @@ word arg
 
 byte lib_dci = $cc, $c9, $42 // "LIB" as a DCI string
 
-def lib_modname(modcr)#1
+def lib_modopen(modcr)#1
     byte lib_path_len, handle, c
     byte filenamecr[max_lib_path_len + max_module_name_len + 1]
     word src, dst
 
     // Let our parent try to handle this first; with the default parent built into the
     // core VM, this will try to find the module in the current directory.
-    handle = data_ptr=>parent_modname(modcr)#1
+    handle = data_ptr=>parent_modopen(modcr)#1
     lib_path_len = ^(data_ptr + lib_path)
     if handle <> 0 or lib_path_len == 0
         return handle
@@ -106,8 +106,8 @@ fin
 // As noted above, we only want to stay resident if there isn't already another resident
 // LIB module.
 if data_ptr=>base_data_ptr == @our_data
-    data_ptr=>parent_modname = modname
-    modname = @lib_modname
+    data_ptr=>parent_modopen = modopen
+    modopen = @lib_modopen
     return modkeep
 fin
 

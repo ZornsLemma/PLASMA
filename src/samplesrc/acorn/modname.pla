@@ -1,21 +1,13 @@
-// Simple (and rather pointless) example of how to implement a custom modname()
-// function; a more sophisticated version of this might allow things like
-// searching for modules in a library directory.
-// SFTODO: It might be worth writing a proper utility which uses this feature
-// to add a single "library directory" (a string prefix, which might be used
-// on ADFS to access a different directory or on DFS/ADFS to access files on
-// another drive) - we would ideally be able to re-execute that utility
-// without leaking more memory each time. If we have that, maybe we don't need
-// MODNAME as a sample any more, especially now we show the name of the module
-// we couldn't find in the core VM and don't need MODNAME as a hack to make the
-// name visible. We'd probably call this utility +LIB by analogy with *LIB.
+// Simple (and rather pointless) example of how to implement a custom modopen()
+// function. lib.pla is a more realistic example, although note that you can
+// load this as well as lib.pla to see what's going on.
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 
-// There's no requirement to chain modname() functions, but let's demonstrate
+// There's no requirement to chain modopen() functions, but let's demonstrate
 // that it's possible if desired.
-word parent_modname
+word parent_modopen
 
 def putcr(cr)#0
     word i
@@ -26,24 +18,23 @@ def putcr(cr)#0
     loop
 end
 
-def my_modname(modcr)#0
-    word i
-    puts("modname before: ")
-    putcr(modcr)
-    putln() 
-    parent_modname(modcr)#0
-    puts("modname after: ")
-    putcr(modcr)
-    putln()
+def my_modopen(modcr)#1
+    byte handle
+    puts("my_modopen@"); puth(@my_modopen)
+    puts(" - about to call parent, modcr: "); putcr(modcr); putln()
+    handle = parent_modopen(modcr)#1
+    puts("my_modopen@"); puth(@my_modopen)
+    puts(" - after calling parent, modcr: "); putcr(modcr)
+    puts(", handle: "); puti(handle); putln()
+    return handle
 end
 
-// TODO: Some means of preventing this being installed over and over again
-// (burning memory each time) might be nice, but as far as I can see upstream
-// PLASMA doesn't support this and I am not sure it's a good idea to make
-// Acorn-specific changes here. Now that modules have their address in the
-// symbol table, can we use that to help?
-parent_modname = modname
-modname = @my_modname
-puts("Installed my_modname()\n")
+// This is very simplistic and doesn't try to prevent itself being installed
+// multiple times. This doesn't matter too much as it's just a simple example,
+// and this is also potentially helpful if trying to debug another modopen()
+// hook.
+parent_modopen = modopen
+modopen = @my_modopen
+puts("Installed my_modopen()\n")
 return modkeep
 done

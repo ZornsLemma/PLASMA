@@ -32,7 +32,7 @@ symtab = [
     ("STOCR", "@stocr"),
     ("MODE", "@mode"),
     ("CALLALLOCA", "@callalloca"),
-    ("MODNAME", "@modname"),
+    ("MODOPEN", "@modopen"),
     ("DIVMOD", "@divmod"),
     ("PUTI", "@puti"),
     ("TOUPPER", "@toupper"),

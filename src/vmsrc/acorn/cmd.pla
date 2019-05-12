@@ -218,11 +218,18 @@ export byte machid       = $C8
 //
 byte modload_handle
 //
-// Pointer to function used to transform a module name into a filename; used to
-// allow a user to load a resident module to override the default
-// small-but-simplistic implementation.
+// Pointer to a function used to open a module; used to allow a resident module to
+// implement arbitrary path search features for modules. The function pointed to has
+// prototype:
 //
-word modname
+// word modopen(modcr)#1
+//
+// It takes a CR-terminated string which is the module name. If it is able to find
+// the module it should update modcr in place (it points to maxpathlen bytes of
+// memory) to be the filename of the module and return a handle to the file,
+// otherwise it should return 0 and leave modcr alone.
+//
+word modopen
 #endif
 //
 // Global variables for use by mode()
@@ -1685,13 +1692,14 @@ def adddef(isfirst, addr, deflast)#1
     return defentry
 end
 #endif
-def modname_default(modcr)#1
-    // Default implementation does nothing SFTODO UPDATE COMMENT
+def modopen_default(modcr)#1
+    // Default implementation just tries to open a file with the same name as the
+    // module.
     return call(osfind, osfind_input, modcr, modcr >> 8, 0).0
 end
 // Load the module whose name is 'moddci' (a DCI string) from the file 'modcr'
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
-// allow modname() to generate a long filename in place if it wants to.
+// allow modopen() to generate a long filename in place if it wants to.
 def modloadcr_internal(moddci, modcr)#1
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
@@ -1717,18 +1725,13 @@ def modloadcr_internal(moddci, modcr)#1
     // OSGBPB. So it's well worth the "waste" of reading the header twice.
 
     //
-    // Perform any transformations on the filename we are going to load from. SFTODO UPDATRE COMMENT SINCE WE NOW OPEN IT HERE TOO
+    // Try to open the module; this gives us an open file handle in "handle" or
+    // 0 if the module could not be found. If "handle" is not 0, modcr has been
+    // modified in place to give the filename of the module; we need this so
+    // we can open it with OSFIND below.
     //
-    // SFTODO: If modname is ever to be really used, should it return both an
-    // open file handle and the filename? Otherwise I would imagine any
-    // non-default implementation is going to need to try to open the file from
-    // some kind of "library" directory to see if it exists there, and maybe
-    // from another location or two before/after, and if it just has to close
-    // the file so we can re-open it below that's extra disk activity.
-    handle = modname(modcr)#1 // SFTODO: POSS RENAME "MODNAME" NOW???
+    handle = modopen(modcr)#1
     if handle == 0
-    	// SFTODO: A2 IMPL NOW ATTEMPTS TO OPEN USING A 'SYSTEM PATH' - IS THIS
-	// SOMETHING I SHOULD CONSIDER PORTING?
         oserror_not_found(moddci)
     fin
     //
@@ -2005,14 +2008,11 @@ end
 // command line and may be overlong or invalid in some other way.
 // For the moment at least, I am going to work on the model that what you type
 // after the + sign at the prompt is a module name - never a path of any
-// description. modname() allows custom "module name to filename" conversion
+// description. modopen() allows custom "module name to filename" conversion
 // (including potentially locating the module in a directory other than the
 // current one and therefore returning a filename with path components), but the
 // user input is just a module name. We can therefore validate modpstr and
-// convert it to a DCI module name quite naively. It's tempting to replace
-// modname() with a function which returns an open file handle, but that isn't
-// compatible with our desire to be able to use both OSGBPB and OSFILE to load
-// the module.
+// convert it to a DCI module name quite naively.
 def modloadpstr(modpstr)#1
     return (@callalloca)(modpstr, @modloadpstr_internal, maxpathlen)#1
 end
@@ -2351,7 +2351,7 @@ end
 //
 symtblchunk = lowsymtblchunk
 lastsym = lowsymtblchunk
-modname = @modname_default
+modopen = @modopen_default
 #ifndef JIT
     *jitcomp = 2 // indicates non-JIT VM to JIT module if it is loaded by user
 #else

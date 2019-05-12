@@ -17,8 +17,8 @@ import cmdsysac // SFTODO: semi-temporary hack on conjunction with related hack 
     predef mode(n)#1
     predef callalloca
     predef xheapalloc(size)#1
-    predef lookupsym(str)#1 // SFTODO EXPERIMENTAL TEMP
-    word modname
+    predef lookupsym(str)#1
+    word modopen
 
     // The standard except()/throw() interface in inc/longjmp.plh is supported
     // by the Acorn port. However, the buffer used to store the environment does
