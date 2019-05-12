@@ -1422,7 +1422,6 @@ end
 //
 export def heapavail()#1
     byte fp
-    puts("HEAPAVAIL @fp=$"); puth(@fp); puts(", *heapptr=$"); puth(*heapptr); putln()
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -2210,7 +2209,9 @@ def docmds#0
     if not ^syscmdln
         // SFTODO: Will we print this banner every time an OS error occurs? I am not sure that's really right, should re-print the prompt but not the banner.
         // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
-        // really want to bloat the VM with this really, so perhaps not.
+        // really want to bloat the VM with this really, so perhaps not. Also remember
+        // the JIT module prints "JITC enabled" itself.
+        // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTINO FOR THE OLD NAME THO
         puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
         // TODO: Temporarily moved this to prompt instead of only displaying it
         // on startup; this makes it more obvious if heap gets leaked.
