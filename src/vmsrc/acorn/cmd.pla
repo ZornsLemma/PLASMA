@@ -2178,9 +2178,12 @@ def time(t)#0
 end
 #endif 
 //
-// SFTODO COMMENT
+// Command line processor
 //
 def docmds#0
+    #if defined(PLAS128) && defined(ALLOCXHEAPTEST)
+    word size, ptr
+    #endif
     //
     // Set up error handler
     //
@@ -2256,18 +2259,15 @@ def docmds#0
         fin
     #endif
     #if defined(PLAS128) && defined(ALLOCXHEAPTEST)
-    // Variable names here are meaningless because we just re-use some globals...
-    // SFTODO: Now we have docmds() we can actually allocate some locals with
-    // sane names above (inside a duplicate #if line, of course)
-    version = $50
+    size = $50
     while 1
         puts("xheap=$"); puth(xheap)
         puts(", xheapfree()=$"); puth(xheapfree(xheap))
-        syscmdln = allocxheap(version)
-        puts(", allocxheap($"); puth(version); puts(")=$"); puth(syscmdln)
+        ptr = allocxheap(size)
+        puts(", allocxheap($"); puth(size); puts(")=$"); puth(ptr)
         putln()
-        if syscmdln == 0 and version > 0
-            version = version - 1
+        if ptr == 0 and size > 0
+            size = size - 1
         fin
     loop
     #endif
