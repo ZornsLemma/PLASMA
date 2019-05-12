@@ -1,22 +1,30 @@
-// Simple (and rather pointless) example of how to implement a custom modname()
-// function; a more sophisticated version of this might allow things like
-// searching for modules in a library directory.
-// SFTODO: It might be worth writing a proper utility which uses this feature
-// to add a single "library directory" (a string prefix, which might be used
-// on ADFS to access a different directory or on DFS/ADFS to access files on
-// another drive) - we would ideally be able to re-execute that utility
-// without leaking more memory each time. If we have that, maybe we don't need
-// MODNAME as a sample any more, especially now we show the name of the module
-// we couldn't find in the core VM and don't need MODNAME as a hack to make the
-// name visible. We'd probably call this utility +LIB by analogy with *LIB.
+// SFTODO: THIS SHOULD PROBABLY LIVE IN LIBSRC/ACORN NOT SAMPLESRC/ACORN
+// Simple library feature for module loading; this provides an Acorn equivalent of
+// the "system path" on the Apple VM. If you execute:
+//
+// +LIB :1.$
+//
+// the VM will look for modules in :1.$ if it can't find them in the current
+// directory.
+//
+// This code also provides examples of:
+// - how to use the "modname" function pointer in cmdsysac.plh to add extra
+//   code which gets a chance to find modules we are trying to open.
+// - how to write a resident module with persistent state which won't fill
+//   the heap up with multiple copies of itself no matter how many times it
+//   is loaded.
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/args.plh"
 include "inc/acornc.plh"
+sysflags nojitc // No need to speed this up
 
 const max_lib_path_len = 16 // this can be changed to suit
-const max_module_name_len = 16 // this is a "fact" about PLASMA modules
+const max_module_name_len = 16 // this is a "fact" about PLASMA module names
+
+// Data accessed across multiple instances of this module; this must be the first
+// global data since it's accessed at the address returned by lookupsym("LIB").
 struc t_data
     word base_data_ptr
     byte lib_path[max_lib_path_len+1]
@@ -27,41 +35,35 @@ byte our_data[t_data] = 0, 0, 0
 word data_ptr
 word arg
 
-byte lib_dci = $cc, $c9, $42
-
-def putcr(cr)#0
-    word i
-    i = cr
-    while ^i <> 13
-        putc(^i)
-        i++
-    loop
-end
+byte lib_dci = $cc, $c9, $42 // "LIB" as a DCI string
 
 def lib_modname(modcr)#1
+    byte lib_path_len, handle, c
     byte filenamecr[max_lib_path_len + max_module_name_len + 1]
-    word ptr
-    byte lib_path_len, c, i, handle
+    word src, dst
 
+    // Let our parent try to handle this first; with the default parent built into the
+    // core VM, this will try to find the module in the current directory.
     handle = data_ptr=>parent_modname(modcr)#1
-    if handle <> 0
+    lib_path_len = ^(data_ptr + lib_path)
+    if handle <> 0 or lib_path_len == 0
         return handle
     fin
 
-    lib_path_len = ^(data_ptr + lib_path)
+    // Our parent couldn't find it and we do have a library path, so try to open it from
+    // there.
     memcpy(@filenamecr, data_ptr + lib_path + 1, lib_path_len)
-    ptr = @filenamecr + lib_path_len
-    i = 0
+    src = modcr
+    dst = @filenamecr + lib_path_len
     repeat
-        c = ^(modcr + i)
-        ^ptr = c
-        i++
-        ptr++
+        c = ^src
+        ^dst = c
+        src++
+        dst++
     until c == '\n'
-    puts("XXX"); putcr(@filenamecr); puts("XXX")
     handle = call(osfind, osfind_input, @filenamecr, @filenamecr >> 8, 0).0
     if handle <> 0
-        memcpy(modcr, @filenamecr, ptr - @filenamecr)
+        memcpy(modcr, @filenamecr, dst - @filenamecr)
     fin
     return handle
 end
@@ -69,10 +71,13 @@ end
 // The INIT code below is discarded after the module has been loaded, so we don't need
 // to worry about how verbose it is to save memory.
 
-// SFTODO TEMP EXPERIMENTAL
+// If the LIB module is not already resident, we need to stay resident and use the memory
+// at our_data to store the library data. If the LIB module is already resident, we need
+// to locate the resident module's data and use that, and this new copy must not remain
+// resident. lookupsym() will return the first symbol of the given name, which will be
+// the already resident module if there is one, or our instance if there isn't.
 our_data:base_data_ptr = lookupsym(@lib_dci)
 data_ptr = our_data:base_data_ptr
-puts("SFTODOX"); puth(data_ptr); putln()
 
 arg = argNext(argFirst()) // argFirst is the module name
 if ^arg <> 0
@@ -98,10 +103,11 @@ else
     return 0
 fin
 
+// As noted above, we only want to stay resident if there isn't already another resident
+// LIB module.
 if data_ptr=>base_data_ptr == @our_data
     data_ptr=>parent_modname = modname
     modname = @lib_modname
-    puts("Installed lib_modname()\n") // SFTODO TEMP
     return modkeep
 fin
 
