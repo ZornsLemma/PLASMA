@@ -12,7 +12,8 @@ include "inc/acornos.plh"
 
 // The first chunk of the symbol table is in the VM code at an address we can't
 // know; we hunt through memory looking for CMDSYS, which isn't reliable but
-// is fine for this debug/demonstration code.
+// is fine for this debug/demonstration code. SFTODO: If I decide to introduce
+// lookupsym() as an export, I can use it to lookup "CMDSYS".
 word initialsymtbl
 const max_symbol_length = 17 // module names can be 16 chars plus # prefix
 

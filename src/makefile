@@ -29,6 +29,7 @@ BENCH2     = rel/acorn/BENCH2
 DWORD      = rel/acorn/DWORD
 BOUNCE     = rel/acorn/BOUNCE
 MODNAME    = rel/acorn/MODNAME
+LIB	   = rel/acorn/LIB
 STRPOOL    = rel/acorn/STRPOOL
 SORT       = rel/acorn/SORT
 SORT1      = rel/acorn/SORT1
@@ -127,7 +128,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN) $(COMP_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(PLVMACNJIT) $(PLVMACN128JIT) $(JIT_ACN) $(JIT_ACN128) $(JITUNE_ACN) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD) $(CAT)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(PLVMACNJIT) $(PLVMACN128JIT) $(JIT_ACN) $(JIT_ACN128) $(JITUNE_ACN) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(LIB) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD) $(CAT)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -493,6 +494,10 @@ $(BOUNCE): samplesrc/acorn/bounce.pla $(PLASM)
 $(MODNAME): samplesrc/acorn/modname.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/modname.pla > samplesrc/acorn/modname.a
 	acme --setpc 4094 -o $(MODNAME) samplesrc/acorn/modname.a
+
+$(LIB): samplesrc/acorn/lib.pla $(PLASM)
+	./$(PLASM) -AMOW < samplesrc/acorn/lib.pla > samplesrc/acorn/lib.a
+	acme --setpc 4094 -o $(LIB) samplesrc/acorn/lib.a
 
 $(STRPOOL): samplesrc/acorn/strpool.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/strpool.pla > samplesrc/acorn/strpool.a

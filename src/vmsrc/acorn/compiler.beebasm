@@ -7,7 +7,7 @@ putfile "rel/acorn/FILEIO", "FILEIO", &0000
 putfile "rel/PLASM#FE1000", "PLASM", &0000
 putfile "rel/PLASM2#FE1000", "PLASM2", &0000 ; SFTODO: temp while testing pt.py
 putfile "rel/PLASM3#FE1000", "PLASM3", &0000 ; SFTODO: temp while testing pt.py
-putfile "rel/acorn/MODNAME", "MODNAME", &0000 ; SFTODO: temp while testing pt.py
+putfile "rel/acorn/LIB", "LIB", &0000
 putfile "rel/ARGS#FE1000", "ARGS", &0000
 putfile "rel/acorn/JIT", "JIT", &0000
 putfile "rel/acorn/JIT128", "JIT128", &0000

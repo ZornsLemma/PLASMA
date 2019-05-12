@@ -123,6 +123,7 @@ predef callalloca
 predef divmod(dividend, divisor)#2
 predef puti(i)#0
 predef toupper(c)#1
+predef lookupsym(sym)#1 // SFTODO TEMP EXPERIMENTAL
 //
 // Exported CMDSYS table
 //
@@ -1969,6 +1970,7 @@ def modloadcr_internal(moddci, modcr)#1
 	    // init. However, even on PLAS32 we can free the init code if we
 	    // haven't yet exhausted the low symbol table chunk (and therefore
 	    // haven't dynamically allocated a new symbol table chunk).
+            // SFTODO WHAT IF A 'KEPT' MODULE MADE A HEAP ALLOCATION ON PLAS32?!?!?! IS THIS OK? WHAT DOS A1 ETC DO? AH, I *SUSPECT* THIS IS THE REASON WHY MODINITKEEP IS USEFUL (AS OPPOSED TO JUST MODKEEP) - IT'S NOT SO MUCH THAT INIT ITSELF IS KEPT, AS THAT THE HEAP IS NOT ADJUSTED TO FREE INIT AND ALSO ANY ALLOCATIONS OF DATA FROM THE HEAP
 	    //
 #ifdef PLAS128
             xheap = init
