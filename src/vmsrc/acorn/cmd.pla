@@ -1422,6 +1422,7 @@ end
 //
 export def heapavail()#1
     byte fp
+    puts("HEAPAVAIL @fp=$"); puth(@fp); puts(", *heapptr=$"); puth(*heapptr); putln()
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -2233,6 +2234,14 @@ def docmds#0
             #ifndef PLAS128
                 modloadpstr("JIT")
             #else
+                // SFTODO: On P128JIT, the presence of this "JIT128" string in the string pool
+                // means the memory free is 7 bytes *lower* than it is after the first error!
+                // This worried me until I figured out why. Is there anything I can do about
+                // this? Obviously if I add more code to cause that memory to be freed up
+                // then I am just burning off the 7 bytes saved *anyway*, but just possibly
+                // some alternative (perhaps using the manual "string pool" method for this
+                // string) would be worth it. Probably not, but I should at least have a
+                // permanent comment about this to avoid figuring it out a second time.
                 modloadpstr("JIT128")
                 // Allocate the remainder of the first sideways RAM bank to JITted
                 // machine code.
