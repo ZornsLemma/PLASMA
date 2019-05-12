@@ -1622,7 +1622,8 @@ export def strcat(dstSFTODO, srcSFTODO)#1
 end
 #ifndef STANDALONE
 // TODO: If this has only one caller we might be as well to inline it - but
-// maybe that's over-optimisation.
+// maybe that's over-optimisation. SFTODO: But just possibly this would
+// ease the startup time of PLASM2...
 def lookupextern(esd, index)#1
     word sym, addr
     byte str[maxnamelen+1]
