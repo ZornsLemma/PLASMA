@@ -123,7 +123,7 @@ predef callalloca
 predef divmod(dividend, divisor)#2
 predef puti(i)#0
 predef toupper(c)#1
-predef lookupsym(sym)#1 // SFTODO TEMP EXPERIMENTAL
+predef lookupsym(dcisym)#1
 //
 // Exported CMDSYS table
 //
@@ -1569,9 +1569,8 @@ end
 // The first chunk is a different size than later chunks but this is only
 // relevant to addsym(); it makes no difference to lookuptbl().
 //
-// TODO: lookupsym has only one caller, inline it??
-def lookupsym(sym)#1
-    return lookuptbl(sym, @symtbl)
+def lookupsym(dcisym)#1
+    return lookuptbl(dcisym, @symtbl)
 end
 def addsym(sym, addr)#0
     byte str[maxnamelen+1]
