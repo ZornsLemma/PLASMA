@@ -1685,8 +1685,9 @@ def adddef(isfirst, addr, deflast)#1
     return defentry
 end
 #endif
-def modname_default(modcr)#0
-    // Default implementation does nothing
+def modname_default(modcr)#1
+    // Default implementation does nothing SFTODO UPDATE COMMENT
+    return call(osfind, osfind_input, modcr, modcr >> 8, 0).0
 end
 // Load the module whose name is 'moddci' (a DCI string) from the file 'modcr'
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
@@ -1716,7 +1717,7 @@ def modloadcr_internal(moddci, modcr)#1
     // OSGBPB. So it's well worth the "waste" of reading the header twice.
 
     //
-    // Perform any transformations on the filename we are going to load from.
+    // Perform any transformations on the filename we are going to load from. SFTODO UPDATRE COMMENT SINCE WE NOW OPEN IT HERE TOO
     //
     // SFTODO: If modname is ever to be really used, should it return both an
     // open file handle and the filename? Otherwise I would imagine any
@@ -1724,18 +1725,16 @@ def modloadcr_internal(moddci, modcr)#1
     // some kind of "library" directory to see if it exists there, and maybe
     // from another location or two before/after, and if it just has to close
     // the file so we can re-open it below that's extra disk activity.
-    modname(modcr)#0
-
-    //
-    // Read the RELocatable module header (first header_size bytes); we also
-    // get the file length while we have the file open.
-    //
-    handle = call(osfind, osfind_input, modcr, modcr >> 8, 0).0
+    handle = modname(modcr)#1 // SFTODO: POSS RENAME "MODNAME" NOW???
     if handle == 0
     	// SFTODO: A2 IMPL NOW ATTEMPTS TO OPEN USING A 'SYSTEM PATH' - IS THIS
 	// SOMETHING I SHOULD CONSIDER PORTING?
         oserror_not_found(moddci)
     fin
+    //
+    // Read the RELocatable module header (first header_size bytes); we also
+    // get the file length while we have the file open.
+    //
     modload_handle = handle
     block.0 = handle
     block:1 = @header

@@ -20,17 +20,13 @@ const max_module_name_len = 16 // this is a "fact" about PLASMA modules
 struc t_data
     word base_data_ptr
     byte lib_path[max_lib_path_len+1]
+    word parent_modname
 end
 byte our_data[t_data] = 0, 0, 0
 
 word data_ptr
 word arg
 
-// There's no requirement to chain modname() functions, but let's demonstrate
-// that it's possible if desired.
-word parent_modname
-
-word lookup_modname // SFTODO TEMP EXPERIMENTAL
 byte lib_dci = $cc, $c9, $42
 
 def putcr(cr)#0
@@ -42,11 +38,16 @@ def putcr(cr)#0
     loop
 end
 
-def lib_modname(modcr)#0
+def lib_modname(modcr)#1
     byte filenamecr[max_lib_path_len + max_module_name_len + 1]
-    word data_ptr, ptr
+    word ptr
     byte lib_path_len, c, i, handle
-    data_ptr = our_data:base_data_ptr
+
+    handle = data_ptr=>parent_modname(modcr)#1
+    if handle <> 0
+        return handle
+    fin
+
     lib_path_len = ^(data_ptr + lib_path)
     memcpy(@filenamecr, data_ptr + lib_path + 1, lib_path_len)
     ptr = @filenamecr + lib_path_len
@@ -58,17 +59,17 @@ def lib_modname(modcr)#0
         ptr++
     until c == '\n'
     puts("XXX"); putcr(@filenamecr); puts("XXX")
-    // SFTODO: Note this *prefers* to locate things in the library; I really want to prefer
-    // current directory and only then fall back to lib.
     handle = call(osfind, osfind_input, @filenamecr, @filenamecr >> 8, 0).0
     if handle <> 0
-        call(osfind, osfind_close, 0, handle, 0)
         memcpy(modcr, @filenamecr, ptr - @filenamecr)
     fin
+    return handle
 end
 
+// The INIT code below is discarded after the module has been loaded, so we don't need
+// to worry about how verbose it is to save memory.
+
 // SFTODO TEMP EXPERIMENTAL
-// SFTODO: NOTE WE REUSE VARIABLES A BIT TO REDUCE SIZE TAKEN ON HEAP BY RESIDENT DATA
 our_data:base_data_ptr = lookupsym(@lib_dci)
 data_ptr = our_data:base_data_ptr
 puts("SFTODOX"); puth(data_ptr); putln()
@@ -78,32 +79,27 @@ if ^arg <> 0
     if ^arg > max_lib_path_len
         oserror(32, "Library path too long")
     fin
-    strcpy(data_ptr + lib_path, arg) // SFTODO: CHECK FOR OVERFLOW!
+    if ^arg == 1 and ^(arg + 1) == '-'
+        ^arg = 0
+    fin
+    strcpy(data_ptr + lib_path, arg)
 else
-    // SFTODO: THIS MEANS THERE'S NO WAY TO SET THE LIBRARY PATH BACK TO AN EMPTY STRING
-    puts("Library path is: ")
-    puts(data_ptr + lib_path)
+    puts("Usage: LIB [PATH]\nUse a path of \"-\" to set an empty path.\n")
+    puts("Library path: ");
+    if ^(data_ptr + lib_path) > 0
+        puts(data_ptr + lib_path)
+    else
+        putc('-')
+    fin
     putln()
     return 0
 fin
 
 if data_ptr=>base_data_ptr == @our_data
-    parent_modname = modname // SFTODO NOT RIGHT, ASSUMING IT LIVES ANYWAY
+    data_ptr=>parent_modname = modname
     modname = @lib_modname
     puts("Installed lib_modname()\n") // SFTODO TEMP
     return modkeep
 fin
 
 done
-
-
-// TODO: Some means of preventing this being installed over and over again
-// (burning memory each time) might be nice, but as far as I can see upstream
-// PLASMA doesn't support this and I am not sure it's a good idea to make
-// Acorn-specific changes here. Now that modules have their address in the
-// symbol table, can we use that to help?
-//parent_modname = modname
-//modname = @lib_modname
-//puts("Installed lib_modname()\n")
-//return modkeep // SFTODO BE MORE SELECTIVE
-//done
