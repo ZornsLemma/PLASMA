@@ -3,7 +3,7 @@
 
 ;* This is where we could start the heap on non-tube systems; we don't actually
 ;* use it for that purpose any more because on such systems we start even lower,
-;* at lastdef in cmd.pla.
+;* at _INIT.
 SEGEND	=	*
 
 ;* Initialisation code which is executed on soft break on second processor; this
@@ -16,10 +16,10 @@ VMINITTUBESOFTBREAK
 VMINITTUBESOFTBREAK2
 	STA	INBUFF
 
-	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND or lastdef
-	STA	SRCL		; because on BREAK we will re-enter VMINITTUBESOFTBREAK
+	LDA 	#<TUBEHEAP	; SAVE HEAP START - we can't overwrite from SEGEND or _INIT
+	STA	HEAPL		; because on BREAK we will re-enter VMINITTUBESOFTBREAK
 	LDA	#>TUBEHEAP
-	STA	SRCH
+	STA	HEAPH
 
 	;* When we're running on a second processor, we use memory up to TUBERAMTOP/TUBEJITHEAPTOP; we
 	;* ignore what OSBYTE $84 says.
@@ -188,9 +188,10 @@ RDCMDLPDONE
 	JMP	VMINITTUBESOFTBREAK2
 	!CPU 6502
 NOTTUBE
-	LDA	#$00		; SAVE HEAP START; 0 TELLS CMD.PLA TO START AT LASTDEF
-	STA	SRCL
-	STA	SRCH
+	LDA	#<_INIT		; SAVE HEAP START
+	STA	HEAPL
+	LDA	#>_INIT
+	STA	HEAPH
 	LDA	#osbyte_read_himem
 	JSR	OSBYTE
 	JMP	INITFP

@@ -162,7 +162,6 @@ byte jitsize     = 0
 // We don't need systemflags; even the Apple II VM handles nojitc separately and
 // none of the other flags are relevant to the Acorn VM.
 // word systemflags = 0
-const heapptr = heapl
 #ifdef PLAS128
     // We leave $8000-$8008 inclusive free in each 16K sideways RAM bank
     // to avoid the risk of the data accidentally looking like a valid
@@ -1422,6 +1421,7 @@ end
 //
 export def heapavail()#1
     byte fp
+    // SFTODO DELETE putc('!'); puth(@fp); puth(*heapptr); putc('!')
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -2343,24 +2343,6 @@ def docmds#0
     loop
     #endif
 end
-//
-// Dummy definition to get free heap
-// SFTODO: ANNOYINGLY ALL THIS DOCMDS SUPPORT STUFF *SAVES* 29-30 BYTES ON NON-TUBE BUT *COSTS* 30 BYTES ON TUBE; PROBABLY NOTHING I CAN DO ABOUT IT BUT CAN'T HELP WONDERING IF I SHOULDN'T DO IT. I REALLY DON'T WANT TO FORK OFF A HIPLASMA BINARY (GIVING ME 5 IN TOTAL!) THOUGH, EVEN IF IT WOULD ALLOW ME TO AVOID MAKING TUBE PAY FOR STUFF IT DOESN'T NEED (AT THE COST OF PERHAPS UNACCEPTABLE MACHINATIONS TO "MOVE" THE CONTENTS OF DOCMD INTO THE RIGHT PLACE ON ALL BUILDS
-//
-def lastdef#0
-end
-//
-// Get heap start. If we're not running on a second processor, we can start it at @lastdef
-// to allow us to avoid wasting RAM on this one-off initialisation bytecode. On a second
-// processor we must start the heap at the location the assembly language startup code has
-// stored for us at *freemem, because the "one-off" initialisation code needs to be
-// available for execution on soft break.
-//
-if *freemem == 0
-    *heapptr = @lastdef
-else
-    *heapptr = *freemem
-fin
 #ifndef STANDALONE
 //
 // Init globals; see note at top about why we have to do this.
