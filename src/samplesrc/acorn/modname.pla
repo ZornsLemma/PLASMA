@@ -8,7 +8,7 @@
 // without leaking more memory each time. If we have that, maybe we don't need
 // MODNAME as a sample any more, especially now we show the name of the module
 // we couldn't find in the core VM and don't need MODNAME as a hack to make the
-// name visible.
+// name visible. We'd probably call this utility +LIB by analogy with *LIB.
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
