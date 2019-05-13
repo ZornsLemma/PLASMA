@@ -1643,7 +1643,7 @@ end
 def adddef(addr, deflast)#1
     word defentry
     defentry = *deflast
-    *deflast = defentry + 5
+    *deflast = defentry + t_defentry
     defentry->0 = $20
     defentry=>1 = *iinterpptr
     defentry=>3 = addr
@@ -1770,7 +1770,7 @@ def modloadcr_internal(moddci, modcr)#1
     //
     deftbl   = xheapalloc(defcnt * t_defentry + 1)
     deflast  = deftbl
-    ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER (THE APPLE II NON-JIT VM DOES DO THIS, I DON'T KNOW IF THIS IS RANDOM OR SOMEHOW RELATED TO JIT FUNCTIONALITY, NEED TO ANALYSE CODE PROPERLY LATER)
+    // SFTODO I DON'T THINK THIS IS REQUIRED SO LET'S COMMENT IT OUT AND SEE WHAT BREAKS, CAN ACTUALLY DELETE IT ONCE IT'S BEEN STABLE FOR A WHILE ^deflast = 0 // SFTODO: APPLE II JIT CMD.PLA DOESN'T DO THIS, IT MAY WELL BE REDUNDANT BUT I THINK IT'S HARMLESS SO LET'S LEAVE IT IN FOR THE MOMENT AND DELETE IT LATER (THE APPLE II NON-JIT VM DOES DO THIS, I DON'T KNOW IF THIS IS RANDOM OR SOMEHOW RELATED TO JIT FUNCTIONALITY, NEED TO ANALYSE CODE PROPERLY LATER)
     //
     // Add module to symbol table. This may grow the symbol table, so we
     // do it before we allocate space on the heap for the module. Unfortunately
