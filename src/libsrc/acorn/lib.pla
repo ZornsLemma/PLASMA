@@ -98,6 +98,11 @@ if ^arg <> 0
         ^(arg + ^arg) = '.'
     fin
     strcpy(data_ptr + lib_path, arg)
+    // Since we have to have cmdsys:syspath allocated in order to share cmdsys.plh with
+    // the Apple VM, we might as well update it here as it's virtually free. Note that
+    // we *don't* reset cmdsys:syspath to 0 on soft break on a second processor, so it
+    // may contain a meaningless value.
+    cmdsys:syspath = data_ptr + lib_path
 else
     puts("Usage: LIB [PATH]\nUse a path of \"-\" to set an empty path.\n")
     puts("Library path: ");
