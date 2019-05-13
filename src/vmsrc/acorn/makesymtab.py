@@ -36,7 +36,7 @@ symtab = [
     ("DIVMOD", "@divmod"),
     ("PUTI", "@puti"),
     ("TOUPPER", "@toupper"),
-    ("LOOKUPSYM", "@lookupsym"), # SFTODO EXPERIMENTAL
+    ("LOOKUPSYM", "@lookupsym"),
 
     # On the Apple implementation, the longjmp module provides the except()
     # and throw() functions. On the Acorn implementation, these are built into

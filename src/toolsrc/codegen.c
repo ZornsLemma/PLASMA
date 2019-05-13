@@ -1239,7 +1239,7 @@ int try_high_only(int pass, t_opseq *op, int store_code, int byte_load_code, int
 }
 /*
  * Change a sequence like "SLW [0]:LAB 1024:LLW [0]:ISGT" into "DLW [0]:LAB
- * 1024:ISLE".
+ * 1024:ISLE". SFTODO: THIS COMMENT DOESN'T REALLY SEEM TO MATCH THE CODE!?
  */
 int try_swap(t_opseq* op, int load_code, int dup_store_code)
 {
@@ -1399,6 +1399,10 @@ int crunch_seq(t_opseq **seq, int pass)
                         // buggy - will it turn "CB 4:CALL foo:DROP" into "CB
                         // 4", thereby losing any side effects of the call? I'm
                         // just going to disable this for now...
+                        // SFTODO: I think I overreacted in the above comment
+                        // but come back to this later - here we are optimising
+                        // the opcode after a constant, so I don't think it's
+                        // invalid to do this optimisation.
                         // freeops = -2;
                         break;
                     case NEG_CODE:
@@ -1846,14 +1850,12 @@ int crunch_seq(t_opseq **seq, int pass)
                 }
                 break; // NE_CODE
             case SLB_CODE:
-#if 0 // SFTODO: semi-temp disabled, waiting for Dave's feedback on issue #43
                 crunched = crunched || try_swap(op, LLB_CODE, DLB_CODE);
                 if (!crunched && (opnext->code == LLB_CODE) && (op->offsz == opnext->offsz))
                 {
                     op->code = DLB_CODE;
                     freeops = 1;
                 }
-#endif
                 break; // SLB_CODE
             case SLW_CODE:
                 crunched = crunched || try_swap(op, LLW_CODE, DLW_CODE);

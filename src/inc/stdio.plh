@@ -1,4 +1,3 @@
-// TODO: Declare number of arguments and return values for these functions
 import stdio
     const EOF = -1
     const SEEK_SET = 0
