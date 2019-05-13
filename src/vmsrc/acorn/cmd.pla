@@ -31,25 +31,6 @@ include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
 #include "vmsrc/acorn/vmconstants.plh"
 
-// TODO: Weird - *SPOOL Z then *PLAS128 *immediately* closes the *SPOOL file.
-// *PLASMA doesn't exhibit this. Note that there's no need to load a module,
-// the startup banner and prompt don't make it into the spool file. Oh no,
-// this is a consequence of the current futzing around to try to make it
-// run on I/O processor when 2P is active. If that works out in the end,
-// this is probably acceptable. (However, possibly not. Does this cause
-// problems if a *EXEC-able !BOOT file wants to do something like:
-// *PLAS128
-// +MYPROG
-// If it does this might be unacceptable. Possibly it would be nice to allow
-// a command to be executed to be given as an argument to PLAS128 - then you
-// could do '*PLAS128 +MYPROG' - but even then losing the flexibility of the
-// *EXEC !BOOT option isn't ideal. I haven't tested to see if this does break
-// that case yet.) OK, I have now tested - yes, on a second processor such a
-// !BOOT does stop without "typing" in the +MYPROG. It *does* work fine if you
-// don't have a second processor turned on, so arguably this is not too big a
-// deal - the alternatives are "if there is a second processor, do we refuse to
-// run PLAS128 or run it but refuse to accept any commands via *EXEC"
-
 const RELADDR      = $1000
 
 // Note that we cannot rely on initialisation of non-constant globals; on

@@ -103,6 +103,22 @@ EPLOOP
 ;* http://stardot.org.uk/forums/viewtopic.php?f=54&t=12416&p=158560#p158560
 ;* and note that the logic to disable the second processor is based on the
 ;* TubeOff command at http://mdfs.net/Software/Tube/BBC/TubeSwitch
+;* A side-effect of this (which I think is unavoidable) is that any *EXEC file
+;* or *SPOOL file is closed; this means that, for example, a *EXECable !BOOT
+;* file which does something like:
+;*     *PLAS128
+;*     +MYPROG
+;* will just reach the PLASMA prompt and sit there if booted with a second
+;* processor turned on. This can be worked around by taking advantage of the
+;* ability to specify a command to execute when the VM starts up, so !BOOT
+;* could contain:
+;*     *PLAS128 *EXEC !BOOT2
+;* with !BOOT2 file containing:
+;*     +MYPROG
+;* Of course, in this case it would be simpler just to have !BOOT contain:
+;*     *PLAS128 +MYPROG
+;* but if you do need to *EXEC multiple commands, the first technique provides
+;* a way to make it work.
 	LDA	tube_presence_flag
 	BPL	.NOTTUBE
 	; The tube host code will have claimed EVNTV and BRKV so we need to
