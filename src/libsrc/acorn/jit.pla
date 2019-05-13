@@ -44,7 +44,7 @@ const tmph8 = tmph << 8
 // practice.
 const codeoverflow = 32 // 23 would probably be enough but play it safe
 #ifndef PLAS128
-    const codemax = $F800 - codeoverflow
+    const codemax = tuberamtop - codeoverflow
 #else
     const codemax = $C000 - codeoverflow
 #endif
