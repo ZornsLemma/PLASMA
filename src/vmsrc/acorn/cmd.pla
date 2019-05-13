@@ -2017,7 +2017,7 @@ end
 // Load the module named by the DCI string moddci; this is taken from a module
 // reference in another module and therefore should be valid (e.g. not
 // arbitrarily long).
-export def modload(moddci)#1 // SFTODO: IS THIS NO LONGER EXPORTED ON APPLE?
+def modload(moddci)#1
     return (@callalloca)(moddci, @modload_internal, maxpathlen)#1
 end
 #endif

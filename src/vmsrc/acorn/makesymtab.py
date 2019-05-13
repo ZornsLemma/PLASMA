@@ -25,7 +25,7 @@ symtab = [
     ("ISUGE", "@isuge"),
     ("ISULT", "@isult"),
     ("ISULE", "@isule"),
-    ("MODLOAD", "@modload"), # SFTODO: DELETE??
+    # ("MODLOAD", "@modload"), # SFTODO: DELETE??
     ("MACHID", "@machid"), # SFTODO: BE GOOD TO TEST THIS STILL WORKS...
     ("OSERROR", "@oserror"),
     ("CALL_OSCLI", "@call_oscli"),
