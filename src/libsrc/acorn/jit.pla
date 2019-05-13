@@ -150,7 +150,7 @@ if *jitcomp
     puts("SFTODO1\n")
     if *jitcomp == 2
         puts("SFTODO2\n")
-        oserror(18, "This VM doesn't support JIT; use PLASJIT or P128JIT.")
+        oserror(errnojitsupport, "This VM doesn't support JIT; use PLASJIT or P128JIT.")
     fin
     puts("JITC already loaded\n")
     return 0

@@ -242,7 +242,7 @@ VMINIT
 	TYA
 	BPL	TUBE
 	BRK
-	!BYTE	$80
+	!BYTE	$00
 	;* Because this code is discarded at runtime on all platforms, we can be
 	;* as verbose as we like in this error message without it costing anything
 	;* except a bit of disk space. The message wording is tweaked to format nicely
@@ -282,7 +282,7 @@ FINDRAMDONE
 	TXA
 	BNE	SOMERAM
 	BRK
-	!BYTE	$80
+	!BYTE	$00
 	!TEXT	"No sideways RAM found"
 	BRK
 SOMERAM	STX	RAMBANKCOUNT
@@ -290,7 +290,7 @@ SOMERAM	STX	RAMBANKCOUNT
 	CPX	#$02
 	BCS	ENOUGHRAM
 	BRK
-	!BYTE	$80
+	!BYTE	$00
 	!TEXT	"Only one bank of sideways RAM found"
 	BRK
 ENOUGHRAM
@@ -319,7 +319,7 @@ ENOUGHRAM
 	CPY	#(>RELOCSTART)+1
 	BCC	RELOCOK		; We don't support relocating upwards
 	BRK
-	!BYTE	$80
+	!BYTE	$00
 	!TEXT	"PAGE too high"
 	BRK
 RELOCOK

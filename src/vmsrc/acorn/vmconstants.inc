@@ -69,4 +69,22 @@ TUBEJITHEAPTOP = TUBERAMTOP-(TUBEJITBUFFERSIZE*256)
 ; Maximum number of characters in a module name; need an extra byte for a PLASMA string.
 MAXNAMELEN = 16
 
+; Error codes; these don't have to follow any scheme except that language errors should be
+; in the range 0-127, but I've tried to break them up into blocks.
+;
+; Core machine code VM errors
+ERRSTACK = 1
+; Core PLASMA-code VM errors
+ERRHEAPFULL = 16
+ERRBADMODULE = 17
+ERRBADMODE = 25 ; same code used by BASIC
+; JIT errors
+ERRNOJITSUPPORT = 32
+ERRNOJITLOADED = 33
+; Library module errors
+ERRBADLIBPATH = 48
+; Non-language errors we generate by analogy with errors thrown by filing systems
+ERRBADNAME = 204 ; SFTODO: SHOULD THIS BE USING THIS ERR NUM? WOULD ONE IN THE 0-127 RANGE BE BETTER? NOT THINKING NOW, JUST CHECK LATER... MAY WELL BE FINE
+ERRNOTFOUND = 214 ; same code used by filing systems for "Not found" error
+
 ; TODO: Poor formatting above

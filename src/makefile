@@ -495,11 +495,11 @@ $(MODNAME): samplesrc/acorn/modname.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/modname.pla > samplesrc/acorn/modname.a
 	acme --setpc 4094 -o $(MODNAME) samplesrc/acorn/modname.a
 
-$(LIB): samplesrc/acorn/lib.pla $(PLASM)
-	./$(PLASM) -AMOW < samplesrc/acorn/lib.pla > samplesrc/acorn/lib.a
+$(LIB): libsrc/acorn/lib.pla $(PLASM)
+	cc -E -P - < libsrc/acorn/lib.pla | ./$(PLASM) -AMOW > libsrc/acorn/lib.a
 	# SFTODO: Probably true of all modules, but be good to invoke plasmatool
 	# optimiser on this since it's resident and thus space saving is valuable.
-	acme --setpc 4094 -o $(LIB) samplesrc/acorn/lib.a
+	acme --setpc 4094 -o $(LIB) libsrc/acorn/lib.a
 
 $(STRPOOL): samplesrc/acorn/strpool.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/strpool.pla > samplesrc/acorn/strpool.a

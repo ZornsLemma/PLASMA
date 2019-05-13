@@ -1445,7 +1445,7 @@ CALLCOM	TYA
 !IF CHECKEXPRESSIONSTACK {
 ESTKERR
 	BRK
-	!BYTE	$01
+	!BYTE	ERRSTACK
 	;* This isn't the most descriptive error, but it could be an overflow
 	;* or an underflow and we don't want to waste too much space on a long
 	;* message.

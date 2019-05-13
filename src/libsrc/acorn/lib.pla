@@ -1,4 +1,3 @@
-// SFTODO: THIS SHOULD PROBABLY LIVE IN LIBSRC/ACORN NOT SAMPLESRC/ACORN
 // Simple library feature for module loading; this provides an Acorn equivalent of
 // the "system path" on the Apple VM. If you execute:
 //
@@ -15,9 +14,17 @@
 //   is loaded.
 
 include "inc/cmdsys.plh"
-include "inc/cmdsysac.plh"
+// Normally we'd include "inc/cmdsysac.plh" to get these predefs, but doing that
+// would cause a clash because we also include vmsrc/acorn/vmconstants.plh.
+// Normal code would not be including both files, so let's just accept this.
+import cmdsysac
+    predef oserror(n, msg)#0
+    predef lookupsym(dcisym)#1
+    word modopen
+end
 include "inc/args.plh"
 include "inc/acornc.plh"
+#include "vmsrc/acorn/vmconstants.plh"
 sysflags nojitc // No need to speed this up
 
 const max_lib_path_len = 16 // this can be changed to suit
@@ -82,7 +89,7 @@ data_ptr = our_data:base_data_ptr
 arg = argNext(argFirst()) // argFirst is the module name
 if ^arg <> 0
     if ^arg > max_lib_path_len
-        oserror(32, "Library path too long")
+        oserror(errbadlibpath, "Library path too long")
     fin
     if ^arg == 1 and ^(arg + 1) == '-'
         ^arg = 0

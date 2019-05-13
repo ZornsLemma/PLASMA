@@ -28,9 +28,9 @@ def atoi(strptr)
 end
 
 if *jitcomp == 0
-    oserror(19, "JIT not loaded")
+    oserror(errnojitloaded, "JIT not loaded")
 elsif *jitcomp == 2
-    oserror(18, "This VM doesn't support JIT; use PLASJIT or P128JIT.")
+    oserror(errnojitsupport, "This VM doesn't support JIT; use PLASJIT or P128JIT.")
 fin
 
 arg = argNext(argFirst)

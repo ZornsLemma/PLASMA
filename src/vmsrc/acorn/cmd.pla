@@ -31,11 +31,6 @@ include "vmsrc/acorn/plvmzp.plh"
 include "inc/acornc.plh"
 #include "vmsrc/acorn/vmconstants.plh"
 
-// Where the VM generates errors which are PLASMA-specific, these should of
-// course be in the range 0-127 as they are language errors. I've decided to
-// informally allocate 0-15 to the low-level VM code in plvm*.s and 16-127 to
-// the code in this file.
-
 // TODO: Weird - *SPOOL Z then *PLAS128 *immediately* closes the *SPOOL file.
 // *PLASMA doesn't exhibit this. Note that there's no need to load a module,
 // the startup banner and prompt don't make it into the spool file. Oh no,
@@ -1408,20 +1403,20 @@ end
 #ifndef STANDALONE
 #endif
 def oserror_heap_full()#0
-    oserror(16, "Heap full")
+    oserror(errheapfull, "Heap full")
 end
 #ifndef STANDALONE
 def oserror_bad_module()#0
-    oserror(17, "Bad module")
+    oserror(errbadmodule, "Bad module")
 end
 def oserror_not_found(moddci)#0
     byte error[maxnamelen + 16 + 1]
     dcitos(moddci, @error)
     strcat(@error, " not found")
-    oserror(214, @error)
+    oserror(errnotfound, @error)
 end
 def oserror_bad_name()#0
-    oserror(204, "Bad name") // SFTODO: SHOULD THIS BE USING THIS ERR NUM? WOULD ONE IN THE 0-127 RANGE BE BETTER? NOT THINKING NOW, JUST CHECK LATER... MAY WELL BE FINE
+    oserror(errbadname, "Bad name")
 end
 #endif
 //
@@ -2169,7 +2164,7 @@ def modechange(cmdptr)#0
         // same error number as BASIC here. (Code changes mode using mode()
         // which returns a boolean success/failure indicator instead of raising
         // an error.)
-	oserror(25, "Bad mode")
+	oserror(errbadmode, "Bad mode")
     fin
 end
 #endif
