@@ -2235,7 +2235,7 @@ def docmds#0
                 modloadpstr("JIT")
             #else
                 // SFTODO: On P128JIT, the presence of this "JIT128" string in the string pool
-                // means the memory free is 7 bytes *lower* than it is after the first error!
+                // means the memory free is 7 bytes *lower* initially than it is after the first error!
                 // This worried me until I figured out why. Is there anything I can do about
                 // this? Obviously if I add more code to cause that memory to be freed up
                 // then I am just burning off the 7 bytes saved *anyway*, but just possibly
