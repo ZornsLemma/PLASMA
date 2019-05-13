@@ -1631,14 +1631,14 @@ end
 //
 // Indirect interpreter DEFinition entrypoint
 //
-// SFTODO: It's probably fine, but for my own satisfaction should later check to
-// see that the last DEF in a module *is* still eligible for being JITted
-// despite the "patch up the previous entry to use the JIT entry point"
-// approach. My suspicion is this *may* omit the last function if a module has
-// *no* INIT; in practice the actual PLASMA compiler probably never does this,
-// but plasmatool.py may optimise an empty INIT away and that might be a problem
-// because of this. If so, I should remove that optimisation in plasmatool and
-// comment why.
+// Note that the way this is called means that the last definition in a module
+// is never considered for JITting. This is fine, because the last definition
+// will always be _INIT and it's a known feature that _INIT isn't considered
+// for JITting. (It would be possible to make _INIT JITtable, but it would
+// require some code tweaks which would grow the VM slightly. Most importantly
+// the Apple VM behaves like this and it seems a bad idea to be unnecessarily
+// incompatible.)
+//
 #ifndef JIT
 def adddef(addr, deflast)#1
     word defentry

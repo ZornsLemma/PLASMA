@@ -509,6 +509,11 @@ def partial_overlap(lhs, rhs):
 # disk, will have a tiny load-time performance benefit and under certain circumstances on
 # the Acorn port it may save a couple of bytes of runtime memory (_INIT can't be discarded
 # if it has been trapped below a symbol table chunk).
+# NB: This is not necessarily a good move. The JIT compiler will *never* optimise the last
+# bytecode definition in a module; if there is a _INIT function that will be the last one
+# and this is expected behaviour, but if there is no _INIT function the last "real"
+# definition will be unexpectedly exempt from JIT compilation. (The PLASMA compilers always
+# generate a _INIT function, so this isn't normally a problem.)
 def optimise_init(module):
     if len(module.bytecode_functions) > 0 and module.bytecode_functions[-1].is_init():
         init = module.bytecode_functions[-1].ops
@@ -552,7 +557,8 @@ def optimise(module):
                         changed = changed or f_changed
                         changed_by_step[i] = changed_by_step[i] or f_changed
 
-    optimise_init(module)
+    # We don't do this; see the comment on optimise_init().
+    # optimise_init(module)
 
     # In order to remove unused objects from the module, we determine the set of
     # dependencies (data/asm LabelledBlob and BytecodeFunctions), starting with _INIT (if
