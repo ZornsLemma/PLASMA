@@ -1958,7 +1958,15 @@ def modloadcr_internal(moddci, modcr)#1
 	    // init. However, even on PLAS32 we can free the init code if we
 	    // haven't yet exhausted the low symbol table chunk (and therefore
 	    // haven't dynamically allocated a new symbol table chunk).
-            // SFTODO WHAT IF A 'KEPT' MODULE MADE A HEAP ALLOCATION ON PLAS32?!?!?! IS THIS OK? WHAT DOS A1 ETC DO? AH, I *SUSPECT* THIS IS THE REASON WHY MODINITKEEP IS USEFUL (AS OPPOSED TO JUST MODKEEP) - IT'S NOT SO MUCH THAT INIT ITSELF IS KEPT, AS THAT THE HEAP IS NOT ADJUSTED TO FREE INIT AND ALSO ANY ALLOCATIONS OF DATA FROM THE HEAP
+            //
+            // I (SF) think the real value in returning modinitkeep is that it
+            // means any heap allocations performed by the init routine are
+            // *not* released even on PLAS32; I don't see that actually keeping
+            // the init routine around itself is valuable. Code which allocates
+            // from the heap in the init routine and expects that allocation to
+            // remain will work on PLAS128 but fail on PLAS32; I think the
+            // analogous situation exists on the Apple II comparing the VMs which
+            // do and don't use AUX memory.
 	    //
 #ifdef PLAS128
             xheap = init
