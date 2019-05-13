@@ -14,7 +14,6 @@
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
-include "inc/testlib.plh"
 include "inc/acornc.plh"
 
 export word size = 20

@@ -30,7 +30,6 @@ include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/dword.plh"
-include "inc/testlib.plh"
 
 const screen = $7C00
 const ball_count = 10

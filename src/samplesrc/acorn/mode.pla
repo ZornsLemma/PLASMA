@@ -2,7 +2,6 @@
 
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
-include "inc/testlib.plh"
 include "inc/acornos.plh"
 
 byte count_str[] = "Count: "

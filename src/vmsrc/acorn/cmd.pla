@@ -107,11 +107,11 @@ word version    = $0200 // 02.00 Dev
 word syspath    // not really necessary but we have it to match Apple VM
 word syscmdln   = inbuff
 word            = @modexec
-// SFTODO: Apple II version now exports @open, @close, @read, @write, not sure
-// what to do about that. For the moment I am going to at least have to include
-// them as null pointers because I need to expose jitcount and jitsize, and
-// cmdsys.plh is a shared header so I have to have them at the same relative
-// offset.
+// The Apple II version exports @open, @close, @read, @write here. We don't
+// really have any equivalent functions and none of the sample programs seem to
+// use these anyway (only soscmd.pla for the Apple ///), so I'll just leave
+// them as null pointers. We have to have these allocated in order to share
+// cmdsys.plh with the Apple VM.
 word = 0, 0, 0, 0 // dummy open, close, read, write
 byte perr
 #ifdef JIT
