@@ -27,6 +27,8 @@ def memcmp(lhs, rhs, n)#1
         if ^lhs <> ^rhs
             return FALSE
         fin
+        lhs++
+        rhs++
         n--
     loop
     return TRUE

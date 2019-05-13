@@ -373,7 +373,7 @@ JITIINTERP
         LDA     (TMP),Y         ; DEC JIT COUNT
 !IFNDEF PLAS128 {
 	; PLASJIT only runs on a second processor, so we can use CMOS opcodes here.
-	; A bit of a pointless micro-optimisations really.
+	; A bit of a pointless micro-optimisation really.
 	!CPU	65C02
 	DEC
 	!CPU	6502

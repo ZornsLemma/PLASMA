@@ -122,8 +122,10 @@ MEMXCPYEX
 	INX
 	RTS
 end
-def defcpy(dstSFTODO, defptr)#0
-    memxcpySFTODONOTSUREWHATTOCALLTHIS(dstSFTODO, defptr=>bytecodeaddr, defptr->bytecodesize)
+// "dst" is a constant from vmconstants.inc so we can't use it as a function
+// parameter here.
+def defcpy(dest, defptr)#0
+    memxcpySFTODONOTSUREWHATTOCALLTHIS(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #endif
 include "libsrc/jitcore.pla"
