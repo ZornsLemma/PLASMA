@@ -58,8 +58,10 @@ word directentry
 // Copy bytecode DEF to main memory
 //
 #ifndef PLAS128
-def defcpy(dstSFTODO, defptr)#0
-    memcpy(dstSFTODO, defptr=>bytecodeaddr, defptr->bytecodesize)
+// "dst" is a constant from vmconstants.inc so we can't use it as a function
+// parameter here.
+def defcpy(dest, defptr)#0
+    memcpy(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #else
 // SFTODO HACK FOR PLAS128, MASSIVE CODE DUPLICATION WITH IINTERP AND MEMXCPY(),
@@ -141,15 +143,10 @@ include "libsrc/jitcore.pla"
 //
 // Install JIT compiler
 //
-puts("SFTODO\n")
 // This INIT code will be discarded once the module has been loaded, so we can
 // afford to be verbose where it's helpful.
-// SFTODO: JITTUNE should probably check for non-JIT VM and print a message like
-// this.
 if *jitcomp
-    puts("SFTODO1\n")
     if *jitcomp == 2
-        puts("SFTODO2\n")
         oserror(errnojitsupport, "This VM doesn't support JIT; use PLASJIT or P128JIT.")
     fin
     puts("JITC already loaded\n")
@@ -167,6 +164,5 @@ directentry   = *interpptr
     *jitcodeptr = tubejitheaptop
 #endif
 puts("JITC enabled\n")
-puth(*jitcomp) // SFTODO TEMP
 return modkeep
 done
