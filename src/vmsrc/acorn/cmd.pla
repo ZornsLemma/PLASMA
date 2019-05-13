@@ -1250,7 +1250,7 @@ export asm puts(s)#0
 	RTS
 end
 //
-// Cheap and dirty print integer SFTODO: USE THIS INSTEAD OF TESTLIB VERSION WHERE IT'S SUITABLE
+// Cheap and dirty print integer
 //
 export def puti(i)#0
     if i < 0; putc('-'); i = -i; fin
@@ -1405,7 +1405,6 @@ end
 //
 export def heapavail()#1
     byte fp
-    // SFTODO DELETE putc('!'); puth(@fp); puth(*heapptr); putc('!')
     return @fp - *heapptr
 end
 // heapalloc() generates an OS error if the allocation fails and is
@@ -1593,15 +1592,17 @@ end
 //
 // String routines.
 //
-export def strcpy(dstSFTODO, srcSFTODO)#1
-    memcpy(dstSFTODO+1, srcSFTODO+1, ^srcSFTODO)
-    ^dstSFTODO = ^srcSFTODO
-    return dstSFTODO
+// "dst" and "src" are constants from vmconstants.plh so we have to use other
+// names for the function parameters here.
+export def strcpy(dest, source)#1
+    memcpy(dest+1, source+1, ^source)
+    ^dest = ^source
+    return dest
 end
-export def strcat(dstSFTODO, srcSFTODO)#1
-    memcpy(dstSFTODO + ^dstSFTODO + 1, srcSFTODO + 1, ^srcSFTODO)
-    ^dstSFTODO = ^dstSFTODO + ^srcSFTODO
-    return dstSFTODO
+export def strcat(dest, source)#1
+    memcpy(dest + ^dest + 1, source + 1, ^source)
+    ^dest = ^dest + ^source
+    return dest
 end
 #ifndef STANDALONE
 // TODO: If this has only one caller we might be as well to inline it - but
@@ -1633,7 +1634,11 @@ end
 // SFTODO: It's probably fine, but for my own satisfaction should later check to
 // see that the last DEF in a module *is* still eligible for being JITted
 // despite the "patch up the previous entry to use the JIT entry point"
-// approach.
+// approach. My suspicion is this *may* omit the last function if a module has
+// *no* INIT; in practice the actual PLASMA compiler probably never does this,
+// but plasmatool.py may optimise an empty INIT away and that might be a problem
+// because of this. If so, I should remove that optimisation in plasmatool and
+// comment why.
 #ifndef JIT
 def adddef(addr, deflast)#1
     word defentry
