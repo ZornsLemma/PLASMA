@@ -1850,7 +1850,7 @@ def modloadcr_internal(moddci, modcr)#1
     defofst = defaddr - defofst
 #else
     // defaddr = bytecode
-    // codefix = defaddr - bytecode
+    // codefix = defaddr - bytecode = 0
     // SFTODO WORKED BUT DELETE AS NEXT LINE IS BETTER defofst = bytecode - defofst // = defaddr - defofst
     defofst = modofst // defofst = defaddr - defofst = bytecode - defofst = (defofst + modofst) - defofst = modofst
 #endif
@@ -1940,6 +1940,7 @@ def modloadcr_internal(moddci, modcr)#1
     if init
         init  = init + defofst
         puts("CALLING INIT\n")
+        // SFTODO: I think Apple VM has renamed fixup to initcode - check and copy if so
 #ifndef JIT
 	fixup = adddef(init, @deflast)()
 #else
