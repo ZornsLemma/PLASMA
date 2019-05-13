@@ -55,7 +55,7 @@ const allocheap_fail_threshold = $FFFF
 // Module don't free memory
 //
 const modkeep     = $2000
-const modinitkeep = $4000 // SFTODO: WHY IS modinitkeep EVER USEFUL? ASK DAVE?
+const modinitkeep = $4000
 //
 // System flags: memory allocator screen holes.
 //
