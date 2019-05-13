@@ -1684,7 +1684,12 @@ def modloadcr_internal(moddci, modcr)#1
     word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
     word addr
     word modaddr, modfix, modend
-    word modofst, defaddr, codefix
+    word modofst
+#ifdef PLAS128
+    word defaddr, codefix
+#else
+    const codefix = 0
+#endif
     word deftbl, deflast
     word moddep, rld, esd, sym
 #ifdef JIT
@@ -1841,12 +1846,14 @@ def modloadcr_internal(moddci, modcr)#1
         oserror_heap_full()
     fin
     modend  = bytecode
-#else
-    // SFTODO: MAY BE POSSIBLE TO HAND-OPTIMISE AWAY SOME VARIABLES IN THIS CASE, BUT LET'S JUST DO THIS FOR NOW TO BE LIKE A2 CODE WHILE I GET THE LATEST PORT GOING
-    defaddr = bytecode
-#endif
     codefix = defaddr - bytecode
     defofst = defaddr - defofst
+#else
+    // defaddr = bytecode
+    // codefix = defaddr - bytecode
+    // SFTODO WORKED BUT DELETE AS NEXT LINE IS BETTER defofst = bytecode - defofst // = defaddr - defofst
+    defofst = modofst // defofst = defaddr - defofst = bytecode - defofst = (defofst + modofst) - defofst = modofst
+#endif
     //
     // Free up the end-of-module data in main memory. We have to do this now
     // as otherwise any symbol table allocations which claim memory from the
