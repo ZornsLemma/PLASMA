@@ -1982,7 +1982,7 @@ def modloadcr_internal(moddci, modcr)#1
 	    fixup = fixup & ~modinitkeep
 	fin
     fin
-#if 1 // Temporary code for forcing multiple 16K banks to be used for PLAS128 testing
+#if 0 // Temporary code for forcing multiple 16K banks to be used for PLAS128 testing
     #ifdef PLAS128
         puth(allocxheap(7000)); putln()
     #endif
