@@ -36,7 +36,12 @@ NEXT0 = IINTERPPTR+2
 
 !IFDEF JIT {
     JITCODEPTR = NEXT1	    ; 2 bytes, address of next free byte in JIT buffer
-    NEXT2 = JITCODEPTR+2
+    !IFDEF PLAS128 {
+	JITMEMCPY = JITCODEPTR+2 ; 2 bytes, address of memcpy()
+	NEXT2 = JITMEMCPY+2
+    } ELSE {
+	NEXT2 = JITCODEPTR+2
+    }
 } ELSE {
     NEXT2 = NEXT1
 }
