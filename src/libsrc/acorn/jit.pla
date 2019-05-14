@@ -69,6 +69,8 @@ end
 asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
         !SOURCE "vmsrc/acorn/plvmzp.inc"
         !SOURCE "vmsrc/acorn/vmconstants.inc"
+        ; SFTODO: CAN THIS ZERO COPY CASE OCCUR HERE? ISN'T A BYTECODE FUNCTION ALWAYS GOING TO HAVE
+        ; AT LEAST ONE BYTE ("RET") IN IT?
 	LDA	ESTKH,X
 	ORA	ESTKL,X
 	BEQ	MEMXCPYEX
