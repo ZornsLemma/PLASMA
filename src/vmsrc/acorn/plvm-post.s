@@ -271,7 +271,6 @@ TUBE
 
 !IFDEF PLAS128 {
 ;* Locate sideways RAM banks
-;* TODO: Might be nice to allow these to be specified on command line
 	LDY	#$00
 	LDX	#$00
 FINDRAMLP
