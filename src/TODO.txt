@@ -153,6 +153,8 @@ Any chance I could speed up the PLASMA compiler a bit by modifying it to do equi
 
 A samplesrc program to print out command line arguments and their indices, one line at a time, would probably be useful for testing and a nice demo of how to use the arg parsing.
 
+Would it be possible to modify the cross-compiler to allow asm fragments in the middle of bytecode functions? I think it would just have to emit a NATV opcode before the asm and then a JSR INTERP at the end of it. I guess this probably wouldn't work on PLAS128 (or Apple equivalent), and it wouldn't work with JIT either (though you could be forced to declare 'sysflags nojitc' to enable these asm fragments, which would sidestep that issue) - the PLAS128 thing is probably a killer though.
+
 Misc JIT thoughts:
 - t_defentry is two bytes (7 vs 5) larger to support JIT; I'm reluctant to either make the size a variable instead of a constant or to waste two bytes per definition when not using the JIT in order to make it possible to have a "universal" VM. It might be possible to have a 'deftbl2' allocated to hold the extra two bytes only on demand (it would cross-correlate with 'deftbl' by array index) but I suspect that could get fiddly and might bloat the VM anyway.
 - JIT seems to requre some additional space in page 4 to communicate between bits of code with, and this is also the sort of thing which isn't trivial to dynamically change in a single VM binary - OK, having a rough poke at the code, this in itself might be doable without too much complication or VM bloat (we'd just put these "last" and have the first symbol table chunk start on top of the JIT addresses in page 4 if no JIT loaded)
