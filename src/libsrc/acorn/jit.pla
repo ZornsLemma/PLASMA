@@ -63,9 +63,6 @@ def defcpy(dest, defptr)#0
     memcpy(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #else
-// SFTODO HACK FOR PLAS128, MASSIVE CODE DUPLICATION WITH IINTERP AND MEMXCPY(),
-// MAYBE THIS WOULD LIVE IN CMD.PLA IN A JIT BUILD, NOT WORRYING ABOUT IT FOR
-// NOW
 asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
         !SOURCE "vmsrc/acorn/plvmzp.inc"
         !SOURCE "vmsrc/acorn/vmconstants.inc"
