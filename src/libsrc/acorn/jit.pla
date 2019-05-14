@@ -75,8 +75,6 @@ asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
 	ORA	ESTKL,X
 	BEQ	MEMXCPYEX
 
-	STY 	IPY
-
 	;* This code must be kept consistent with IINTERP
 	LDA	ESTKH+1,X
         ROL
@@ -116,7 +114,6 @@ MEMXCPYLP
 	DEC	ESTKH,X
 	BNE	MEMXCPYLP
 
-	LDY	IPY
 MEMXCPYEX
 	INX
 	INX
