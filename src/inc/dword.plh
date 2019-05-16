@@ -1,6 +1,5 @@
 // 32 bit (double word) arithmetic library
 
-// TODO: REORDER THESE?
 import dword
   predef dword_add(result, lhs, rhs)#0
   predef dword_sub(result, lhs, rhs)#0

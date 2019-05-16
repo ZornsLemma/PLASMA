@@ -26,7 +26,7 @@ def main
 	puti(count)
 	puts(@prompt_str)
 	repeat
-	    key = call_osrdch()
+	    key = getc()
 	    if key == 'Q' or key == 'q'
 		return 
 	    fin

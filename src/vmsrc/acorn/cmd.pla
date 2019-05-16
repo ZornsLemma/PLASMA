@@ -1184,7 +1184,7 @@ export asm putc(c)#0
 	JMP	OSWRCH
 end
 // Just a helper function for mode(); smaller than writing it in PLASMA.
-asm putc22(n)#0
+asm put22c(n)#0
 	LDA	#22
 	JSR	OSWRCH
 	LDA	ESTKL,X
@@ -1324,7 +1324,7 @@ export def mode(n)#1
     // above INITFP.
     new_himemh = call(osbyte, osbyte_read_himem_for_mode, n, 0, 0).2
     if new_himemh == ^himemh or ^himemh > $80
-        putc22(n)
+        put22c(n)
 	return true
     fin
 
@@ -1363,11 +1363,11 @@ export def mode(n)#1
     *ifp = *heapptr + 256 // we know there's at least 512 bytes available
 
     if gm_himem_delta >= 0
-	putc22(gm_new_mode)
+	put22c(gm_new_mode)
     fin
     memcpy(gm_new_frame_start, gm_copy_from, gm_copy_size)
     if gm_himem_delta < 0
-	putc22(gm_new_mode)
+	put22c(gm_new_mode)
     fin
 #ifdef PLAS128
     *pp = gm_new_frame_start

@@ -51,7 +51,7 @@ def main
     mode(7)
     puts("This program changes mode rapidly and\nrepeatedly. This may damage your monitorif run on real hardware.\n\nPress SPACE to start...")
     call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
-    repeat until call_osrdch() == ' '
+    repeat until getc() == ' '
 
     mode(7)
     do_mode_change = 0
