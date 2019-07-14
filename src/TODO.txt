@@ -173,3 +173,5 @@ Misc JIT thoughts:
 - hmm, codemax in jit is a constant and that doesn't sit well with flat JIT working on both tube and non-tube. I could make codemax a non-constant, I don't think it would be a particularly intrusive change and while it might slow the JIT down slightly I don't think it would be huge. This would also give me the ability for the jit.pla file's INIT code to set codemax to $C000 on a non-tube B/B+, taking advantage of the fact the OS ROM starts at $C000.
 
 is there/could we add a mechanism to say "load this module and make it resident even thoug it doesn't return relevant special value from its 'init' code? This would make it near trivial to "cache" e.g. the self-hosted compiler for faster startup when developing - well, maybe global data would be a problem, but worth thinking about
+
+could we have a python program which allows use of jsr/jmp in asm functions - would invoke acme twice to assemble with different start addresses and compare the resulting binaries to identify additional fixups? I don't know if the relevant fixups are supported in machine code functions or not; this is just a half-baked idea to think through later
