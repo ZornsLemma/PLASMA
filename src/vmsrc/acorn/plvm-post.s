@@ -361,7 +361,7 @@ RELOCOK
 	LDA	VMRELOCCOUNT+1
 	STA	COUNTH
 	; If there are no relocations, the fix up data hasn't been appended.
-	; Justy carry on without relocating.
+	; Just carry on without relocating.
 	ORA	COUNTL
 	BNE	DORELOC
 	JMP	VMINITPOSTRELOC

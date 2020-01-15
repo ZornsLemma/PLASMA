@@ -419,10 +419,12 @@ end
 //
 // result, remainder = divmod(dividend, divisor)
 //
+// SFTODO: MOVE TO MATCH cmd.pla FOR EASY DIFFING
 export asm divmod(a,b)#2
         JSR     INTERP          ; CALL INTERP
         !BYTE   $36, $5C        ; DIVMOD, RET
 end
+// SFTODO: MOVE TO MATCH cmd.pla FOR EASY DIFFING
 export asm sext(a)#1
         LDY     #$00
         LDA     ESTKL,X
@@ -856,7 +858,8 @@ end
 //
 // Large frame allocation API
 // 
-// This is effectively a varargs function; given a function foo: // 	def foo(a, b, c)
+// This is effectively a varargs function; given a function foo:
+// 	def foo(a, b, c)
 // if you execute:
 //	x = (@callalloca)(5, 25, @foo, 512)
 // it behaves 'as if' you wrote:

@@ -78,7 +78,7 @@ OPPAGE  =       OPIDX+1
 
 	;* On PLAS128 JIT builds, CALL/ICAL/RET need to page in the RAM bank containing
 	;* the JITted machine code. Interpreted functions have the bank containing their
-	;* bytecode pages in by IINTERP, which lives in main RAM, but JITted functions
+	;* bytecode paged in by IINTERP, which lives in main RAM, but JITted functions
 	;* are entered directly at their address in sideways RAM, so we must have the
 	;* correct bank paged in in case a CALL/ICAL is to JITted code. RET needs to
 	;* page in the RAM bank to handle the case where JITted code is calling an
@@ -114,7 +114,7 @@ RELOCSTART
 	!ERROR "OPTBL must be page-aligned"
 }
 	!ALIGN	255,0
-OPTBL   !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 00 02 04 06 08 0A 0C 0E
+OPTBL   !WORD   ZERO,CN,CN,CN,CN,CN,CN,CN                               ; 00 02 04 06 08 0A 0C 0E
         !WORD   CN,CN,CN,CN,CN,CN,CN,CN                                 ; 10 12 14 16 18 1A 1C 1E
         !WORD   MINUS1,BREQ,BRNE,LA,LLA,CB,CW,CS                        ; 20 22 24 26 28 2A 2C 2E
         !WORD   DROP,DROP2,DUP,DIVMOD,ADDI,SUBI,ANDI,ORI                ; 30 32 34 36 38 3A 3C 3E
@@ -137,6 +137,7 @@ HITHEAP
 	BRK
 ;*
 ;* INCREMENT TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 INCR    INC     ESTKL,X
         BEQ     +
@@ -145,6 +146,7 @@ INCR    INC     ESTKL,X
         JMP     NEXTOP
 ;*
 ;* DECREMENT TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 DECR    LDA     ESTKL,X
         BEQ     +
@@ -155,6 +157,7 @@ DECR    LDA     ESTKL,X
         JMP     NEXTOP
 ;*
 ;* BITWISE COMPLIMENT TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 COMP 	LDA	#$FF
 	EOR	ESTKL,X
@@ -165,6 +168,7 @@ COMP 	LDA	#$FF
 	JMP	NEXTOP
 ;*
 ;* MUL TOS-1 BY TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 MUL	STY	IPY
 	LDY	#$10
@@ -177,7 +181,7 @@ MUL	STY	IPY
 	LDA	#$00
 	STA	ESTKL+1,X      	; PRODL
 ;	STA	ESTKH+1,X      	; PRODH
-MULLP 	LSR	TMPH		; MULTPLRH
+_MULLP 	LSR	TMPH		; MULTPLRH
 	ROR	TMPL		; MULTPLRL
 	BCS	+
 	STA	ESTKH+1,X      	; PRODH
@@ -189,12 +193,13 @@ MULLP 	LSR	TMPH		; MULTPLRH
 + 	ASL	ESTKL,X		; MULTPLNDL
 	ROL	ESTKH,X		; MULTPLNDH
 	DEY
-	BNE	MULLP
+	BNE	_MULLP
 	STA	ESTKH+1,X	; PRODH
 	LDY	IPY
 	JMP     DROP
 ;*
 ;* DIV TOS-1 BY TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 DIV 	JSR	_DIV
 	LSR	DVSIGN		; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
@@ -202,6 +207,7 @@ DIV 	JSR	_DIV
 	JMP	NEXTOP
 ;*
 ;* MOD TOS-1 BY TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 MOD	JSR	_DIV
 	LDA	TMPL		; REMNDRL
@@ -213,6 +219,7 @@ MOD	JSR	_DIV
 	JMP	NEXTOP
 ;*
 ;* DIVMOD TOS-1 BY TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 DIVMOD  JSR     _DIV
         LSR     DVSIGN          ; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
@@ -228,6 +235,7 @@ DIVMOD  JSR     _DIV
         JMP     NEXTOP
 ;*
 ;* NEGATE TOS
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 NEG 	LDA	#$00
 	SEC
@@ -316,6 +324,7 @@ INTERP	PLA
 ;* we're good to stick with that bank; we convert IP into the
 ;* corresponding physical address in the sideways RAM area here and just
 ;* work with that while executing the function.
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 IINTERP	PLA
         STA     TMPL
@@ -407,6 +416,7 @@ JMPJITCOMP
 }
 ;*
 ;* ADD TOS TO TOS-1
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 ADD 	LDA	ESTKL,X
 	CLC
@@ -418,6 +428,7 @@ ADD 	LDA	ESTKL,X
 	JMP     DROP
 ;*
 ;* SUB TOS FROM TOS-1
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 SUB 	LDA	ESTKL+1,X
 	SEC
@@ -430,6 +441,7 @@ SUB 	LDA	ESTKL+1,X
 ;
 ;*
 ;* SHIFT TOS LEFT BY 1, ADD TO TOS-1
+;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 IDXW 	LDA	ESTKL,X
 	ASL
@@ -580,10 +592,14 @@ LNOT    LDA     ESTKL,X
         STA     ESTKH,X
         JMP     NEXTOP
 ;*
-;* CONSTANT -1, NYBBLE, BYTE, $FF BYTE, WORD (BELOW)
+;* CONSTANT -1, ZERO, NYBBLE, BYTE, $FF BYTE, WORD (BELOW)
 ;*
 MINUS1  DEX
 +       LDA     #$FF
+        STA     ESTKL,X
+        STA     ESTKH,X
+        JMP     NEXTOP
+ZERO    DEX
         STA     ESTKL,X
         STA     ESTKH,X
         JMP     NEXTOP
@@ -612,7 +628,7 @@ CFFB    DEX
 ;*
 ;* LA and CW differ only in that LA does RENORMALIZE IP; we could share their implementation
 ;* if we were willing to do or not do RENORMALIZE IP for both, but it seems safest to do as
-;* the Apple Vm does. We'd save 16 bytes by making CW an alias for LA, so it's not a huge
+;* the Apple VM does. We'd save 16 bytes by making CW an alias for LA, so it's not a huge
 ;* cost.
 -       TYA                     ; RENORMALIZE IP
         CLC
@@ -1170,7 +1186,6 @@ ISTRU	LDA	#$FF
 	STA	ESTKL+1,X
 	STA	ESTKH+1,X
 	JMP	DROP
-;
 ISNE	LDA	ESTKL,X
 	CMP	ESTKL+1,X
 	BNE	ISTRU
@@ -1215,7 +1230,6 @@ ISLT    LDA     ESTKL+1,X
         BVS     -
         BMI     ISTRU
         BPL     ISFLS
-;
 ;*
 ;* BRANCHES
 ;*

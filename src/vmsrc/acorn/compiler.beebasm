@@ -19,6 +19,6 @@ puttext "samplesrc/test.pla", "P.TEST", &0000
 puttext "samplesrc/testlib.pla", "P.TESTLIB", &0000
 puttext "inc/testlib.plh", "H.TESTLIB", &0000
 puttext "samplesrc/sieve.pla", "P.SIEVE", &0000
-putfile "z.mo", "Z", &0000 ; SFTODO VERY TEMP
+;putfile "z.mo", "Z", &0000 ; SFTODO VERY TEMP
 putfile "TEST#FE1000", "TEST", &0000 ; SFTODO V TEMP
 putfile "TESTLIB#FE1000", "TESTLIB", &0000 ; SFTODO V TEMP
