@@ -425,23 +425,6 @@ REVCPYLP LDA	(SRC),Y
 CPYMEX	RTS
 end
 //
-// result, remainder = divmod(dividend, divisor)
-//
-// SFTODO: MOVE TO MATCH cmd.pla FOR EASY DIFFING
-export asm divmod(a,b)#2
-        JSR     INTERP          ; CALL INTERP
-        !BYTE   $36, $5C        ; DIVMOD, RET
-end
-// SFTODO: MOVE TO MATCH cmd.pla FOR EASY DIFFING
-export asm sext(a)#1
-        LDY     #$00
-        LDA     ESTKL,X
-        BPL     +
-        DEY
-+       STY     ESTKH,X
-        RTS
-end
-//
 // Unsigned word comparisons.
 //
 export asm isuge(a,b)#1
@@ -493,6 +476,21 @@ export asm isult(a,b)#1
 	STA	ESTKH+1,X
 	INX
 	RTS
+end
+//
+// result, remainder = divmod(dividend, divisor)
+//
+export asm divmod(a,b)#2
+        JSR     INTERP          ; CALL INTERP
+        !BYTE   $36, $5C        ; DIVMOD, RET
+end
+export asm sext(a)#1
+        LDY     #$00
+        LDA     ESTKL,X
+        BPL     +
+        DEY
++       STY     ESTKH,X
+        RTS
 end
 #ifndef STANDALONE
 // 
@@ -1692,7 +1690,7 @@ end
 // (a CR-terminated string); modcr points to at least maxpathlen bytes of space to
 // allow modopen() to generate a long filename in place if it wants to.
 def modloadcr_internal(moddci, modcr)#1
-    word rdlen, modsize, bytecode, defofst, defcnt, init, fixup
+    word rdlen, modsize, bytecode, defofst, defcnt, init, fixup, initcode
     word addr
     word modaddr, modfix, modend
     word modofst
@@ -1862,7 +1860,6 @@ def modloadcr_internal(moddci, modcr)#1
 #else
     // defaddr = bytecode
     // codefix = defaddr - bytecode = 0
-    // SFTODO WORKED BUT DELETE AS NEXT LINE IS BETTER defofst = bytecode - defofst // = defaddr - defofst
     defofst = modofst // defofst = defaddr - defofst = bytecode - defofst = (defofst + modofst) - defofst = modofst
 #endif
     //
@@ -1951,14 +1948,13 @@ def modloadcr_internal(moddci, modcr)#1
     if init
         init  = init + defofst
         puts("CALLING INIT\n")
-        // SFTODO: I think Apple VM has renamed fixup to initcode - check and copy if so
 #ifndef JIT
-	fixup = adddef(init, @deflast)()
+	initcode = adddef(init, @deflast)()
 #else
-	fixup = adddef(deffirst, init, @deflast)()
+	initcode = adddef(deffirst, init, @deflast)()
 #endif
         puts("CALLED INIT\n")
-	if fixup < modinitkeep
+	if initcode < modinitkeep
 	    //
 	    // Free init routine unless initkeep. Because we grow our symbol
 	    // table dynamically, we aren't as flexible as the Apple code here.
@@ -1986,11 +1982,11 @@ def modloadcr_internal(moddci, modcr)#1
                 heaprelease(init)
             fin
 #endif
-	    if fixup < 0
-		perr = -fixup
+	    if initcode < 0
+		perr = -initcode
 	    fin
 	else
-	    fixup = fixup & ~modinitkeep
+	    initcode = initcode & ~modinitkeep
 	fin
     fin
 #if 0 // Temporary code for forcing multiple 16K banks to be used for PLAS128 testing
@@ -1998,7 +1994,7 @@ def modloadcr_internal(moddci, modcr)#1
         puth(allocxheap(7000)); putln()
     #endif
 #endif
-    return fixup
+    return initcode
 end
 def modloadpstr_internal(modpstr, modcr)#1
     byte moddci[maxnamelen]
@@ -2212,7 +2208,7 @@ def docmds#0
         // SFTODO: Should I vary the banner with PLAS128 and/or JIT flags? Don't
         // really want to bloat the VM with this really, so perhaps not. Also remember
         // the JIT module prints "JITC enabled" itself.
-        // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTINO FOR THE OLD NAME THO
+        // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTION FOR THE OLD NAME THO
         puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
         // TODO: Temporarily moved this to prompt instead of only displaying it
         // on startup; this makes it more obvious if heap gets leaked.
