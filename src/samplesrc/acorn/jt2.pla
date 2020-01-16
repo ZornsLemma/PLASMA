@@ -1,0 +1,8 @@
+// Called by jt1.pla; see comment there.
+
+import jt1
+    predef foo()#0
+end
+
+foo()
+done

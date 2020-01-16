@@ -2361,7 +2361,7 @@ modopen = @modopen_default
 ^lastsym = 0 // end of symbol table
 #endif
 docmds()
-SFTODO; // SFTODO: DELIBERATELY BREAK THINGS - DAVE SENT ME SOME E-MAILS OVER THE LAST FEW MONTH, ONE RELATING TO A TRICKY CORNER CASE WITH THE JIT - NEED TO REVIEW THOSE AND SEE IF THEY ARE RELEVANT TO ACORN PORT
+//SFTODO; // SFTODO: DELIBERATELY BREAK THINGS - DAVE SENT ME SOME E-MAILS OVER THE LAST FEW MONTH, ONE RELATING TO A TRICKY CORNER CASE WITH THE JIT - NEED TO REVIEW THOSE AND SEE IF THEY ARE RELEVANT TO ACORN PORT
 done
 
 // SFTODO: General comment - I should probably review the code to see that if an OS error occurs during module loading, we do not leak any heap. We *don't* reset the heap to the initial pointer when an OS error reaches the top level exception handler - this is correct, because we might have a resident module loaded on the heap - but it does mean we need to be careful not to allow memory to be leaked. To be fair, since I print the heap free at the prompt I'd probably notice if this was happening and I don't think I have, but it would be good to review the code anyway. And perhaps leave a permanent comment somewhere about the importance of this, and why we don't just reset the heap pointer in the top-level error handler.

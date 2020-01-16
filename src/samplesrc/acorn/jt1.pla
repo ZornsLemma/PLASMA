@@ -1,0 +1,25 @@
+// Test for corner case in JIT. If modexec() restores jitcodeptr after executing
+// a module's INIT code, any code JITted as a result of that INIT code will be
+// discarded. This is a problem if that code lives in a different module. Here
+// (assuming +JITUNE 1 255 has been executed beforehand), executing +JT1 will
+// cause JT2 to be modexec()-ed; its INIT code will call (and JIT) foo() in JT1
+// and that code will be discarded at the end of modexec(). This means that the
+// call to bar() will JIT over the top of foo()'s machine code, and so the
+// subsequent call to foo() will actually call bar().
+
+include "inc/cmdsys.plh"
+
+export def foo()#0
+    puts("foo() called"); putln()
+end
+
+def bar()#0
+    puts("bar() called"); putln()
+end
+
+puts("about to modexec(JT2)"); putln()
+cmdsys:modexec("JT2")
+puts("returned from modexec(JT2)"); putln()
+bar()
+foo() // will probably actually call bar() if modexec() incorrectly restores jitcodeptr
+done
