@@ -73,6 +73,14 @@ struc t_defentry
     #endif
 end
 //
+// JIT compiler "constants"
+//
+#ifdef PLAS128
+    word jitcbuf
+#else
+    const jitcbuf = tubejitheaptop
+#endif
+//
 // SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
 // USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
 // AS THEY ARE IN BASIC
@@ -2089,9 +2097,6 @@ def modexec(modfile)#1
 #endif
     word savesym, savesymtblchunk
     // word saveflags
-#ifdef JIT
-    word savejit
-#endif
     word error, action, olderrjb, jb
 
     saveheap  = *heapptr
@@ -2101,9 +2106,6 @@ def modexec(modfile)#1
     savesym   = lastsym
     savesymtblchunk = symtblchunk
     // saveflags = systemflags
-#ifdef JIT
-    savejit = *jitcodeptr
-#endif
     modload_handle = 0
     olderrjb = *errjb
     // We allocate a jmp_buf on the heap using except2(); it will get trapped
@@ -2135,9 +2137,6 @@ def modexec(modfile)#1
         *heapptr    = saveheap
     fin
     // systemflags = saveflags
-#ifdef JIT
-    *jitcodeptr = savejit
-#endif
     if error <> 0
         error_handler()
     fin
@@ -2248,7 +2247,7 @@ def docmds#0
                 modloadpstr("JIT128")
                 // Allocate the remainder of the first sideways RAM bank to JITted
                 // machine code.
-                *jitcodeptr = $8000 + xheap
+                jitcbuf = $8000 + xheap
                 // SFTODO: We could just do "xheap = xheap_bank_size" here and that
                 // may well be best in the long run, but let's stick with this for
                 // now as that way we avoid making any assumptions about how exactly
@@ -2305,6 +2304,20 @@ def docmds#0
     #ifdef TIME
                     time(@start_time)
     #endif
+
+                    #ifdef JIT
+                        //
+                        // Set JIT code poitner
+                        //
+                        #ifndef PLAS128
+                            *jitcodeptr = tubejitheaptop 
+                        #else
+                            *jitcodeptr = jitcbuf
+                        #endif
+                    #endif
+                    //
+                    // Exec module
+                    //
                     modexec(parsemodname())
                     // SFTODO: THE A2 VERSION ALSO CLOSES ALL FILES HERE; I SUSPECT THAT'S NOT REALLY A VERY "ACORN" THING TO DO (EG IT BREAKS USE OF *SPOOL) BUT THINK ABOUT IT AND MAYBE LEAVE PERMANENT COMMENT IN IF I DON'T IMPLEMENT THIS - IT FEELS HORRIBLY HACKY, BUT COULD WE JUST CLOSE ALL FILE HANDLES EXCEPT THE *EXEC AND *SPOOL HANDLES? THOSE ARE AVAILABLE IN LOW MEM ON HOST AND WE CAN PROB READ THEM SOMEHOW IN A TUBE COMPATIBLE WAY. NOT SURE I LIKE THIS BUT THINK ABOUT IT, MAYBE ASK ON STARDOT FOR ADVICE. - OK, PERHAPS THE WAY TO DO THIS (IF IT DOESN'T BLOAT THINGS TOO MUCH) IS TO SET ASIDE 256/8=32 BYTES OF RAM FOR A BITMAP OF "OPEN FILES" AND HAVE FILEIO UPDATE THAT AND THEN THE VM CAN USE IT TO CLOSE FILES AUTOMATICALLY AFTER EXECUTING A MODULE - I SUPPOSE ALTERNATIVELY IT COULD STORE THE ACTUAL FILE HANDLES IN A FEW BYTES OF RAM, SINCE WE HAVE MAX_IOBUFS = 4 - THAT MEANS IF WE ALWAYS KEEP "UNUSED" BYTES AT 0 WE ONLY NEED 4 BYTES OF (PROBABLY) PAGE 4 FOR THIS
     #ifdef TIME
