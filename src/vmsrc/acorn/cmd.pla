@@ -1947,13 +1947,13 @@ def modloadcr_internal(moddci, modcr)#1
     fixup = 0
     if init
         init  = init + defofst
-        puts("CALLING INIT\n")
+        // SFTODO: TEMP puts("CALLING INIT\n")
 #ifndef JIT
 	initcode = adddef(init, @deflast)()
 #else
 	initcode = adddef(deffirst, init, @deflast)()
 #endif
-        puts("CALLED INIT\n")
+        // SFTODO: TEMP puts("CALLED INIT\n")
 	if initcode < modinitkeep
 	    //
 	    // Free init routine unless initkeep. Because we grow our symbol
@@ -2113,9 +2113,9 @@ def modexec(modfile)#1
     error = except2(@jb)
     if error == 0
         *errjb = jb
-        puts("CALLING MODLOAD\n");
+        // SFTODO TEMP puts("CALLING MODLOAD\n");
         action = modloadpstr(modfile)
-        puts("CALLED MODLOAD\n");
+        // SFTODO TEMP puts("CALLED MODLOAD\n");
     fin
     *errjb = olderrjb
     if error <> 0 or action < modkeep
@@ -2288,7 +2288,7 @@ def docmds#0
     // destroying the command line, but this wasn't the motivation for it.)
     while 1
         // SFTODO TEMP HACK
-        puts("TOP OF DOCMDS LOOP\n")
+        // puts("TOP OF DOCMDS LOOP\n")
         // SFTODO END TEMP HACK
         if ^syscmdln
             // SFTODO: I SHOULD PROB "NEVER" PASS syscmdln OR "ALWAYS" PASS IT - AT THE MOMENT PARSEMODNAME IS AN EXCEPTION
