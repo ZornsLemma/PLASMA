@@ -128,177 +128,12 @@ OPTBL   !WORD   ZERO,CN,CN,CN,CN,CN,CN,CN                               ; 00 02 
         !WORD   ADDLB,ADDLW,ADDAB,ADDAW,IDXLB,IDXLW,IDXAB,IDXAW         ; B0 B2 B4 B6 B8 BA BC BE
 	!WORD	NATV							; C0
 
-; SFTODO: I reordered the opcodes compared to Apple code in order to avoid wasting the alignment padding for OPTBL; now OPTBL has been moved, it might be worth reordering the code again so it's more like the Apple for ease of comparison in future.
 INITNOROOM
 HITHEAP
 	BRK
 	!BYTE	$00		; same error number as BASIC "No room"
 	!TEXT	"No room"
 	BRK
-;*
-;* INCREMENT TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-INCR    INC     ESTKL,X
-        BEQ     +
-        JMP     NEXTOP
-+	INC     ESTKH,X
-        JMP     NEXTOP
-;*
-;* DECREMENT TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-DECR    LDA     ESTKL,X
-        BEQ     +
-        DEC     ESTKL,X
-        JMP     NEXTOP
-+	DEC     ESTKL,X
-        DEC     ESTKH,X
-        JMP     NEXTOP
-;*
-;* BITWISE COMPLIMENT TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-COMP 	LDA	#$FF
-	EOR	ESTKL,X
-	STA	ESTKL,X
-	LDA	#$FF
-	EOR	ESTKH,X
-	STA	ESTKH,X
-	JMP	NEXTOP
-;*
-;* MUL TOS-1 BY TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-MUL	STY	IPY
-	LDY	#$10
-	LDA	ESTKL+1,X
-	EOR	#$FF
-	STA	TMPL
-	LDA	ESTKH+1,X
-	EOR	#$FF
-	STA	TMPH
-	LDA	#$00
-	STA	ESTKL+1,X      	; PRODL
-;	STA	ESTKH+1,X      	; PRODH
-_MULLP 	LSR	TMPH		; MULTPLRH
-	ROR	TMPL		; MULTPLRL
-	BCS	+
-	STA	ESTKH+1,X      	; PRODH
-	LDA	ESTKL,X		; MULTPLNDL
-	ADC	ESTKL+1,X      	; PRODL
-	STA	ESTKL+1,X
-	LDA	ESTKH,X		; MULTPLNDH
-	ADC	ESTKH+1,X      	; PRODH
-+ 	ASL	ESTKL,X		; MULTPLNDL
-	ROL	ESTKH,X		; MULTPLNDH
-	DEY
-	BNE	_MULLP
-	STA	ESTKH+1,X	; PRODH
-	LDY	IPY
-	JMP     DROP
-;*
-;* DIV TOS-1 BY TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-DIV 	JSR	_DIV
-	LSR	DVSIGN		; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
-	BCS	NEG
-	JMP	NEXTOP
-;*
-;* MOD TOS-1 BY TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-MOD	JSR	_DIV
-	LDA	TMPL		; REMNDRL
-	STA	ESTKL,X
-	LDA	TMPH		; REMNDRH
-	STA	ESTKH,X
-	LDA	DVSIGN		; REMAINDER IS SIGN OF DIVIDEND
-	BMI	NEG
-	JMP	NEXTOP
-;*
-;* DIVMOD TOS-1 BY TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-DIVMOD  JSR     _DIV
-        LSR     DVSIGN          ; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
-        BCC     +
-        JSR     _NEG
-+       DEX
-        LDA     TMPL            ; REMNDRL
-        STA     ESTKL,X
-        LDA     TMPH            ; REMNDRH
-        STA     ESTKH,X
-        ASL     DVSIGN          ; REMAINDER IS SIGN OF DIVIDEND
-        BMI     NEG
-        JMP     NEXTOP
-;*
-;* NEGATE TOS
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
-;*
-NEG 	LDA	#$00
-	SEC
-	SBC	ESTKL,X
-	STA	ESTKL,X
-	LDA	#$00
-	SBC	ESTKH,X
-	STA	ESTKH,X
-	JMP	NEXTOP
-;*
-;* INTERNAL DIVIDE ALGORITHM
-;*
-_NEG 	LDA	#$00
-	SEC
-	SBC	ESTKL,X
-	STA	ESTKL,X
-	LDA	#$00
-	SBC	ESTKH,X
-	STA	ESTKH,X
-ANRTS	RTS
-_DIV    STY     IPY
-        LDY     #$11            ; #BITS+1
-        LDA     #$00
-        STA     TMPL            ; REMNDRL
-        STA     TMPH            ; REMNDRH
-        STA     DVSIGN
-        LDA     ESTKH+1,X
-        BPL     +
-        INX
-        JSR     _NEG
-        DEX
-        LDA     #$81
-        STA     DVSIGN
-+       ORA     ESTKL+1,X         ; DVDNDL
-        BEQ     _DIVEX
-        LDA     ESTKH,X
-        BPL     _DIV1
-        JSR     _NEG
-        INC     DVSIGN
-_DIV1 	ASL	ESTKL+1,X	; DVDNDL
-	ROL	ESTKH+1,X	; DVDNDH
-	DEY
-	BCC	_DIV1
-_DIVLP 	ROL	TMPL		; REMNDRL
-	ROL	TMPH		; REMNDRH
-	LDA	TMPL		; REMNDRL
-	CMP	ESTKL,X		; DVSRL
-	LDA	TMPH		; REMNDRH
-	SBC	ESTKH,X		; DVSRH
-	BCC	+
-	STA	TMPH		; REMNDRH
-	LDA	TMPL		; REMNDRL
-	SBC	ESTKL,X		; DVSRL
-	STA	TMPL		; REMNDRL
-	SEC
-+	ROL	ESTKL+1,X	; DVDNDL
-	ROL	ESTKH+1,X	; DVDNDH
-	DEY
-	BNE	_DIVLP
-_DIVEX	INX
-	LDY	IPY
-	RTS
-
 ;*
 ;* SYSTEM INTERPRETER ENTRYPOINT
 ;* (PLAS128: executes bytecode from main RAM)
@@ -324,7 +159,6 @@ INTERP	PLA
 ;* we're good to stick with that bank; we convert IP into the
 ;* corresponding physical address in the sideways RAM area here and just
 ;* work with that while executing the function.
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 IINTERP	PLA
         STA     TMPL
@@ -416,7 +250,6 @@ JMPJITCOMP
 }
 ;*
 ;* ADD TOS TO TOS-1
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 ADD 	LDA	ESTKL,X
 	CLC
@@ -428,7 +261,6 @@ ADD 	LDA	ESTKL,X
 	JMP     DROP
 ;*
 ;* SUB TOS FROM TOS-1
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 SUB 	LDA	ESTKL+1,X
 	SEC
@@ -438,10 +270,8 @@ SUB 	LDA	ESTKL+1,X
 	SBC	ESTKH,X
 	STA	ESTKH+1,X
 	JMP     DROP
-;
 ;*
 ;* SHIFT TOS LEFT BY 1, ADD TO TOS-1
-;* SFTODO: MOVE TO MATCH PLVM02.S FOR EASIER DIFFING
 ;*
 IDXW 	LDA	ESTKL,X
 	ASL
@@ -453,6 +283,161 @@ IDXW 	LDA	ESTKL,X
 	ADC	ESTKH+1,X
 	STA	ESTKH+1,X
 	JMP     DROP
+;*
+;* MUL TOS-1 BY TOS
+;*
+MUL	STY	IPY
+	LDY	#$10
+	LDA	ESTKL+1,X
+	EOR	#$FF
+	STA	TMPL
+	LDA	ESTKH+1,X
+	EOR	#$FF
+	STA	TMPH
+	LDA	#$00
+	STA	ESTKL+1,X      	; PRODL
+;	STA	ESTKH+1,X      	; PRODH
+_MULLP 	LSR	TMPH		; MULTPLRH
+	ROR	TMPL		; MULTPLRL
+	BCS	+
+	STA	ESTKH+1,X      	; PRODH
+	LDA	ESTKL,X		; MULTPLNDL
+	ADC	ESTKL+1,X      	; PRODL
+	STA	ESTKL+1,X
+	LDA	ESTKH,X		; MULTPLNDH
+	ADC	ESTKH+1,X      	; PRODH
++ 	ASL	ESTKL,X		; MULTPLNDL
+	ROL	ESTKH,X		; MULTPLNDH
+	DEY
+	BNE	_MULLP
+	STA	ESTKH+1,X	; PRODH
+	LDY	IPY
+	JMP     DROP
+;*
+;* INTERNAL DIVIDE ALGORITHM
+;*
+_NEG 	LDA	#$00
+	SEC
+	SBC	ESTKL,X
+	STA	ESTKL,X
+	LDA	#$00
+	SBC	ESTKH,X
+	STA	ESTKH,X
+ANRTS	RTS
+_DIV    STY     IPY
+        LDY     #$11            ; #BITS+1
+        LDA     #$00
+        STA     TMPL            ; REMNDRL
+        STA     TMPH            ; REMNDRH
+        STA     DVSIGN
+        LDA     ESTKH+1,X
+        BPL     +
+        INX
+        JSR     _NEG
+        DEX
+        LDA     #$81
+        STA     DVSIGN
++       ORA     ESTKL+1,X         ; DVDNDL
+        BEQ     _DIVEX
+        LDA     ESTKH,X
+        BPL     _DIV1
+        JSR     _NEG
+        INC     DVSIGN
+_DIV1 	ASL	ESTKL+1,X	; DVDNDL
+	ROL	ESTKH+1,X	; DVDNDH
+	DEY
+	BCC	_DIV1
+_DIVLP 	ROL	TMPL		; REMNDRL
+	ROL	TMPH		; REMNDRH
+	LDA	TMPL		; REMNDRL
+	CMP	ESTKL,X		; DVSRL
+	LDA	TMPH		; REMNDRH
+	SBC	ESTKH,X		; DVSRH
+	BCC	+
+	STA	TMPH		; REMNDRH
+	LDA	TMPL		; REMNDRL
+	SBC	ESTKL,X		; DVSRL
+	STA	TMPL		; REMNDRL
+	SEC
++	ROL	ESTKL+1,X	; DVDNDL
+	ROL	ESTKH+1,X	; DVDNDH
+	DEY
+	BNE	_DIVLP
+_DIVEX	INX
+	LDY	IPY
+	RTS
+;*
+;* NEGATE TOS
+;*
+NEG 	LDA	#$00
+	SEC
+	SBC	ESTKL,X
+	STA	ESTKL,X
+	LDA	#$00
+	SBC	ESTKH,X
+	STA	ESTKH,X
+	JMP	NEXTOP
+;*
+;* DIV TOS-1 BY TOS
+;*
+DIV 	JSR	_DIV
+	LSR	DVSIGN		; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
+	BCS	NEG
+	JMP	NEXTOP
+;*
+;* MOD TOS-1 BY TOS
+;*
+MOD	JSR	_DIV
+	LDA	TMPL		; REMNDRL
+	STA	ESTKL,X
+	LDA	TMPH		; REMNDRH
+	STA	ESTKH,X
+	LDA	DVSIGN		; REMAINDER IS SIGN OF DIVIDEND
+	BMI	NEG
+	JMP	NEXTOP
+;*
+;* DIVMOD TOS-1 BY TOS
+;*
+DIVMOD  JSR     _DIV
+        LSR     DVSIGN          ; SIGN(RESULT) = (SIGN(DIVIDEND) + SIGN(DIVISOR)) & 1
+        BCC     +
+        JSR     _NEG
++       DEX
+        LDA     TMPL            ; REMNDRL
+        STA     ESTKL,X
+        LDA     TMPH            ; REMNDRH
+        STA     ESTKH,X
+        ASL     DVSIGN          ; REMAINDER IS SIGN OF DIVIDEND
+        BMI     NEG
+        JMP     NEXTOP
+;*
+;* INCREMENT TOS
+;*
+INCR    INC     ESTKL,X
+        BEQ     +
+        JMP     NEXTOP
++	INC     ESTKH,X
+        JMP     NEXTOP
+;*
+;* DECREMENT TOS
+;*
+DECR    LDA     ESTKL,X
+        BEQ     +
+        DEC     ESTKL,X
+        JMP     NEXTOP
++	DEC     ESTKL,X
+        DEC     ESTKH,X
+        JMP     NEXTOP
+;*
+;* BITWISE COMPLIMENT TOS
+;*
+COMP 	LDA	#$FF
+	EOR	ESTKL,X
+	STA	ESTKL,X
+	LDA	#$FF
+	EOR	ESTKH,X
+	STA	ESTKH,X
+	JMP	NEXTOP
 ;*
 ;* BITWISE AND TOS TO TOS-1
 ;*
