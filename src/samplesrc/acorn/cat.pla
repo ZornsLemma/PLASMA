@@ -8,7 +8,6 @@ word arg
 word refnum
 word len
 
-// SFTODO: "+CAT P.TESTLIB" SHOWS STRANGE CORRUPTION NEAR THE END OF THE OUTPUT - AM INVESTIGATING, THIS COMMENT IS SO I DON'T FORGET ABOUT THIS
 arg = argFirst
 repeat
     arg = argNext(arg)
