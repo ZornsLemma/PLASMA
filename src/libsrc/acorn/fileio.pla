@@ -27,7 +27,9 @@ struc t_fileio
     word getpfx
     word setpfx
     word getfileinfo
+    word setfileinfo
     word geteof
+    word seteof
     word iobufalloc
     word open
     word close
@@ -35,7 +37,9 @@ struc t_fileio
     word write
     word create
     word destroy
+    word rename
     word newline
+    word online
     word readblock
     word writeblock
 end
@@ -43,17 +47,21 @@ end
 //
 // Predefined functions
 //
-predef acgetpfx(path), acsetpfx(path), acgetfileinfo(path, fileinfo), acgeteof(refnum), aciobufs(iobufs), acopen(path), acclose(refnum)
+predef acgetpfx(path), acsetpfx(path), acgetfileinfo(path, fileinfo), acsetfileinfo(path, fileinfo), acgeteof(refnum), acseteof(refnum, eofl, eofh), aciobufs(iobufs), acopen(path), acclose(refnum)
 predef acread(refnum, buf, len), acwrite(refnum, buf, len), accreate(path, type, aux), acdestroy(path)
-predef acnewline(refnum, emask, nlchar), acblock(unit, buf, block)
+predef acrename(oldpath, newpath)
+predef acnewline(refnum, emask, nlchar)
+predef aconline(unit, buf)
+predef acblock(unit, buf, block)
 
 //
 // Exported function table.
 //
 word fileio[]
-word = @acgetpfx, @acsetpfx, @acgetfileinfo, @acgeteof, @aciobufs, @acopen, @acclose
-word = @acread, @acwrite, @accreate, @acdestroy
+word = @acgetpfx, @acsetpfx, @acgetfileinfo, @acsetfileinfo, @acgeteof, @acseteof, @aciobufs, @acopen, @acclose
+word = @acread, @acwrite, @accreate, @acdestroy, @acrename
 word = @acnewline
+word = @aconline
 word = @acblock // readblock
 word = @acblock // writeblock
 
@@ -277,7 +285,20 @@ def acgetfileinfo(path, fileinfo)
     return perr
 end
 
+def acsetfileinfo(path, fileinfo)
+    // SFTODO: We can almost certainly implement this but we can get away
+    // without it for now.
+    perr = $01
+    return perr
+end
+
 def acgeteof(refnum)
+    // SFTODO: We can almost certainly implement this but we can get away
+    // without it for now.
+    return 0
+end
+
+def acseteof(refnum, eofl, eofh)
     // SFTODO: We can almost certainly implement this but we can get away
     // without it for now.
     return 0
@@ -620,6 +641,13 @@ def acdestroy(path)
     return perr
 end
 
+def acrename(oldpath, newpath)
+    // SFTODO: We can almost certainly implement this but we can get away
+    // without it for now.
+    perr = $01
+    return perr
+end
+
 def acnewline(refnum, emask, nlchar)
     word iobuf
 
@@ -627,6 +655,13 @@ def acnewline(refnum, emask, nlchar)
     iobuf->s_emask = emask
     iobuf->s_nlchar = nlchar
     perr = 0
+    return perr
+end
+
+def aconline(unit, buf)
+    // SFTODO: I haven't checked what this would actually do; we can possibly
+    // implement it but for now we can get away without it.
+    perr = $27 // IOERR
     return perr
 end
 
