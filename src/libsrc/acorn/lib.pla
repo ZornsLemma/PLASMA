@@ -25,6 +25,10 @@ end
 include "inc/args.plh"
 include "inc/acornc.plh"
 #include "vmsrc/acorn/vmconstants.plh"
+
+// This isn't performance critical, but more to the point it must not be JITted
+// anyway, since it's a resident module and the generated machine code might be
+// discarded; see comment in modname.pla for more details.
 sysflags nojitc // No need to speed this up
 
 const max_lib_path_len = 16 // this can be changed to suit
@@ -94,6 +98,8 @@ if ^arg <> 0
     if ^arg == 1 and ^(arg + 1) == '-'
         ^arg = 0
     elsif ^(arg + ^arg) <> '.'
+        // SFTODO: Adding one to the length here might cause us to overflow the
+        // buffer.
         ^arg = ^arg + 1
         ^(arg + ^arg) = '.'
     fin
@@ -101,7 +107,7 @@ if ^arg <> 0
     // Since we have to have cmdsys:syspath allocated in order to share cmdsys.plh with
     // the Apple VM, we might as well update it here as it's virtually free. Note that
     // we *don't* reset cmdsys:syspath to 0 on soft break on a second processor, so it
-    // may contain a meaningless value.
+    // may contain a meaningless value. SFTODO: Alter that behaviour??
     cmdsys:syspath = data_ptr + lib_path
 else
     puts("Usage: LIB [PATH]\nUse a path of \"-\" to set an empty path.\n")
