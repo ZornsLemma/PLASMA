@@ -28,15 +28,15 @@ def compiler(defptr)#0
     word codeptr, isdata[], addrxlate, bytecode, i, case, dest, VX, VY
     byte opcode, j, A_IS_TOSL
 
-    puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln // SFTODO  TEMP UNCO
-    puts("*jitcodeptr="); puth(*jitcodeptr); putln // SFTODO TEMP HACK
+    //puts("JIT compiler invoked for :$"); puth(defptr=>bytecodeaddr); putln
+    // SFTODO: TEMP HACK puts("*jitcodeptr="); puth(*jitcodeptr); putln
     defptr=>interpaddr = indirectentry // assume compile will fail
     addrxlate = heapmark // heapalloc(512 + defptr->bytecodesize)
     if isult(heapavail, 512 + defptr->bytecodesize) // 256 * sizeof(word) address xlate
         //
         // Not enough heap available
         //
-        puts("Not enough free heap\n") // SFTODO TEMP UNCO
+        //puts("Not enough free heap\n")
         return
     fin
     //
@@ -1570,8 +1570,8 @@ def compiler(defptr)#0
             defptr->interpjsr  = $4C // JMP
             defptr=>interpaddr = *jitcodeptr
             *jitcodeptr        = codeptr
-            puts("Done compiling: $"); puth(defptr=>interpaddr) // SFTODO TEMPUNCO
-            puts("->$"); puth(*jitcodeptr); putln // SFTODO TEMPUNCO
+            //puts("Done compiling: $"); puth(defptr=>interpaddr)
+            //puts("->$"); puth(*jitcodeptr); putln
             //getc
             return
         fin
