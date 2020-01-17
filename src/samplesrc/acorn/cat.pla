@@ -18,12 +18,12 @@ repeat
         if refnum
             putln()
             repeat
-                len = fileio:read(refnum, buf+1, BUF_SIZE-1)
+                len = fileio:read(refnum, @buf[1], BUF_SIZE-1)
                 if len > 0
-                    ^buf = len
-                    puts(buf)
+                    buf[0] = len
+                    puts(@buf)
                 fin
-                putc('-'); puti(len); putc('-')
+                // putc('-'); puti(len); putc('-')
             until len == 0
             fileio:close(refnum)
         else
