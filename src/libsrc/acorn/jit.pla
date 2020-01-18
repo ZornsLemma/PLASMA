@@ -63,7 +63,8 @@ def defcpy(dest, defptr)#0
     memcpy(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #else
-asm memxcpySFTODONOTSUREWHATTOCALLTHIS(dst,src,size)#0
+// Like memxcpy(), but copying from AUX to main memory.
+asm memxcpyrev(dst,src,size)#0
         !SOURCE "vmsrc/acorn/plvmzp.inc"
         !SOURCE "vmsrc/acorn/vmconstants.inc"
 
@@ -88,7 +89,7 @@ end
 // "dst" is a constant from vmconstants.inc so we can't use it as a function
 // parameter here.
 def defcpy(dest, defptr)#0
-    memxcpySFTODONOTSUREWHATTOCALLTHIS(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
+    memxcpyrev(dest, defptr=>bytecodeaddr, defptr->bytecodesize)
 end
 #endif
 include "libsrc/jitcore.pla"
