@@ -47,7 +47,9 @@ ED         = rel/ED\#FE1000
 ZIP        = rel/apple/ZIP\#FE1000
 JIT        = rel/apple/JIT\#FE1000
 JIT_ACN    = rel/acorn/JIT
+JIT_ACN_UNOPT = rel/acorn/JITUO
 JIT_ACN128 = rel/acorn/JIT128
+JIT_ACN128_UNOPT = rel/acorn/JIT128UO
 JIT16      = rel/apple/JIT16\#FE1000
 JITUNE     = rel/apple/JITUNE\#FE1000
 JITUNE_ACN = rel/acorn/JITUNE
@@ -199,8 +201,8 @@ $(PLASMAPLASM): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/code
 	./$(PLASM) -AMOW < toolsrc/plasm.pla > toolsrc/plasm.a
 	acme --setpc 4094 -o $(PLASMAPLASM) toolsrc/plasm.a
 	# SFTODO: We should perhaps build PLASMO and put it on the SSDs as PLASM
-	#python plasmatool/pt.py -O rel/PLASM\#FE1000 toolsrc/plasmo.a
-	#acme --setpc 4094 -o rel/PLASMO\#FE1000 toolsrc/plasmo.a
+	python plasmatool/pt.py -O rel/PLASM\#FE1000 toolsrc/plasmo.a # SFTODOTCO
+	acme --setpc 4094 -o rel/PLASMO\#FE1000 toolsrc/plasmo.a # SFTODOTCO
 
 # SFTODO: TEMP HACK
 $(PLASMAPLASM2): toolsrc/plasm.pla toolsrc/lex.pla toolsrc/parse.pla toolsrc/codegen.pla toolsrc/codeseq.plh plasmatool/pt.py $(PLASMAPLASM)
@@ -735,14 +737,16 @@ libsrc/acorn/jit.pla: vmsrc/acorn/plvmzp.plh vmsrc/acorn/vmconstants.plh
 $(JIT_ACN): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
 	cc -DJIT -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/32jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/32jit.pla > libsrc/acorn/32jit.a
-	# SFTODO: Should probably use plasmatool optmiser on JIT
-	acme -DJIT=1 --setpc 4094 -o $(JIT_ACN) -l libsrc/acorn/32jit.sym --report libsrc/acorn/32jit.lst libsrc/acorn/32jit.a
+	acme -DJIT=1 --setpc 4094 -o $(JIT_ACN_UNOPT) -l libsrc/acorn/32jit.sym --report libsrc/acorn/32jit.lst libsrc/acorn/32jit.a
+	python plasmatool/pt.py -O $(JIT_ACN_UNOPT) libsrc/acorn/32jito.a
+	acme --setpc 4094 -o $(JIT_ACN) libsrc/acorn/32jito.a
 
 $(JIT_ACN128): libsrc/acorn/jit.pla libsrc/jitcore.pla $(PLASM)
 	cc -DPLAS128 -DJIT -E -P - < libsrc/acorn/jit.pla > libsrc/acorn/128jit.pla
 	./$(PLASM) -AMOW < libsrc/acorn/128jit.pla > libsrc/acorn/128jit.a
-	# SFTODO: Should probably use plasmatool optmiser on JIT
-	acme -DPLAS128=1 -DJIT=1 --setpc 4094 -o $(JIT_ACN128) -l libsrc/acorn/128jit.sym --report libsrc/acorn/128jit.lst libsrc/acorn/128jit.a
+	acme -DPLAS128=1 -DJIT=1 --setpc 4094 -o $(JIT_ACN128_UNOPT) -l libsrc/acorn/128jit.sym --report libsrc/acorn/128jit.lst libsrc/acorn/128jit.a
+	python plasmatool/pt.py -O $(JIT_ACN128_UNOPT) libsrc/acorn/128jito.a
+	acme --setpc 4094 -o $(JIT_ACN128) libsrc/acorn/128jito.a
 
 $(JIT16): libsrc/apple/jit16.pla libsrc/jit16core.pla $(PLVMJIT) $(PLASM)
 	./$(PLASM) -AMOW < libsrc/apple/jit16.pla > libsrc/apple/jit16.a
