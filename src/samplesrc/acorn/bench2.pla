@@ -21,7 +21,6 @@ byte intmath32str[] = "intmath32"
 byte storestdiostr[] = "storestdio"
 byte storebputstr[] = "storebput"
 byte storegbpbstr[] = "storegbpb"
-byte storelinestr[] = "1234567890qwertyuiop\n"
 byte fncallstr[] = "fncall"
 
 // Benchmark start/finish times
@@ -143,9 +142,6 @@ def intmath32()#0
     fin
 end
 
-// This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
-// CAN BE MORE LITERAL NOW...
 // TODO: TEMP COMMENTED OUT
 // TODO: I should probably rewrite this using the standard fileio module
 //def storestdio()#0
@@ -161,7 +157,7 @@ end
 //	// TODO: The benchmark specifies "record handling"; is this reasonable?
 //	// I think I'd write it like this in C on any platform, but it's
 //	// not the same as the BBC BASIC benchmark in pcw.bas...
-//	if fputs(@storelinestr, file) == EOF
+//	if fputs("1234567890qwertyuiop\n", file) == EOF
 //	    fclose(file)
 //	    oserror(0, "Error writing test file")
 //	fin
@@ -176,9 +172,6 @@ end
 //    log_time(@storestdiostr)
 //end
 
-// This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
-// CAN BE MORE LITERAL NOW...
 def storebput()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
@@ -191,7 +184,7 @@ def storebput()#0
     fin
     for i = 1 to 1000
 	// TODO: Keep this in sync with storestdio() if that changes.
-	p = @storelinestr
+	p = "1234567890qwertyuiop\n"
 	j = ^p
 	while j > 0
 	    p++
@@ -206,9 +199,6 @@ def storebput()#0
     log_time(@storebputstr)
 end
 
-// This isn't quite a literal translation of the benchmark in the magazine, but
-// this is necessary to avoid problems with the string pool. SFTODO: I THINK WE
-// CAN BE MORE LITERAL NOW...
 def storegbpb()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
@@ -223,8 +213,9 @@ def storegbpb()#0
     block.0 = file
     for i = 1 to 1000
 	// TODO: Keep this in sync with storestdio() if that changes.
-	block:1 = @storelinestr + 1; block:3 = high_order_address()
-	block:5 = ^@storelinestr; block:7 = 0
+        p = "1234567890qwertyuiop\n"
+	block:1 = p + 1; block:3 = high_order_address()
+	block:5 = ^p; block:7 = 0
 	call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
     next
     call(osfind, osfind_close, 0, file, 0)
