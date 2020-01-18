@@ -431,6 +431,15 @@ def compiler(defptr)#0
                         //puts("INCR")
                         j = 1
                     fin
+                    // This optimisation works, but it's not a very common case;
+                    // A *is* usually TOSL.
+                    //if j == 1 and not A_IS_TOSL
+                    //    puts("SFTODOTEMP!!!")
+                    //    codeptr=>0 = estkl8+$F6+(VX<<8)   // INC ESTKL,X
+                    //    codeptr=>2 = $02D0                // BNE +2
+                    //    codeptr=>4 = estkh8+$F6+(VX<<8)   // INC ESTKH,X
+                    //    codeptr    = codeptr + 6
+                    //else
                     if not A_IS_TOSL
                         *codeptr = estkl8+$B5+(VX<<8) // LDA ESTKL,X
                         codeptr  = codeptr + 2
@@ -441,6 +450,7 @@ def compiler(defptr)#0
                     codeptr=>5 = estkh8+$F6+(VX<<8)   // INC ESTKH,X
                     codeptr    = codeptr + 7
                     A_IS_TOSL  = TOS_DIRTY            // STA ESTKL,X
+                    //fin
                     break
                 is $3A // SUBI
                     i++
