@@ -93,19 +93,6 @@ def defcpy(dest, defptr)#0
 end
 #endif
 include "libsrc/jitcore.pla"
-// Some TODOs from jitcore.pla:
-                    // SFTODO: IS THIS IMPLEMENTATION OF CS GOING TO BE A
-                    // PROBLEM IF MY PLAS128 JIT USES A SWR BANK TO HOLD THE
-                    // JIT-GENERATED CODE? IF THE STRING GETS PASSED TO AN OS
-                    // FUNCTION AND THEN TO ANOTHER PAGED ROM (EG A FILING
-                    // SYSTEM) THE STRING MAY NO LONGER BE ACCESSIBLE. THIS IS
-                    // *UNLIKELY* BUT IF SOMEONE WERE WRITING A PLASMA STRING
-                    // RAW TO DISC USING OSGBPB IT COULD HAPPEN, I THINK.
-
-                    // SFTODO: (COMMENT WAS ABOVE MUL/DIV/MOD/ETC) COULD I USE A SIMILAR APPROACH TO THE FOLLOWING
-                    // TO RE-USE THE INTERPRETING VM'S CS OPCODE, IF THE
-                    // EXISTING JIT CS OPCODE IMPLEMENTATION DOES CAUSE PROBLEMS
-                    // AS NOTED IN OTHER SFTODO?
 //
 // Install JIT compiler
 //
