@@ -17,6 +17,11 @@ ERRJB  = $402		    ; 2 bytes
 ; like loading the JIT module on a non-JIT VM and causing odd behaviour.
 JITCOMP = $404		    ; 2 bytes
 
+; Now we start allocating space for build-specific features. Anything common to
+; all builds should come before this point, because it's unnecessarily confusing
+; to have gratuitous differences and if common addresses are baked into modules we
+; must keep the addresses constant to make the modules compatible with all VM builds.
+
 ; Addresses of VM entry points. plvm-post.s assumes all two or three entry points are
 ; contiguous, so JIINTERPTR must follow the first two if it is defined.
 INTERPPTR = $406	    ; 2 bytes
@@ -28,11 +33,6 @@ NEXT0 = IINTERPPTR+2
 } ELSE {
     NEXT1 = NEXT0
 }
-
-; Now we start allocating space for build-specific features. Anything common to
-; all builds should come before this point, because it's unnecessarily confusing
-; to have gratuitous differences and if common addresses are baked into modules we
-; must keep the addresses constant to make the modules compatible with all VM builds.
 
 !IFDEF JIT {
     JITCODEPTR = NEXT1	    ; 2 bytes, address of next free byte in JIT buffer

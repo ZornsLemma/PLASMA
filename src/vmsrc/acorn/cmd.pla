@@ -81,10 +81,6 @@ end
     const jitcbuf = tubejitheaptop
 #endif
 //
-// SFTODO: PROB A DUP COMMENT, BUT LATER ON I NEED TO TIDY UP MY ZP AND PAGE 4
-// USE, TO MAKE THIS AS CLEAN AS POSSIBLE, I'D LIKE ZP 70-8F FREE FOR USER JUST
-// AS THEY ARE IN BASIC
-//
 // Predefined functions.
 //
 // TODO: It would be nice if these could be omitted and we could 'include
@@ -2209,7 +2205,8 @@ def docmds#0
         // really want to bloat the VM with this really, so perhaps not. Also remember
         // the JIT module prints "JITC enabled" itself.
         // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTION FOR THE OLD NAME THO
-        puts("PLASMA 2.0 Dev\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
+        // TODO: Keep this version string up-to-date with Apple code
+        puts("PLASMA 2.0 DP3\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
         // TODO: Temporarily moved this to prompt instead of only displaying it
         // on startup; this makes it more obvious if heap gets leaked.
         //puts(@freestr)
