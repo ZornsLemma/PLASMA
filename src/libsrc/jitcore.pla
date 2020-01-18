@@ -426,7 +426,6 @@ def compiler(defptr)#0
                     j = ^(bytecode+i)
                     //puts("ADDI $"); putb(^(bytecode+i))
                 is $8C // INCR
-                    // SFTODO: TEMPTING TO HANDLE INCR SPECIALLY AND DO INC:BNE:INC - BUT REALLY WITH THE TOSL-IN-A STUFF, IT'S PROBABLY NOT REALLY WORTH IT, AND IT WOULD BLOAT THE VM OF COURSE
                     if opcode == $8C
                         //puts("INCR")
                         j = 1
