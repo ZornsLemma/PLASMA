@@ -257,7 +257,7 @@ class FixedAddress(AbsoluteAddress, ComparisonMixin):
     def disassemble(cls, di, i):
         return FixedAddress(di.labelled_blob.read_u16(i)), i+2
 
-    def dump(self, outfile, opcode, rld):
+    def dump(self, outfile, opcode, rld, opdict):
         value = self.value
         print("\t!BYTE\t$%02X,$%02X,$%02X\t\t; %s\t$%04X" %
               (opcode, value & 0xff, (value & 0xff00) >> 8, opdict[opcode]['opcode'], value),
