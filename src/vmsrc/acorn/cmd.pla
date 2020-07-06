@@ -1656,6 +1656,7 @@ def adddef(addr, deflast)#1
     return defentry
 end
 #else
+// SFTODONOW: CHECK THIS ABGAINST APPLE II VM WITH JIT
 def adddef(isfirst, addr, deflast)#1
     word preventry, defentry, defsize
 
@@ -2079,6 +2080,8 @@ def error_handler()#0
   // do that as it just adds to the temptation to write not-quite-correct client
   // code. (Passing 0 saves a few bytes in the VM; this will be turned into 1
   // by throw() internally, not that anything is likely to examine the value.)
+  // SFTODO: IS THIS STILL TRUE? I HAVE A FEELING A 1 CONSTANT MAY NOW BE AS
+  // EFFICIENT AS A ZERO CONSTANT - CHECK...
   throw(*errjb, 0)
 end
 #ifndef STANDALONE
@@ -2206,6 +2209,7 @@ def docmds#0
         // the JIT module prints "JITC enabled" itself.
         // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTION FOR THE OLD NAME THO
         // TODO: Keep this version string up-to-date with Apple code
+        // SFTODONOW: UPDATE THIS VERSION STRING AS WE'RE NOW ON ALPHA 1
         puts("PLASMA 2.0 DP3\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
         // TODO: Temporarily moved this to prompt instead of only displaying it
         // on startup; this makes it more obvious if heap gets leaked.
