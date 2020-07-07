@@ -107,7 +107,7 @@ predef lookupsym(dcisym)#1
 //
 // Exported CMDSYS table
 //
-word version    = $0200 // 02.00 Dev
+word version    = $0200 // 02.00
 word syspath    // not really necessary but we have it to match Apple VM
 word syscmdln   = inbuff
 word            = @modexec
@@ -2335,6 +2335,7 @@ def docmds#0
                 putb(perr)
                 perr = 0
             else
+                // SFTODONOW: I THINK APPLE VM HAS GOT RID OF THIS, CHECK AND DO SAME
                 puts(@okstr)
             fin
             putln()

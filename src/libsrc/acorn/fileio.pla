@@ -1,4 +1,5 @@
 // Acorn implementation of fileio API
+// SFTODONOW: CHECK THIS AGAINST APPLE VERSION FOR ANY CHANGES
 
 // http://www.easy68k.com/paulrsm/6502/PDOS8TRM.HTM looks like a good reference
 // for Apple ProDOS.
