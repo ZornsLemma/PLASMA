@@ -177,7 +177,6 @@ byte freestr[]    = "MEM FREE:$"
 #endif
 byte errorstr[]   = "ERR:$"
 byte prompt[]     = "PLASMA"
-byte okstr[]      = "OK"
 byte huhstr[]     = "?\n"
 byte colonstr[]   = ": "
 #endif
@@ -1656,7 +1655,6 @@ def adddef(addr, deflast)#1
     return defentry
 end
 #else
-// SFTODONOW: CHECK THIS ABGAINST APPLE II VM WITH JIT
 def adddef(isfirst, addr, deflast)#1
     word preventry, defentry, defsize
 
@@ -2209,8 +2207,7 @@ def docmds#0
         // the JIT module prints "JITC enabled" itself.
         // SFTODO: SHOULD I RENAME PLAS128 AS PLASSWR? I FEEL AN ODD AFFECTION FOR THE OLD NAME THO
         // TODO: Keep this version string up-to-date with Apple code
-        // SFTODONOW: UPDATE THIS VERSION STRING AS WE'RE NOW ON ALPHA 1
-        puts("PLASMA 2.0 DP3\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
+        puts("PLASMA 2.0 ALPHA1\n") //puts(@verstr); putb(version.1); putc('.'); putb(version.0); putln
         // TODO: Temporarily moved this to prompt instead of only displaying it
         // on startup; this makes it more obvious if heap gets leaked.
         //puts(@freestr)
@@ -2334,9 +2331,6 @@ def docmds#0
                 puts(@errorstr)
                 putb(perr)
                 perr = 0
-            else
-                // SFTODONOW: I THINK APPLE VM HAS GOT RID OF THIS, CHECK AND DO SAME
-                puts(@okstr)
             fin
             putln()
         fin
