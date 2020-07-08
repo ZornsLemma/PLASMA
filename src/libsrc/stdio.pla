@@ -1,4 +1,5 @@
 // Experimental C-style stdio
+// SFTODO: JUST GET RID OF THIS? I THINK IT PREDATES THE PLASMA FILEIO MODULE, WHICH IS AT LEAST LOOSELY CROSS-PLATFORM, AND IT ISN'T PARTICULARLY FAST OR WELL DEBUGGED.
 
 // TODO: possibly more functions should "support" a stdio FILE to the
 // extent of checking for it and returning a failure indicator. But

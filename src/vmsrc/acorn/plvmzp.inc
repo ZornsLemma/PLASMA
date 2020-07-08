@@ -12,6 +12,8 @@ SRCH	=	SRC+1
 DST	=	SRC+2
 DSTL	=	DST
 DSTH	=	DST+1
+; int32.pla does this, so we need to allow space for it
+; ACCUM32 = DSTH+1 ; 4 bytes
 ZPCODE  =       $1F
 ZPCODESZ =	$10
 ; SFTODO: So we could start something eg ESTK at ZPCODE+ZPCODESZ (but be careful with PAD; final version should really calculate addresses in a sequence and we should have ESTK=PAD+2 rather than PAD=ESTK-2)
@@ -39,6 +41,8 @@ TMP	=	JMPTMP+1
 TMPL	=	TMP
 TMPH	=	TMP+1
 HIMEMH  =       TMP+2 ; TODO: doesn't need to be in zp
+; int32.pla uses TMP+3 as DVSIGN (1 byte) so we need to ensure that's not used
+; by anything valuable.
 SCRATCH =	TMP+3 ; SCRATCHSZ bytes
 SCRATCHSZ =	$11
 HEAPPTR =       SCRATCH+SCRATCHSZ

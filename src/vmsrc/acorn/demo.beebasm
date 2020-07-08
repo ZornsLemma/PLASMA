@@ -15,12 +15,14 @@ putfile "rel/acorn/DUMP", "DUMP", &0000
 ;SFTODOTCOputfile "rel/acorn/MODE2", "MODE2", &0000
 putfile "rel/acorn/JT1", "JT1", &0000
 putfile "rel/acorn/JT2", "JT2", &0000
-putfile "rel/acorn/HANOI", "HANOI", &0000
+;SFTODOputfile "rel/acorn/HANOI", "HANOI", &0000
 putfile "rel/acorn/BENCH1", "BENCH1", &0000
 putfile "rel/acorn/BENCH2", "BENCH2", &0000
 putfile "rel/acorn/BOUNCE", "BOUNCE", &0000
 putbasic "samplesrc/acorn/pcw.bas", "B.PCW"
-putfile "rel/acorn/DWORD", "DWORD", &0000
+;SFTODODELETEputfile "rel/acorn/DWORD", "DWORD", &0000
+putfile "rel/INT32#FE1000", "INT32", &0000
+putfile "rel/INT32TEST#FE1000", "INT32TS", &0000
 putfile "rel/acorn/MODNAME", "MODNAME", &0000
 ;putfile "STDIO#FE1000", "STDIO", &0000
 ;putfile "STDIOTS#FE1000", "STDIOTS", &0000

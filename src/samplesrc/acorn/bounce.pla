@@ -29,7 +29,7 @@
 include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
-include "inc/dword.plh"
+include "inc/int32.plh"
 
 const screen = $7C00
 const ball_count = 10
@@ -143,10 +143,12 @@ def time_delta(start, finish)#1
     // We can get away with ignoring the fifth byte; the result will be
     // correct unless there's a difference of more than one in the fifth
     // byte, and that's just not going to happen.
-    byte delta_dword[4]
-    dword_sub(@delta_dword, finish, start)
-    if dword_isuword(@delta_dword)
-	return dword_touword(@delta_dword)
+    byte delta_i32[t_i32]
+    load32(finish)
+    sub32(start)
+    store32(@delta_i32)
+    if delta_i32:2 == 0
+        return delta_i32:0
     fin
     return 0
 end

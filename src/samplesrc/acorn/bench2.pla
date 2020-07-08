@@ -12,7 +12,7 @@
 include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
-include "inc/dword.plh"
+include "inc/int32.plh"
 // TODO TEMP COMMENTED OUT include "inc/stdio.plh"
 include "inc/acornc.plh"
 
@@ -36,26 +36,16 @@ end
 word results_head = 0
 word results_tail_ptr = @results_head
 
-def puti32(p)#0
-    byte ten[4], j[4], k[4]
-    dword_fromuword(@ten, 10)
-    if dword_isult(p, @ten)
-	putc(^p + '0')
-    else
-	dword_div(@j, @k, p, @ten)
-	puti32(@j)
-	putc(k[0] + '0')
-    fin
-end
-
 def time_delta(start, finish)#1
     // We can get away with ignoring the fifth byte; the result will be
     // correct unless there's a difference of more than one in the fifth
     // byte, and that's just not going to happen.
-    byte delta_dword[4]
-    dword_sub(@delta_dword, finish, start)
-    if dword_isuword(@delta_dword)
-	return dword_touword(@delta_dword)
+    byte delta_i32[t_i32]
+    load32(finish)
+    sub32(start)
+    store32(@delta_i32)
+    if delta_i32:2 == 0
+        return delta_i32:0
     fin
     return 0
 end
@@ -122,22 +112,25 @@ def intmath32()#0
     byte x[4], y[4], a[4]
     word i
     time(@start)
-    dword_fromuword(@x, 0)
-    dword_fromuword(@y, 9)
+    zero32(); store32(@x)
+    loadi16(9); store32(@y)
     puts("Start\n")
     for i = 1 to 1000
 	// x = x + (y * y - y) / y
-	dword_mul(@a, @y, @y)
-	dword_sub(@a, @a, @y)
-	dword_div(@a, 0, @a, @y)
-	dword_add(@x, @x, @a)
+        load32(@y)
+        mul32(@y)
+        sub32(@y)
+        div32(@y)
+        add32(@x)
+        store32(@x)
     next
     puts("Finish ")
     puti32(@x) // should be 8000
     putln()
     time(@finish)
     log_time(@intmath32str)
-    if not dword_isuword(@x) or dword_touword(@x)<>8000
+    load32(@x)
+    if not iseqi16(8000)
 	oserror(0, "intmath32 failed")
     fin
 end

@@ -28,7 +28,7 @@ MODE2      = rel/acorn/MODE2
 HANOI      = rel/acorn/HANOI
 BENCH1     = rel/acorn/BENCH1
 BENCH2     = rel/acorn/BENCH2
-DWORD      = rel/acorn/DWORD
+# SFTODO DELETE DWORD      = rel/acorn/DWORD
 BOUNCE     = rel/acorn/BOUNCE
 MODNAME    = rel/acorn/MODNAME
 LIB	   = rel/acorn/LIB
@@ -156,7 +156,7 @@ c64: $(PLVMZP_C64) $(PLASM) $(PLVM) $(PLVMC64)
 acorn: $(PLVMZP_ACN) $(PLASM) $(PLVM) $(DEMO_ACN) $(COMP_ACN)
 	-rm vmsrc/plvmzp.inc
 
-$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(PLVMACNJIT) $(PLVMACN128JIT) $(JIT_ACN) $(JIT_ACN128) $(JITUNE_ACN) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(DWORD) $(BOUNCE) $(MODNAME) $(LIB) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD) $(CAT_ACN) $(JT1) $(JT2)
+$(DEMO_ACN): $(PLVMACN) $(PLVMACN128) $(PLVMACNJIT) $(PLVMACN128JIT) $(JIT_ACN) $(JIT_ACN128) $(JITUNE_ACN) $(FILEIO_ACN) $(CONIO_ACN) hello test $(SIEVE) $(ACORNOS) $(DUMP) $(MODE) $(MODE2) $(HANOI) $(BENCH1) $(BENCH2) $(BOUNCE) $(MODNAME) $(LIB) $(STRPOOL) $(SORT) $(SORT1) $(SORT2) $(SYMTBL) $(DIVMOD) $(CAT_ACN) $(JT1) $(JT2) $(INT32) $(INT32TEST)
 	# SFTODO: Given I already rely on python for the build process, could I use the
 	# diskutils.py module to build the SSDs instead of beebasm? Would remove a dependency.
 	beebasm -i vmsrc/acorn/demo.beebasm -do rel/acorn/demo.ssd -title "PLASMA DEMO"
@@ -538,6 +538,7 @@ $(HANOI): samplesrc/acorn/hanoi.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/hanoi.pla > samplesrc/acorn/hanoi.a
 	acme --setpc 4094 -o $(HANOI) samplesrc/acorn/hanoi.a
 
+# SFTODO: I SHOULD PROBABLY USE PLASMATOOL OPTIMISER ON BENCH[12]
 $(BENCH1): samplesrc/acorn/bench1.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/bench1.pla > samplesrc/acorn/bench1.a
 	acme --setpc 4094 -o $(BENCH1) samplesrc/acorn/bench1.a
@@ -546,9 +547,10 @@ $(BENCH2): samplesrc/acorn/bench2.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/bench2.pla > samplesrc/acorn/bench2.a
 	acme --setpc 4094 -o $(BENCH2) samplesrc/acorn/bench2.a
 
-$(DWORD): libsrc/acorn/dword.pla $(PLASM)
-	./$(PLASM) -AMOW < libsrc/acorn/dword.pla > libsrc/acorn/dword.a
-	acme --setpc 4094 -o $(DWORD) libsrc/acorn/dword.a
+# SFTODO: DELETE
+# $(DWORD): libsrc/acorn/dword.pla $(PLASM)
+# 	./$(PLASM) -AMOW < libsrc/acorn/dword.pla > libsrc/acorn/dword.a
+# 	acme --setpc 4094 -o $(DWORD) libsrc/acorn/dword.a
 
 $(BOUNCE): samplesrc/acorn/bounce.pla $(PLASM)
 	./$(PLASM) -AMOW < samplesrc/acorn/bounce.pla > samplesrc/acorn/bounce.a
