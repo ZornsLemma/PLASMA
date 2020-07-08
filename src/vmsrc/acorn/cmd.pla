@@ -2330,9 +2330,9 @@ def docmds#0
             if perr
                 puts(@errorstr)
                 putb(perr)
+                putln()
                 perr = 0
             fin
-            putln()
         fin
         puts(@freestr)
         puth(heapavail)
