@@ -1,5 +1,5 @@
 // 32 bit (double word) arithmetic library
-// SFTODONOW: SHOULD DITCH THIS IN FAVOUR OF UPSTREAM INT32 LIBRARY
+// SFTODO: SHOULD DITCH THIS IN FAVOUR OF UPSTREAM INT32 LIBRARY
 
 // TODO: This code has not been heavily tested and may be buggy!
 
