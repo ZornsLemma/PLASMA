@@ -159,6 +159,7 @@ word lastsym
 // than one place, we don't need to do this for any other reason (which was not
 // always true in the past).
 byte errorstr[]   = "ERR:$"
+#endif
 //
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 #ifdef TIME
