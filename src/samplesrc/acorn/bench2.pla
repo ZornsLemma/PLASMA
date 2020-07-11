@@ -13,12 +13,12 @@ include "inc/acornos.plh"
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/int32.plh"
-// TODO TEMP COMMENTED OUT include "inc/stdio.plh"
+include "inc/fileio.plh"
 include "inc/acornc.plh"
 
 byte intmath16str[] = "intmath16"
 byte intmath32str[] = "intmath32"
-byte storestdiostr[] = "storestdio"
+byte storefileiostr[] = "storefileio"
 byte storebputstr[] = "storebput"
 byte storegbpbstr[] = "storegbpb"
 byte fncallstr[] = "fncall"
@@ -66,7 +66,7 @@ def show_times()#0
     p = results_head
     while p <> 0
 	puts(p=>r_name)
-	for i = 1 to 10 - ^(p=>r_name)
+	for i = 1 to 12 - ^(p=>r_name)
 	    putc(' ')
 	next
 	// TODO: Would be nice to align the decimal points
@@ -135,35 +135,41 @@ def intmath32()#0
     fin
 end
 
-// TODO: TEMP COMMENTED OUT
-// TODO: I should probably rewrite this using the standard fileio module
-//def storestdio()#0
-//    word i, file, oldheap
-//    oldheap = heapmark()
-//    time(@start)
-//    puts("Start\n")
-//    file = fopen_heap(256, "X.TEST", "w")
-//    if file == 0
-//	oserror(0, "Can't open test file")
-//    fin
-//    for i = 1 to 1000
-//	// TODO: The benchmark specifies "record handling"; is this reasonable?
-//	// I think I'd write it like this in C on any platform, but it's
-//	// not the same as the BBC BASIC benchmark in pcw.bas...
-//	if fputs("1234567890qwertyuiop\n", file) == EOF
-//	    fclose(file)
-//	    oserror(0, "Error writing test file")
-//	fin
-//    next
-//    if fclose(file) == EOF
-//	oserror(0, "Can't close test file")
-//    fin
-//    call_oscli("DELETE X.TEST")
-//    puts("Finish\n")
-//    time(@finish)
-//    heaprelease(oldheap)
-//    log_time(@storestdiostr)
-//end
+// All the store*() benchmarks write the string as raw text whereas the
+// specification says to use "record handling". I think I'd write the benchmark
+// in this way in C on any platform, but what we're doing here is not a fair
+// comparison with the BASIC version of the benchmark in pcw.bas.
+
+def storefileio()#0
+    word i, file, str
+    time(@start)
+    puts("Start\n")
+    // Using 'str' like this isn't quite the same as the other versions of this
+    // benchmark, but since we need to know the string length in order to test
+    // the return value of fileio::write(), this seems the most natural way to
+    // write it.
+    str = "1234567890qwertyuiop\n"
+    fileio:create("X.TEST", $FE, $1000) // $FE and $1000 may be "wrong" but irrelevant on Acorn
+    file = fileio:open("X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    for i = 1 to 1000
+	if fileio:write(file, str + 1, ^str) <> ^str
+	    fileio:close(file)
+	    oserror(0, "Error writing test file")
+	fin
+    next
+    if fileio:close(file) <> 0
+	oserror(0, "Can't close test file")
+    fin
+    if fileio:destroy("X.TEST") <> 0
+        oserror(0, "Can't delete test file")
+    fin
+    puts("Finish\n")
+    time(@finish)
+    log_time(@storefileiostr)
+end
 
 def storebput()#0
     // TODO: we could install an error handler at errjb here to close the
@@ -176,7 +182,6 @@ def storebput()#0
 	oserror(0, "Can't open test file")
     fin
     for i = 1 to 1000
-	// TODO: Keep this in sync with storestdio() if that changes.
 	p = "1234567890qwertyuiop\n"
 	j = ^p
 	while j > 0
@@ -205,7 +210,6 @@ def storegbpb()#0
     fin
     block.0 = file
     for i = 1 to 1000
-	// TODO: Keep this in sync with storestdio() if that changes.
         p = "1234567890qwertyuiop\n"
 	block:1 = p + 1; block:3 = high_order_address()
 	block:5 = ^p; block:7 = 0
@@ -233,7 +237,7 @@ def fncall()#0
     puts("Start\n")
     j = 0
     for i = 1 to n
-	// We musn't use a large argument to sum() as otherwise the recursion
+	// We mustn't use a large argument to sum() as otherwise the recursion
 	// overruns the 16 element stack.
 	j = j + sum(10)
     next
@@ -249,7 +253,7 @@ mode(7)
 intmath16()
 intmath32()
 fncall()
-// TODO TEMP COMMENTED OUT storestdio()
+storefileio()
 storebput()
 storegbpb()
 show_times()
