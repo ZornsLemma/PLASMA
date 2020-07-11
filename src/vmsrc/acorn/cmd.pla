@@ -155,31 +155,11 @@ byte jitsize     = 0
 word symtblchunk
 word lastsym
 //
-// String pool.
-// We don't strictly speaking need this, now that the CS opcode uses string
-// pooling in PLAS128 in a way which works even if there's a mode change
-// between two executions of the same CS opcode. However, not using this
-// manual string pool only saves 12 bytes in PLAS32 and it costs 5 bytes in
-// PLAS128, because we need a copy of the string in the binary and on the
-// parameter stack (the binary is in main RAM here, not in sideways
-// RAM), so we stick with it. TODO: We could in principle conditionally
-// compile this, but it's awfully fiddly. SFTODO: Perhaps reconsider this
-// tradeoff and switch to literal strings instead of this pool
-// SFTODO: Probably not worth it, but we could make PLAS128's CS opcode
-// recognise if IPH is <$80 and behave like PLAS32's CS opcode in that case -
-// this would bloat the VM code slightly but might be worth it if it simplifies
-// string handling for this file.
-//
-//byte verstr[]     = "PLASMA "
-//byte freestr[]    = "MEM FREE:$"
-//#ifdef PLAS128
-//    byte xfreestr[]	  = ", AUX FREE:$"
-//#endif
+// String pool; this just saves memory where the same string is used in more
+// than one place, we don't need to do this for any other reason (which was not
+// always true in the past).
 byte errorstr[]   = "ERR:$"
-//byte prompt[]     = "PLASMA"
-//byte huhstr[]     = "?\n"
-//byte colonstr[]   = ": "
-#endif
+//
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 #ifdef TIME
     byte start_time[osword_read_time_block_size]
