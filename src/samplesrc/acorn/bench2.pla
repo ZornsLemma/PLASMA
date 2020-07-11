@@ -268,9 +268,11 @@ def loadfileio()#0
     repeat
         txtbuf = fileio:read(file, @txtbuf + 1, MAXLNLEN)
         lines++
-        puts(@txtbuf) // SFTODO: INSTEAD SHOULD STRCMP() IT
+        //puts(@txtbuf)
     until txtbuf == 0
-    puti(lines) // SFTODO: SHOULD VALIDATE IT
+    if lines <> 1000
+        oserror(0, "Incorrect number of lines in test file")
+    fin
     if fileio:close(file) <> 0
 	oserror(0, "Can't close test file")
     fin
