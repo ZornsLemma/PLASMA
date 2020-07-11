@@ -170,15 +170,15 @@ word lastsym
 // this would bloat the VM code slightly but might be worth it if it simplifies
 // string handling for this file.
 //
-byte verstr[]     = "PLASMA "
-byte freestr[]    = "MEM FREE:$"
-#ifdef PLAS128
-    byte xfreestr[]	  = ", AUX FREE:$"
-#endif
+//byte verstr[]     = "PLASMA "
+//byte freestr[]    = "MEM FREE:$"
+//#ifdef PLAS128
+//    byte xfreestr[]	  = ", AUX FREE:$"
+//#endif
 byte errorstr[]   = "ERR:$"
-byte prompt[]     = "PLASMA"
-byte huhstr[]     = "?\n"
-byte colonstr[]   = ": "
+//byte prompt[]     = "PLASMA"
+//byte huhstr[]     = "?\n"
+//byte colonstr[]   = ": "
 #endif
 byte hexchar[]    = '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 #ifdef TIME
@@ -2185,7 +2185,7 @@ def docmds#0
       putln
       puts(@errorstr)
       putb(^errnum)
-      puts(@colonstr)
+      puts(": ")
       puts(errstr)
       putln
       // We must put a zero-length string at syscmdln so we don't try to interpret the
@@ -2325,7 +2325,7 @@ def docmds#0
                     call_oscli(syscmdln)
                     break
                 otherwise
-                    puts(@huhstr)
+                    puts("?\n")
             wend
             if perr
                 puts(@errorstr)
@@ -2334,14 +2334,14 @@ def docmds#0
                 perr = 0
             fin
         fin
-        puts(@freestr)
+        puts("MEM FREE:$")
         puth(heapavail)
     #ifdef PLAS128
-        puts(@xfreestr)
+        puts(", AUX FREE:$")
         puth(xheapfree(xheap))
     #endif
         putln
-        puts(@prompt)
+        puts("PLASMA")
         gets(':') // we know this returns string at inbuff == syscmdln
     loop
     #endif
