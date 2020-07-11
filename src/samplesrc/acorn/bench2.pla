@@ -61,6 +61,16 @@ def log_time(name)#0
     results_tail_ptr = result+r_next
 end
 
+def puti_pad(i)#0
+    if i < 100
+        putc(' ')
+    fin
+    if i < 10
+        putc(' ')
+    fin
+    puti(i)
+end
+
 def show_times()#0
     word p, i
     p = results_head
@@ -69,8 +79,7 @@ def show_times()#0
 	for i = 1 to 12 - ^(p=>r_name)
 	    putc(' ')
 	next
-	// TODO: Would be nice to align the decimal points
-	puti(p=>r_time / 100)
+	puti_pad(p=>r_time / 100)
 	putc('.')
 	puti(p=>r_time % 100)
 	putc('s')
