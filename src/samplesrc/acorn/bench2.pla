@@ -22,6 +22,7 @@ byte storefileiostr[] = "storefileio"
 byte storebputstr[] = "storebput"
 byte storegbpbstr[] = "storegbpb"
 byte fncallstr[] = "fncall"
+byte loadfileiostr[] = "loadfileio"
 
 // Benchmark start/finish times
 byte start[5]
@@ -35,6 +36,7 @@ end
 
 word results_head = 0
 word results_tail_ptr = @results_head
+const MAXLNLEN = 80
 
 def time_delta(start, finish)#1
     // We can get away with ignoring the fifth byte; the result will be
@@ -252,6 +254,31 @@ def storegbpb()#0
     log_time(@storegbpbstr)
 end
 
+def loadfileio()#0
+    word file, lines
+    byte txtbuf[MAXLNLEN+2]
+    time(@start)
+    puts("Start\n")
+    file = fileio:open("X.TEST")
+    if file == 0
+	oserror(0, "Can't open test file")
+    fin
+    fileio:newline(file, $7F, $0D)
+    lines = -1
+    repeat
+        txtbuf = fileio:read(file, @txtbuf + 1, MAXLNLEN)
+        lines++
+        puts(@txtbuf) // SFTODO: INSTEAD SHOULD STRCMP() IT
+    until txtbuf == 0
+    puti(lines) // SFTODO: SHOULD VALIDATE IT
+    if fileio:close(file) <> 0
+	oserror(0, "Can't close test file")
+    fin
+    puts("Finish\n")
+    time(@finish)
+    log_time(@loadfileiostr)
+end
+
 def sum(n)#1
     if n == 0
 	return 0
@@ -284,8 +311,9 @@ intmath16()
 intmath32()
 fncall()
 storefileio()
-storebput()
-storegbpb()
+// SFTODO TCO storebput()
+// SFTODO TCO storegbpb()
+loadfileio()
 show_times()
 done
 
