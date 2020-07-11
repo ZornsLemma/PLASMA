@@ -90,7 +90,8 @@ def show_times()#0
 	for i = 1 to 10 - ^(p=>r_name)
 	    putc(' ')
 	next
-	// TODO: Would be nice to align the decimal points
+	// TODO: Would be nice to align the decimal points - I should copy the
+        // code across from bench2.pla.
 	puti(p=>r_time / 100)
 	putc('.')
 	puti(p=>r_time % 100)
