@@ -310,10 +310,13 @@ def aciobufs(iobufs)
                     // allocate fewer buffers than requested. This might be OK
                     // but it perhaps deserves a comment.
                     iobuf=>s_addr = heapalloc(IOBUF_MAX_SIZE)
-                    // SFTODO: This is a copy of Apple II code, but I'm not sure
-                    // it's right. Surely we should decrement iobufs even if
-                    // iobuf=>s_addr is non-0, as we *have* a buffer and that
-                    // counts?
+                    // We copy the Apple II implementation here; the idea seems
+                    // to be that if you call fileio:iobufalloc(2) twice, you
+                    // end up with four buffers allocated, not that each call
+                    // independently ensures there are two buffers allocated and
+                    // the second call is therefore a no-op. SFTODO: Actually I'm
+                    // not too sure that is how the Apple II code works. Let's wait and see
+                    // if Dave has any comments on issue #60.
                     iobufs--
                     if not iobufs
                         return freebuf
