@@ -5,10 +5,10 @@
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 
-// This must not be JITted; if any of our functions get JITted the machine code
-// be discarded once the next "+FOO" command gets executed but the symbol table
-// will still contain the address of that machine code and random code will be
-// executed the next time they are called instead.
+// This must not be JITted; if any of our functions get JITted the machine
+// code will be discarded once the next "+FOO" command gets executed but
+// the symbol table will still contain the address of that machine code and
+// random code will be executed the next time they are called instead.
 sysflags nojitc
 
 // There's no requirement to chain modopen() functions, but let's demonstrate
