@@ -93,13 +93,6 @@ end
 const FLAG_DIRTY = $01 // Buffer contains data not yet written to disk
 const FLAG_EOF   = $02 // EOF reached
 const FLAG_EMPTY = $80 // Buffer is empty
-// SFTODO: struct version gives 14856 bytes free in compiler compared to 14851
-// free in older version, so it isn't "expensive" - current flags rewrite is
-// now at 14865, now 14869 - now with the crude version of the assembler read(),
-// 14875 bytes free, which is reassuring as (ignoring the minor penalty for
-// assembler code on PLAS128 where it can't live in AUX memory) it suggestes the
-// assembler version is not significantly bloating the module. Now 14905 bytes
-// free. Now 14913 bytes free.
 word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 
 // This implementation is in assembler to avoid the overhead of doing the
@@ -107,7 +100,7 @@ word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 // most of its bulk operations to machine code via memcpy()) but it's not really
 // performance critical and this code is optimised mainly for size.
 predef fillbuf()#0
-asm acread(refnum, buf, len)
+asm acread(refnum, buf, len)#1
     !SOURCE "vmsrc/plvmzp.inc"
     ; SFTODO: Strictly speaking, we can't assume SCRATCH remains valid across our call to
     ; fillbuf(), but in practice we can get away with it. (call() uses SRC, so
