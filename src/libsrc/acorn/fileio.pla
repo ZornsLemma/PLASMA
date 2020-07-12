@@ -48,9 +48,8 @@ end
 //
 // Predefined functions
 //
-predef acgetpfx(path), acsetpfx(path), acgetsetfileinfo(path, fileinfo), acgeteof(refnum), acseteof(refnum, eofl, eofh), aciobufs(iobufs), acopen(path), acclose(refnum)
+predef acgetpfx(path), acsetpfx(path), acdummy2(a, b), acgeteof(refnum), acseteof(refnum, eofl, eofh), aciobufs(iobufs), acopen(path), acclose(refnum)
 predef acread(refnum, buf, len), acwrite(refnum, buf, len), accreate(path, type, aux), acdestroy(path)
-predef acrename(oldpath, newpath)
 predef acnewline(refnum, emask, nlchar)
 predef aconline(unit, buf)
 predef acblock(unit, buf, block)
@@ -59,8 +58,8 @@ predef acblock(unit, buf, block)
 // Exported function table.
 //
 word fileio[]
-word = @acgetpfx, @acsetpfx, @acgetsetfileinfo, @acgetsetfileinfo, @acgeteof, @acseteof, @aciobufs, @acopen, @acclose
-word = @acread, @acwrite, @accreate, @acdestroy, @acrename
+word = @acgetpfx, @acsetpfx, @acdummy2, @acdummy2, @acgeteof, @acseteof, @aciobufs, @acopen, @acclose
+word = @acread, @acwrite, @accreate, @acdestroy, @acdummy2
 word = @acnewline
 word = @aconline
 word = @acblock // readblock
@@ -233,17 +232,18 @@ def acgetpfx(path)
     // to emulate more of the Apple functionality in this file this might turn
     // out to be relevant.
     ^path = 0
+    perr = 0
     return path
 end
 
 def acsetpfx(path)
     // ENHANCEMENT: See acgetpfx()
+    perr = 0
     return path
 end
 
-def acgetsetfileinfo(path, fileinfo)
-    // ENHANCEMENT: Not supported yet; since the dummy implementation is the
-    // same we share it for both functions.
+def acdummy2(path, fileinfo)
+    // ENHANCEMENT: Not supported yet
     perr = $01
     return perr
 end
@@ -341,7 +341,7 @@ def acopen(path)
     byte i
     word iobuf
     
-    // SFTODO: SET PERR ON VARIOUS PATHS?
+    // SFTODO: SET PERR ON VARIOUS PATHS
 //SFTODOputs("FOO2 ")
 //SFTODOputi(iobuf_array[0])
     for i = 0 to MAX_IOBUFS-1
@@ -376,7 +376,7 @@ def acclose(refnum)
 
     // We allow the same file to be closed multiple times (the Apple II
     // implementation seems to allow this), but if you try to read() or write()
-    // after closing that will have undefined results.
+    // after closing that will have undefined results. SFTODO: NEED TO THINK ABOUT THIS, IT'S FAR FROM CLEAR THE A2 IMPLEMENTATION *DOES* ALLOW THIS (A QUICK READ JUST NOW SUGGESTS IT WOULD RETURN $45 IF YOU CLOSED A SECOND TIME)
     if iobuf->s_handle
         if iobuf->s_flags & FLAG_DIRTY
             flushbuf(iobuf, iobuf->s_size)
@@ -393,6 +393,7 @@ end
 def acwrite(refnum, buf, len)
     word iobuf, origlen, buffer, chunk_size
     byte size
+    // SFTODO: NEED TO SET PERR ON VARIOUS PATHS
 
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
@@ -463,12 +464,6 @@ def acdestroy(path)
     // want to treat that as an error or not?
     call(osfile, osfile_delete_object, @block, @block >> 8, 0)
     perr = 0
-    return perr
-end
-
-def acrename(oldpath, newpath)
-    // ENHANCEMENT: Not supported yet
-    perr = $01
     return perr
 end
 
