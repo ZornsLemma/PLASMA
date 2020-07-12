@@ -175,7 +175,7 @@ def storefileio()#0
     // the return value of fileio::write(), this seems the most natural way to
     // write it.
     str = "1234567890qwertyuiop\n"
-    fileio:create("X.TEST", $FE, $1000) // $FE and $1000 may be "wrong" but irrelevant on Acorn
+    fileio:create("X.TEST", $04, $0000) // $04 is ASCII text file (on Apple)
     file = fileio:open("X.TEST")
     if file == 0
 	oserror(0, "Can't open test file")

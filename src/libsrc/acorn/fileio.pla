@@ -441,24 +441,23 @@ def accreate(path, type, aux)
     byte pathcr[maxpathlen]
     byte refnum
 
-    stocr(path, @pathcr)
-
-    // SFTODO: I am not sure if this should truncate a file which doesn't exist;
-    // currently it will, because that's what osfind_output does. I don't know
-    // what the Apple implementation will do in this case.
-    refnum = call(osfind, osfind_output, @pathcr, @pathcr >> 8, 0).0
-    if refnum == 0
-        // SFTODO: Can this happen? Let's assume it can for now. We failed to
-        // create the file.
-        perr = 1 // SFTODO!?
+    if type == $0F
+        // ENHANCEMENT: This is an attempt to create a directory, which we don't
+        // currently support.
+        perr = $4B // unsupported storage_type; not perfect error but it will do
     else
-        // We successfully created the file; now close the handle.
-        // SFTODO: This is a bit inefficient and might add to the sluggishness
-        // of file I/O, especially on a real disc. Not sure we can do much about
-        // it, but just possibly we could keep the file open in anticipation of
-        // a subsequent fileio:open() with the same path.
+        stocr(path, @pathcr)
+
+        // I believe the Apple II ProDOS implementation will return error $47 if
+        // asked to create a file which already exists, so we do the same.
+        refnum = call(osfind, osfind_input, @pathcr, @pathcr >> 8, 0).0
+        if refnum <> 0
+            perr = $47 // duplicate filename
+        else
+            refnum = call(osfind, osfind_output, @pathcr, @pathcr >> 8, 0).0
+            perr = 0
+        fin
         call(osfind, osfind_close, 0, refnum, 0)
-        perr = 0
     fin
     return perr
 end
@@ -486,7 +485,6 @@ end
 def acnewline(refnum, emask, nlchar)
     word iobuf
 
-    // SFTODO: CAN WE MAKE THE COMPILER DO THIS CALCULATION?
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
     iobuf->s_emask = emask
     iobuf->s_nlchar = nlchar
