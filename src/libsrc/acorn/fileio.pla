@@ -399,140 +399,6 @@ def acclose(refnum)
     return perr
 end
 
-//asm SFTODOSKETCHREAD(refnum, buf, len)
-//    STRUCTPTR = SCRATCH ; 2 bytes
-//    LEN = SCRATCH+2 ; 2 bytes
-//    INDEX = SCRATCH+4 ; 1 byte
-//    ; SFTODO Pretending we have struct-based data and we've got our address in
-//    ; STRUCTPTR
-//    ; SFTODO Pretending buf argument is in DST
-//    ; SFTODO Pretending len argument is in LEN
-//    ; SFTODO Pretending index struct elem copied to INDEX
-//    ; SFTODO Pretending ADDR is pointer to iobuf_addr
-//
-//LOOP1
-//    LDA LEN
-//    ORA LEN+1
-//    BEQ LOOP1DONE
-//    ; SFTODO WE COULD WORK WITH A 'LOCAL' ZP COPY OF FLAGS IF IT WOULD HELP
-//    LDY #FLAGSOFFSET
-//    LDA (STRUCTPTR),Y
-//    BPL NOTSPECIALFLAG
-//    SFTODOHANDLE WHAT IS INDEX=2/3 CASE IN PLASMA CODE
-//NOTSPECIALFLAG
-//LOOP2
-//    LDA LEN
-//    BNE +
-//    DEC LEN+1
-//+   DEC LEN
-//    LDY INDEX
-//    LDA (ADDR),Y
-//    INY
-//    STY INDEX
-//    LDY #0 ; SFTODO: OR WE COULD KEEP X=0 AND USE STA (ZP,X) IN NEXT LINE?
-//    STA (DST),Y
-//    INC DST
-//    BNE +
-//    INC DST+1
-//+   LDY EMASK
-//    BEQ NOTNEWLINEMODE
-//    AND EMASK
-//    CMP NLCHAR
-//    BEQ NEWLINEMATCH
-//NOTNEWLINEMODE
-//    CPY SIZE
-//    BNE INDEXNESIZE
-//    SFTODODOSTUFF
-//    JMP LOOP1
-//INDEXNESIZE
-//    LDA LEN
-//    ORA LEN+1
-//    BNE LOOP2
-//
-//    
-//    
-//DONE
-//    SFTODO
-//end
-
-// SFTODONOW: PROBABLY WANT TO REWRITE AT LEAST THE CORE PART OF THIS IN ASSEMBLER
-// LATER ON, OF COURSE (AND SAME FOR acwrite())
-// SFTODO: DO I NEED TO BE CLEVER TO ALLOW READ AND WRITE ON THE SAME OPEN FILE?
-//def acreadSFTODOOLD(refnum, buf, len)
-//    word iobuf, origlen, buffer
-//    byte index, size, flags, emask, nlchar, stop, c
-//
-//    iobuf = @iobuf_array + (refnum-1)*t_iobuf
-//
-//    origlen = len
-//
-//    buffer = iobuf=>s_addr
-//    index = iobuf->s_index
-//    size = iobuf->s_size
-//    flags = iobuf->s_flags
-//    emask = iobuf->s_emask
-//    nlchar = iobuf->s_nlchar
-//
-//    while len <> 0
-//        if flags
-//            if flags & FLAG_EMPTY
-//                index = 0
-//                size, flags = fillbuf(iobuf)
-//                // This may have set flags to EOF, which is why the following
-//                // 'if' is not 'elsif'.
-//            fin
-//            if flags & FLAG_EOF
-//                break 
-//            fin
-//        fin
-//
-//        stop = FALSE
-//        repeat
-//
-//            // SFTODO: In PLASMA it would probably be more efficient to set
-//            // buffer = buffer + index at start and just do ^buffer here, but
-//            // when this gets translated to assembly index will be the Y
-//            // register so this will be the natural way to express it.
-//            c = ^(buffer + index)
-//            ^buf = c
-//            //putc('X'); putc(c) // SFTODO
-//            buf++
-//            len--
-//            index++
-//
-//            if emask <> 0 and ((c & emask) == nlchar)
-//                stop = TRUE
-//                break
-//            fin
-//        until len == 0 or index == size
-//
-//        if index == size
-//            // We've exhausted our buffer.
-//            if size <> 0
-//                // The last fillbuf() read less than IOBUF_MAX_SIZE bytes, so we
-//                // know any subsequent read would return 0 bytes and we're therefore
-//                // at EOF now.
-//                flags = FLAG_EOF
-//            else
-//                // The last fillbuf() read IOBUF_MAX_SIZE bytes, so we want to try
-//                // another read.
-//                flags = FLAG_EMPTY
-//            fin
-//        fin
-//
-//        if stop or len == 0 // SFTODO: CAN'T WE MAKE THIS THE WHILE CONDITION?
-//            break
-//        fin
-//    loop
-//
-//    iobuf->s_index = index
-//    iobuf->s_size = size
-//    iobuf->s_flags = flags
-//
-//    perr = 0 // SFTODO: SHOULD WE EVER RETURN WITH perr = $4C (EOF)?
-//    return origlen - len
-//end
-
 def acwrite(refnum, buf, len)
     word iobuf, origlen, buffer, chunk_size
     byte size
@@ -620,6 +486,7 @@ end
 def acnewline(refnum, emask, nlchar)
     word iobuf
 
+    // SFTODO: CAN WE MAKE THE COMPILER DO THIS CALCULATION?
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
     iobuf->s_emask = emask
     iobuf->s_nlchar = nlchar
