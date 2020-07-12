@@ -511,6 +511,7 @@ $(CONIO_C64): libsrc/c64/conio.pla $(PLVM02) $(PLASM)
 	acme --setpc 4094 -o $(CONIO_C64) libsrc/c64/conio.a
 
 $(FILEIO_ACN): libsrc/acorn/fileio.pla $(PLASM)
+	# SFTODO SHOULD USE PLASMATOOL OPT ON THIS
 	./$(PLASM) -AMOW < libsrc/acorn/fileio.pla > libsrc/acorn/fileio.a
 	acme --setpc 4094 -o $(FILEIO_ACN) libsrc/acorn/fileio.a
 

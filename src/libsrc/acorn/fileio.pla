@@ -432,7 +432,8 @@ def acwrite(refnum, buf, len)
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
     origlen = len
-    buffer = iobuf=>s_addr
+    // SFTODO: GET RID OF 'BUFFER' (IT'S ONLY USED ONCE) AND JUST USE iobuf=>s_addr INLINE? CHECK GENERATED CODE TO SEE IF IT IS MUCH SMALLER/FASTER
+    buffer = iobuf=>s_addr // SFTODO RENAME 'buffer' - BIT CONFUSING GIVEN WE HAVE 'buf' IN ARGS
     size = iobuf->s_size
 
     while len > 0
