@@ -68,7 +68,7 @@ word = @acblock // writeblock
 //
 // Globally accessible error code
 //
-export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES
+export byte perr // SFTODO MAKE SURE I UPDATE THIS AS APPROPRIATE AND WITH APPLE-COMPATIBLE VALUES - ACTUALLY MAYBE I SHOULD NOT BE USING APPLE-COMPATIBLE VALUES, BECAUSE WHEN/IF I START WRAPPING THINGS WITH SETJMP TO TRAP ACORN ERRORS FROM FILESYSTEMS I MAY WANT TO RETURN THE ACORN ERROR CODES
 word SFTODOHACK
 word SFTODOHACK2
 
@@ -288,8 +288,7 @@ def acseteof(refnum, eofl, eofh)
     return 0
 end
 
-// SFTODO: Can't help feeling this could be rewritten to be clearer, e.g. let the
-// PLASMA compiler work out the start position of iobuf_array[i] for us?
+// SFTODO: Can't help feeling this could be rewritten to be clearer
 def aciobufs(iobufs)
     byte i
     word iobuf, freebuf
@@ -350,7 +349,7 @@ def fillbuf()#0
     block:5 = IOBUF_MAX_SIZE
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
-    iobufzp->s_size = IOBUF_MAX_SIZE - block:5 // only care about low byte
+    iobufzp->s_size = IOBUF_MAX_SIZE - block:5 // we only care about the low byte
     iobufzp->s_flags = (block:5 == IOBUF_MAX_SIZE) ?? FLAG_EOF :: 0
     perr = 0 // SFTODO: maybe this doesn't need to set perr itself
 end
@@ -380,18 +379,16 @@ def acopen(path)
     for i = 0 to MAX_IOBUFS-1
         iobuf = @iobuf_array + i*t_iobuf
         //SFTODOputs("i "); puti(i); puts(" "); puti(iobuf=>s_addr); puts(" "); puti(iobuf->s_handle);putln()
-        if iobuf=>s_addr and not iobuf->s_handle
+        if iobuf=>s_addr and iobuf->s_handle == 0
             stocr(path, @pathcr)
             // We use osfind_update; this allows both read and write access but won't
             // create a file which doesn't already exist. fileio::create() is provided
             // to create new files prior to opening them.
             iobuf->s_handle = call(osfind, osfind_update, @pathcr, @pathcr >> 8, 0).0
-            if not iobuf->s_handle
+            if iobuf->s_handle == 0
                 return 0
             fin
             iobuf->s_emask = 0
-            // SFTODO: PERM COMMENT IF TRUE - we indicate starting state of
-            // 'need to fill buffer' by setting index > size and index == 2
             iobuf->s_index = 0
             iobuf->s_size = 0
             iobuf->s_flags = FLAG_EMPTY
@@ -407,10 +404,14 @@ def acclose(refnum)
 
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
-    // We allow the same file to be closed multiple times (the Apple II
-    // implementation seems to allow this), but if you try to read() or write()
-    // after closing that will have undefined results. SFTODO: NEED TO THINK ABOUT THIS, IT'S FAR FROM CLEAR THE A2 IMPLEMENTATION *DOES* ALLOW THIS (A QUICK READ JUST NOW SUGGESTS IT WOULD RETURN $45 IF YOU CLOSED A SECOND TIME)
-    if iobuf->s_handle
+    // SFTODO: It's not necessarily a problem, but we don't initialise
+    // iobuf_array so if you call close() on a refnum not previously returned
+    // by open() it may try to close an arbitrary file handle. Think about it -
+    // perhaps INIT should set all the handles to 0? Would this still leave a
+    // "hole"? In reality you simply shouldn't be doing this, but I could
+    // vaguely see cases where code is trying to clean up and wants to close
+    // everything "to be safe".
+    if iobuf->s_handle <> 0
         if iobuf->s_flags & FLAG_DIRTY
             flushbuf(iobuf, iobuf->s_size)
         fin
