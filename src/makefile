@@ -20,6 +20,7 @@ PLVMACN128 = rel/acorn/PLAS128
 PLVMACNJIT    = rel/acorn/PLASJIT
 PLVMACN128JIT = rel/acorn/P128JIT
 FILEIO_ACN = rel/acorn/FILEIO
+FILEIO_ACN_UNOPT = rel/acorn/FILEIOUO
 CONIO_ACN  = rel/acorn/CONIO
 ACORNOS    = rel/acorn/ACORNOS
 DUMP       = rel/acorn/DUMP
@@ -511,9 +512,10 @@ $(CONIO_C64): libsrc/c64/conio.pla $(PLVM02) $(PLASM)
 	acme --setpc 4094 -o $(CONIO_C64) libsrc/c64/conio.a
 
 $(FILEIO_ACN): libsrc/acorn/fileio.pla $(PLASM)
-	# SFTODO SHOULD USE PLASMATOOL OPT ON THIS
 	./$(PLASM) -AMOW < libsrc/acorn/fileio.pla > libsrc/acorn/fileio.a
-	acme --setpc 4094 -o $(FILEIO_ACN) libsrc/acorn/fileio.a
+	acme --setpc 4094 -o $(FILEIO_ACN_UNOPT) libsrc/acorn/fileio.a
+	python plasmatool/pt.py -O $(FILEIO_ACN_UNOPT) libsrc/acorn/fileioo.a
+	acme --setpc 4094 -o $(FILEIO_ACN) libsrc/acorn/fileioo.a
 
 $(CONIO_ACN): libsrc/acorn/conio.pla $(PLASM)
 	./$(PLASM) -AMOW < libsrc/acorn/conio.pla > libsrc/acorn/conio.a

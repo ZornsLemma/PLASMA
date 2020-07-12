@@ -78,9 +78,10 @@ class LabelledBlob(object):
         if self in dependencies:
             return
         dependencies.add(self)
-        # By the time this gets called, the only LabelledBlob of interest should be the
-        # data/asm blob which doesn't depend on anything else.
-        assert len(self.references.values()) == 0
+        for i in range(len(self.blob)):
+            reference = self.references.get(i)
+            if reference is not None:
+                reference.add_dependencies(dependencies)
 
     def dump(self, outfile, rld):
         i = 0
