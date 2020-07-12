@@ -160,6 +160,10 @@ IOBUFTOZPLOOP
     ; SFTODO If nothing else we could change LDA#xx:ADC#0 above to LDA#0:ADC#xx
     ; the we could store the 0 from accumulator into STOP.
 
+; SFTODO: Could we simply use the V flag instead of having STOP? Might need to
+; preserve flags across fillbuf() call, but it *might* be a net simplification.
+; But maybe not, as we'd probably need an absolute address of (eg) an RTS to
+; set V via BIT, and this code needs to be relocatable. But think about it.
 LENLOOP
     LDA STOP
     BNE LENLOOPDONE
@@ -201,6 +205,9 @@ NOTEMPTY
     BNE LENLOOPDONE
 FLAGSCLEAR
 
+; SFTODO: Wouldn't it be more consistent and otherwise neutral to test STOP here
+; immediately after DATAANDLENLOOP label as we do with LENLOOP label, instead of
+; testing it before we branch here?
 DATAANDLENLOOP
     LDA LEN
     BNE +
