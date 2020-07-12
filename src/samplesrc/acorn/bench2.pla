@@ -268,7 +268,7 @@ def loadfileio()#0
     repeat
         txtbuf = fileio:read(file, @txtbuf + 1, MAXLNLEN)
         lines++
-        //puts(@txtbuf)
+        puts(@txtbuf) // SFTODO TEMP UNCO
     until txtbuf == 0
     if lines <> 1000
         oserror(0, "Incorrect number of lines in test file")

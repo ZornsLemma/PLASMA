@@ -114,7 +114,7 @@ asm acread(refnum, buf, len)
     IOBUF = SCRATCH ; 2 bytes
     LEN = SCRATCH+2 ; 2 bytes
     IOBUFZP = SCRATCH+4 ; 8 bytes
-    STOP = SCRATCH+12 ; 1 byte
+    ; STOP = SCRATCH+12 ; 1 byte SFTODO MOVE OUTBUF DOWN TO FILL GAP
     OUTBUF = SCRATCH+13 ; 2 bytes
     S_ADDR = 0
     S_SIZE = 3
@@ -155,18 +155,7 @@ IOBUFTOZPLOOP
     LDA ESTKH,X
     STA LEN+1
 
-    LDA #0 ; SFTODO Surely we have a 0 in a register we can save elsewhere in setup?
-    STA STOP 
-    ; SFTODO If nothing else we could change LDA#xx:ADC#0 above to LDA#0:ADC#xx
-    ; the we could store the 0 from accumulator into STOP.
-
-; SFTODO: Could we simply use the V flag instead of having STOP? Might need to
-; preserve flags across fillbuf() call, but it *might* be a net simplification.
-; But maybe not, as we'd probably need an absolute address of (eg) an RTS to
-; set V via BIT, and this code needs to be relocatable. But think about it.
 LENLOOP
-    LDA STOP
-    BNE LENLOOPDONE
     LDA LEN
     ORA LEN+1
     BEQ LENLOOPDONE
@@ -205,10 +194,6 @@ NOTEMPTY
     BNE LENLOOPDONE
 FLAGSCLEAR
 
-; SFTODO: Wouldn't it be more consistent and otherwise neutral to test STOP here
-; immediately after DATAANDLENLOOP label as we do with LENLOOP label, instead of
-; testing it before we branch here?
-DATAANDLENLOOP
     LDA LEN
     BNE +
     DEC LEN+1
@@ -216,9 +201,19 @@ DATAANDLENLOOP
 
     LDY IOBUFZP+S_INDEX
     LDA (IOBUFZP+S_ADDR),Y
-    ; SFTODO: INC IOBUFZP+S_INDEX WOULD BE SAME CYCLES BUT ONE BYTE SHORTER
     INY
     STY IOBUFZP+S_INDEX
+    CPY IOBUFZP+S_SIZE
+    BNE INDEXNESIZE
+    PHA
+    LDY #FLAG_EMPTY
+    LDA IOBUFZP+S_SIZE
+    BEQ SETFLAG
+    LDY #FLAG_EOF
+SETFLAG
+    STY IOBUFZP+S_FLAGS
+    PLA
+INDEXNESIZE
     LDY #0
     STA (OUTBUF),Y
 
@@ -228,36 +223,10 @@ DATAANDLENLOOP
 +
 
     LDY IOBUFZP+S_EMASK
-    BEQ NOTEMASK
+    BEQ LENLOOP
     AND IOBUFZP+S_EMASK
     CMP IOBUFZP+S_NLCHAR
-    BNE NOTEMASK
-    ; SFTODO: JUST DO "INC STOP"? OR 'STY STOP' - WE CHECKED Y!=0 ABOVE, RIGHT?
-    LDA #1
-    STA STOP
-NOTEMASK
-
-; SFTODO: CAN'T WE SORT OF DO THIS BIT BEFORE THE EMASK CHECK AND THEN INSTEAD
-; OF FAFFING SETTING AND CHECKING 'STOP' WE CAN SIMPLY BRANCH TO LENLOOPDONE
-; TO STOP EARLY? WE ONLY NEED TO FAFF WITH STOP AFAICS TO SET S_FLAGS BEFORE WE
-; STOP, AND SURELY WE CAN DO THIS MORE NEATLY?
-    LDA IOBUFZP+S_SIZE
-    CMP IOBUFZP+S_INDEX
-    BNE INDEXNESIZE
-    LDY #FLAG_EMPTY
-    LDA IOBUFZP+S_SIZE
-    BEQ SETFLAG
-    LDY #FLAG_EOF
-SETFLAG
-    STY IOBUFZP+S_FLAGS
-    CLC
-    BCC LENLOOP
-INDEXNESIZE
-    LDA STOP
-    BNE LENLOOPDONE ; SFTODO: IF WE JUST DID 'BEQ DATAANDLENLOOP' WE COULD DELETE FOLLOWING LEN=0 CVHECK AS WE DO THAT THERE ANYWAY
-    LDA LEN
-    ORA LEN+1
-    BNE DATAANDLENLOOP
+    BNE LENLOOP
 
 LENLOOPDONE
 
