@@ -404,13 +404,12 @@ def acclose(refnum)
 
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
-    // SFTODO: It's not necessarily a problem, but we don't initialise
-    // iobuf_array so if you call close() on a refnum not previously returned
-    // by open() it may try to close an arbitrary file handle. Think about it -
-    // perhaps INIT should set all the handles to 0? Would this still leave a
-    // "hole"? In reality you simply shouldn't be doing this, but I could
-    // vaguely see cases where code is trying to clean up and wants to close
-    // everything "to be safe".
+    // Note that because the elements of iobuf_array which aren't explicitly
+    // initialised will default to 0, if you call close() on a refnum not
+    // previously returned by open() that will "work" and fall through to the
+    // error case below. I don't know if this is helpful, but some code just may
+    // want to try to clean things up by closing "everything" and at least it
+    // shouldn't close arbitrary file handles as a result.
     if iobuf->s_handle <> 0
         if iobuf->s_flags & FLAG_DIRTY
             flushbuf(iobuf, iobuf->s_size)
@@ -444,12 +443,12 @@ def acwrite(refnum, buf, len)
         len = len - chunk_size
         size = size + chunk_size
 
-        // SFTODO: NEXT LINE (AND MAYBE OTHERS) MAY FAIL DUE TO OPTIMISER
-        // WIDENING SOME "BYTE" OPERATIONS - ASSUMING WE DECIDE TO KEEP THIS
-        // BEHAVIOUR AND DOCUMENT IT, THIS CODE NEEDS TO BE WRITTEN TO COPE (AND
-        // PUT COMMENTS IN) - OF COURSE WE COULD SIMPLY USE 'WORD' INSTEAD OF
-        // 'BYTE' IF WE KNOW THIS ISN'T GOING TO BE CONVERTED TO ASM AND WON'T
-        // BENEFIT FROM BYTE MUCH/AT ALL ANYWAY
+        // Note that size is a byte variable; if anything incorrectly optimised
+        // this code so we looked at the full word-width result of the previous
+        // addition to size here, the test would fail because word-width 'size'
+        // would be IOBUF_MAX_SIZE not 0. This doesn't currently happen and it
+        // probably won't, but I'm noting this here just in case. (I think - but
+        // I am not sure - this was a problem at one point.)
         if size == 0 // i.e. effectively IOBUF_MAX_SIZE
             flushbuf(iobuf, IOBUF_MAX_SIZE)
             iobuf->s_flags = 0
