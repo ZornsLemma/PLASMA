@@ -425,15 +425,13 @@ def acclose(refnum)
 end
 
 def acwrite(refnum, buf, len)
-    word iobuf, origlen, buffer, chunk_size
+    word iobuf, origlen, chunk_size
     byte size
     // SFTODO: NEED TO SET PERR ON VARIOUS PATHS
 
     iobuf = @iobuf_array + (refnum-1)*t_iobuf
 
     origlen = len
-    // SFTODO: GET RID OF 'BUFFER' (IT'S ONLY USED ONCE) AND JUST USE iobuf=>s_addr INLINE? CHECK GENERATED CODE TO SEE IF IT IS MUCH SMALLER/FASTER
-    buffer = iobuf=>s_addr // SFTODO RENAME 'buffer' - BIT CONFUSING GIVEN WE HAVE 'buf' IN ARGS
     size = iobuf->s_size
 
     while len > 0
@@ -441,7 +439,7 @@ def acwrite(refnum, buf, len)
         if chunk_size > len
             chunk_size = len
         fin
-        memcpy(buffer + size, buf, chunk_size)
+        memcpy(iobuf=>s_addr + size, buf, chunk_size)
         buf = buf + chunk_size
         len = len - chunk_size
         size = size + chunk_size
