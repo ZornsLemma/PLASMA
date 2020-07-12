@@ -73,17 +73,17 @@ word SFTODOHACK
 word SFTODOHACK2
 
 //
-// I/O buffers SFTODO RENAME THIS COMMENTED SECTION?
+// I/O buffers
 //
-// We always support at least one I/O buffer without needing to call
-// iobufalloc(); this is consistent with the Apple implementation. 
 const MAX_IOBUFS = 4
 const IOBUF_MAX_SIZE = 256 // SFTODO: Rename IOBUF_SIZE? MAX implies variability...
+// We always support at least one I/O buffer without needing to call
+// iobufalloc(); this is consistent with the Apple implementation. 
 byte iobuf0[IOBUF_MAX_SIZE]
 struc t_iobuf
     word s_addr    // Pointer to IOBUF_MAX_SIZE bytes of space or 0
     byte s_handle  // Acorn OS file handle or 0
-    byte s_size    // Bytes used at s_addr
+    byte s_size    // Bytes used at s_addr (0 means 256 iff s_flags <> FLAG_EMPTY)
     byte s_index   // Current position within s_addr
     byte s_flags   // Flags
     byte s_emask   // newline mode emask (0 = disabled)
@@ -101,14 +101,10 @@ word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 predef fillbuf()#0
 asm acread(refnum, buf, len)#1
     !SOURCE "vmsrc/plvmzp.inc"
-    ; SFTODO: Strictly speaking, we can't assume SCRATCH remains valid across our call to
-    ; fillbuf(), but in practice we can get away with it. (call() uses SRC, so
-    ; that's why we don't use SRC and DST.)
     IOBUF = SCRATCH ; 2 bytes
     LEN = SCRATCH+2 ; 2 bytes
     IOBUFZP = SCRATCH+4 ; 8 bytes
-    ; STOP = SCRATCH+12 ; 1 byte SFTODO MOVE OUTBUF DOWN TO FILL GAP
-    OUTBUF = SCRATCH+13 ; 2 bytes
+    OUTBUF = SCRATCH+12 ; 2 bytes
     S_ADDR = 0
     S_SIZE = 3
     S_INDEX = 4
@@ -119,15 +115,14 @@ asm acread(refnum, buf, len)#1
     FLAG_EOF = $02
 
     LDY ESTKL+2,X ; REFNUM
-    DEY ; SFTODO: IF WE USED IOBUF_ARRAY-8 AS THE BASE, WE COULD AVOID THIS DEY
     TYA
     ASL
     ASL
     ASL
     ; CLC - pre-shift A value should have been <= MAX_IOBUFS
-    ADC #$FF ; TODO IOBUF_ARRAY LOW
+    ADC #$FF ; lo(@iobuf_array - t_iobuf)
     STA IOBUF
-    LDA #$FF ; TODO IOBUF_ARRAY HIGH
+    LDA #$FF ; hi(@iobuf_array - t_iobuf)
     ADC #0
     STA IOBUF+1
 
@@ -499,9 +494,9 @@ for SFTODOHACK2=0 to 1 // SFTODO: WOULD BE 'to 3' IF WE DIDN'T USE THE EXPERIMEN
         SFTODOHACK++
     loop
     if SFTODOHACK2==0
-        ^SFTODOHACK = @iobuf_array
+        ^SFTODOHACK = @iobuf_array - t_iobuf
     elsif SFTODOHACK2==1
-        ^SFTODOHACK = @iobuf_array >> 8
+        ^SFTODOHACK = (@iobuf_array - t_iobuf) >> 8
     elsif SFTODOHACK2==2
         ^SFTODOHACK = @fillbuf
     else
