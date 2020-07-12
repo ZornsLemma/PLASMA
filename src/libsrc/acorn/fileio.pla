@@ -105,6 +105,9 @@ asm acread(refnum, buf, len)#1
     LEN = SCRATCH+2 ; 2 bytes
     IOBUFZP = SCRATCH+4 ; 8 bytes
     OUTBUF = SCRATCH+12 ; 2 bytes
+
+    ; Assembly equivalents of some PLASMA constants above; these obviously need
+    ; to be kept in sync. We also implicitly assume that t_iobuf is 8.
     S_ADDR = 0
     S_SIZE = 3
     S_INDEX = 4
@@ -114,6 +117,8 @@ asm acread(refnum, buf, len)#1
     FLAG_EMPTY = $80
     FLAG_EOF = $02
 
+    ; Store the address of the relevant t_iobuf structure at IOBUF for ease of
+    ; access.
     LDY ESTKL+2,X ; REFNUM
     TYA
     ASL
@@ -126,6 +131,10 @@ asm acread(refnum, buf, len)#1
     ADC #0
     STA IOBUF+1
 
+    ; Copy our t_iobuf structure into zero page for ease of access; apart from
+    ; saving continually tweaking Y to access different members via (IOBUF),Y,
+    ; this also makes it possible to access the data at S_ADDR using
+    ; (IOBUFZP+S_ADDR),Y addressing.
     LDY #S_NLCHAR
 IOBUFTOZPLOOP
     LDA (IOBUF),Y
@@ -133,24 +142,38 @@ IOBUFTOZPLOOP
     DEY
     BPL IOBUFTOZPLOOP
 
+    ; Copy the other function arguments into zero page; we need to use
+    ; (OUTBUF),Y addressing and we need a working copy of the length so we can
+    ; decrement it and stop when we hit zero.
     LDA ESTKL+1,X
     STA OUTBUF
     LDA ESTKH+1,X
     STA OUTBUF+1
-
     LDA ESTKL,X
     STA LEN
     LDA ESTKH,X
     STA LEN+1
 
-LENLOOP
+    ; Main loop; we go round this copying a byte at a time into OUTBUF until
+    ; 1) we've read the specified number of bytes, or
+    ; 2) we've hit EOF, or
+    ; 3) we've hit a newline (if configured)
+READLOOP
+    ; Stop if we've read the specified number of bytes.
     LDA LEN
     ORA LEN+1
-    BEQ LENLOOPDONE
+    BEQ READLOOPDONE
 
+    ; Check the flags. They're probably clear so we check that first to avoid
+    ; unnecessary delays. If the empty flag is set we need to call fillbuf(),
+    ; which will either fill the buffer or set the EOF flag. The EOF flag might
+    ; already be set from a previous call; either way, if the EOF flag is set
+    ; we obviously can't read any more. (The dirty flag is irrelevant here;
+    ; the fileio interface doesn't really support reading and writing on the
+    ; same file.)
     LDA IOBUFZP+S_FLAGS
     BEQ FLAGSCLEAR
-    BPL NOTEMPTY
+    BPL NOTEMPTY ; S_EMPTY == $80
     LDA #0
     STA IOBUFZP+S_INDEX
     ; SFTODO JSR $FFFF ; SFTODO FILLBUF
@@ -159,14 +182,20 @@ LENLOOP
     LDA IOBUFZP+S_FLAGS
 NOTEMPTY
     AND #FLAG_EOF ; SFTODO IF WE MADE FLAG_EOF=$01 WE COULD LSR A AND TEST WITH BCC/BCS
-    BNE LENLOOPDONE
+    BNE READLOOPDONE
 FLAGSCLEAR
 
+    ; Decrement LEN by 1.
     LDA LEN
     BNE +
     DEC LEN+1
 +   DEC LEN
 
+    ; Copy a byte from the iobuf to OUTBUF and increment S_INDEX and OUTBUF. If
+    ; S_INDEX now matches S_SIZE we've consumed all the data in the iobuf; if
+    ; the iobuf didn't contain a full 256 bytes (S_SIZE of 0) we must have hit
+    ; EOF, otherwise we just set the empty flag so the next byte read will call
+    ; fillbuf().
     LDY IOBUFZP+S_INDEX
     LDA (IOBUFZP+S_ADDR),Y
     INY
@@ -189,14 +218,17 @@ INDEXNESIZE
     INC OUTBUF+1
 +
 
+    ; Carry on reading, unless the newline feature is enabled and we just read
+    ; a newline.
     LDY IOBUFZP+S_EMASK
-    BEQ LENLOOP
+    BEQ READLOOP
     AND IOBUFZP+S_EMASK
     CMP IOBUFZP+S_NLCHAR
-    BNE LENLOOP
+    BNE READLOOP
 
-LENLOOPDONE
-
+READLOOPDONE
+    ; Copy the zero page t_iobuf back into iobuf_array so our changes aren't
+    ; lost.
     LDY #S_FLAGS
 ZPTOIOBUFLOOP
     LDA IOBUFZP,Y
@@ -206,6 +238,9 @@ ZPTOIOBUFLOOP
 
     ; SFTODO: NEED TO SET PERR = 0
 
+    ; The return value is the number of bytes read, i.e. the original 'len'
+    ; argument minus our zero page LEN (which started off as a copy of 'len' and
+    ; got decremented every time we read a byte).
     SEC
     LDA ESTKL,X
     SBC LEN
@@ -222,7 +257,7 @@ end
 
 def acgetpfx(path)
     // ENHANCEMENT: Not supported yet. I think this is the Apple equivalent of
-    // the Acorn concept of the `current directory', and we're probably as well
+    // the Acorn concept of the 'current directory', and we're probably as well
     // to let the Acorn filesystem manage this itself. However, if we started
     // to emulate more of the Apple functionality in this file this might turn
     // out to be relevant.
