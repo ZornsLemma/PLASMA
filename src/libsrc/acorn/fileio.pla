@@ -14,6 +14,7 @@
 include "inc/cmdsys.plh"
 include "inc/cmdsysac.plh"
 include "inc/acornc.plh"
+include "vmsrc/acorn/plvmzp.plh"
 
 // SFTODO: This is a hack, it needs to be 255 or 256 bytes and that means we
 // need to use callalloca to allocate a temporary buffer. But for now let's just
@@ -105,7 +106,7 @@ word iobuf_array[t_iobuf * MAX_IOBUFS / 2] = @iobuf0
 // newline() checks for every byte in PLASMA code (acwrite() is able to defer
 // most of its bulk operations to machine code via memcpy()) but it's not really
 // performance critical and this code is optimised mainly for size.
-predef fillbuf(iobuf)#2
+predef fillbuf()#0
 asm acread(refnum, buf, len)
     !SOURCE "vmsrc/plvmzp.inc"
     ; SFTODO: Strictly speaking, we can't assume SCRATCH remains valid across our call to
@@ -166,28 +167,11 @@ LENLOOP
     ; SFTODO: COULD THIS CALL FILLBUF A SECOND TIME IF WE ALREADY HAD AN EOF, SINCE
     ; WE DON'T CHECK EOF BEFORE CALLING FILLBUF? EVEN IF IT THIS IS TRUE, I
     ; SUSPECT IT'S HARMLESS.
-    ; SFTODO: IF THIS IS THE SOLE CALLER OF FILLBUF(), AS IT ALMOST CERTAINLY
-    ; IS, CAN'T WE SIMPLY HAVE FILLBUF OPERATE DIRECTLY ON IOBUFZP AND AVOID
-    ; PASSING ANY ARGUMENTS TO IT AND THUS (PROBABLY) AVOID ANY NEED TO FUTZ
-    ; AROUND WITH X AND ESTKL HERE? IT WOULDN'T NEED TO RETURN ANYTHING EITHER
-    ; AS IT COULD MODIFY IOBUFZP IN PLACE.
     LDA #0
     STA IOBUFZP+S_INDEX
-    DEX
-    LDA IOBUF
-    STA ESTKL,X
-    LDA IOBUF+1
-    STA ESTKH,X
     ; SFTODO JSR $FFFF ; SFTODO FILLBUF
     !BYTE $20 ; JSR
     word @fillbuf
-    ; SFTODO
-    LDA ESTKL,X
-    STA IOBUFZP+S_FLAGS
-    LDA ESTKL+1,X
-    STA IOBUFZP+S_SIZE
-    INX
-    INX
 NOTEMPTY
     LDA IOBUFZP+S_FLAGS ; SFTODO MOVE THIS BEFORE NOTEMPTY LABEL?
     AND #FLAG_EOF ; SFTODO IF WE MADE FLAG_EOF=$01 WE COULD LSR A AND TEST WITH BCC/BCS
@@ -216,7 +200,6 @@ SETFLAG
 INDEXNESIZE
     LDY #0
     STA (OUTBUF),Y
-
     INC OUTBUF
     BNE +
     INC OUTBUF+1
@@ -342,23 +325,20 @@ end
 // SFTODO: THIS HAS ONLY ONE CALLER, *BUT* SINCE THE FINAL VERSION WILL PROBABLY
 // WANT TO USE EXCEPT()/THROW() WE KEEP IT SEPARATE SO A FINAL ASSEMBLY LANGUAGE
 // IMPLEMENTATION CAN CALL BACK INTO PLASM TO HANDLE THAT FIDDLY STUFF
-def fillbuf(iobuf)#2
+def fillbuf()#0
+    const iobufzp = scratch + 4 // IOBUFZP from acread()
     byte block[osgbpb_block_size]
     //SFTODOputs("FILLBUF"); puti(iobuf); putln()
 
-    block.0 = iobuf->s_handle
-    block:1 = iobuf=>s_addr
+    block.0 = iobufzp->s_handle
+    block:1 = iobufzp=>s_addr
     block:3 = 0 // SFTODO: almost certainly fine/correct
     block:5 = IOBUF_MAX_SIZE
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
     perr = 0 // SFTODO: maybe this doesn't need to set perr itself
-    if block:5 == IOBUF_MAX_SIZE // EOF
-        return 0, FLAG_EOF
-    fin
-    // SFTODO: Final implementation may not need the & $FF, e.g. if this is
-    // called from assembler code which just ignores the high byte.
-    return ((IOBUF_MAX_SIZE - block:5) & $FF), 0
+    iobufzp->s_size = IOBUF_MAX_SIZE - block:5 // only care about low byte
+    iobufzp->s_flags = (block:5 == IOBUF_MAX_SIZE) ?? FLAG_EOF :: 0
 end
 
 // SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
