@@ -329,13 +329,13 @@ def fillbuf()#0
 
     block.0 = iobufzp->s_handle
     block:1 = iobufzp=>s_addr
-    block:3 = 0 // SFTODO: almost certainly fine/correct
+    block:3 = 0
     block:5 = IOBUF_MAX_SIZE
     block:7 = 0
     call(osgbpb, osgbpb_read_ignoring_new_ptr, @block, @block >> 8, 0)
-    perr = 0 // SFTODO: maybe this doesn't need to set perr itself
     iobufzp->s_size = IOBUF_MAX_SIZE - block:5 // only care about low byte
     iobufzp->s_flags = (block:5 == IOBUF_MAX_SIZE) ?? FLAG_EOF :: 0
+    perr = 0 // SFTODO: maybe this doesn't need to set perr itself
 end
 
 // SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
@@ -345,7 +345,7 @@ def flushbuf(iobuf, size)#0
 
     block.0 = iobuf->s_handle
     block:1 = iobuf=>s_addr
-    block:3 = 0 // SFTODO?! almost certainly fine/correct
+    block:3 = 0
     block:5 = size
     block:7 = 0
     call(osgbpb, osgbpb_write_ignoring_new_ptr, @block, @block >> 8, 0)
