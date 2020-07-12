@@ -78,7 +78,7 @@ word SFTODOHACK2
 // We always support at least one I/O buffer without needing to call
 // iobufalloc(); this is consistent with the Apple implementation. 
 const MAX_IOBUFS = 4
-const IOBUF_MAX_SIZE = 256
+const IOBUF_MAX_SIZE = 256 // SFTODO: Rename IOBUF_SIZE? MAX implies variability...
 byte iobuf0[IOBUF_MAX_SIZE]
 struc t_iobuf
     word s_addr    // Pointer to IOBUF_MAX_SIZE bytes of space or 0
@@ -126,7 +126,7 @@ asm acread(refnum, buf, len)
     FLAG_EOF = $02
 
     LDY ESTKL+2,X ; REFNUM
-    DEY
+    DEY ; SFTODO: IF WE USED IOBUF_ARRAY-8 AS THE BASE, WE COULD AVOID THIS DEY
     TYA
     ASL
     ASL
@@ -156,7 +156,7 @@ IOBUFTOZPLOOP
     STA LEN+1
 
     LDA #0 ; SFTODO Surely we have a 0 in a register we can save elsewhere in setup?
-    STA STOP
+    STA STOP 
     ; SFTODO If nothing else we could change LDA#xx:ADC#0 above to LDA#0:ADC#xx
     ; the we could store the 0 from accumulator into STOP.
 
@@ -170,6 +170,14 @@ LENLOOP
     LDA IOBUFZP+S_FLAGS
     BEQ FLAGSCLEAR
     BPL NOTEMPTY
+    ; SFTODO: COULD THIS CALL FILLBUF A SECOND TIME IF WE ALREADY HAD AN EOF, SINCE
+    ; WE DON'T CHECK EOF BEFORE CALLING FILLBUF? EVEN IF IT THIS IS TRUE, I
+    ; SUSPECT IT'S HARMLESS.
+    ; SFTODO: IF THIS IS THE SOLE CALLER OF FILLBUF(), AS IT ALMOST CERTAINLY
+    ; IS, CAN'T WE SIMPLY HAVE FILLBUF OPERATE DIRECTLY ON IOBUFZP AND AVOID
+    ; PASSING ANY ARGUMENTS TO IT AND THUS (PROBABLY) AVOID ANY NEED TO FUTZ
+    ; AROUND WITH X AND ESTKL HERE? IT WOULDN'T NEED TO RETURN ANYTHING EITHER
+    ; AS IT COULD MODIFY IOBUFZP IN PLACE.
     LDA #0
     STA IOBUFZP+S_INDEX
     DEX
@@ -188,7 +196,7 @@ LENLOOP
     INX
     INX
 NOTEMPTY
-    LDA IOBUFZP+S_FLAGS
+    LDA IOBUFZP+S_FLAGS ; SFTODO MOVE THIS BEFORE NOTEMPTY LABEL?
     AND #FLAG_EOF ; SFTODO IF WE MADE FLAG_EOF=$01 WE COULD LSR A AND TEST WITH BCC/BCS
     BNE LENLOOPDONE
 FLAGSCLEAR
@@ -216,6 +224,7 @@ DATAANDLENLOOP
     AND IOBUFZP+S_EMASK
     CMP IOBUFZP+S_NLCHAR
     BNE NOTEMASK
+    ; SFTODO: JUST DO "INC STOP"? OR 'STY STOP' - WE CHECKED Y!=0 ABOVE, RIGHT?
     LDA #1
     STA STOP
 NOTEMASK
@@ -304,6 +313,8 @@ def acseteof(refnum, eofl, eofh)
     return 0
 end
 
+// SFTODO: Can't help feeling this could be rewritten to be clearer, e.g. let the
+// PLASMA compiler work out the start position of iobuf_array[i] for us?
 def aciobufs(iobufs)
     byte i
     word iobuf, freebuf
@@ -320,7 +331,14 @@ def aciobufs(iobufs)
                 iobuf = @iobuf_array + i
                 if not iobuf=>s_addr
                     //SFTODOputs("ALLOC")
+                    // SFTODO: Note that if heapalloc() fails, we will silently
+                    // allocate fewer buffers than requested. This might be OK
+                    // but it perhaps deserves a comment.
                     iobuf=>s_addr = heapalloc(IOBUF_MAX_SIZE)
+                    // SFTODO: This is a copy of Apple II code, but I'm not sure
+                    // it's right. Surely we should decrement iobufs even if
+                    // iobuf=>s_addr is non-0, as we *have* a buffer and that
+                    // counts?
                     iobufs--
                     if not iobufs
                         return freebuf
