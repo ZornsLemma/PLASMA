@@ -272,7 +272,7 @@ def acsetpfx(path)
     return path
 end
 
-def acdummy2(path, fileinfo)
+def acdummy2(a, b)
     // ENHANCEMENT: Not supported yet
     perr = $01
     return perr
