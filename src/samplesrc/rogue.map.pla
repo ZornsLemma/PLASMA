@@ -178,7 +178,7 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // spaces via OSWRCH - we clear the screen at the start so no need to do
 // anything to write a space. We'd need to do something like count up how
 // many spaces we've skipped and move the cursor to the right place when
-// we see the next non-space. Or perhaps we could get rid of the clear 
+// we see the next non-space. Or perhaps we could get rid of the clear
 // screen if we continue to write spaces (but my suspicion is that wouldn't
 // be such an improvement).
 // SFTODO: This doesn't emit newline at end of 40 chars, so (it's a good idea
@@ -205,8 +205,6 @@ asm drawscreen(scrn)#0
         CMP #$40
         PHP
         BCS NOTINV
-        EOR #$20
-        ADC #$20
         PHA
         LDA #17
         JSR $FFEE
@@ -219,9 +217,9 @@ asm drawscreen(scrn)#0
         PLA
 NOTINV
 	AND #$7F
-        CMP #$20 ; SFTODO EXPERIMENTAL
+        CMP #$20
         BCS +
-        LDA #'?'
+        ADC #$40
 +	JSR $FFEE
         PLP
         BCS NOTINV2
