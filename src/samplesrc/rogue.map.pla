@@ -834,8 +834,12 @@ export def drawvisentity(xofst, yofst, tile)#0
   fin
 end
 
+// SFTODO: SHOULD WE DO SOME LITTLE TOUCHES LIKE DISABLE CURSOR KEYS SO
+// PRESSING THEM DOESN'T ENTER "USELESS" SCREEN COPY MODE, OR TWEAK THEM SO THEY
+// CAN BE USED TO MOVE? MAYBE ALSO DISABLE ESCAPE KEY?
+
 //
-// Initialise screen
+// Initialise screen array
 //
 // Re-use map global to avoid needing to create a new one
 for map = 0 to scrnheight
