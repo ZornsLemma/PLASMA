@@ -8,18 +8,18 @@ putfile "rel/acorn/JITUNE", "JITUNE", &0000
 putfile "HELLO#FE1000", "HELLO", &0000
 putfile "TEST#FE1000", "TEST", &0000
 putfile "TESTLIB#FE1000", "TESTLIB", &0000
-putfile "rel/SIEVE#FE1000", "SIEVE", &0000
+;putfile "rel/SIEVE#FE1000", "SIEVE", &0000
 putfile "rel/acorn/ACORNOS", "ACORNOS", &0000
 putfile "rel/acorn/DUMP", "DUMP", &0000
 ;SFTODOTCOputfile "rel/acorn/MODE", "MODE", &0000
 ;SFTODOTCOputfile "rel/acorn/MODE2", "MODE2", &0000
-putfile "rel/acorn/JT1", "JT1", &0000
-putfile "rel/acorn/JT2", "JT2", &0000
+;putfile "rel/acorn/JT1", "JT1", &0000
+;putfile "rel/acorn/JT2", "JT2", &0000
 ;SFTODOputfile "rel/acorn/HANOI", "HANOI", &0000
 putfile "rel/acorn/BENCH1", "BENCH1", &0000
 putfile "rel/acorn/BENCH2", "BENCH2", &0000
 putfile "rel/acorn/BOUNCE", "BOUNCE", &0000
-putbasic "samplesrc/acorn/pcw.bas", "B.PCW"
+;putbasic "samplesrc/acorn/pcw.bas", "B.PCW"
 ;SFTODODELETEputfile "rel/acorn/DWORD", "DWORD", &0000
 putfile "rel/INT32#FE1000", "INT32", &0000
 putfile "rel/INT32TEST#FE1000", "INT32TS", &0000
@@ -28,16 +28,15 @@ putfile "rel/acorn/MODNAME", "MODNAME", &0000
 ;putfile "STDIOTS#FE1000", "STDIOTS", &0000
 ;putfile "rel/acorn/STRPOOL", "STRPOOL", &0000
 ;putfile "LJTEST#FE1000", "LJTEST", &0000
-putfile "rel/acorn/SORT", "SORT", &0000
-putfile "rel/acorn/SORT1", "SORT1", &0000
-putfile "rel/acorn/SORT2", "SORT2", &0000
+;putfile "rel/acorn/SORT", "SORT", &0000
+;putfile "rel/acorn/SORT1", "SORT1", &0000
+;putfile "rel/acorn/SORT2", "SORT2", &0000
 putfile "rel/acorn/SYMTBL", "SYMTBL", &0000
-;putfile "ROGUE#FE1000", "ROGUE", &0000
-;putfile "ROGUEIO#FE1000", "ROGUEIO", &0000
-;putfile "ROGUEMAP#FE1000", "ROGUEMA", &0000
-;putfile "ROGUECOMBAT#FE1000", "ROGUECO", &0000
-;putfile "samplesrc/LEVEL0#040000", "LEVEL0", &0000
-;putfile "samplesrc/LEVEL1#040000", "LEVEL1", &0000
+putfile "rel/ROGUE#FE1000", "ROGUE", &0000
+putfile "rel/ROGUEMAP#FE1000", "ROGUEMA", &0000
+putfile "rel/ROGUECOMBAT#FE1000", "ROGUECO", &0000
+putfile "samplesrc/LEVEL0#040000", "LEVEL0", &0000
+putfile "samplesrc/LEVEL1#040000", "LEVEL1", &0000
 putfile "rel/acorn/DIVMOD", "DIVMOD", &0000
 ;putfile "TubeSwitch", "TS", &0000
 ;putfile "ROD#FE1000", "ROD", &0000
