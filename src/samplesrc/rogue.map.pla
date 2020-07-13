@@ -202,11 +202,11 @@ asm drawscreen(scrn)#0
 	LDX #22
 -	LDY #0
 --	LDA (TMP),Y
-        CMP #&40
+        CMP #$40
         PHP
         BCS NOTINV
-        EOR #&20
-        ADC #&20
+        EOR #$20
+        ADC #$20
         PHA
         LDA #17
         JSR $FFEE
@@ -357,7 +357,10 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
   //
   // Clear screen
   //
-  conio:home()
+  // SFTODO PROB DON'T WANT THIS BUT LET'S KEEP IT HERE COMMENTED OUT FOR MOMENT conio:home()
+  for yscr = 0 to scrnheight
+    memset(screen[yscr], $A0A0, scrnwidth)
+  next
   //
   // Draw background map if in light
   //
