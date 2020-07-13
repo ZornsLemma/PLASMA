@@ -906,4 +906,14 @@ map = 0
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 
+//
+// Warn if using mode 7
+//
+
+if call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7
+  puts("\nWarning: you are playing in mode 7, you\n")
+  puts("will not be able to tell which squares\n")
+  puts("are illuminated.\n")
+fin
+
 done
