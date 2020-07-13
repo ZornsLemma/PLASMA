@@ -871,6 +871,22 @@ end
 // CAN BE USED TO MOVE? MAYBE ALSO DISABLE ESCAPE KEY?
 
 //
+// Print title page
+//
+
+conio:home()
+while ^titlestr
+  puts(titlestr)
+  titlestr = titlestr + ^titlestr + 1
+loop
+
+//
+// Miscellaneous Acorn initialisation. By doing this in this module's INIT
+// instead of the ROGUE module's INIT (which might be more logical, all else
+// being equal) this code will be discarded after it's executed.
+//
+
+//
 // Initialise screen array
 //
 // Re-use map global to avoid needing to create a new one
@@ -884,15 +900,5 @@ map = 0
 //
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
-
-//
-// Print title page
-//
-
-conio:home()
-while ^titlestr
-  puts(titlestr)
-  titlestr = titlestr + ^titlestr + 1
-loop
 
 done
