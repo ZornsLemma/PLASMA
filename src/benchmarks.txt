@@ -56,3 +56,7 @@ b-em, Master 128 OS 3.20, bench2, *DELETE B.PCW to free up catalogue space
 Before hacking in "dummy" except() call:
 drive noises on - storefileio 23.37s, loadfileio 16.87s (two runs, identical results)
 drive noises off - storefileio 20.01s, loadfileio 16.36s (two runs, identical results)
+With hacked in "dummy" except() call in fillbuf() only:
+drive noises on - storefileio 23.37s, loadfileio 17.13s (two runs, loadfileio 17.12s on second run)
+drive noises off - storefileio 20.01s, loadfileio 16.61s (two runs, identical results)
+That's actually quite encouraging - a 1.5% slowdown isn't great but it isn't terrible. I think a real implementation would bloat the code a little more but wouldn't have much of a difference on the speed.

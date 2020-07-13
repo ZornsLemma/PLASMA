@@ -341,6 +341,15 @@ end
 def fillbuf()#0
     const iobufzp = scratch + 4 // IOBUFZP from acread()
     byte block[osgbpb_block_size]
+    // SFTODO: TEMPORARY HACK FOR TIMING PURPOSES ONLY
+    word SFTODOHACK, SFTODOHACK2
+    if except2(@SFTODOHACK) <> 0
+        puts("SFTODO!")
+        while TRUE
+        loop
+    fin
+    SFTODOHACK2 = *errjb
+    *errjb = SFTODOHACK
     //SFTODOputs("FILLBUF"); puti(iobuf); putln()
 
     block.0 = iobufzp->s_handle
@@ -352,6 +361,7 @@ def fillbuf()#0
     iobufzp->s_size = IOBUF_MAX_SIZE - block:5 // we only care about the low byte
     iobufzp->s_flags = (block:5 == IOBUF_MAX_SIZE) ?? FLAG_EOF :: 0
     perr = 0 // SFTODO: maybe this doesn't need to set perr itself
+    *errjb = SFTODOHACK2
 end
 
 // SFTODONOW: THIS WILL EVENTUALLY NEED TO RETURN AN ERROR INDICATOR WHICH CALLER
