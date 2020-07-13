@@ -165,9 +165,7 @@ end
 
 def storefileio()#0
     word i, file, str
-    if fileio:destroy("X.TEST") <> 0
-        oserror(0, "Can't delete test file")
-    fin
+    fileio:destroy("X.TEST")
     time(@start)
     puts("Start\n")
     // Using 'str' like this isn't quite the same as the other versions of this
@@ -189,9 +187,7 @@ def storefileio()#0
     if fileio:close(file) <> 0
 	oserror(0, "Can't close test file")
     fin
-    //if fileio:destroy("X.TEST") <> 0
-    //    oserror(0, "Can't delete test file")
-    //fin
+    //fileio:destroy("X.TEST")
     puts("Finish\n")
     time(@finish)
     log_time(@storefileiostr)
@@ -201,9 +197,7 @@ def storebput()#0
     // TODO: we could install an error handler at errjb here to close the
     // file before passing the error on
     word file, i, j, p
-    if fileio:destroy("X.TEST") <> 0
-        oserror(0, "Can't delete test file")
-    fin
+    fileio:destroy("X.TEST")
     time(@start)
     puts("Start\n")
     file = call_osfind_open(osfind_output, "X.TEST")
@@ -231,9 +225,7 @@ def storegbpb()#0
     // file before passing the error on
     word file, i, j, p
     byte block[32]
-    if fileio:destroy("X.TEST") <> 0
-        oserror(0, "Can't delete test file")
-    fin
+    fileio:destroy("X.TEST")
     time(@start)
     puts("Start\n")
     file = call_osfind_open(osfind_output, "X.TEST")

@@ -492,10 +492,11 @@ def acdestroy(path)
 
     stocr(path, @pathcr)
     block:0 = @pathcr
-    // SFTODO: This will return with A=0 if the object does not exist - do we
-    // want to treat that as an error or not?
-    call(osfile, osfile_delete_object, @block, @block >> 8, 0)
-    perr = 0
+    if call(osfile, osfile_delete_object, @block, @block >> 8, 0).0 <> 0
+        perr = 0
+    else
+        perr = $46 // file not found
+    fin
     return perr
 end
 
