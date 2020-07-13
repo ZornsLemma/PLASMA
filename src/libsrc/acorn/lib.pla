@@ -36,6 +36,9 @@ const max_module_name_len = 16 // this is a fact about PLASMA module names
 
 // Data accessed across multiple instances of this module; this must be the first
 // global data since it's accessed at the address returned by lookupsym("LIB").
+// SFTODO: WE PROBABLY DO, BUT HAVE A THINK AND SEE IF WE *REALLY* NEED THE
+// INITIAL 'word base_data_ptr' MEMBER AND MAYBE DOCUMENT THIS A BIT BETTER IF
+// WE DO
 struc t_data
     word base_data_ptr
     byte lib_path[max_lib_path_len+1]
