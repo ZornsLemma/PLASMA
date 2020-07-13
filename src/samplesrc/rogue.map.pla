@@ -258,6 +258,20 @@ export def loadmap(level)
   //
   // Init the view map
   //
+  // SFTODO: I *think* it would be possible to replace viewmap by a packed
+  // array of bits to indicate whether a tile in 'map' has been seen or not.
+  // That would save 3.5K, less the extra code needed to handle the packed
+  // array - maybe 3K saving overall? I suspect the performance impact would
+  // be acceptable, maybe not even noticeable. However, this would be a
+  // potential source of bugs and it's not clear to me it's worth it - it might
+  // allow the game to run on a BBC B with PAGE=&1900 and no sideways or
+  // shadow RAM, but only in mode 7, which isn't ideal anyway. This would also
+  // mean a B+ 64K or B with shadow RAM and PAGE=&1900 could run the game in
+  // shadow mode 4. BITD this might have been worth it, but nowadays I think
+  // anyone running this is likely to have at least one sideways RAM bank which
+  // (either via a PAGE=&E00 filing system or use of PLAS128) would allow them
+  // to run the game anyway without this change.
+  //
   if not viewmap
     viewmap = heapalloc(mapsize)
   fin
