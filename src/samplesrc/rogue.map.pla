@@ -1,6 +1,7 @@
 //
 // Map module
 //
+include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/conio.plh"
 include "inc/fileio.plh"
@@ -846,6 +847,12 @@ for map = 0 to scrnheight
   screen[map] = @emscreen + 40 * map
 next
 map = 0
+
+//
+// Set up keyboard
+//
+call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
+call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 
 //
 // Print title page

@@ -540,7 +540,7 @@ end
 #endif
 export asm toupper(c)#1
 	LDA     ESTKL,X
-TOUPR	AND     #$7F
+TOUPR	; AND     #$7F SFTODO: This breaks arrow keys in rogue, I could work round it but gut feeling is it doesn't belong in here on Acorn port anyway - let's see if it causes problems. Just possibly the first JSR TOUPR in stodci should be preceded by AND #$7F to "compensate" but I'm not sure that's necessary either.
 	CMP     #'a'
 	BCC     +
 	CMP     #'z'+1

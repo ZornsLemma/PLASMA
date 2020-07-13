@@ -505,19 +505,19 @@ def play
         moveplayer(1)
       fin
     is 'W'
-    is $0B // Up Arrow
+    is 139 // Up Arrow
       moveplayer(1)
       break
     is 'S'
-    is $0A // Down Arrow
+    is 138 // Down Arrow
       moveplayer(-1)
       break
     is 'A'
-    is $08 // Left Arrow
+    is 136 // Left Arrow
       player.angle = (player.angle - 1) & 7
       break
     is 'D'
-    is $15 // Right Arrow
+    is 137 // Right Arrow
       player.angle = (player.angle + 1) & 7
       break
     is ' '
