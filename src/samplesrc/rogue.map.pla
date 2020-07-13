@@ -188,6 +188,8 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // SFTODO: Can/should I double-buffer the emulated screen, then I could
 // only update parts which have changed, and I could be mildly clever and
 // emit either CHR$(8) or CHR$(31)+x+y depending on which is more efficient.
+// SFTODO: Currently trying to get this basically working with inverse etc;
+// can worry about making it faster later.
 asm drawscreen(scrn)#0
 	!SOURCE "vmsrc/plvmzp.inc"
 	LDA #12
@@ -200,11 +202,35 @@ asm drawscreen(scrn)#0
 	LDX #22
 -	LDY #0
 --	LDA (TMP),Y
+        CMP #&40
+        PHP
+        BCS NOTINV
+        EOR #&20
+        ADC #&20
+        PHA
+        LDA #17
+        JSR $FFEE
+        LDA #0
+        JSR $FFEE
+        LDA #17
+        JSR $FFEE
+        LDA #135
+        JSR $FFEE
+        PLA
+NOTINV
 	AND #$7F
-	CMP #32
-	BCS ++
-	LDA #32
-++	JSR $FFEE
+	JSR $FFEE
+        PLP
+        BCS NOTINV2
+        LDA #17
+        JSR $FFEE
+        LDA #7
+        JSR $FFEE
+        LDA #17
+        JSR $FFEE
+        LDA #128
+        JSR $FFEE
+NOTINV2
 	INY
 	CPY #40
 	BNE --
@@ -830,6 +856,7 @@ export def drawvisentity(xofst, yofst, tile)#0
   y = ycentr+yofst
   if screen.[y, x] < $80
     screen.[y, x] = tile
+    // SFTODO: SHOULD I GET RID OF THE FOLLOWING? AND/OR CALL DRAWMAP() SOMEWHERE TO REFLECT THE CHANGE TO SCREEN?
     if x >= 0 and x < scrnwidth and y >= 0 and y <= scrnheight
       putc(31)
       putc(x)
