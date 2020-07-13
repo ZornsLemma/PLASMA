@@ -161,7 +161,17 @@ byte[scrnwidth] linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
-word[34] screen
+// Apple code for reference:
+// word[] screen
+// word = $400, $480, $500, $580, $600, $680, $700, $780
+// word = $428, $4A8, $528, $5A8, $628, $6A8, $728, $7A8
+// word = $450, $4D0, $550, $5D0, $650, $6D0, $750, @linebuffer // $7D0
+// Acorn code:
+word[2*8+7] screen // initialised in INIT below
+word = @linebuffer
+
+word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
+word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
 // TODO: There might be a performance improvement to be had by not writing
 // spaces via OSWRCH - we clear the screen at the start so no need to do
@@ -170,7 +180,10 @@ word[34] screen
 // we see the next non-space. Or perhaps we could get rid of the clear 
 // screen if we continue to write spaces (but my suspicion is that wouldn't
 // be such an improvement).
-asm drawscreen(scrn)#1 // SFTODO: CAN POSSIBLY MAKE THIS #0
+// SFTODO: This doesn't emit newline at end of 40 chars, so (it's a good idea
+// anyway) we should have some code on startup to make sure we are in a 40
+// char mode.
+asm drawscreen(scrn)#0
 	!SOURCE "vmsrc/plvmzp.inc"
 	LDA #12
 	JSR $FFEE
@@ -199,6 +212,7 @@ asm drawscreen(scrn)#1 // SFTODO: CAN POSSIBLY MAKE THIS #0
 +	DEX
 	BPL -
 	LDX ESP
+        INX
 	RTS
 end
 
@@ -819,6 +833,15 @@ export def drawvisentity(xofst, yofst, tile)#0
     fin
   fin
 end
+
+//
+// Initialise screen
+//
+// Re-use map global to avoid needing to create a new one
+for map = 0 to scrnheight
+  screen[map] = @emscreen + 40 * map
+next
+map = 0
 
 //
 // Print title page
