@@ -1,0 +1,12 @@
+I don't know if these count as spoilers or not...
+
+- You are carrying an oil lamp. You can decrease/increase its brightness using the < and > keys; the brighter it is the more oil you will burn.
+
+- Torches ('*') illuminate one square around themselves in all directions.
+
+- Illuminated squares are shown in inverse video (black on white).
+
+- You can turn the oil lamp off completely by pressing O. When it's completely off, you can see very little, not even the basic structure of the map you've uncovered, which is otherwise visible even if it's not in your line of sight.
+
+- What you can see depends on what direction you are facing.
+
