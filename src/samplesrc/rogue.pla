@@ -645,6 +645,7 @@ while loadmap(level)
       conio:gotoxy(xcentr, ycentr)
       putc(vplayer[player.angle])
     fin
+    //SFTODOTEMPputi(heapavail) - "TIGHTEST" IS PAGE=&E00 BUT NO SHADOW OR SWR IN MODE 7, 1147 HEAP FREE
     status
   until not play
   heaprelease(free_entities)
