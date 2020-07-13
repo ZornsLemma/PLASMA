@@ -135,6 +135,7 @@ const EXIT_TILE   = '='
 const OPAQUE_TILE = $01
 const VIEWED_TILE = $80
 const LIT_TILE    = $80
+// SFTODO: Really need to respect INV_TILE when updating screen for Acorn port
 const INV_TILE    = $3F
 const MAP_TILE    = $7F
 
