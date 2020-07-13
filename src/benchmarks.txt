@@ -48,3 +48,11 @@ new read() code takes 47/50/50 seconds
 - I guess a lot of the slowness was perhaps other things which Dave has now optimised
 drive noises off
 now with new write() code takes 41 seconds/40 seconds/40 seconds
+
+
+
+2020/07/13:
+b-em, Master 128 OS 3.20, bench2, *DELETE B.PCW to free up catalogue space
+Before hacking in "dummy" except() call:
+drive noises on - storefileio 23.37s, loadfileio 16.87s (two runs, identical results)
+drive noises off - storefileio 20.01s, loadfileio 16.36s (two runs, identical results)
