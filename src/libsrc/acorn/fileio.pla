@@ -341,6 +341,14 @@ end
 def fillbuf()#0
     const iobufzp = scratch + 4 // IOBUFZP from acread()
     byte block[osgbpb_block_size]
+    // SFTODO: Need to think about error handling with except2() etc - poking at
+    // the self-hosted compiler, the open() return value is usually checked (albeit
+    // perr is not examined, but that's not critical) but read()/write()/close()
+    // do not seem to get checked for errors. Arguably this is wrong but in
+    // practice this is probably not surprising. Maybe I should only do the except2()
+    // stuff on open() and maybe a few other functions where "bad filenames" etc
+    // might come into play, and let errors propagate up and return to "shell"
+    // for others???
     // SFTODO: TEMPORARY HACK FOR TIMING PURPOSES ONLY
     word SFTODOHACK, SFTODOHACK2
     if except2(@SFTODOHACK) <> 0
