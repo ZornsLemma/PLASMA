@@ -187,7 +187,7 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // SFTODO: We should probably turn the cursor off during this
 // SFTODO: Can/should I double-buffer the emulated screen, then I could
 // only update parts which have changed, and I could be mildly clever and
-// emit either CHR$(8) or CHR$(31)+x+y depending on which is more efficient.
+// emit either CHR$(9) or CHR$(31)+x+y depending on which is more efficient.
 // SFTODO: Currently trying to get this basically working with inverse etc;
 // can worry about making it faster later.
 asm drawscreen(scrn)#0
