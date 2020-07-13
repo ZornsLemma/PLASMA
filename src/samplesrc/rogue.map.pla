@@ -889,6 +889,7 @@ loop
 //
 // Initialise screen array
 //
+
 // Re-use map global to avoid needing to create a new one
 for map = 0 to scrnheight
   screen[map] = @emscreen + 40 * map
@@ -898,6 +899,7 @@ map = 0
 //
 // Set up keyboard
 //
+
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 
