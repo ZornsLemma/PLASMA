@@ -2163,6 +2163,8 @@ def docmds#0
       *errfp = @error_handler
     else
     #ifndef STANDALONE
+      // SFTODO: Whatever we do about closing open files after modexec() - see SFTODO
+      // below - we should probably do here as well.
       putln
       puts(@errorstr)
       putb(^errnum)
