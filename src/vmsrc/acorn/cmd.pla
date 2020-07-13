@@ -1698,7 +1698,7 @@ def modloadcr_internal(moddci, modcr)#1
     // Try to open the module; this gives us an open file handle in "handle" or
     // 0 if the module could not be found. If "handle" is not 0, modcr has been
     // modified in place to give the filename of the module; we need this so
-    // we can open it with OSFIND below.
+    // we can open it with OSFIND below. SFTODO: DO I MEAN OSFILE NOT OSFIND?
     //
     handle = modopen(modcr)#1
     if handle == 0
@@ -2221,6 +2221,7 @@ def docmds#0
                 // some alternative (perhaps using the manual "string pool" method for this
                 // string) would be worth it. Probably not, but I should at least have a
                 // permanent comment about this to avoid figuring it out a second time.
+                // SFTODO: This may not be true now I tweaked the CS opcode...
                 modloadpstr("JIT128")
                 // Allocate the remainder of the first sideways RAM bank to JITted
                 // machine code.
