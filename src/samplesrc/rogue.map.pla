@@ -219,7 +219,10 @@ asm drawscreen(scrn)#0
         PLA
 NOTINV
 	AND #$7F
-	JSR $FFEE
+        CMP #$20 ; SFTODO EXPERIMENTAL
+        BCS +
+        LDA #'?'
++	JSR $FFEE
         PLP
         BCS NOTINV2
         LDA #17
