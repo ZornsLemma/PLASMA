@@ -184,6 +184,10 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // SFTODO: This doesn't emit newline at end of 40 chars, so (it's a good idea
 // anyway) we should have some code on startup to make sure we are in a 40
 // char mode.
+// SFTODO: We should probably turn the cursor off during this
+// SFTODO: Can/should I double-buffer the emulated screen, then I could
+// only update parts which have changed, and I could be mildly clever and
+// emit either CHR$(8) or CHR$(31)+x+y depending on which is more efficient.
 asm drawscreen(scrn)#0
 	!SOURCE "vmsrc/plvmzp.inc"
 	LDA #12
