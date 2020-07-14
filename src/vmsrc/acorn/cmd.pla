@@ -1955,6 +1955,7 @@ def modloadcr_internal(moddci, modcr)#1
             xheap = init
 #else
             if symtblchunk == lowsymtblchunk
+                // Uncomment to print bytes freed: puti(heapmark - init); putln
                 heaprelease(init)
             fin
 #endif

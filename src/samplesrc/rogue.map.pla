@@ -1016,11 +1016,17 @@ export def ourgetkey()#1
 end
 
 //
+// INIT code. Note that because this isn't the main module, this code will be
+// executed once the module is loaded and then discarded, which means it is
+// effectively "free" and doesn't use up precious memory. We use inline strings
+// for the title page so they too can be discarded, unlike static data as used
+// by the original Apple version.
+//
+
+//
 // Print title page
 // I've converted this to mode 7 graphics, because the ASCII art didn't work in
-// mode 7 (it has no backslash) and I can't assume mode 6 is usable here. By
-// printing it using puts() rather than data held in variables we can free up
-// the space taken by the title screen when INIT is freed.
+// mode 7 (it has no backslash) and I can't assume mode 6 is usable here.
 //
 
 mode(128+7)
@@ -1035,12 +1041,6 @@ puts("\$91jpjpz  ippp6   ippp% ippp6 jppp5\n")
 putln
 puts("\$87       By Resman\n")
 puts("\$87       Artwork by Seth Sternberger\n")
-
-//
-// Miscellaneous Acorn initialisation. By doing this in this module's INIT
-// instead of the ROGUE module's INIT (which might be more logical, all else
-// being equal) this code will be discarded after it's executed.
-//
 
 //
 // Initialise screen array
