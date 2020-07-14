@@ -32,8 +32,10 @@ import roguema // roguemap
 
   predef loadmap(level), getmaptile(xmap, ymap), setmaptile(xmap, ymap, tile)#0
   predef updtmaptile(xmap, ymap, tile)#0, lighttorches#0
+  predef invalidatemap#0
   predef drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
-  predef drawvisentity(xofst, yofst, tile)#0
+  predef updatemap#0
+  predef drawvisentity(xofst, yofst, tile, force)#0
 end
 
 import rogueco // roguecombat
@@ -341,7 +343,7 @@ def drawentities#0
     xofst = other->xpos - player.xpos
     yofst = other->ypos - player.ypos
     if abs(xofst) < 20 and abs(yofst) < 12
-      drawvisentity(xofst, yofst, other->tileid)
+      drawvisentity(xofst, yofst, other->tileid, FALSE)
     fin
     other = other=>next_other
   loop
@@ -449,7 +451,7 @@ def moveentities(playerisvis)#0
         fin
         moveplayer(1)
       fin
-      // SFTODO: "RESET MAP" SO WE REDRAW SCREEN CORRECTLy
+      invalidatemap
       return
     fin
     other = other=>next_other
@@ -643,10 +645,9 @@ while loadmap(level)
     totaldarkness = drawmap(player.xpos, player.ypos, player.fov, player.angle, player.lamp, maxview)
     if not totaldarkness
       drawentities
-      // SFTODO THIS CONIO/PUTC IS NOT "COMPATIBLE" WITH DOUBLE-BUFFERING
-      conio:gotoxy(xcentr, ycentr)
-      putc(vplayer[player.angle])
+      drawvisentity(0, 0, vplayer[player.angle], TRUE)
     fin
+    updatemap
     //SFTODOTEMPputi(heapavail) - "TIGHTEST" IS PAGE=&E00 BUT NO SHADOW OR SWR IN MODE 7, 1147 HEAP FREE
     status
   until not play

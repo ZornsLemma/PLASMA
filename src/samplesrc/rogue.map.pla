@@ -427,6 +427,19 @@ export def lighttorches#0
 end
 
 //
+// Force a full redraw of the map on the next call to updatemap(). This is
+// useful if the screen has been updated (e.g. via putc()) without going via
+// drawscreen().
+//
+
+export def invalidatemap()#0
+  byte yscr
+  for yscr = 0 to scrnheight
+    memset(@emscreen2 + yscr * scrnwidth, $FFFF, scrnwidth)
+  next
+end
+
+//
 // Draw the map. Return 0 if any light visible, 1 if in complete darkness
 //
 
@@ -932,27 +945,27 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
         break
     wend
   next
-  drawscreen(@emscreen, @emscreen2)
   return darkness
+end
+
+//
+// Update the map on screen to show all the pending changes.
+//
+
+export def updatemap()#0
+  drawscreen(@emscreen, @emscreen2)
 end
 
 //
 // Draw other entities
 //
 
-export def drawvisentity(xofst, yofst, tile)#0
+export def drawvisentity(xofst, yofst, tile, force)#0
   word x, y
   x = xcentr+xofst
   y = ycentr+yofst
-  if screen.[y, x] < $80
+  if force or screen.[y, x] < $80
     screen.[y, x] = tile
-    // SFTODO: SHOULD I GET RID OF THE FOLLOWING? AND/OR CALL DRAWMAP() SOMEWHERE TO REFLECT THE CHANGE TO SCREEN? I NEED TO DO SOMETHING BECAUSE THIS DIRECT WRITE IS NOT COMPATIBLE WITH MY DOUBLE-BUFFERING - NO, THIS SHOULD BE FINE, BECAUSE WE *DID* JUST UPDATE SCREEN IN THE PREV LINE
-    if x >= 0 and x < scrnwidth and y >= 0 and y <= scrnheight
-      putc(vdu_goto_xy)
-      putc(x)
-      putc(y)
-      putc(tile)
-    fin
   fin
 end
 
@@ -993,6 +1006,11 @@ map = 0
 
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
+
+// SFTODO: MIGHT BE NICE TO MAKE CURSOR A FULL-HEIGHT ONE, GIVEN IT IS MAINLY
+// USED TO HIGHLIGHT THE PLAYER CHARACTER IN MIDDLE OF MAP - PERHAPS ONLY DO
+// THIS ONCE THE MAIN GAME STARTS, NOT HERE, SO WE DON'T HAVE THIS DURING NAME
+// ENTRY
 
 //
 // Warn if using mode 7
