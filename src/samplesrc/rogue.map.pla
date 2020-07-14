@@ -7,6 +7,7 @@ include "inc/cmdsysac.plh"
 include "inc/conio.plh"
 include "inc/fileio.plh"
 
+word SFTODO1, SFTODO2
 //
 // Title page
 //
@@ -1052,7 +1053,33 @@ end
 
 conio:home()
 while ^titlestr
-  puts(titlestr)
+  putc(151)
+  // Re-use map global to avoid needing to create a new one
+  for SFTODO1 = 1 to ^titlestr
+    SFTODO2 = ^(titlestr + SFTODO1)
+    when SFTODO2
+      is '/'
+        SFTODO2 = 160 + 2 + 4 + 16
+        break
+      is '\\'
+        SFTODO2 = 160 + 1 + 8 + 64
+        break
+      is '('
+        SFTODO2 = 160 + 2 + 4 + 64
+        break
+      is ')'
+        SFTODO2 = 160 + 1 + 8 + 16
+        break
+      is '|'
+        SFTODO2 = 160 + 2 + 8 + 64
+        break
+      is '_'
+        SFTODO2 = 160 + 16 + 64
+        break
+    wend
+    putc(SFTODO2)
+  next
+  putln
   titlestr = titlestr + ^titlestr + 1
 loop
 
