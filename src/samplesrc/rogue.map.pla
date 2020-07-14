@@ -1047,6 +1047,7 @@ end
 
 //
 // Print title page
+// SFTODO: This is a bit awkward re mode 6/7 choice, can I do anything?
 //
 
 conio:home()
@@ -1081,22 +1082,14 @@ call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
 
 //
 // Warn if using mode 7
+// SFTODO: MAY NEED TO GET RID OF THIS GIVEN ACTUAL DECISION IS MADE LATER ONCE
+// WE'VE LOADED ALL MODULES
 //
 
 if call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7
   puts("\nWarning: you are playing in mode 7, you\n")
   puts("will not be able to tell which tiles are")
   puts("illuminated.\n")
-fin
-
-//
-// Check for 40 column mode; drawscreen() assumes this.
-// (Why don't we just select the mode for the user? Because we'd really like
-// mode 6, but we don't know if there's enough memory for that and we don't
-// want to rule out mode 7 as a fallback.)
-//
-if call(osbyte, osbyte_read_vdu_variables, 9, 0, 0).2 <> 39
-  oserror(0, "Sorry, ROGUE only works in 40 column modes.")
 fin
 
 done

@@ -1,5 +1,6 @@
 include "inc/acornc.plh"
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/conio.plh"
 
 import roguema // roguemap
@@ -144,6 +145,8 @@ byte quitstr      = "Are you sure you want to quit?"
 byte youmadeitstr = "You made it out alive with $"
 byte youdiedstr   = "You perished inside the catacombs :-("
 byte againstr     = "\n\nPlay again by typing: +rogue\n"
+
+byte screenmode = FALSE
 
 //
 // Utility functions
@@ -645,6 +648,14 @@ while loadmap(level)
   free_entities = heapmark()
   findentities
   lighttorches
+  // We've done the bulk of our memory allocation now, so we can make a decision
+  // about screen mode for the actual game.
+  if not screenmode
+    if not mode(128+6)
+      mode(128+7)
+    fin
+    screenmode = TRUE
+  fin
   repeat
     moveentities(player.lamp or getmaptile(player.xpos, player.ypos) & LIT_TILE))
     totaldarkness = drawmap(player.xpos, player.ypos, player.fov, player.angle, player.lamp, maxview)
