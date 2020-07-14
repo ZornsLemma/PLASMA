@@ -1062,8 +1062,8 @@ call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 
 if call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7
   puts("\nWarning: you are playing in mode 7, you\n")
-  puts("will not be able to tell which squares\n")
-  puts("are illuminated.\n")
+  puts("will not be able to tell which tiles are")
+  puts("illuminated.\n")
 fin
 
 done
