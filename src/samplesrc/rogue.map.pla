@@ -7,26 +7,6 @@ include "inc/cmdsysac.plh"
 include "inc/conio.plh"
 include "inc/fileio.plh"
 
-word SFTODO1, SFTODO2
-//
-// Title page
-//
-
-byte[] initstr
-byte = " (        )\n"
-byte = " )\\ )  ( /(  (\n"
-byte = "(()/(  )\\()) )\\ )       (   (\n"
-byte = " /(_))((_)\\ (()/(       )\\  )\\\n"
-byte = "(_))    ((_) /(_))_  _ ((_)((_)\n"
-byte = "| _ \\  / _ \\(_)) __|| | | || __|\n"
-byte = "|   / | (_) | | (_ || |_| || _|\n"
-byte = "|_|_\\  \\___/   \\___| \\___/ |___|\n"
-byte = "\n"
-byte = "       By Resman\n"
-byte = "       Artwork by Seth Sternberger\n"
-byte = ""
-word titlestr = @initstr
-
 //
 // Octant beam parameters
 //
@@ -176,16 +156,10 @@ word = @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
-// SFTODO: This doesn't emit newline at end of 40 chars, so (it's a good idea
-// anyway) we should have some code on startup to make sure we are in a 40
-// char mode. (It can kill things via oserror() if we're not.)
-// SFTODO: We should probably turn the cursor off during this
 // SFTODO: WITH THIS EXPERIMENTAL DOUBLE-BUFFERING, WE PROBABLY NEED TO GO AND
 // BLANK OUT THE STATUS LINE BEFORE REDRAWING IT, TO AVOID PROBLEMS WHEN
 // NUMBERS GET SMALLER AND HAVE FEWER DIGITS - WE USED TO DO A CLS IN HERE
 // WHICH SIDESTEPPED THIS
-// SFTODO: WE NEED TO REFUSE TO RUN IF WE'RE NOT IN A 40 COLUMN MODE, SINCE
-// THIS CODE ASSUMES LINE WRAPPING AT 40 CHARS (AS DID THE NON-DOUBLE-BUFFERED VERSION)
 
 //
 // Update the display using OS calls so it looks like 'scrn', taking advantage
@@ -303,8 +277,8 @@ MOVEXY
         JSR OSWRCH
 NOMOVENEEDED
 
-        ; Output the character. The Apple II character set has printable
-        ; characters where ASCII has control characters.
+        ; Output the character. The Apple II screen RAM codes are mostly ASCII,
+        ; but we need to translate codes <$20 into ASCII.
         LDA (SRC),Y
         AND #$7F
         CMP #$20
@@ -1041,47 +1015,26 @@ export def ourgetkey()#1
   return key
 end
 
-// SFTODO: SHOULD WE DO SOME LITTLE TOUCHES LIKE DISABLE CURSOR KEYS SO
-// PRESSING THEM DOESN'T ENTER "USELESS" SCREEN COPY MODE, OR TWEAK THEM SO THEY
-// CAN BE USED TO MOVE? MAYBE ALSO DISABLE ESCAPE KEY? (COULD TREAT ESCAPE LIKE
-// "X" KEY, IF WE DID *FX229,1, THAT WOULD BE NICE I THINK)
-
 //
 // Print title page
-// SFTODO: This is a bit awkward re mode 6/7 choice, can I do anything?
+// I've converted this to mode 7 graphics, because the ASCII art didn't work in
+// mode 7 (it has no backslash) and I can't assume mode 6 is usable here. By
+// printing it using puts() rather than data held in variables we can free up
+// the space taken by the title screen when INIT is freed.
 //
 
-conio:home()
-while ^titlestr
-  putc(151)
-  // Re-use map global to avoid needing to create a new one
-  for SFTODO1 = 1 to ^titlestr
-    SFTODO2 = ^(titlestr + SFTODO1)
-    when SFTODO2
-      is '/'
-        SFTODO2 = 160 + 2 + 4 + 16
-        break
-      is '\\'
-        SFTODO2 = 160 + 1 + 8 + 64
-        break
-      is '('
-        SFTODO2 = 160 + 2 + 4 + 64
-        break
-      is ')'
-        SFTODO2 = 160 + 1 + 8 + 16
-        break
-      is '|'
-        SFTODO2 = 160 + 2 + 8 + 64
-        break
-      is '_'
-        SFTODO2 = 160 + 16 + 64
-        break
-    wend
-    putc(SFTODO2)
-  next
-  putln
-  titlestr = titlestr + ^titlestr + 1
-loop
+mode(128+7)
+puts("\$93\$97f\$93       9\n")
+puts("\$93 9i\$979  f\$936f  f\n")
+puts("\$93ff96f  9if99 9i\$979       f\$93  f\n")
+puts("\$93 6fp99ffp9i ff96f       9i  9i\n")
+puts("\$93fp99 \$91  ffpi\$936fp99p \$91p\$93ff0)ffp9\n")
+puts("\$91j p2i  6 p ifp99 pp%j 5 5j j pp5\n")
+puts("\$91j \$a3 6 j fp9 5 j fp,0j ep%j j p5\n")
+puts("\$91jpjpz  ippp6   ippp% ippp6 jppp5\n")
+putln
+puts("\$87       By Resman\n")
+puts("\$87       Artwork by Seth Sternberger\n")
 
 //
 // Miscellaneous Acorn initialisation. By doing this in this module's INIT
@@ -1106,17 +1059,5 @@ map = 0
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
-
-//
-// Warn if using mode 7
-// SFTODO: MAY NEED TO GET RID OF THIS GIVEN ACTUAL DECISION IS MADE LATER ONCE
-// WE'VE LOADED ALL MODULES
-//
-
-if call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7
-  puts("\nWarning: you are playing in mode 7, you\n")
-  puts("will not be able to tell which tiles are")
-  puts("illuminated.\n")
-fin
 
 done
