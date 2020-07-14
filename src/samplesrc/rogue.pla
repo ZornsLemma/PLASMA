@@ -449,6 +449,7 @@ def moveentities(playerisvis)#0
         fin
         moveplayer(1)
       fin
+      // SFTODO: "RESET MAP" SO WE REDRAW SCREEN CORRECTLy
       return
     fin
     other = other=>next_other
@@ -642,6 +643,7 @@ while loadmap(level)
     totaldarkness = drawmap(player.xpos, player.ypos, player.fov, player.angle, player.lamp, maxview)
     if not totaldarkness
       drawentities
+      // SFTODO THIS CONIO/PUTC IS NOT "COMPATIBLE" WITH DOUBLE-BUFFERING
       conio:gotoxy(xcentr, ycentr)
       putc(vplayer[player.angle])
     fin
