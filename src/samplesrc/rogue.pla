@@ -142,8 +142,8 @@ word instr
 byte namestr      = "\nGreetings Warrior,\n  what is your name"
 byte prepstr      = "\nPrepare."
 byte quitstr      = "Are you sure you want to quit?"
-byte youmadeitstr = "You made it out alive with $"
-byte youdiedstr   = "You perished inside the catacombs :-("
+byte youmadeitstr = "\nYou made it out alive with $"
+byte youdiedstr   = "\nYou perished inside the catacombs :-("
 byte againstr     = "\n\nPlay again by typing: +rogue\n"
 
 byte screenmode = FALSE
@@ -652,10 +652,18 @@ while loadmap(level)
   // We've done the bulk of our memory allocation now, so we can make a decision
   // about screen mode for the actual game.
   if not screenmode
+    // mode() only succeeds if there are 512 bytes free afterwards. We could
+    // possibly say 'if not mode(128+6) or heapavail < 768' to insist on more
+    // space. Level 0 doesn't have many monsters on so the fact that we could
+    // enter mode 6 after loading level 0 isn't a guarantee other levels will
+    // load. In practice I think 512 bytes free is probably fine, so I won't do
+    // this yet.
     if not mode(128+6)
       mode(128+7)
     fin
     screenmode = TRUE
+  else
+    conio:home()
   fin
   repeat
     moveentities(player.lamp or getmaptile(player.xpos, player.ypos) & LIT_TILE))
@@ -665,14 +673,14 @@ while loadmap(level)
       drawvisentity(0, 0, vplayer[player.angle], TRUE)
     fin
     updatemap
-    //SFTODOTEMPputi(heapavail) - "TIGHTEST" IS PAGE=&E00 BUT NO SHADOW OR SWR IN MODE 7, 1147 HEAP FREE
+    // Debugging memory check: putc(30); puti(heapavail)
     status
   until not play
   heaprelease(free_entities)
   entities = 0
   player.key = 0
   level = level + 1
-  clearstatus
+  status // used to be clearstatus, I like to see stats when I die...
   conio:gotoxy(0, statusline)
   if player.health == 0
     break
