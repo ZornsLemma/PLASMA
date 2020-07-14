@@ -1,3 +1,4 @@
+include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/conio.plh"
 
@@ -469,6 +470,7 @@ def play
     return FALSE
   fin
   conio:gotoxy(xcentr, ycentr)
+  call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
   when toupper(conio:getkey())
     is 'I'
       if totaldarkness

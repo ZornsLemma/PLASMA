@@ -1,3 +1,4 @@
+include "inc/acornc.plh"
 include "inc/cmdsys.plh"
 include "inc/conio.plh"
 
@@ -159,6 +160,7 @@ export def fight(player, enemy)
       puts(ascii_entity[enemy->kind] + e_atck * 11)
     next
     conio:gotoxy(12, 8); puts("F)ight or R)un?")
+    call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
     if toupper(conio:getkey()) == 'R'
       conio:echo(ECHO_OFF)
       return 1
