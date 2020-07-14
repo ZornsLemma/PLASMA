@@ -637,6 +637,7 @@ end
 //
 
 puts(@namestr)
+cursor(1)
 instr = gets(':')
 cursor(0)
 if ^instr > 15

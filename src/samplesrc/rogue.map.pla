@@ -1020,6 +1020,7 @@ end
 //
 
 mode(128+7)
+cursor(0)
 puts("\$93\$97f\$93       9\n")
 puts("\$93 9i\$979  f\$936f  f\n")
 puts("\$93ff96f  9if99 9i\$979       f\$93  f\n")
