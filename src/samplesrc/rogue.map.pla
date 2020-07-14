@@ -3,6 +3,7 @@
 //
 include "inc/acornc.plh"
 include "inc/cmdsys.plh"
+include "inc/cmdsysac.plh"
 include "inc/conio.plh"
 include "inc/fileio.plh"
 
@@ -136,7 +137,6 @@ const EXIT_TILE   = '='
 const OPAQUE_TILE = $01
 const VIEWED_TILE = $80
 const LIT_TILE    = $80
-// SFTODO: Really need to respect INV_TILE when updating screen for Acorn port
 const INV_TILE    = $3F
 const MAP_TILE    = $7F
 
@@ -1073,22 +1073,11 @@ map = 0
 
 //
 // Set up keyboard
-// SFTODO: IDEALLY WE'D REVERT THESE CHANGES (AND ANY CURSOR CHANGES, IF THERE
-// ARE ANY, WHICH THERE PROBABLY WON'T BE MOST OF TIME) ON EXIT - BUT THIS ISN'T
-// CRITICAL
 //
 
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
-
-// SFTODO: MIGHT BE NICE TO MAKE CURSOR A FULL-HEIGHT ONE, GIVEN IT IS MAINLY
-// USED TO HIGHLIGHT THE PLAYER CHARACTER IN MIDDLE OF MAP - PERHAPS ONLY DO
-// THIS ONCE THE MAIN GAME STARTS, NOT HERE, SO WE DON'T HAVE THIS DURING NAME
-// ENTRY. TO BE HONEST, I AM THINKING WE SHOULD DEFAULT TO HAVE CURSOR OFF AND
-// JUST EXPLICITLY TURN IT ON WHEN WE WANT IT (WHEN WAITING FOR A USER KEYPRESS)
-// WE COULD THEN ALSO SET IT TO FULL HEIGHT IFF WE ARE WAITING FOR A USER KEYPRESS
-// ON THE MAP SCREEN WITH CURSOR ON OUR CHARACTER
 
 //
 // Warn if using mode 7
@@ -1098,6 +1087,16 @@ if call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7
   puts("\nWarning: you are playing in mode 7, you\n")
   puts("will not be able to tell which tiles are")
   puts("illuminated.\n")
+fin
+
+//
+// Check for 40 column mode; drawscreen() assumes this.
+// (Why don't we just select the mode for the user? Because we'd really like
+// mode 6, but we don't know if there's enough memory for that and we don't
+// want to rule out mode 7 as a fallback.)
+//
+if call(osbyte, osbyte_read_vdu_variables, 9, 0, 0).2 <> 39
+  oserror(0, "Sorry, ROGUE only works in 40 column modes.")
 fin
 
 done
