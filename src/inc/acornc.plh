@@ -67,6 +67,7 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const buffer_keyboard = 0
     const buffer_sound_1 = 5
 
+    const vdu_tab = 9
     const vdu_cls = 12
     const vdu_tcol = 17
     const vdu_gcol = 18

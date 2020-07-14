@@ -252,7 +252,7 @@ NOVIDEOCHANGE
         BEQ NOMOVENEEDED
         CMP #1
         BNE MOVEXY
-        LDA #9 ; SFTODO MAGIC CONSTANT
+        LDA #vdu_tab
         JSR OSWRCH
         INC CURSORX
         BNE NOMOVENEEDED
