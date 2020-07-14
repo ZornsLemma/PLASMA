@@ -156,11 +156,6 @@ word = @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
-// SFTODO: WITH THIS EXPERIMENTAL DOUBLE-BUFFERING, WE PROBABLY NEED TO GO AND
-// BLANK OUT THE STATUS LINE BEFORE REDRAWING IT, TO AVOID PROBLEMS WHEN
-// NUMBERS GET SMALLER AND HAVE FEWER DIGITS - WE USED TO DO A CLS IN HERE
-// WHICH SIDESTEPPED THIS
-
 //
 // Update the display using OS calls so it looks like 'scrn', taking advantage
 // of the fact it previously looked like 'scrn2' to avoid unnecessary updates.
