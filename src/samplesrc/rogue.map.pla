@@ -164,13 +164,8 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 //
 // Update the display using OS calls so it looks like 'scrn', taking advantage
 // of the fact it previously looked like 'scrn2' to avoid unnecessary updates.
-// (On the very first call, scrn2 will have been automatically zero initialised
-// and the display will be blank; this is a bit hacky, because a zero byte is
-// an inverted A, but in practice we get away with this because the map won't
-// contain any such characters. invalidatemap() forces scrn2 to all-$FF so we'll
-// redraw everything; we will never actually have an $FF byte in scrn so this is
-// fine.)
-// SFTODO: SHOULD WE JUST DO A MEMSET ON SCRN2 IN INIT TO AVOID THE NOTED HACKINESS? THIS WON'T COST US ANYTHING REALLY AS INIT WILL BE DISCARDED ANYWAY, AND THE TIME IS NEGLIGIBLE. AND OF CORUSE WE DON'T ACTUALLY NEED TO WRITE AN EXPLICIT MEMSET, WE COULD JUST CALL INVALIDATEMAP()
+// (invalidatemap() forces scrn2 to all-$FF; we know that we'll never try to
+// display a $FF character so this effectively forces a full redraw.)
 //
 
 asm drawscreen(scrn, scrn2)#0
@@ -343,7 +338,7 @@ export def loadmap(level)
   //
   // Init the view map
   //
-  // SFTODO: I *think* it would be possible to replace viewmap by a packed
+  // ENHANCEMENT: I *think* it would be possible to replace viewmap by a packed
   // array of bits to indicate whether a tile in 'map' has been seen or not.
   // That would save 3.5K, less the extra code needed to handle the packed
   // array - maybe 3K saving overall? I suspect the performance impact would
@@ -470,7 +465,6 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
   //
   // Clear screen
   //
-  // SFTODO PROB DON'T WANT THIS BUT LET'S KEEP IT HERE COMMENTED OUT FOR MOMENT conio:home()
   for yscr = 0 to scrnheight
     memset(screen[yscr], $A0A0, scrnwidth)
   next
@@ -990,6 +984,7 @@ end
 // values for the CRTC cursor start register and I'm reluctant to embed that
 // data here right now. (We sort-of support both mode 6 and mode 7, so I can't
 // just know what the right values are.)
+// SFTODO: NOW I KNOW I AM RUNNING IN MODE 6 OR 7 THIS IS A MORE PALATABLE OPTION - BEFORE SOMEONE MIGHT BE IN MODE 4 OR 1 OR SOMETHING
 //
 
 export def cursor(state)#0
@@ -1051,6 +1046,7 @@ for map = 0 to scrnheight
   screen[map] = @emscreen + 40 * map
 next
 map = 0
+invalidatemap
 
 //
 // Set up keyboard
