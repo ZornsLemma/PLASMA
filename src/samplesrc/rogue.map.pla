@@ -153,6 +153,7 @@ const scrnheight = 22
 //
 
 byte[scrnwidth*(scrnheight+1)] emscreen
+byte[scrnwidth*(scrnheight+1)] emscreen2
 byte[scrnwidth] linebuffer
 
 // I think these @linebuffer elements before and after the 'real' lines
@@ -190,60 +191,131 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // emit either CHR$(9) or CHR$(31)+x+y depending on which is more efficient.
 // SFTODO: Currently trying to get this basically working with inverse etc;
 // can worry about making it faster later.
-asm drawscreen(scrn)#0
+// SFTODO: WITH THIS EXPERIMENTAL DOUBLE-BUFFERING, WE PROBABLY NEED TO GO AND
+// BLANK OUT THE STATUS LINE BEFORE REDRAWING IT, TO AVOID PROBLEMS WHEN
+// NUMBERS GET SMALLER AND HAVE FEWER DIGITS - WE USED TO DO A CLS IN HERE
+// WHICH SIDESTEPPED THIS
+// SFTODO: WE NEED TO REFUSE TO RUN IF WE'RE NOT IN A 40 COLUMN MODE, SINCE
+// THIS CODE ASSUMES LINE WRAPPING AT 40 CHARS (AS DID THE NON-DOUBLE-BUFFERED VERSION)
+asm drawscreen(scrn, scrn2)#0
 	!SOURCE "vmsrc/plvmzp.inc"
-	LDA #12
-	JSR $FFEE
-	LDA ESTKL,X
-	STA TMPL
-	LDA ESTKH,X
-	STA TMPH
+        !SOURCE "vmsrc/acorn/acornc.inc"
+        CURSORX = TMP
+        CURSORY = TMP+1
+        VIDEOFLAG = SCRATCH
+	LDA ESTKL+1,X
+	STA SRCL
+	LDA ESTKH+1,X
+	STA SRCH
+        LDA ESTKL,X
+        STA DSTL
+        LDA ESTKH,X
+        STA DSTH
 	STX ESP
-	LDX #22
--	LDY #0
---	LDA (TMP),Y
-        CMP #$40
-        PHP
-        BCS NOTINV
-        PHA
-        LDA #17
-        JSR $FFEE
+        LDA #vdu_home
+        JSR OSWRCH
+        ; As we go round LINELOOP, the X register holds the Y screen index
+        ; and the Y register holds the X screen index.
+	LDX #0
+        STX CURSORX
+        STX CURSORY
+        LDA #1
+        STA VIDEOFLAG
+        ; VIDEOCHANGE is a pseudo-subroutine to avoid branch distance limits;
+        ; remember we can't use JSR within our code as it won't be relocated.
+        BNE LINELOOP
+VIDEOCHANGE
+        STA VIDEOFLAG
+        LDA #vdu_tcol
+        JSR OSWRCH
+        LDA VIDEOFLAG
+        JSR OSWRCH
+        LDA #vdu_tcol
+        JSR OSWRCH
+        LDA VIDEOFLAG
+        EOR #129
+        JSR OSWRCH
+        LDA #1
+        BNE NOVIDEOCHANGE
+LINELOOP
+	LDY #0
+CHARLOOP
+	LDA (SRC),Y
+        CMP (DST),Y
+        BEQ NOCHANGE
+        STA (DST),Y
+        CMP #$40        ; clear C iff we want inverse video
         LDA #0
-        JSR $FFEE
-        LDA #17
-        JSR $FFEE
-        LDA #135
-        JSR $FFEE
-        PLA
-NOTINV
-	AND #$7F
+        ROL
+        CMP VIDEOFLAG
+        BNE VIDEOCHANGE
+NOVIDEOCHANGE
+        CPX CURSORY
+        BNE MOVEXY
+        TYA
+        SEC
+        SBC CURSORX
+        BEQ NOMOVENEEDED
+        CMP #1
+        BNE MOVEXY
+        LDA #9
+        JSR OSWRCH
+        INC CURSORX
+        BNE NOMOVENEEDED
+MOVEXY
+        LDA #vdu_goto_xy
+        JSR OSWRCH
+        TYA
+        STA CURSORX
+        JSR OSWRCH
+        TXA
+        STA CURSORY
+        JSR OSWRCH
+NOMOVENEEDED
+        LDA (SRC),Y
+        AND #$7F
         CMP #$20
-        BCS +
+        BCS NOTLOWCHAR
         ADC #$40
-+	JSR $FFEE
-        PLP
-        BCS NOTINV2
-        LDA #17
-        JSR $FFEE
-        LDA #7
-        JSR $FFEE
-        LDA #17
-        JSR $FFEE
-        LDA #128
-        JSR $FFEE
-NOTINV2
+NOTLOWCHAR
+        JSR OSWRCH
+        INC CURSORX
+        LDA CURSORX
+        CMP #40
+        BNE NOLINEWRAP
+        INC CURSORY
+        LDA #0
+        STA CURSORX
+NOLINEWRAP
+NOCHANGE
 	INY
 	CPY #40
-	BNE --
+	BNE CHARLOOP
 	CLC
-	LDA TMPL
+	LDA SRCL
 	ADC #40
-	STA TMPL
+	STA SRCL
 	BCC +
-	INC TMPH
-+	DEX
-	BPL -
+	INC SRCH
++	CLC
+        LDA DSTL
+        ADC #40
+        STA DSTL
+        BCC +
+        INC DSTH
++       INX
+        CPX #23
+	BCC LINELOOP
+        LDA #vdu_tcol
+        JSR OSWRCH
+        LDA #1
+        JSR OSWRCH
+        LDA #vdu_tcol
+        JSR OSWRCH
+        LDA #128
+        JSR OSWRCH
 	LDX ESP
+        INX
         INX
 	RTS
 end
@@ -860,7 +932,7 @@ export def drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
         break
     wend
   next
-  drawscreen(@emscreen)
+  drawscreen(@emscreen, @emscreen2)
   return darkness
 end
 
@@ -876,7 +948,7 @@ export def drawvisentity(xofst, yofst, tile)#0
     screen.[y, x] = tile
     // SFTODO: SHOULD I GET RID OF THE FOLLOWING? AND/OR CALL DRAWMAP() SOMEWHERE TO REFLECT THE CHANGE TO SCREEN?
     if x >= 0 and x < scrnwidth and y >= 0 and y <= scrnheight
-      putc(31)
+      putc(vdu_goto_xy)
       putc(x)
       putc(y)
       putc(tile)

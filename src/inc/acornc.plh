@@ -72,4 +72,5 @@ import cmdsysac // SFTODO: as in inc/cmdsysac.plh, semi-temp hack
     const vdu_restore_default_windows = 26
     const vdu_define_text_window = 28
     const vdu_home = 30
+    const vdu_goto_xy = 31
 end

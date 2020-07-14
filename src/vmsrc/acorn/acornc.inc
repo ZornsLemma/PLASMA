@@ -42,6 +42,7 @@ service_call_select_filing_system = $12
 
 buffer_keyboard = $FF
 
-; SFTODO: Keep?
+vdu_tcol = 17
 vdu_gcol = 18
+vdu_home = 30
 vdu_goto_xy = 31
