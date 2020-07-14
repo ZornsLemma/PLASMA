@@ -37,6 +37,8 @@ import roguema // roguemap
   predef drawmap(xorg, yorg, viewfield, viewdir, lightdist, viewdist)
   predef updatemap#0
   predef drawvisentity(xofst, yofst, tile, force)#0
+  predef cursor(state)#0
+  predef ourgetkey()#1
 end
 
 import rogueco // roguecombat
@@ -470,8 +472,7 @@ def play
     return FALSE
   fin
   conio:gotoxy(xcentr, ycentr)
-  call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
-  when toupper(conio:getkey())
+  when toupper(ourgetkey())
     is 'I'
       if totaldarkness
         player.angle = conio:rnd() & 7
@@ -606,10 +607,11 @@ def play
       fin
       break
     is 'X'
+    is 27 // Escape
       clearstatus
       conio:gotoxy(0, statusline)
       puts(@quitstr)
-      if toupper(conio:getkey()) == 'Y'
+      if toupper(ourgetkey()) == 'Y'
         player.health = 0
     return FALSE
       fin
@@ -632,6 +634,7 @@ end
 
 puts(@namestr)
 instr = gets(':')
+cursor(0)
 if ^instr > 15
   ^instr = 15
 fin
@@ -671,4 +674,8 @@ else
   puts(@youdiedstr)
 fin
 puts(@againstr)
+cursor(1)
+call(osbyte, osbyte_set_cursor_key_action, 0, 0, 0)
+call(osbyte, osbyte_set_auto_repeat_rate, 0, 0, 0) // set to default
+call(osbyte, osbyte_rw_escape_status, 0, 0, 0)
 done

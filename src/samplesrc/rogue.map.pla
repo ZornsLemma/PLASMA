@@ -1007,6 +1007,39 @@ export def drawvisentity(xofst, yofst, tile, force)#0
   fin
 end
 
+//
+// Cursor control; 0 = off, 1 = on
+// SFTODO: It would be nice to allow this to set the cursor on-and-full-height,
+// and use that when the cursor is on the player character at the centre of the
+// screen. However, doing this and/or undoing it would require mode-specific
+// values for the CRTC cursor start register and I'm reluctant to embed that
+// data here right now. (We sort-of support both mode 6 and mode 7, so I can't
+// just know what the right values are.)
+//
+
+export def cursor(state)#0
+  byte i
+  putc(23)
+  putc(1)
+  putc(state)
+  for i = 1 to 7
+    putc(0)
+  next
+end
+
+//
+// Wrapper for conio:getkey
+//
+
+export def ourgetkey()#1
+  word key
+  cursor(1)
+  call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
+  key = conio:getkey()
+  cursor(0)
+  return key
+end
+
 // SFTODO: SHOULD WE DO SOME LITTLE TOUCHES LIKE DISABLE CURSOR KEYS SO
 // PRESSING THEM DOESN'T ENTER "USELESS" SCREEN COPY MODE, OR TWEAK THEM SO THEY
 // CAN BE USED TO MOVE? MAYBE ALSO DISABLE ESCAPE KEY? (COULD TREAT ESCAPE LIKE
@@ -1047,6 +1080,7 @@ map = 0
 
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
+call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
 
 // SFTODO: MIGHT BE NICE TO MAKE CURSOR A FULL-HEIGHT ONE, GIVEN IT IS MAINLY
 // USED TO HIGHLIGHT THE PLAYER CHARACTER IN MIDDLE OF MAP - PERHAPS ONLY DO
