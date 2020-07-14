@@ -195,7 +195,7 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // contain any such characters. invalidatemap() forces scrn2 to all-$FF so we'll
 // redraw everything; we will never actually have an $FF byte in scrn so this is
 // fine.)
-// SFTODO: SHOULD WE JUST DO A MEMSET ON SCRN2 IN INIT TO AVOID THE NOTED HACKINESS? THIS WON'T COST US ANYTHING REALLY AS INIT WILL BE DISCARDED ANYWAY, AND THE TIME IS NEGLIGIBLE.
+// SFTODO: SHOULD WE JUST DO A MEMSET ON SCRN2 IN INIT TO AVOID THE NOTED HACKINESS? THIS WON'T COST US ANYTHING REALLY AS INIT WILL BE DISCARDED ANYWAY, AND THE TIME IS NEGLIGIBLE. AND OF CORUSE WE DON'T ACTUALLY NEED TO WRITE AN EXPLICIT MEMSET, WE COULD JUST CALL INVALIDATEMAP()
 //
 
 asm drawscreen(scrn, scrn2)#0
