@@ -175,34 +175,41 @@ word = @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 
-// TODO: There might be a performance improvement to be had by not writing
-// spaces via OSWRCH - we clear the screen at the start so no need to do
-// anything to write a space. We'd need to do something like count up how
-// many spaces we've skipped and move the cursor to the right place when
-// we see the next non-space. Or perhaps we could get rid of the clear
-// screen if we continue to write spaces (but my suspicion is that wouldn't
-// be such an improvement).
 // SFTODO: This doesn't emit newline at end of 40 chars, so (it's a good idea
 // anyway) we should have some code on startup to make sure we are in a 40
-// char mode.
+// char mode. (It can kill things via oserror() if we're not.)
 // SFTODO: We should probably turn the cursor off during this
-// SFTODO: Can/should I double-buffer the emulated screen, then I could
-// only update parts which have changed, and I could be mildly clever and
-// emit either CHR$(9) or CHR$(31)+x+y depending on which is more efficient.
-// SFTODO: Currently trying to get this basically working with inverse etc;
-// can worry about making it faster later.
 // SFTODO: WITH THIS EXPERIMENTAL DOUBLE-BUFFERING, WE PROBABLY NEED TO GO AND
 // BLANK OUT THE STATUS LINE BEFORE REDRAWING IT, TO AVOID PROBLEMS WHEN
 // NUMBERS GET SMALLER AND HAVE FEWER DIGITS - WE USED TO DO A CLS IN HERE
 // WHICH SIDESTEPPED THIS
 // SFTODO: WE NEED TO REFUSE TO RUN IF WE'RE NOT IN A 40 COLUMN MODE, SINCE
 // THIS CODE ASSUMES LINE WRAPPING AT 40 CHARS (AS DID THE NON-DOUBLE-BUFFERED VERSION)
+
+//
+// Update the display using OS calls so it looks like 'scrn', taking advantage
+// of the fact it previously looked like 'scrn2' to avoid unnecessary updates.
+// (On the very first call, scrn2 will have been automatically zero initialised
+// and the display will be blank; this is a bit hacky, because a zero byte is
+// an inverted A, but in practice we get away with this because the map won't
+// contain any such characters. invalidatemap() forces scrn2 to all-$FF so we'll
+// redraw everything; we will never actually have an $FF byte in scrn so this is
+// fine.)
+//
+
 asm drawscreen(scrn, scrn2)#0
 	!SOURCE "vmsrc/plvmzp.inc"
         !SOURCE "vmsrc/acorn/acornc.inc"
+        ; CURSOR[XY] track where the OS text cursor is; we use this to decide
+        ; the most efficient way to position it where we want. We could query
+        ; this from the OS but we're trying to avoid unnecessary delays.
         CURSORX = TMP
         CURSORY = TMP+1
-        VIDEOFLAG = SCRATCH
+        FGCOLOUR = SCRATCH
+
+	STX ESP
+
+        ; SRC is scrn, DST is scrn2
 	LDA ESTKL+1,X
 	STA SRCL
 	LDA ESTKH+1,X
@@ -211,7 +218,8 @@ asm drawscreen(scrn, scrn2)#0
         STA DSTL
         LDA ESTKH,X
         STA DSTH
-	STX ESP
+
+        ; Start off with the cursor at the top left.
         LDA #vdu_home
         JSR OSWRCH
         ; As we go round LINELOOP, the X register holds the Y screen index
@@ -219,37 +227,57 @@ asm drawscreen(scrn, scrn2)#0
 	LDX #0
         STX CURSORX
         STX CURSORY
+
+        ; We always start off in normal (non-inverse) video; we restore this
+        ; before returning to our caller.
         LDA #1
-        STA VIDEOFLAG
+        STA FGCOLOUR
+        BNE LINELOOP
+
         ; VIDEOCHANGE is a pseudo-subroutine to avoid branch distance limits;
         ; remember we can't use JSR within our code as it won't be relocated.
-        BNE LINELOOP
 VIDEOCHANGE
-        STA VIDEOFLAG
+        STA FGCOLOUR
+        ; Set the foreground and background colours so the foreground colour is
+        ; FGCOLOUR and the background is opposite.
         LDA #vdu_tcol
         JSR OSWRCH
-        LDA VIDEOFLAG
+        LDA FGCOLOUR
         JSR OSWRCH
         LDA #vdu_tcol
         JSR OSWRCH
-        LDA VIDEOFLAG
+        LDA FGCOLOUR
         EOR #129
         JSR OSWRCH
         LDA #1
         BNE NOVIDEOCHANGE
+
 LINELOOP
 	LDY #0
 CHARLOOP
+        ; Do we need to do anything?
 	LDA (SRC),Y
         CMP (DST),Y
         BEQ NOCHANGE
+
+        ; Yes we do. Update scrn2 so we remember we've done this.
         STA (DST),Y
+
+        ; Set the foreground and background colour correctly for this character.
         CMP #$40        ; clear C iff we want inverse video
         LDA #0
         ROL
-        CMP VIDEOFLAG
+        CMP FGCOLOUR
         BNE VIDEOCHANGE
 NOVIDEOCHANGE
+
+        ; If the cursor isn't on the right line, we'll just move it to the
+        ; desired position directly. Similarly if we're more than one X position
+        ; away. If it's already in the right place we obviously don't need to
+        ; do anything, and if it's just one position too far left we will use
+        ; VDU 9 to bump it over. (I did a crude timing test from BASIC and I
+        ; think VDU 9 is faster than VDU 31,X,Y but not that much faster, so
+        ; we only use it for a single character move.)
         CPX CURSORY
         BNE MOVEXY
         TYA
@@ -258,7 +286,7 @@ NOVIDEOCHANGE
         BEQ NOMOVENEEDED
         CMP #1
         BNE MOVEXY
-        LDA #9
+        LDA #9 ; SFTODO MAGIC CONSTANT
         JSR OSWRCH
         INC CURSORX
         BNE NOMOVENEEDED
@@ -272,6 +300,9 @@ MOVEXY
         STA CURSORY
         JSR OSWRCH
 NOMOVENEEDED
+
+        ; Output the character. The Apple II character set has printable
+        ; characters where ASCII has control characters.
         LDA (SRC),Y
         AND #$7F
         CMP #$20
@@ -287,7 +318,10 @@ NOTLOWCHAR
         LDA #0
         STA CURSORX
 NOLINEWRAP
+
 NOCHANGE
+        ; Advance to the next character in the emulated screen and loop back
+        ; round as appropriate.
 	INY
 	CPY #40
 	BNE CHARLOOP
@@ -306,6 +340,9 @@ NOCHANGE
 +       INX
         CPX #23
 	BCC LINELOOP
+
+        ; We're done. Restore normal video and set X appropriately before
+        ; returning to our caller.
         LDA #vdu_tcol
         JSR OSWRCH
         LDA #1
