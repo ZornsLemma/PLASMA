@@ -4,7 +4,7 @@ include "inc/conio.plh"
 
 import roguema // roguemap
   predef moveplayer
-  predef ourgetkey()#1
+  predef ourgetkey(state)#1
 end
 
 struc t_pos
@@ -161,7 +161,7 @@ export def fight(player, enemy)
       puts(ascii_entity[enemy->kind] + e_atck * 11)
     next
     conio:gotoxy(12, 8); puts("F)ight or R)un?")
-    if toupper(ourgetkey()) == 'R'
+    if toupper(ourgetkey(1)) == 'R'
       conio:echo(ECHO_OFF)
       return 1
     fin

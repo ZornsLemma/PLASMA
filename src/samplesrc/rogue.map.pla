@@ -8,6 +8,15 @@ include "inc/conio.plh"
 include "inc/fileio.plh"
 
 //
+// CRTC cursor start/end values
+//
+byte[] cursorvals
+byte = $67, $09 // mode 6 normal
+byte = $60, $07 // mode 6 large
+byte = $72, $13 // mode 7 normal
+byte = $60, $13 // mode 7 large
+
+//
 // Octant beam parameters
 //
 
@@ -972,33 +981,47 @@ export def drawvisentity(xofst, yofst, tile, force)#0
 end
 
 //
-// Cursor control; 0 = off, 1 = on
-// SFTODO: It would be nice to allow this to set the cursor on-and-full-height,
-// and use that when the cursor is on the player character at the centre of the
-// screen. However, doing this and/or undoing it would require mode-specific
-// values for the CRTC cursor start register and I'm reluctant to embed that
-// data here right now. (We sort-of support both mode 6 and mode 7, so I can't
-// just know what the right values are.)
-// SFTODO: NOW I KNOW I AM RUNNING IN MODE 6 OR 7 THIS IS A MORE PALATABLE OPTION - BEFORE SOMEONE MIGHT BE IN MODE 4 OR 1 OR SOMETHING
+// Program CRTC register
+//
+
+def crtc(reg, val)#0
+  byte i
+  putc(23)
+  putc(0)
+  putc(reg)
+  putc(val)
+  for i = 1 to 6
+    putc(0)
+  next
+end
+
+//
+// Cursor control; 0 = off, 1 = on normal, 2 = on large
 //
 
 export def cursor(state)#0
   byte i
+  word vals
   putc(23)
   putc(1)
-  putc(state)
+  putc((state == 0) ?? 0 :: 1)
   for i = 1 to 7
     putc(0)
   next
+  if state <> 0
+    vals = @cursorvals + ((call(osbyte, osbyte_read_char_and_mode, 0, 0, 0).2 == 7) ?? 4 :: 0) + ((state == 2) ?? 2 :: 0)
+    crtc(10, ^vals)
+    crtc(11, ^(vals + 1))
+  fin
 end
 
 //
 // Wrapper for conio:getkey
 //
 
-export def ourgetkey()#1
+export def ourgetkey(state)#1
   word key
-  cursor(1)
+  cursor(state)
   call(osbyte, osbyte_flush_buffer, buffer_keyboard, 0, 0)
   key = conio:getkey()
   cursor(0)

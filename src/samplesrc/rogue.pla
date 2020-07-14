@@ -39,7 +39,7 @@ import roguema // roguemap
   predef updatemap#0
   predef drawvisentity(xofst, yofst, tile, force)#0
   predef cursor(state)#0
-  predef ourgetkey()#1
+  predef ourgetkey(state)#1
 end
 
 import rogueco // roguecombat
@@ -476,7 +476,7 @@ def play
     return FALSE
   fin
   conio:gotoxy(xcentr, ycentr)
-  when toupper(ourgetkey())
+  when toupper(ourgetkey(2))
     is 'I'
       if totaldarkness
         player.angle = conio:rnd() & 7
@@ -615,7 +615,7 @@ def play
       clearstatus
       conio:gotoxy(0, statusline)
       puts(@quitstr)
-      if toupper(ourgetkey()) == 'Y'
+      if toupper(ourgetkey(1)) == 'Y'
         player.health = 0
     return FALSE
       fin
