@@ -54,7 +54,8 @@ word xdir =  0,  1,  1,  1,  0, -1, -1, -1
 word ydir = -1, -1,  0,  1,  1,  1,  0, -1
 // TODO: *If* we ultimately end up wanting to use mode 6, we could use
 // eight UDGs with proper arrows instead of these ASCII makeshifts.
-byte vplayer = '^', '\\', '>', '/', 'v', '\\', '<', '/'
+// SFTODO: DELETE LATER byte vplayer = '^', '\\', '>', '/', 'v', '\\', '<', '/'
+byte vplayer = 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
 byte totaldarkness = 0
 byte level = 0
 word free_entities
@@ -157,6 +158,22 @@ def abs(i)
     i = -i
   fin
   return i
+end
+
+//
+// Switch vplayer to use user-defined graphics (set up by rogue.map.pla)
+//
+
+// SFTODO: THIS DOESN'T WORK - THE TRANSLATIONS PERFORMED BY drawscreen MEAN WE
+// DON'T PASS THESE CHAR CODES DIRECT TO OS VDU DRIVER. DON'T FORGET WE ALSO
+// NEED TO SUPPORT NORMAL AND INVERSE VIDEO FOR THESE CHARACTERS. NEED TO THINK
+// OF BEST WAY TO HANDLE THIS.
+def vplayerudg#0
+   // SFTODO: IT MAY BE MOOT, BUT WOULD IT BE SHORTER TO JUST DO: memcpy(@vplayer, "\$80\$81\$82...", 8)? IF SO WE PROBABLY DON'T NEED TO HAVE THIS FUNCTION, WE CAN JUST DO THAT INLINE
+   byte i
+   for i = 0 to 7
+     ^(@vplayer + i) = 128 + i
+   next
 end
 
 //
@@ -661,6 +678,8 @@ while loadmap(level)
     // this yet.
     if not mode(128+6)
       mode(128+7)
+    else
+       // SFTODO DELETE vplayerudg
     fin
     screenmode = TRUE
   else

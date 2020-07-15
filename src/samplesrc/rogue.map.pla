@@ -181,6 +181,7 @@ asm drawscreen(scrn, scrn2)#0
         CURSORX = TMP
         CURSORY = TMP+1
         FGCOLOUR = SCRATCH
+        TMPX = SCRATCH+1
 
 	STX ESP
 
@@ -227,6 +228,14 @@ VIDEOCHANGE
         LDA #1
         BNE NOVIDEOCHANGE
 
+        ; PLAYER is another pseudo-subroutine.
+PLAYER
+        STX TMPX
+        TAX
+        LDA $901-'A',X ; SFTODO MAGIC ADDRESS, ALSO INAPPROPRIATE FOR TUBE
+        LDX TMPX
+        BPL NOTPLAYER
+
 LINELOOP
 	LDY #0
 CHARLOOP
@@ -256,7 +265,7 @@ NOVIDEOCHANGE
         CPX CURSORY
         BNE MOVEXY
         TYA
-        SEC
+        ; SEC - we know X>=CURSORY so CPX will have set C
         SBC CURSORX
         BEQ NOMOVENEEDED
         CMP #1
@@ -284,6 +293,14 @@ NOMOVENEEDED
         BCS NOTLOWCHAR
         ADC #$40
 NOTLOWCHAR
+        ; We use A-H for the player symbol (these aren't used for anything else,
+        ; luckily) and replace them with a UDG or ASCII-approximation depending
+        ; on screen mode.
+        CMP #'A'
+        BCC NOTPLAYER
+        CMP #'H'+1
+        BCC PLAYER
+NOTPLAYER
         JSR OSWRCH
         INC CURSORX
         LDA CURSORX
@@ -1074,5 +1091,10 @@ invalidatemap
 call(osbyte, osbyte_set_cursor_key_action, 1, 0, 0)
 call(osbyte, osbyte_set_auto_repeat_delay, 0, 0, 0)
 call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
+
+//
+// Set up mode 7 version of player symbol
+//
+strcpy($900, "^\\>/v\\</")
 
 done
