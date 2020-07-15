@@ -1102,4 +1102,9 @@ call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
 //
 strcpy($70, "^\\>/v\\</")
 
+//
+// Define mode 6 player graphics
+//
+// SFTODO!
+
 done
