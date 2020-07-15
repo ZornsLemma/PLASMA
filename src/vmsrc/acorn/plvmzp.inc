@@ -26,6 +26,7 @@ ESTKSZ	=	$20
 ; below ESTKH - we set these aside as PAD. This space is available for
 ; temporary use if necessary in other code.
 PAD     =       ZPCODE+ZPCODESZ
+; SFTODO: It might be nice to arrange for ESTK to be at a multiple-of-$10 address, for minor improved readability in a page-aligned hex dump
 ESTK	=	PAD+2
 ESTKH	=	ESTK
 ESTKL	=	ESTK+ESTKSZ/2
