@@ -161,22 +161,6 @@ def abs(i)
 end
 
 //
-// Switch vplayer to use user-defined graphics (set up by rogue.map.pla)
-//
-
-// SFTODO: THIS DOESN'T WORK - THE TRANSLATIONS PERFORMED BY drawscreen MEAN WE
-// DON'T PASS THESE CHAR CODES DIRECT TO OS VDU DRIVER. DON'T FORGET WE ALSO
-// NEED TO SUPPORT NORMAL AND INVERSE VIDEO FOR THESE CHARACTERS. NEED TO THINK
-// OF BEST WAY TO HANDLE THIS.
-def vplayerudg#0
-   // SFTODO: IT MAY BE MOOT, BUT WOULD IT BE SHORTER TO JUST DO: memcpy(@vplayer, "\$80\$81\$82...", 8)? IF SO WE PROBABLY DON'T NEED TO HAVE THIS FUNCTION, WE CAN JUST DO THAT INLINE
-   byte i
-   for i = 0 to 7
-     ^(@vplayer + i) = 128 + i
-   next
-end
-
-//
 // Sound functions
 //
 
@@ -679,7 +663,7 @@ while loadmap(level)
     if not mode(128+6)
       mode(128+7)
     else
-       // SFTODO DELETE vplayerudg
+      strcpy($70, "\$80\$81\$82\$83\$84\$85\$86\$87")
     fin
     screenmode = TRUE
   else

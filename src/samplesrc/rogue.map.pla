@@ -171,6 +171,11 @@ word = @linebuffer, @linebuffer, @linebuffer, @linebuffer, @linebuffer
 // (invalidatemap() forces scrn2 to all-$FF; we know that we'll never try to
 // display a $FF character so this effectively forces a full redraw.)
 //
+// This uses $71-$78 as a lookup table for the player character in different
+// orientations. This doesn't need to be in zero page, but having this at a
+// fixed absolute address simplifies communication between this and the PLASMA
+// code and we don't need that zero page space for anything else.
+//
 
 asm drawscreen(scrn, scrn2)#0
 	!SOURCE "vmsrc/plvmzp.inc"
@@ -232,7 +237,7 @@ VIDEOCHANGE
 PLAYER
         STX TMPX
         TAX
-        LDA $901-'A',X ; SFTODO MAGIC ADDRESS, ALSO INAPPROPRIATE FOR TUBE
+        LDA $71-'A',X
         LDX TMPX
         BPL NOTPLAYER
 
@@ -1095,6 +1100,6 @@ call(osbyte, osbyte_rw_escape_status, 1, 0, 0)
 //
 // Set up mode 7 version of player symbol
 //
-strcpy($900, "^\\>/v\\</")
+strcpy($70, "^\\>/v\\</")
 
 done
