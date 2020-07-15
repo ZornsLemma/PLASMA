@@ -52,9 +52,9 @@ const maxview  = 19
 
 word xdir =  0,  1,  1,  1,  0, -1, -1, -1
 word ydir = -1, -1,  0,  1,  1,  1,  0, -1
-// TODO: *If* we ultimately end up wanting to use mode 6, we could use
-// eight UDGs with proper arrows instead of these ASCII makeshifts.
-// SFTODO: DELETE LATER byte vplayer = '^', '\\', '>', '/', 'v', '\\', '<', '/'
+// drawscreen() maps these vplayer characters into the best possible for the
+// current screen mode; we use these because a) they're consecutive b) they
+// don't have other uses as tiles.
 byte vplayer = 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
 byte totaldarkness = 0
 byte level = 0
