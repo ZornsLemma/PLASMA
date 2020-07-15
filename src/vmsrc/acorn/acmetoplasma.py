@@ -25,6 +25,8 @@ for line in args.input:
         code = line[:i]
         comment = line[i:].replace(";", "//", 1)
         comment = comment.strip()
+        if "ACMEONLY" in comment:
+            continue
         if comment != "":
             comment = " " + comment.strip()
     if code.strip() != "":
