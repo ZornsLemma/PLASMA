@@ -63,6 +63,8 @@ INITFP
 ;* The following initialisation doesn't need to be redone after a soft reset on a second
 ;* processor, so we can do it here and then the code can be discarded on all VMs after
 ;* initialisation.
+;* SFTODO: I should probably take the slightly tidied up (and minor probably-unimportant
+;* bug fixed) version of this code from Ozmoo
 TUBEHEAP
 VMINITPOSTRELOC
 
@@ -271,6 +273,8 @@ TUBE
 
 !IFDEF PLAS128 {
 ;* Locate sideways RAM banks
+;* SFTODO: I should probably use whatever SWR detection code I end up with in Ozmoo here;
+;* this is a little bit simplistic in the face of real hardware.
 	LDY	#$00
 	LDX	#$00
 FINDRAMLP
@@ -346,7 +350,7 @@ RELOCOK
 	LDA	#>RELOCSTART
 	STA	CODEPH
 	STA	SRCH
-	STA	CODEPH
+	STA	CODEPH ; SFTODO: REDUNDANT LINE?
 	LDA	#0
 	TAY
 	STA	DSTL
