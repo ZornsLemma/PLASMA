@@ -194,6 +194,9 @@ RDCMDLPDONE
 	BMI	NOTTUBE
 	;* We're on a second processor; we set PROG at $EE to VMINITTUBESOFTBREAK
 	;* so that the VM is re-initialised correctly on BREAK.
+	; SFTODO: See Ozmoo, and the beebwiki page referenced - I should do this
+	; by using a call to *GO, rather than poking $EE. Do I poke any other
+	; tube OS ZP addresses? If so I should probably try to avoid doing so.
 	!CPU 65C02
 	LDA	#<VMINITTUBESOFTBREAK
 	STA	$EE
